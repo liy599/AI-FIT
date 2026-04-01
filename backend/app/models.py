@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import List, Optional
 
 from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -23,23 +24,23 @@ class User(db.Model, TimestampMixin):
     email: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
 
-    avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
-    gender: Mapped[str | None] = mapped_column(String(10), nullable=True)
-    height: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)
-    weight: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)
-    fitness_goal: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    avatar_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    gender: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    height: Mapped[Optional[float]] = mapped_column(Numeric(5, 2), nullable=True)
+    weight: Mapped[Optional[float]] = mapped_column(Numeric(5, 2), nullable=True)
+    fitness_goal: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
 
-    blogs: Mapped[list["Blog"]] = relationship(back_populates="author", cascade="all, delete-orphan")
-    comments: Mapped[list["Comment"]] = relationship(back_populates="author", cascade="all, delete-orphan")
-    workout_records: Mapped[list["WorkoutRecord"]] = relationship(
+    blogs: Mapped[List["Blog"]] = relationship(back_populates="author", cascade="all, delete-orphan")
+    comments: Mapped[List["Comment"]] = relationship(back_populates="author", cascade="all, delete-orphan")
+    workout_records: Mapped[List["WorkoutRecord"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
-    diet_records: Mapped[list["DietRecord"]] = relationship(back_populates="user", cascade="all, delete-orphan")
-    enrollments: Mapped[list["UserCourse"]] = relationship(back_populates="user", cascade="all, delete-orphan")
-    course_comments: Mapped[list["CourseComment"]] = relationship(
+    diet_records: Mapped[List["DietRecord"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    enrollments: Mapped[List["UserCourse"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    course_comments: Mapped[List["CourseComment"]] = relationship(
         back_populates="author", cascade="all, delete-orphan"
     )
-    feedback: Mapped[list["UserFeedback"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    feedback: Mapped[List["UserFeedback"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 
 class WorkoutRecord(db.Model):
@@ -49,10 +50,10 @@ class WorkoutRecord(db.Model):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
 
     exercise_type: Mapped[str] = mapped_column(String(50), nullable=False)
-    duration: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    calories_burned: Mapped[float | None] = mapped_column(Numeric(6, 2), nullable=True)
-    form_score: Mapped[float | None] = mapped_column(Numeric(3, 2), nullable=True)
-    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    duration: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    calories_burned: Mapped[Optional[float]] = mapped_column(Numeric(6, 2), nullable=True)
+    form_score: Mapped[Optional[float]] = mapped_column(Numeric(3, 2), nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     workout_date: Mapped[datetime.date] = mapped_column(Date, nullable=False, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
@@ -66,14 +67,14 @@ class DietRecord(db.Model):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
 
     food_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    quantity: Mapped[float | None] = mapped_column(Numeric(6, 2), nullable=True)
-    calories: Mapped[float | None] = mapped_column(Numeric(6, 2), nullable=True)
-    protein: Mapped[float | None] = mapped_column(Numeric(6, 2), nullable=True)
-    fat: Mapped[float | None] = mapped_column(Numeric(6, 2), nullable=True)
-    carbohydrates: Mapped[float | None] = mapped_column(Numeric(6, 2), nullable=True)
-    fiber: Mapped[float | None] = mapped_column(Numeric(6, 2), nullable=True)
-    sugar: Mapped[float | None] = mapped_column(Numeric(6, 2), nullable=True)
-    meal_type: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True)
+    quantity: Mapped[Optional[float]] = mapped_column(Numeric(6, 2), nullable=True)
+    calories: Mapped[Optional[float]] = mapped_column(Numeric(6, 2), nullable=True)
+    protein: Mapped[Optional[float]] = mapped_column(Numeric(6, 2), nullable=True)
+    fat: Mapped[Optional[float]] = mapped_column(Numeric(6, 2), nullable=True)
+    carbohydrates: Mapped[Optional[float]] = mapped_column(Numeric(6, 2), nullable=True)
+    fiber: Mapped[Optional[float]] = mapped_column(Numeric(6, 2), nullable=True)
+    sugar: Mapped[Optional[float]] = mapped_column(Numeric(6, 2), nullable=True)
+    meal_type: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, index=True)
     meal_date: Mapped[datetime.date] = mapped_column(Date, nullable=False, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
@@ -96,7 +97,7 @@ class Blog(db.Model, TimestampMixin):
 
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    cover_image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cover_image_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     view_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     like_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     is_published: Mapped[bool] = mapped_column(db.Boolean, default=False, nullable=False)
@@ -125,14 +126,14 @@ class Comment(db.Model, TimestampMixin):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     blog_id: Mapped[int] = mapped_column(ForeignKey("blogs.id", ondelete="CASCADE"), nullable=False, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    parent_id: Mapped[int | None] = mapped_column(ForeignKey("comments.id"), nullable=True, index=True)
+    parent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("comments.id"), nullable=True, index=True)
 
     content: Mapped[str] = mapped_column(Text, nullable=False)
     like_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     blog: Mapped["Blog"] = relationship(back_populates="comments")
     author: Mapped["User"] = relationship(back_populates="comments")
-    parent: Mapped["Comment | None"] = relationship(remote_side="Comment.id")
+    parent: Mapped[Optional["Comment"]] = relationship(remote_side="Comment.id")
     likes: Mapped[list["CommentLike"]] = relationship(back_populates="comment", cascade="all, delete-orphan")
 
 
@@ -166,13 +167,13 @@ class Course(db.Model, TimestampMixin):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
-    cover_image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
-    intro_video_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cover_image_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    intro_video_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     instructor_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    instructor_bio: Mapped[str | None] = mapped_column(Text, nullable=True)
-    instructor_avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    instructor_bio: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    instructor_avatar_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     is_free: Mapped[bool] = mapped_column(db.Boolean, default=False, nullable=False)
-    price: Mapped[float | None] = mapped_column(Numeric(8, 2), nullable=True)
+    price: Mapped[Optional[float]] = mapped_column(Numeric(8, 2), nullable=True)
     view_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     enrollments: Mapped[list["UserCourse"]] = relationship(back_populates="course", cascade="all, delete-orphan")
@@ -188,8 +189,8 @@ class UserCourse(db.Model):
     course_id: Mapped[int] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"), nullable=False, index=True)
 
     enrolled_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-    payment_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    payment_status: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="enrollments")
     course: Mapped["Course"] = relationship(back_populates="enrollments")
@@ -230,13 +231,13 @@ class UserFeedback(db.Model):
     __tablename__ = "user_feedback"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     type: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    contact_email: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    rating: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    contact_email: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    rating: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
-    user: Mapped["User | None"] = relationship(back_populates="feedback")
+    user: Mapped[Optional["User"]] = relationship(back_populates="feedback")
 

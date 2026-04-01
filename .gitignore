@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+
+__pycache__/
+*.py[cod]
+
+backend/instance/*.db
+backend/instance/uploads/
+
+frontend/node_modules/

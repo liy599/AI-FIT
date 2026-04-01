@@ -1,6 +1,11 @@
-from flask import Blueprint, jsonify, request
+import os
+import uuid
+from typing import Optional
+
+from flask import Blueprint, current_app, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required, verify_jwt_in_request
 from sqlalchemy import or_
+from werkzeug.utils import secure_filename
 
 from ..extensions import db
 from ..models import Blog, BlogLike, BlogTag, Tag, User
@@ -25,10 +30,74 @@ def _blog_card(b: Blog):
     }
 
 
-def _is_liked_by_me(blog_id: int, user_id: int | None) -> bool:
+def _is_liked_by_me(blog_id: int, user_id: Optional[int]) -> bool:
     if user_id is None:
         return False
     return BlogLike.query.filter_by(blog_id=blog_id, user_id=user_id).first() is not None
+
+
+@bp.route("/cover", methods=["OPTIONS"])
+def cover_options():
+    return "", 204
+
+
+@bp.post("/cover")
+@jwt_required()
+def upload_cover():
+    user_id = int(get_jwt_identity())
+    _ = user_id
+
+    f = request.files.get("file")
+    if f is None or not f.filename:
+        return jsonify({"error": "file required"}), 400
+
+    def sniff_image_ext() -> Optional[str]:
+        try:
+            head = f.stream.read(16)
+            f.stream.seek(0)
+        except Exception:
+            return None
+
+        if head.startswith(b"\x89PNG\r\n\x1a\n"):
+            return "png"
+        if head[:3] == b"\xff\xd8\xff":
+            return "jpg"
+        if head[:4] == b"RIFF" and head[8:12] == b"WEBP":
+            return "webp"
+        return None
+
+    filename = secure_filename(f.filename)
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    mimetype = (getattr(f, "mimetype", "") or "").lower()
+    allowed = {"png", "jpg", "jpeg", "webp"}
+
+    if ext not in allowed:
+        if mimetype in {"image/jpeg", "image/jpg"}:
+            ext = "jpg"
+        elif mimetype == "image/png":
+            ext = "png"
+        elif mimetype == "image/webp":
+            ext = "webp"
+        else:
+            sniffed = sniff_image_ext()
+            ext = sniffed or ""
+
+    if ext == "jpeg":
+        ext = "jpg"
+
+    if ext not in {"png", "jpg", "webp"}:
+        return jsonify({"error": "unsupported file type"}), 400
+
+    upload_root = current_app.config["UPLOAD_FOLDER"]
+    subdir = "blog_covers"
+    folder = os.path.join(upload_root, subdir)
+    os.makedirs(folder, exist_ok=True)
+
+    new_name = f"{uuid.uuid4().hex}.{ext}"
+    path = os.path.join(folder, new_name)
+    f.save(path)
+
+    return jsonify({"cover_image_url": f"/uploads/{subdir}/{new_name}"})
 
 
 @bp.get("")

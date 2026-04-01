@@ -20,7 +20,10 @@ export default function LoginPage() {
     setResetLink(null)
     setBusy(true)
     try {
-      const r = await apiFetch<{ access_token: string; user: { id: number; email: string; username: string } }>(
+      const r = await apiFetch<{
+        access_token: string
+        user: { id: number; email: string; username: string; avatar_url?: string | null }
+      }>(
         '/api/auth/login',
         { method: 'POST', auth: false, body: JSON.stringify({ email, password }) }
       )

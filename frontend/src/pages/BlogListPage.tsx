@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { apiFetch } from '../lib/api'
+import { API_BASE, apiFetch } from '../lib/api'
 
 type Tag = { id: number; name: string }
 type BlogCard = {
@@ -11,6 +11,13 @@ type BlogCard = {
   author: { id: number; username: string }
   created_at: string
   tags: Tag[]
+}
+
+function resolveMediaUrl(url: string | null | undefined) {
+  if (!url) return null
+  if (url.startsWith('http://') || url.startsWith('https://')) return url
+  if (url.startsWith('/')) return `${API_BASE}${url}`
+  return url
 }
 
 export default function BlogListPage() {
@@ -123,7 +130,11 @@ export default function BlogListPage() {
             to={`/blogs/${b.id}`}
             className="group overflow-hidden rounded-2xl border border-white/10 bg-white/5 transition hover:-translate-y-0.5 hover:bg-white/10"
           >
-            <div className="h-32 bg-gradient-to-br from-indigo-500/20 via-sky-500/10 to-emerald-500/20" />
+            <div className="h-32 overflow-hidden bg-gradient-to-br from-indigo-500/20 via-sky-500/10 to-emerald-500/20">
+              {b.cover_image_url ? (
+                <img src={resolveMediaUrl(b.cover_image_url) ?? ''} className="h-full w-full object-cover" alt="" />
+              ) : null}
+            </div>
             <div className="p-5">
               <div className="text-sm font-semibold group-hover:text-white">{b.title}</div>
               <div className="mt-2 text-xs text-slate-400">{b.excerpt}</div>

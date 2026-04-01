@@ -14,6 +14,9 @@ bp = Blueprint("auth", __name__)
 def _serializer() -> URLSafeTimedSerializer:
     return URLSafeTimedSerializer(current_app.config["SECRET_KEY"], salt="password-reset")
 
+def _auth_user(u: User):
+    return {"id": u.id, "email": u.email, "username": u.username, "avatar_url": u.avatar_url}
+
 
 @bp.post("/register")
 def register():
@@ -35,7 +38,7 @@ def register():
     db.session.commit()
 
     access_token = create_access_token(identity=str(user.id), expires_delta=timedelta(days=7))
-    return jsonify({"access_token": access_token, "user": {"id": user.id, "email": user.email, "username": user.username}})
+    return jsonify({"access_token": access_token, "user": _auth_user(user)})
 
 
 @bp.post("/login")
@@ -51,7 +54,7 @@ def login():
         return jsonify({"error": "invalid credentials"}), 401
 
     access_token = create_access_token(identity=str(user.id), expires_delta=timedelta(days=7))
-    return jsonify({"access_token": access_token, "user": {"id": user.id, "email": user.email, "username": user.username}})
+    return jsonify({"access_token": access_token, "user": _auth_user(user)})
 
 
 @bp.post("/logout")
@@ -108,5 +111,5 @@ def me():
     user = User.query.get(user_id)
     if user is None:
         return jsonify({"error": "not found"}), 404
-    return jsonify({"id": user.id, "email": user.email, "username": user.username})
+    return jsonify(_auth_user(user))
 

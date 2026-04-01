@@ -1,4 +1,5 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom'
+import { API_BASE } from '../lib/api'
 import { useAuth } from '../state/auth-context'
 
 function navClass({ isActive }: { isActive: boolean }) {
@@ -6,6 +7,13 @@ function navClass({ isActive }: { isActive: boolean }) {
     'text-sm font-medium transition',
     isActive ? 'text-white' : 'text-slate-300 hover:text-white'
   ].join(' ')
+}
+
+function resolveAvatarUrl(url: string | null | undefined) {
+  if (!url) return null
+  if (url.startsWith('http://') || url.startsWith('https://')) return url
+  if (url.startsWith('/')) return `${API_BASE}${url}`
+  return url
 }
 
 export default function Navbar() {
@@ -49,9 +57,22 @@ export default function Navbar() {
             <>
               <NavLink
                 to="/profile"
-                className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-slate-200 hover:bg-white/10"
+                className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-slate-200 hover:bg-white/10"
               >
-                {auth.user.username}
+                <span className="h-8 w-8 overflow-hidden rounded-full border border-white/10 bg-white/5">
+                  {auth.user.avatar_url ? (
+                    <img
+                      src={resolveAvatarUrl(auth.user.avatar_url) ?? ''}
+                      className="h-full w-full object-cover"
+                      alt=""
+                    />
+                  ) : (
+                    <span className="flex h-full w-full items-center justify-center text-xs text-slate-200">
+                      {auth.user.username.slice(0, 1).toUpperCase()}
+                    </span>
+                  )}
+                </span>
+                <span>{auth.user.username}</span>
               </NavLink>
               <button
                 className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-slate-200 hover:bg-white/10"

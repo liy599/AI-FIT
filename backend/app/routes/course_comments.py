@@ -1,3 +1,5 @@
+from typing import Optional
+
 from flask import Blueprint, current_app, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from sqlalchemy import func
@@ -9,7 +11,7 @@ from ..utils.pagination import parse_pagination
 bp = Blueprint("course_comments", __name__)
 
 
-def _is_admin(email: str | None) -> bool:
+def _is_admin(email: Optional[str]) -> bool:
     admin_email = (current_app.config.get("ADMIN_EMAIL") or "").strip().lower()
     return bool(admin_email) and (email or "").strip().lower() == admin_email
 

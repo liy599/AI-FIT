@@ -5,6 +5,7 @@ type AuthState = {
   user: AuthUser | null
   token: string | null
   setAuth: (token: string, user: AuthUser) => void
+  setUser: (user: AuthUser) => void
   logout: () => void
 }
 
@@ -22,6 +23,10 @@ export function AuthProvider(props: { children: React.ReactNode }) {
         setToken(token)
         setUser(user)
         setTokenValue(token)
+        setUserValue(user)
+      },
+      setUser: (user) => {
+        setUser(user)
         setUserValue(user)
       },
       logout: () => {

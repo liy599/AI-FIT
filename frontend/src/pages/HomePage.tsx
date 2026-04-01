@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { apiFetch } from '../lib/api'
+import { API_BASE, apiFetch } from '../lib/api'
 import { useAuth } from '../state/auth-context'
 
 type BlogCard = {
@@ -22,6 +22,13 @@ type CourseCard = {
   price: number | null
   avg_rating: number | null
   enroll_count: number
+}
+
+function resolveMediaUrl(url: string | null | undefined) {
+  if (!url) return null
+  if (url.startsWith('http://') || url.startsWith('https://')) return url
+  if (url.startsWith('/')) return `${API_BASE}${url}`
+  return url
 }
 
 export default function HomePage() {
@@ -125,7 +132,11 @@ export default function HomePage() {
               to={`/blogs/${b.id}`}
               className="group overflow-hidden rounded-2xl border border-white/10 bg-white/5 transition hover:-translate-y-0.5 hover:bg-white/10"
             >
-              <div className="h-28 bg-gradient-to-br from-indigo-500/20 via-sky-500/10 to-emerald-500/20" />
+              <div className="h-28 overflow-hidden bg-gradient-to-br from-indigo-500/20 via-sky-500/10 to-emerald-500/20">
+                {b.cover_image_url ? (
+                  <img src={resolveMediaUrl(b.cover_image_url) ?? ''} className="h-full w-full object-cover" alt="" />
+                ) : null}
+              </div>
               <div className="p-4">
                 <div className="line-clamp-2 text-sm font-semibold group-hover:text-white">{b.title}</div>
                 <div className="mt-2 line-clamp-2 text-xs text-slate-400">{b.excerpt}</div>

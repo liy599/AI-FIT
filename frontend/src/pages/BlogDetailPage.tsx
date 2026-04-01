@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { apiFetch } from '../lib/api'
+import { API_BASE, apiFetch } from '../lib/api'
 import { useAuth } from '../state/auth-context'
 
 type BlogDetail = {
   id: number
   title: string
+  cover_image_url: string | null
   content: string
   author: { id: number; username: string }
   view_count: number
@@ -26,6 +27,13 @@ type CommentNode = {
   updated_at: string
   user: { id: number; username: string; avatar_url: string | null }
   replies: CommentNode[]
+}
+
+function resolveMediaUrl(url: string | null | undefined) {
+  if (!url) return null
+  if (url.startsWith('http://') || url.startsWith('https://')) return url
+  if (url.startsWith('/')) return `${API_BASE}${url}`
+  return url
 }
 
 function CommentItem(props: {
@@ -265,6 +273,11 @@ export default function BlogDetailPage() {
                 </span>
               ))}
             </div>
+            {blog.cover_image_url ? (
+              <div className="mt-5 overflow-hidden rounded-2xl border border-white/10 bg-black/20">
+                <img src={resolveMediaUrl(blog.cover_image_url) ?? ''} className="h-64 w-full object-cover" alt="" />
+              </div>
+            ) : null}
             <div className="mt-6 whitespace-pre-wrap text-sm leading-7 text-slate-100">{blog.content}</div>
           </article>
 

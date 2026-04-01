@@ -1,4 +1,5 @@
 from collections import defaultdict
+from typing import Dict, List, Optional
 
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required, verify_jwt_in_request
@@ -24,7 +25,7 @@ def _comment_public(c: Comment, liked_by_me: bool):
     }
 
 
-def _is_comment_liked(comment_id: int, user_id: int | None):
+def _is_comment_liked(comment_id: int, user_id: Optional[int]):
     if user_id is None:
         return False
     return CommentLike.query.filter_by(comment_id=comment_id, user_id=user_id).first() is not None
@@ -49,7 +50,7 @@ def list_comments(blog_id: int):
         .all()
     )
 
-    by_parent: dict[int | None, list[Comment]] = defaultdict(list)
+    by_parent: Dict[Optional[int], List[Comment]] = defaultdict(list)
     for c in comments:
         by_parent[c.parent_id].append(c)
 

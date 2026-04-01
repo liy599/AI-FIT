@@ -1,4 +1,7 @@
-from flask import Flask, jsonify
+import os
+
+from flask import Flask, jsonify, send_from_directory
+from werkzeug.exceptions import RequestEntityTooLarge
 
 from .config import Config
 from .extensions import cors, db, jwt
@@ -8,9 +11,14 @@ def create_app(config_object=Config):
     app = Flask(__name__)
     app.config.from_object(config_object)
 
-    cors.init_app(app, resources={r"/api/*": {"origins": "*"}})
+    cors.init_app(app, resources={r"/api/*": {"origins": "*"}, r"/uploads/*": {"origins": "*"}}, intercept_exceptions=True)
     db.init_app(app)
     jwt.init_app(app)
+
+    upload_root = os.path.join(app.instance_path, "uploads")
+    os.makedirs(upload_root, exist_ok=True)
+    app.config.setdefault("UPLOAD_FOLDER", upload_root)
+    app.config.setdefault("MAX_CONTENT_LENGTH", 5 * 1024 * 1024)
 
     from .routes.auth import bp as auth_bp
     from .routes.user import bp as user_bp
@@ -39,6 +47,14 @@ def create_app(config_object=Config):
     @app.get("/api/health")
     def health():
         return jsonify({"ok": True})
+
+    @app.get("/uploads/<path:filename>")
+    def uploads(filename: str):
+        return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
+
+    @app.errorhandler(RequestEntityTooLarge)
+    def handle_file_too_large(_: RequestEntityTooLarge):
+        return jsonify({"error": "file too large (max 5MB)"}), 413
 
     with app.app_context():
         db.create_all()

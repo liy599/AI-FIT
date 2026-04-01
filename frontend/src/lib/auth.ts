@@ -1,4 +1,4 @@
-export type AuthUser = { id: number; email: string; username: string }
+export type AuthUser = { id: number; email: string; username: string; avatar_url?: string | null }
 
 const TOKEN_KEY = 'aifitguard_token'
 const USER_KEY = 'aifitguard_user'

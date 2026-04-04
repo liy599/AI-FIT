@@ -82,88 +82,111 @@ function CommentItem(props: {
   }
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="text-xs text-slate-400">{props.node.user.username}</div>
+    <div style={{ marginBottom: 24 }}>
+      <div className="cl_blog_details-comment mb-45">
+        <img src={resolveMediaUrl(props.node.user.avatar_url) ?? '/assets/images/blog/blog-comment.png'} alt="" />
+        <div className="cl_blog_details-comment-info">
+          <h4 className="cl_blog_details-comment-info-title">{props.node.user.username}</h4>
           {editing ? (
-            <textarea
-              className="mt-2 h-20 w-full resize-none rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm"
-              value={editText}
-              onChange={(e) => setEditText(e.target.value)}
-            />
+            <div className="cl_blog_details-reply-item" style={{ marginTop: 10 }}>
+              <textarea value={editText} onChange={(e) => setEditText(e.target.value)} rows={4}></textarea>
+            </div>
           ) : (
-            <div className="mt-2 text-sm text-slate-100">{props.node.content}</div>
+            <p className="cl_blog_details-comment-info-text" style={{ whiteSpace: 'pre-wrap' }}>
+              {props.node.content}
+            </p>
           )}
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            className="rounded-xl border border-white/10 bg-white/5 px-2 py-1 text-xs text-slate-200 hover:bg-white/10"
-            onClick={like}
-            disabled={!auth.user}
-            title={auth.user ? '' : '登录后可点赞'}
-          >
-            {props.node.liked_by_me ? '已赞' : '点赞'} {props.node.like_count}
-          </button>
-          {canEdit ? (
-            editing ? (
-              <button
-                className="rounded-xl bg-indigo-500 px-2 py-1 text-xs text-white hover:bg-indigo-400"
-                onClick={saveEdit}
-              >
-                保存
-              </button>
-            ) : (
-              <button
-                className="rounded-xl border border-white/10 bg-white/5 px-2 py-1 text-xs text-slate-200 hover:bg-white/10"
-                onClick={() => setEditing(true)}
-              >
-                编辑
-              </button>
-            )
-          ) : null}
-          {canDelete ? (
-            <button
-              className="rounded-xl border border-white/10 bg-white/5 px-2 py-1 text-xs text-rose-200 hover:bg-white/10"
-              onClick={remove}
+
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 10 }}>
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault()
+                if (!auth.user) return
+                like().catch(() => {})
+              }}
+              style={!auth.user ? { opacity: 0.6, pointerEvents: 'none' } : undefined}
+              title={auth.user ? '' : '登录后可点赞'}
             >
-              删除
-            </button>
+              <i className="fa-light fa-thumbs-up" style={{ marginRight: 6 }}></i>
+              {props.node.liked_by_me ? 'Liked' : 'Like'} ({props.node.like_count})
+            </a>
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault()
+                if (!auth.user) return
+                setReplying((v) => !v)
+              }}
+              style={!auth.user ? { opacity: 0.6, pointerEvents: 'none' } : undefined}
+              title={auth.user ? '' : '登录后可回复'}
+            >
+              <i className="fa-light fa-reply" style={{ marginRight: 6 }}></i>Reply
+            </a>
+            {canEdit ? (
+              editing ? (
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    saveEdit().catch(() => {})
+                  }}
+                >
+                  <i className="fa-light fa-check" style={{ marginRight: 6 }}></i>Save
+                </a>
+              ) : (
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    setEditing(true)
+                  }}
+                >
+                  <i className="fa-light fa-pen" style={{ marginRight: 6 }}></i>Edit
+                </a>
+              )
+            ) : null}
+            {canDelete ? (
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault()
+                  remove().catch(() => {})
+                }}
+              >
+                <i className="fa-light fa-trash" style={{ marginRight: 6 }}></i>Delete
+              </a>
+            ) : null}
+          </div>
+
+          {replying ? (
+            <div className="cl_blog_details-reply" style={{ marginTop: 18, paddingTop: 0 }}>
+              <div className="cl_blog_details-reply-item">
+                <label htmlFor={`reply-${props.node.id}`}>Reply</label>
+                <textarea
+                  id={`reply-${props.node.id}`}
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  rows={4}
+                ></textarea>
+              </div>
+              <div className="cl_blog_details-reply-item">
+                <button
+                  type="button"
+                  onClick={() => submitReply().catch(() => {})}
+                  disabled={!replyText.trim()}
+                  style={!replyText.trim() ? { opacity: 0.6, cursor: 'not-allowed' } : undefined}
+                >
+                  Send Now
+                </button>
+              </div>
+            </div>
           ) : null}
         </div>
       </div>
-
-      <div className="mt-3 flex gap-2">
-        <button
-          className="text-xs text-slate-300 hover:text-white"
-          onClick={() => setReplying((v) => !v)}
-          disabled={!auth.user}
-          title={auth.user ? '' : '登录后可回复'}
-        >
-          回复
-        </button>
-      </div>
-
-      {replying ? (
-        <div className="mt-3 space-y-2">
-          <textarea
-            className="h-20 w-full resize-none rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm"
-            placeholder="写下回复…"
-            value={replyText}
-            onChange={(e) => setReplyText(e.target.value)}
-          />
-          <button
-            className="rounded-xl bg-emerald-500 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-400 disabled:opacity-50"
-            disabled={!replyText.trim()}
-            onClick={submitReply}
-          >
-            发送回复
-          </button>
-        </div>
-      ) : null}
 
       {props.node.replies.length ? (
-        <div className="mt-4 space-y-3 border-l border-white/10 pl-4">
+        <div style={{ marginLeft: 34, paddingLeft: 16, borderLeft: '1px solid rgba(255,255,255,0.15)' }}>
           {props.node.replies.map((r) => (
             <CommentItem
               key={r.id}
@@ -232,101 +255,233 @@ export default function BlogDetailPage() {
     }
   }
 
-  if (!Number.isFinite(id)) return <div className="text-sm text-slate-400">无效ID</div>
+  if (!Number.isFinite(id)) return <div className="cl_blog-widget">无效ID</div>
 
   return (
-    <div className="space-y-8">
-      <div className="text-xs text-slate-400">
-        <Link to="/blogs" className="hover:text-white">
-          博客
-        </Link>{' '}
-        / 详情
-      </div>
-
-      {error ? <div className="text-sm text-rose-300">{error}</div> : null}
-
-      {blog ? (
-        <>
-          <article className="rounded-3xl border border-white/10 bg-white/5 p-7">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h1 className="text-2xl font-semibold">{blog.title}</h1>
-              <button
-                className="rounded-xl bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-400 disabled:opacity-50"
-                disabled={!auth.user}
-                onClick={toggleLike}
-                title={auth.user ? '' : '登录后可点赞'}
-              >
-                {blog.liked_by_me ? '已赞' : '点赞'} {blog.like_count}
-              </button>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-400">
-              <div>by {blog.author.username}</div>
-              <div>·</div>
-              <div>{new Date(blog.created_at).toLocaleString()}</div>
-              <div>·</div>
-              <div>{blog.view_count} views</div>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {blog.tags.map((t) => (
-                <span key={t.id} className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-slate-300">
-                  {t.name}
-                </span>
-              ))}
-            </div>
-            {blog.cover_image_url ? (
-              <div className="mt-5 overflow-hidden rounded-2xl border border-white/10 bg-black/20">
-                <img src={resolveMediaUrl(blog.cover_image_url) ?? ''} className="h-64 w-full object-cover" alt="" />
+    <>
+      <section className="cl_breadcrumb-area">
+        <div className="cl_breadcrumb-wrap" data-background="/assets/images/bg/breadcrumb.png">
+          <div className="container">
+            <div className="row justify-content-center">
+              <div className="col-md-9 col-12">
+                <div className="cl_breadcrumb-content">
+                  <h2 className="cl_breadcrumb-content-title">Blog Details</h2>
+                  <div className="cl_breadcrumb-content-list">
+                    <Link to="/">Home</Link>
+                    <Link to="/blogs">Blog</Link>
+                    <span>Details</span>
+                  </div>
+                </div>
               </div>
-            ) : null}
-            <div className="mt-6 whitespace-pre-wrap text-sm leading-7 text-slate-100">{blog.content}</div>
-          </article>
+            </div>
+          </div>
+        </div>
+      </section>
 
-          <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">评论</h2>
-              <button
-                className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-slate-200 hover:bg-white/10"
-                onClick={() => load().catch(() => {})}
-              >
-                刷新
-              </button>
+      <section className="cl_blog_details-area pt-100 pb-60">
+        <div className="container">
+          {error ? (
+            <div className="row">
+              <div className="col-12">
+                <div className="cl_blog-widget mb-30">{error}</div>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="row">
+            <div className="col-xl-8">
+              <div className="cl_blog_details-left mb-40">
+                {!blog ? (
+                  <div className="cl_blog-widget mb-30">Loading…</div>
+                ) : (
+                  <>
+                    <div className="cl_blog_details-content">
+                      <div className="cl_blog_details-content-img mb-30">
+                        <img src={resolveMediaUrl(blog.cover_image_url) ?? '/assets/images/blog/blog-classic-1.png'} alt="" />
+                        {blog.tags[0]?.name ? (
+                          <a href="#" className="cl_blog_details-content-img-tag" onClick={(e) => e.preventDefault()}>
+                            {blog.tags[0].name}
+                          </a>
+                        ) : null}
+                      </div>
+                      <div className="cl_blog_classic-item-content-meta">
+                        <span>
+                          <i className="fa-light fa-user"></i>
+                          <a href="#" onClick={(e) => e.preventDefault()}>
+                            BY {blog.author.username}
+                          </a>
+                        </span>
+                        <span>
+                          <i className="fa-light fa-calendar"></i>
+                          <a href="#" onClick={(e) => e.preventDefault()}>
+                            {new Date(blog.created_at).toLocaleDateString()}
+                          </a>
+                        </span>
+                      </div>
+                      <h3 className="cl_blog_details-content-title mb-20">{blog.title}</h3>
+                      {blog.content
+                        .split(/\n{2,}/)
+                        .filter((x) => x.trim().length)
+                        .map((p, idx) => (
+                          <p className="cl_blog_details-content-text mb-10" key={idx} style={{ whiteSpace: 'pre-wrap' }}>
+                            {p}
+                          </p>
+                        ))}
+
+                      <div className="cl_blog_details-content-bottom mb-40">
+                        <div className="cl_blog-widget-tag">
+                          {blog.tags.map((t) => (
+                            <a href="#" key={t.id} onClick={(e) => e.preventDefault()}>
+                              {t.name}
+                            </a>
+                          ))}
+                        </div>
+                        <div className="cl_blog_details-content-social">
+                          <a
+                            href="#"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              if (!auth.user) return
+                              toggleLike().catch(() => {})
+                            }}
+                            style={!auth.user ? { opacity: 0.6, pointerEvents: 'none' } : undefined}
+                            title={auth.user ? '' : '登录后可点赞'}
+                          >
+                            <i className="fa-light fa-thumbs-up"></i>
+                          </a>
+                          <a href="#" onClick={(e) => e.preventDefault()}>
+                            <i className="fa-light fa-eye"></i>
+                          </a>
+                          <a href="#" onClick={(e) => e.preventDefault()}>
+                            {blog.like_count}
+                          </a>
+                          <a href="#" onClick={(e) => e.preventDefault()}>
+                            {blog.view_count}
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="cl_blog_details-reply">
+                      <h3 className="cl_blog_details-reply-title">Leave a Comment</h3>
+                      <p>{auth.user ? '发表评论（支持回复与多级评论）' : '请先登录后发表评论'}</p>
+                      <form
+                        action="#"
+                        onSubmit={(e) => {
+                          e.preventDefault()
+                          if (!auth.user) return
+                          submitComment().catch(() => {})
+                        }}
+                      >
+                        <div className="row">
+                          <div className="col-12">
+                            <div className="cl_blog_details-reply-item">
+                              <label htmlFor="comment">Type Comment here <span>*</span></label>
+                              <textarea
+                                name="comment"
+                                id="comment"
+                                cols={30}
+                                rows={6}
+                                value={commentText}
+                                onChange={(e) => setCommentText(e.target.value)}
+                                disabled={!auth.user}
+                              ></textarea>
+                            </div>
+                          </div>
+                          <div className="col-12">
+                            <div className="cl_blog_details-reply-item">
+                              <button type="submit" disabled={!auth.user || !commentText.trim()}>
+                                Send Now
+                              </button>
+                              <a
+                                href="#"
+                                style={{ marginLeft: 14 }}
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  load().catch(() => {})
+                                }}
+                              >
+                                Refresh
+                              </a>
+                            </div>
+                          </div>
+                        </div>
+                      </form>
+                    </div>
+
+                    <div style={{ marginTop: 32 }}>
+                      {comments.map((c) => (
+                        <CommentItem
+                          key={c.id}
+                          node={c}
+                          blogAuthorId={blog.author.id}
+                          meId={meId}
+                          onReload={() => load().catch(() => {})}
+                        />
+                      ))}
+                      {comments.length === 0 ? <div className="cl_blog-widget">暂无评论</div> : null}
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
 
-            <div className="mt-4 space-y-2">
-              <textarea
-                className="h-24 w-full resize-none rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm"
-                placeholder={auth.user ? '写下评论…' : '登录后可发表评论'}
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                disabled={!auth.user}
-              />
-              <button
-                className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-400 disabled:opacity-50"
-                disabled={!auth.user || !commentText.trim()}
-                onClick={submitComment}
-              >
-                发布评论
-              </button>
-            </div>
+            <div className="col-xl-4">
+              <div className="cl_blog_details-right pb-10">
+                {blog ? (
+                  <div className="cl_blog-widget mb-30">
+                    <div className="cl_blog-widget-author">
+                      <img src="/assets/images/blog/blog_widget-1.png" alt="" />
+                      <h4 className="cl_blog-widget-author-title">{blog.author.username}</h4>
+                      <p>Views: {blog.view_count} · Likes: {blog.like_count}</p>
+                      <div className="cl_blog-widget-author-social">
+                        <a href="#" onClick={(e) => e.preventDefault()}>
+                          <i className="fa-brands fa-facebook-f"></i>
+                        </a>
+                        <a href="#" onClick={(e) => e.preventDefault()}>
+                          <i className="fa-brands fa-instagram"></i>
+                        </a>
+                        <a href="#" onClick={(e) => e.preventDefault()}>
+                          <i className="fa-brands fa-linkedin-in"></i>
+                        </a>
+                        <a href="#" onClick={(e) => e.preventDefault()}>
+                          <i className="fa-brands fa-youtube"></i>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
 
-            <div className="mt-6 space-y-4">
-              {comments.map((c) => (
-                <CommentItem
-                  key={c.id}
-                  node={c}
-                  blogAuthorId={blog.author.id}
-                  meId={meId}
-                  onReload={() => load().catch(() => {})}
-                />
-              ))}
-              {comments.length === 0 ? <div className="text-sm text-slate-400">暂无评论</div> : null}
+                <div className="cl_blog-widget mb-30">
+                  <form
+                    action="#"
+                    onSubmit={(e) => {
+                      e.preventDefault()
+                    }}
+                  >
+                    <input type="email" placeholder="Search Here" />
+                    <button type="submit">
+                      <i className="fa-sharp fa-light fa-magnifying-glass"></i>
+                    </button>
+                  </form>
+                </div>
+
+                <div className="cl_blog-widget mb-30">
+                  <h4 className="cl_blog-widget-title mb-35">Popular tags</h4>
+                  <div className="cl_blog-widget-tag">
+                    {(blog?.tags ?? []).map((t) => (
+                      <a href="#" key={t.id} onClick={(e) => e.preventDefault()}>
+                        {t.name}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
-          </section>
-        </>
-      ) : (
-        <div className="text-sm text-slate-400">加载中…</div>
-      )}
-    </div>
+          </div>
+        </div>
+      </section>
+    </>
   )
 }
 

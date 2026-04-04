@@ -1,0 +1,71 @@
+/* ///////////////////////////////////////////////////////////
+21. discount
+/////////////////////////////////////////////////////////// */ 
+@use '../abstracts/variables' as *;
+
+.cl_h5_discount {
+  &-wrap {
+    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+    border-radius: 20px;
+  }
+  &-content {
+    padding-top: 164px;
+    padding-bottom: 163px;
+    @media #{$md}{
+      padding-left: 30px;
+      padding-right: 30px;
+    }
+    
+    @media #{$sm}{
+      padding-top: 120px;
+      padding-bottom: 120px;
+    }
+    @media #{$xs}{
+      padding-top: 100px;
+      padding-bottom: 100px;
+      padding-left: 15px;
+      padding-right: 15px;
+    }
+    span {
+      display: inline-flex;
+      color: rgb(53, 204, 149);
+      font-family: $sora;
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 15px;
+      letter-spacing: -0.5px;
+      height: 25px;
+      align-items: center;
+      padding: 0 10px;
+      background: rgba(53, 204, 149, 0.1);
+      border-radius: 60px;
+      margin-bottom: 21px;
+    }
+    h2 {
+      color: rgb(14, 56, 41);
+      font-family: $sora;
+      font-size: 48px;
+      font-weight: 600;
+      line-height: 1.2;
+      letter-spacing: -1px;
+      margin-bottom: 38px;
+      @media #{$md}{
+        font-size: 40px;
+        br {
+          display: none;
+        }
+      }
+      @media #{$sm}{
+        font-size: 36px;
+      }
+      @media #{$xs}{
+        font-size: 32px;
+      }
+      @media #{$xxs}{
+        font-size: 28px;
+      }
+    }
+  }
+}

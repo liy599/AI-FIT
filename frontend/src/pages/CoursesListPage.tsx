@@ -59,111 +59,170 @@ export default function CoursesListPage() {
   }, [queryString])
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div>
-            <div className="text-lg font-semibold">精品课程</div>
-            <div className="text-sm text-slate-400">筛选与排序，找到适合你的训练课程。</div>
-          </div>
-          <div className="flex flex-col gap-2 md:flex-row">
-            <input
-              className="rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm md:w-72"
-              placeholder="搜索课程标题…"
-              value={q}
-              onChange={(e) => {
-                const next = new URLSearchParams(sp)
-                next.set('q', e.target.value)
-                next.set('page', '1')
-                setSp(next)
-              }}
-            />
-            <select
-              className="rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm"
-              value={isFree}
-              onChange={(e) => {
-                const next = new URLSearchParams(sp)
-                const v = e.target.value
-                if (!v) next.delete('is_free')
-                else next.set('is_free', v)
-                next.set('page', '1')
-                setSp(next)
-              }}
-            >
-              <option value="">全部</option>
-              <option value="true">免费</option>
-              <option value="false">付费</option>
-            </select>
-            <select
-              className="rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm"
-              value={sort}
-              onChange={(e) => {
-                const next = new URLSearchParams(sp)
-                next.set('sort', e.target.value)
-                next.set('page', '1')
-                setSp(next)
-              }}
-            >
-              <option value="new">最新</option>
-              <option value="hot">最热</option>
-              <option value="rating">评分最高</option>
-            </select>
+    <>
+      <section className="cl_breadcrumb-area">
+        <div className="cl_breadcrumb-wrap" data-background="/assets/images/bg/breadcrumb.png">
+          <div className="container">
+            <div className="row justify-content-center">
+              <div className="col-md-9 col-12">
+                <div className="cl_breadcrumb-content">
+                  <h2 className="cl_breadcrumb-content-title">Courses</h2>
+                  <div className="cl_breadcrumb-content-list">
+                    <Link to="/">Home</Link>
+                    <span>Courses</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      {error ? <div className="text-sm text-rose-300">{error}</div> : null}
-      {loading ? <div className="text-sm text-slate-400">加载中…</div> : null}
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {items.map((c) => (
-          <Link
-            key={c.id}
-            to={`/courses/${c.id}`}
-            className="rounded-2xl border border-white/10 bg-white/5 p-5 transition hover:-translate-y-0.5 hover:bg-white/10"
-          >
-            <div className="flex items-center justify-between gap-4">
-              <div className="text-sm font-semibold">{c.title}</div>
-              <div className="text-xs text-slate-300">{c.is_free ? '免费' : `€${c.price ?? '-'}`}</div>
+      <section className="pt-100 pb-70">
+        <div className="container">
+          <div className="row mb-40">
+            <div className="col-xl-8 col-lg-7">
+              <div className="cl_blog-widget mb-30">
+                <form action="#" onSubmit={(e) => e.preventDefault()}>
+                  <input
+                    type="text"
+                    placeholder="Search Course"
+                    value={q}
+                    onChange={(e) => {
+                      const next = new URLSearchParams(sp)
+                      next.set('q', e.target.value)
+                      next.set('page', '1')
+                      setSp(next)
+                    }}
+                  />
+                  <button type="submit">
+                    <i className="fa-sharp fa-light fa-magnifying-glass"></i>
+                  </button>
+                </form>
+              </div>
             </div>
-            <div className="mt-2 text-xs text-slate-400">讲师：{c.instructor_name}</div>
-            <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
-              <div>{c.enroll_count} 人报名</div>
-              <div>{c.avg_rating ? c.avg_rating.toFixed(1) : '-'}★</div>
+            <div className="col-xl-4 col-lg-5">
+              <div className="cl_blog-widget mb-30">
+                <h4 className="cl_blog-widget-title mb-30">Filter</h4>
+                <div style={{ display: 'grid', gap: 10 }}>
+                  <select
+                    value={isFree}
+                    onChange={(e) => {
+                      const next = new URLSearchParams(sp)
+                      const v = e.target.value
+                      if (!v) next.delete('is_free')
+                      else next.set('is_free', v)
+                      next.set('page', '1')
+                      setSp(next)
+                    }}
+                  >
+                    <option value="">全部</option>
+                    <option value="true">免费</option>
+                    <option value="false">付费</option>
+                  </select>
+                  <select
+                    value={sort}
+                    onChange={(e) => {
+                      const next = new URLSearchParams(sp)
+                      next.set('sort', e.target.value)
+                      next.set('page', '1')
+                      setSp(next)
+                    }}
+                  >
+                    <option value="new">最新</option>
+                    <option value="hot">最热</option>
+                    <option value="rating">评分最高</option>
+                  </select>
+                </div>
+              </div>
             </div>
-          </Link>
-        ))}
-        {!loading && items.length === 0 ? <div className="text-sm text-slate-400">暂无课程</div> : null}
-      </div>
+          </div>
 
-      <div className="flex items-center justify-between">
-        <div className="text-xs text-slate-400">共 {total} 门</div>
-        <div className="flex gap-2">
-          <button
-            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 hover:bg-white/10 disabled:opacity-50"
-            disabled={page <= 1}
-            onClick={() => {
-              const next = new URLSearchParams(sp)
-              next.set('page', String(page - 1))
-              setSp(next)
-            }}
-          >
-            上一页
-          </button>
-          <button
-            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 hover:bg-white/10 disabled:opacity-50"
-            disabled={page * 12 >= total}
-            onClick={() => {
-              const next = new URLSearchParams(sp)
-              next.set('page', String(page + 1))
-              setSp(next)
-            }}
-          >
-            下一页
-          </button>
+          {error ? (
+            <div className="row">
+              <div className="col-12">
+                <div className="cl_blog-widget mb-30">{error}</div>
+              </div>
+            </div>
+          ) : null}
+          {loading ? (
+            <div className="row">
+              <div className="col-12">
+                <div className="cl_blog-widget mb-30">Loading…</div>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="row">
+            {items.map((c) => (
+              <div className="col-xl-4 col-md-6" key={c.id}>
+                <div className="cl_price-item mb-30">
+                  <span className="cl_price-item-subtitle">{c.is_free ? 'FREE' : 'PREMIUM'}</span>
+                  <h4 className="cl_price-item-title">{c.title}</h4>
+                  <h2 className="cl_price-item-amount">
+                    {c.is_free ? '0' : c.price ?? '-'}
+                    <span>{c.is_free ? '' : ' / course'}</span>
+                  </h2>
+                  <ul className="cl_price-item-feature">
+                    <li>
+                      <i className="fa-sharp fa-light fa-check"></i>讲师：{c.instructor_name}
+                    </li>
+                    <li>
+                      <i className="fa-sharp fa-light fa-check"></i>报名人数：{c.enroll_count}
+                    </li>
+                    <li>
+                      <i className="fa-sharp fa-light fa-check"></i>评分：{c.avg_rating ? c.avg_rating.toFixed(1) : '-'}
+                    </li>
+                  </ul>
+                  <div className="cl_price-item-btn">
+                    <Link to={`/courses/${c.id}`}>View Details</Link>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {!loading && items.length === 0 ? (
+              <div className="col-12">
+                <div className="cl_blog-widget mb-30">暂无课程</div>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="row">
+            <div className="col-12">
+              <div className="cl_blog_details-reply-item">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                  <div>Total: {total}</div>
+                  <div style={{ display: 'flex', gap: 12 }}>
+                    <button
+                      type="button"
+                      disabled={page <= 1}
+                      onClick={() => {
+                        const next = new URLSearchParams(sp)
+                        next.set('page', String(page - 1))
+                        setSp(next)
+                      }}
+                    >
+                      Prev
+                    </button>
+                    <button
+                      type="button"
+                      disabled={page * 12 >= total}
+                      onClick={() => {
+                        const next = new URLSearchParams(sp)
+                        next.set('page', String(page + 1))
+                        setSp(next)
+                      }}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      </section>
+    </>
   )
 }
 

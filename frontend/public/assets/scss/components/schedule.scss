@@ -1,0 +1,195 @@
+/* ///////////////////////////////////////////////////////////
+20. schedule
+/////////////////////////////////////////////////////////// */ 
+@use '../abstracts/variables' as *;
+
+
+
+.cl_h2_schedule {
+    &-item {
+        background: #fff;
+        border-radius: 30px;
+        padding: 30px 30px 30px;
+        position: relative;
+        z-index: 1;
+        overflow: hidden;
+        @media #{$xxs}{
+            padding: 30px 20px 30px;
+        }
+        &::before {
+            position: absolute;
+            right: -20px;
+            bottom: -20px;
+            content: "";
+            background: var(--clr-common-lightWhite);
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            z-index: -1;
+        }
+        &-icon {
+            width: 66px;
+            height: 66px;
+            background: #F0FCF8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            svg {
+                width: 40px;
+                color: var(--clr-theme-primary);
+            }
+        }
+        &-title {
+            color: rgb(14, 56, 41);
+            font-family: $sora;
+            font-size: 24px;
+            font-weight: 600;
+            line-height: 1.2;
+            margin-bottom: 25px;
+            border-top: 1px solid rgba(14, 56, 41, 0.1);
+            padding-top: 25px;
+            margin-top: 30px;
+            @media #{$md}{
+                font-size: 22px;
+            }
+            @media #{$xxs}{
+                font-size: 20px;
+            }
+            &:hover a {
+                color: var(--clr-theme-primary);
+            }
+        }
+        p {
+            color: rgba(14, 56, 41, 0.7);
+            font-family: $roboto;
+            font-size: 16px;
+            font-weight: 400;
+            line-height: 26px;
+            margin-bottom: 0;
+            @media #{$md}{
+                br {
+                    display: none;
+                }
+                margin-right: 35px;
+            }
+        }
+        &-btn {
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            width: 53px;
+            height: 53px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            color: var(--clr-common-black);
+            z-index: 9;
+            background: #fff;
+        }
+    }
+}
+.cl_h2_schedule-item:hover {
+    .cl_h2_schedule-item-btn {
+        background-color: var(--clr-theme-primary);
+        color: #fff;
+    }
+}
+
+
+// home 5 css start
+
+
+
+.cl_h5_schedule {
+    &-item {
+        background: #fff;
+        border-radius: 20px;
+        padding: 30px 40px 40px;
+        position: relative;
+        z-index: 1;
+        overflow: hidden;
+        height: 340px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        @media #{$sm}{
+            height: 290px;
+        }
+        &::before {
+            position: absolute;
+            right: -20px;
+            bottom: -20px;
+            content: "";
+            background: var(--clr-common-lightWhite);
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            z-index: -1;
+        }
+        &-icon {
+            svg {
+                color: var(--clr-theme-primary);
+                width: 60px;
+            }
+        }
+        &-btn {
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            width: 53px;
+            height: 53px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            color: var(--clr-common-black);
+            z-index: 9;
+            background: #fff;
+        }
+    }
+    &-content {
+        &-subtitle {
+            color: rgba(14, 56, 41, 0.5);
+            font-family: $roboto;
+            font-size: 12px;
+            font-weight: 400;
+            line-height: 14px;
+            display: block;
+            margin-bottom: 11px;
+            position: relative;
+            z-index: 1;
+            padding-left: 12px;
+            &::before {
+                position: absolute;
+                left: 0;
+                top: 50%;
+                content: "";
+                transform: translateY(-50%);
+                width: 6px;
+                height: 6px;
+                background-color: var(--clr-theme-primary);
+                border-radius: 50%;
+                z-index: 1;
+            }
+        }
+        &-title {
+            color: rgb(14, 56, 41);
+            font-family: $sora;
+            font-size: 24px;
+            font-weight: 600;
+            line-height: 1.4;
+            margin-bottom: 0;
+            &:hover a {
+                color: var(--clr-theme-primary);
+            }
+        }
+    }
+}
+.cl_h5_schedule-item:hover {
+    .cl_h5_schedule-item-btn {
+        background-color: var(--clr-theme-primary);
+        color: #fff;
+    }
+}

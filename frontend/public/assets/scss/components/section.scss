@@ -1,0 +1,80 @@
+/* ///////////////////////////////////////////////////////////
+07. section
+/////////////////////////////////////////////////////////// */ 
+@use '../abstracts/variables' as *;
+
+
+.cl_section {
+    &-subtitle {
+        background-color: #fff;
+        color: var(--clr-theme-primary);
+        padding: 0 16px;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        font-family: $sora;
+        font-size: 12px;
+        font-weight: 400;
+        text-transform: uppercase;
+        border-radius: 50px;
+        margin-bottom: 21px;
+        &-light {
+            background: #F0FCF8;
+        }
+        &-about {
+            font-size: 14px;
+            font-weight: 600;
+        }
+    }
+    &-title {
+        color: rgb(14, 56, 41);
+        font-family: $sora;
+        font-size: 48px;
+        font-weight: 600;
+        line-height: 1.2;
+        letter-spacing: -2.6px;
+        text-transform: capitalize;
+        @media #{$lg}{
+            font-size: 44px;
+        }
+        @media #{$md}{
+            font-size: 40px;
+        }
+        @media #{$sm}{
+            font-size: 35px;
+        }
+        @media #{$xxs}{
+            font-size: 30px;
+            letter-spacing: -1px;
+        }
+        &-white {
+            color: #fff;
+        }
+        &-small {
+            font-size: 44px;
+            line-height: 1.2;
+            @media #{$sm}{
+                font-size: 34px;
+            }
+            @media #{$xxs}{
+                font-size: 27px;
+                letter-spacing: -1.5px;
+            }
+        }
+    }
+    &-text {
+        color: rgba(14, 56, 41, 0.7);
+        font-family: $roboto;
+        font-size: 16px;
+        font-weight: 400;
+        line-height: 24px;
+        &-white {
+            color: rgba(255, 255, 255, 0.7);
+        }
+        @media #{$lg}{
+            br {
+                display: none;
+            }
+        }
+    }
+}

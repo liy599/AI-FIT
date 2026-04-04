@@ -1,25 +1,51 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef } from 'react'
 
 export default function BackToTop() {
-  const [show, setShow] = useState(false)
+  const wrapRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    const onScroll = () => setShow(window.scrollY > window.innerHeight)
-    onScroll()
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
+    const el = wrapRef.current
+    if (!el) return
+    const path = el.querySelector<SVGPathElement>('path')
+    if (!path) return
+
+    const length = path.getTotalLength()
+    path.style.strokeDasharray = `${length} ${length}`
+    path.style.strokeDashoffset = `${length}`
+
+    const update = () => {
+      const scroll = window.scrollY
+      const height = document.documentElement.scrollHeight - window.innerHeight
+      const progress = height > 0 ? Math.min(1, Math.max(0, scroll / height)) : 0
+      path.style.strokeDashoffset = `${length - length * progress}`
+      if (scroll > window.innerHeight) el.classList.add('active-progress')
+      else el.classList.remove('active-progress')
+    }
+
+    update()
+    window.addEventListener('scroll', update, { passive: true })
+    window.addEventListener('resize', update, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', update)
+      window.removeEventListener('resize', update)
+    }
   }, [])
 
-  if (!show) return null
-
   return (
-    <button
-      aria-label="Back to top"
-      className="fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-500 shadow-glow transition hover:scale-110 hover:bg-indigo-400"
+    <div
+      className="progress-wrap"
       onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') window.scrollTo({ top: 0, behavior: 'smooth' })
+      }}
+      ref={wrapRef}
     >
-      <span className="text-xl leading-none">↑</span>
-    </button>
+      <svg className="progress-circle svg-content" width="100%" height="100%" viewBox="-1 -1 102 102">
+        <path d="M50,1 a49,49 0 0,1 0,98 a49,49 0 0,1 0,-98" />
+      </svg>
+    </div>
   )
 }
 

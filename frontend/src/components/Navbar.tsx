@@ -2,13 +2,6 @@ import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { API_BASE } from '../lib/api'
 import { useAuth } from '../state/auth-context'
 
-function navClass({ isActive }: { isActive: boolean }) {
-  return [
-    'text-sm font-medium transition',
-    isActive ? 'text-white' : 'text-slate-300 hover:text-white'
-  ].join(' ')
-}
-
 function resolveAvatarUrl(url: string | null | undefined) {
   if (!url) return null
   if (url.startsWith('http://') || url.startsWith('https://')) return url
@@ -16,90 +9,197 @@ function resolveAvatarUrl(url: string | null | undefined) {
   return url
 }
 
-export default function Navbar() {
+type NavbarProps = {
+  variant: 'desktop' | 'mobile'
+  onOpenMobile?: () => void
+  onOpenSearch?: () => void
+  onNavigate?: () => void
+}
+
+export default function Navbar(props: NavbarProps) {
   const auth = useAuth()
   const nav = useNavigate()
 
-  return (
-    <header className="sticky top-0 z-40 border-b border-white/10 bg-slate-950/70 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-500 via-sky-500 to-emerald-500 shadow-glow" />
-          <div className="leading-tight">
-            <div className="text-sm font-semibold tracking-wide">AI FitGuard</div>
-            <div className="text-xs text-slate-400">你的私人AI健身教练</div>
-          </div>
-        </Link>
-
-        <nav className="hidden items-center gap-6 md:flex">
-          <NavLink to="/" className={navClass}>
-            Home
-          </NavLink>
-          <NavLink to="/tools/pose" className={navClass}>
-            Pose
-          </NavLink>
-          <NavLink to="/tools/food" className={navClass}>
-            Food
-          </NavLink>
-          <NavLink to="/blogs" className={navClass}>
-            Blog
-          </NavLink>
-          <NavLink to="/courses" className={navClass}>
-            Courses
-          </NavLink>
-          <NavLink to="/about" className={navClass}>
-            About
-          </NavLink>
-        </nav>
-
-        <div className="flex items-center gap-3">
-          {auth.user ? (
-            <>
-              <NavLink
-                to="/profile"
-                className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-slate-200 hover:bg-white/10"
-              >
-                <span className="h-8 w-8 overflow-hidden rounded-full border border-white/10 bg-white/5">
-                  {auth.user.avatar_url ? (
-                    <img
-                      src={resolveAvatarUrl(auth.user.avatar_url) ?? ''}
-                      className="h-full w-full object-cover"
-                      alt=""
-                    />
-                  ) : (
-                    <span className="flex h-full w-full items-center justify-center text-xs text-slate-200">
-                      {auth.user.username.slice(0, 1).toUpperCase()}
-                    </span>
-                  )}
-                </span>
-                <span>{auth.user.username}</span>
+  const menuItems = (
+    <>
+      <li>
+        <NavLink to="/" onClick={props.onNavigate}>
+          Home
+        </NavLink>
+      </li>
+      <li>
+        <NavLink to="/about" onClick={props.onNavigate}>
+          About Us
+        </NavLink>
+      </li>
+      <li className="menu-has-child">
+        <a
+          href="#"
+          onClick={(e) => {
+            e.preventDefault()
+          }}
+        >
+          Tools
+        </a>
+        <ul className="submenu">
+          <li>
+            <NavLink to="/tools/pose" onClick={props.onNavigate}>
+              Pose
+            </NavLink>
+          </li>
+          <li>
+            <NavLink to="/tools/food" onClick={props.onNavigate}>
+              Food
+            </NavLink>
+          </li>
+        </ul>
+      </li>
+      <li>
+        <NavLink to="/blogs" onClick={props.onNavigate}>
+          Blog
+        </NavLink>
+      </li>
+      <li>
+        <NavLink to="/courses" onClick={props.onNavigate}>
+          Courses
+        </NavLink>
+      </li>
+      {auth.user ? (
+        <li className="menu-has-child">
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault()
+            }}
+          >
+            Account
+          </a>
+          <ul className="submenu">
+            <li>
+              <NavLink to="/profile" onClick={props.onNavigate}>
+                Profile
               </NavLink>
-              <button
-                className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-slate-200 hover:bg-white/10"
-                onClick={() => {
+            </li>
+            <li>
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault()
                   auth.logout()
+                  props.onNavigate?.()
                   nav('/')
                 }}
               >
                 Logout
-              </button>
-            </>
-          ) : (
-            <>
-              <NavLink
-                to="/login"
-                className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-slate-200 hover:bg-white/10"
-              >
+              </a>
+            </li>
+          </ul>
+        </li>
+      ) : (
+        <li className="menu-has-child">
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault()
+            }}
+          >
+            Account
+          </a>
+          <ul className="submenu">
+            <li>
+              <NavLink to="/login" onClick={props.onNavigate}>
                 Login
               </NavLink>
-              <NavLink
-                to="/register"
-                className="rounded-full bg-indigo-500 px-3 py-1.5 text-sm font-medium text-white shadow-glow hover:bg-indigo-400"
-              >
+            </li>
+            <li>
+              <NavLink to="/register" onClick={props.onNavigate}>
                 Register
               </NavLink>
-            </>
-          )}
+            </li>
+          </ul>
+        </li>
+      )}
+    </>
+  )
+
+  if (props.variant === 'mobile') {
+    return (
+      <div className="menu-navbar">
+        <ul className="main-menu">{menuItems}</ul>
+      </div>
+    )
+  }
+
+  return (
+    <header className="cl_header-area">
+      <div className="common_width_1">
+        <div className="container-fluid p-0">
+          <div className="cl_header-wrap">
+            <div className="cl_header-left">
+              <div className="cl_header-logo">
+                <Link to="/">
+                  <img src="/assets/images/logo/logo.png" alt="" />
+                </Link>
+              </div>
+              <div className="cl_header-menu">
+                <nav id="mobile-menu">
+                  <ul>{menuItems}</ul>
+                </nav>
+              </div>
+            </div>
+            <div className="cl_header-right">
+              <a
+                href="#"
+                className="cl_header-action-btn cl_search_popup d-none d-lg-flex"
+                onClick={(e) => {
+                  e.preventDefault()
+                  props.onOpenSearch?.()
+                }}
+              >
+                <i className="fa-regular fa-magnifying-glass"></i>
+              </a>
+              {auth.user ? (
+                <Link to="/profile" className="cl_header-action-btn d-none d-xxl-flex">
+                  {auth.user.avatar_url ? (
+                    <img
+                      src={resolveAvatarUrl(auth.user.avatar_url) ?? ''}
+                      alt=""
+                      style={{ width: 28, height: 28, borderRadius: 9999, objectFit: 'cover' }}
+                    />
+                  ) : (
+                    <i className="fa-regular fa-user"></i>
+                  )}
+                </Link>
+              ) : (
+                <Link to="/login" className="cl_header-action-btn d-none d-xxl-flex">
+                  <i className="fa-regular fa-user"></i>
+                </Link>
+              )}
+              <a href="tel:+000000000" className="cl_header-action-call d-none d-xl-flex">
+                <i className="fa-regular fa-phone"></i> <span>AI FitGuard</span>
+              </a>
+              <Link to={auth.user ? '/courses' : '/register'} className="cl_header-btn d-none d-md-flex">
+                {auth.user ? 'Explore Courses' : 'Create Account'}
+                <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path
+                    d="M12.9613 11.8986C12.9805 11.8986 13.3488 11.678 13.7796 11.4083C14.2103 11.1385 14.5543 10.9016 14.544 10.882C14.5336 10.8624 14.3268 10.583 14.0842 10.2612C13.5972 9.61499 13.1283 8.76064 12.9205 8.14091C12.273 6.2094 12.571 4.2037 13.7462 2.58473L14.0454 2.17245L13.4757 1.6028L12.9061 1.03311L12.5295 1.30145C10.0626 3.05956 7.10577 2.85727 4.48433 0.751109C4.31316 0.613566 4.16681 0.507421 4.15907 0.515159C4.08782 0.586408 3.19178 2.05146 3.192 2.09632C3.19215 2.12877 3.34886 2.26146 3.54023 2.3911C5.65916 3.8268 8.08355 4.29492 9.95758 3.63031L10.4071 3.4709L4.15728 9.74345L0.205318 13.7098L1.3582 14.8627L5.33478 10.9006L11.5926 4.66555L11.403 5.24471C10.911 6.74715 11.1125 8.52771 11.9778 10.3229C12.2243 10.8344 12.8883 11.8983 12.9613 11.8986Z"
+                    fill="currentColor"
+                  />
+                </svg>
+              </Link>
+              <span
+                className="cl_header-menubar cl_menubar d-xl-none"
+                role="button"
+                tabIndex={0}
+                onClick={() => props.onOpenMobile?.()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') props.onOpenMobile?.()
+                }}
+              >
+                <i className="fa-regular fa-bars"></i>
+              </span>
+            </div>
+          </div>
         </div>
       </div>
     </header>

@@ -81,108 +81,173 @@ export default function BlogListPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 rounded-3xl border border-white/10 bg-white/5 p-6 md:flex-row md:items-center md:justify-between">
-        <div>
-          <div className="text-lg font-semibold">博客</div>
-          <div className="text-sm text-slate-400">筛选标签、搜索关键词，发现有价值的训练与营养知识。</div>
-        </div>
-        <div className="flex gap-2">
-          <input
-            className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm md:w-72"
-            placeholder="搜索标题或内容…"
-            value={q}
-            onChange={(e) => {
-              const next = new URLSearchParams(sp)
-              next.set('q', e.target.value)
-              next.set('page', '1')
-              setSp(next)
-            }}
-          />
-        </div>
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        {tags.map((t) => {
-          const active = tagIds.includes(t.id)
-          return (
-            <button
-              key={t.id}
-              className={[
-                'rounded-full border px-3 py-1 text-xs transition',
-                active ? 'border-indigo-400/40 bg-indigo-500/20 text-white' : 'border-white/10 bg-white/5 text-slate-200 hover:bg-white/10'
-              ].join(' ')}
-              onClick={() => toggleTag(t.id)}
-            >
-              {t.name}
-            </button>
-          )
-        })}
-      </div>
-
-      {error ? <div className="text-sm text-rose-300">{error}</div> : null}
-      {loading ? <div className="text-sm text-slate-400">加载中…</div> : null}
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {items.map((b) => (
-          <Link
-            key={b.id}
-            to={`/blogs/${b.id}`}
-            className="group overflow-hidden rounded-2xl border border-white/10 bg-white/5 transition hover:-translate-y-0.5 hover:bg-white/10"
-          >
-            <div className="h-32 overflow-hidden bg-gradient-to-br from-indigo-500/20 via-sky-500/10 to-emerald-500/20">
-              {b.cover_image_url ? (
-                <img src={resolveMediaUrl(b.cover_image_url) ?? ''} className="h-full w-full object-cover" alt="" />
-              ) : null}
-            </div>
-            <div className="p-5">
-              <div className="text-sm font-semibold group-hover:text-white">{b.title}</div>
-              <div className="mt-2 text-xs text-slate-400">{b.excerpt}</div>
-              <div className="mt-3 flex flex-wrap gap-1">
-                {b.tags.map((t) => (
-                  <span
-                    key={t.id}
-                    className="rounded-full border border-white/10 bg-black/20 px-2 py-0.5 text-[11px] text-slate-300"
-                  >
-                    {t.name}
-                  </span>
-                ))}
+    <>
+      <section className="cl_breadcrumb-area">
+        <div className="cl_breadcrumb-wrap" data-background="/assets/images/bg/breadcrumb.png">
+          <div className="container">
+            <div className="row justify-content-center">
+              <div className="col-md-9 col-12">
+                <div className="cl_breadcrumb-content">
+                  <h2 className="cl_breadcrumb-content-title">Blog</h2>
+                  <div className="cl_breadcrumb-content-list">
+                    <Link to="/">Home</Link>
+                    <span>Blog</span>
+                  </div>
+                </div>
               </div>
-              <div className="mt-3 text-xs text-slate-500">by {b.author.username}</div>
             </div>
-          </Link>
-        ))}
-        {!loading && items.length === 0 ? <div className="text-sm text-slate-400">暂无内容</div> : null}
-      </div>
-
-      <div className="flex items-center justify-between">
-        <div className="text-xs text-slate-400">共 {total} 篇</div>
-        <div className="flex gap-2">
-          <button
-            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 hover:bg-white/10 disabled:opacity-50"
-            disabled={page <= 1}
-            onClick={() => {
-              const next = new URLSearchParams(sp)
-              next.set('page', String(page - 1))
-              setSp(next)
-            }}
-          >
-            上一页
-          </button>
-          <button
-            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 hover:bg-white/10 disabled:opacity-50"
-            disabled={page * 12 >= total}
-            onClick={() => {
-              const next = new URLSearchParams(sp)
-              next.set('page', String(page + 1))
-              setSp(next)
-            }}
-          >
-            下一页
-          </button>
+          </div>
         </div>
-      </div>
-    </div>
+      </section>
+
+      <section className="cl_h2_blog-area pt-100 pb-100">
+        <div className="container">
+          <div className="row mb-40">
+            <div className="col-xl-8 col-lg-7">
+              <div className="cl_blog-widget mb-30">
+                <form
+                  action="#"
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                  }}
+                >
+                  <input
+                    type="text"
+                    placeholder="Search Here"
+                    value={q}
+                    onChange={(e) => {
+                      const next = new URLSearchParams(sp)
+                      next.set('q', e.target.value)
+                      next.set('page', '1')
+                      setSp(next)
+                    }}
+                  />
+                  <button type="submit">
+                    <i className="fa-sharp fa-light fa-magnifying-glass"></i>
+                  </button>
+                </form>
+              </div>
+
+              {tags.length ? (
+                <div className="cl_blog-widget mb-30">
+                  <h4 className="cl_blog-widget-title mb-35">Popular tags</h4>
+                  <div className="cl_blog-widget-tag">
+                    {tags.map((t) => {
+                      const active = tagIds.includes(t.id)
+                      return (
+                        <a
+                          key={t.id}
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            toggleTag(t.id)
+                          }}
+                          style={active ? { background: '#35CC95', color: '#fff' } : undefined}
+                        >
+                          {t.name}
+                        </a>
+                      )
+                    })}
+                  </div>
+                </div>
+              ) : null}
+
+              {error ? <div className="cl_blog-widget mb-30">{error}</div> : null}
+              {loading ? <div className="cl_blog-widget mb-30">Loading…</div> : null}
+            </div>
+            <div className="col-xl-4 col-lg-5">
+              <div className="cl_blog-widget mb-30">
+                <h4 className="cl_blog-widget-title mb-30">Summary</h4>
+                <ul>
+                  <li>
+                    <a href="#" onClick={(e) => e.preventDefault()}>
+                      <span>
+                        <i className="fa-light fa-chevrons-right"></i>Total
+                      </span>{' '}
+                      ({total})
+                    </a>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div className="row">
+            {items.map((b) => (
+              <div className="col-xl-4 col-lg-6 col-md-6" key={b.id}>
+                <div className="cl_h2_blog-item mb-30">
+                  <div className="cl_h2_blog-item-img">
+                    <Link to={`/blogs/${b.id}`}>
+                      <img src={resolveMediaUrl(b.cover_image_url) ?? '/assets/images/blog/h2_1.png'} alt="" />
+                    </Link>
+                    <span>{b.tags[0]?.name ?? 'Our Blog'}</span>
+                  </div>
+                  <div className="cl_h2_blog-item-content">
+                    <div className="cl_h2_blog-item-content-meta">
+                      <span>
+                        <i className="fa-light fa-user"></i>
+                        <a href="#" onClick={(e) => e.preventDefault()}>
+                          BY {b.author.username}
+                        </a>
+                      </span>
+                      <span>
+                        <i className="fa-light fa-calendar"></i>
+                        <a href="#" onClick={(e) => e.preventDefault()}>
+                          {new Date(b.created_at).toLocaleDateString()}
+                        </a>
+                      </span>
+                    </div>
+                    <h4>
+                      <Link to={`/blogs/${b.id}`}>{b.title}</Link>
+                    </h4>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {!loading && items.length === 0 ? (
+              <div className="col-12">
+                <div className="cl_blog-widget">暂无内容</div>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="row">
+            <div className="col-12">
+              <div className="cl_blog_details-reply-item">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                  <div>Page {page}</div>
+                  <div style={{ display: 'flex', gap: 12 }}>
+                    <button
+                      type="button"
+                      disabled={page <= 1}
+                      onClick={() => {
+                        const next = new URLSearchParams(sp)
+                        next.set('page', String(page - 1))
+                        setSp(next)
+                      }}
+                    >
+                      Prev
+                    </button>
+                    <button
+                      type="button"
+                      disabled={page * 12 >= total}
+                      onClick={() => {
+                        const next = new URLSearchParams(sp)
+                        next.set('page', String(page + 1))
+                        setSp(next)
+                      }}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </>
   )
 }
 

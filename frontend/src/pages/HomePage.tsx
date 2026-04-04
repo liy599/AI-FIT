@@ -31,6 +31,17 @@ function resolveMediaUrl(url: string | null | undefined) {
   return url
 }
 
+function Arrow15() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M12.9613 11.8986C12.9805 11.8986 13.3488 11.678 13.7796 11.4083C14.2103 11.1385 14.5543 10.9016 14.544 10.882C14.5336 10.8624 14.3268 10.583 14.0842 10.2612C13.5972 9.61499 13.1283 8.76064 12.9205 8.14091C12.273 6.2094 12.571 4.2037 13.7462 2.58473L14.0454 2.17245L13.4757 1.6028L12.9061 1.03311L12.5295 1.30145C10.0626 3.05956 7.10577 2.85727 4.48433 0.751109C4.31316 0.613566 4.16681 0.507421 4.15907 0.515159C4.08782 0.586408 3.19178 2.05146 3.192 2.09632C3.19215 2.12877 3.34886 2.26146 3.54023 2.3911C5.65916 3.8268 8.08355 4.29492 9.95758 3.63031L10.4071 3.4709L4.15728 9.74345L0.205318 13.7098L1.3582 14.8627L5.33478 10.9006L11.5926 4.66555L11.403 5.24471C10.911 6.74715 11.1125 8.52771 11.9778 10.3229C12.2243 10.8344 12.8883 11.8983 12.9613 11.8986Z"
+        fill="currentColor"
+      />
+    </svg>
+  )
+}
+
 export default function HomePage() {
   const auth = useAuth()
   const [blogs, setBlogs] = useState<BlogCard[]>([])
@@ -63,144 +74,208 @@ export default function HomePage() {
     }
   }, [auth.user])
 
+  const heroBg = '/assets/images/hero/h1_1.png'
+  const bigBlog = blogs[0]
+  const sideBlogs = blogs.slice(1, 4)
+  const featuredCourses = courses.slice(0, 3)
+
   return (
-    <div className="space-y-12">
-      <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-8 shadow-glow">
-        <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-indigo-500/20 blur-3xl" />
-        <div className="absolute -left-20 -bottom-24 h-72 w-72 rounded-full bg-emerald-500/20 blur-3xl" />
-        <div className="relative">
-          <div className="text-xs font-medium tracking-widest text-slate-300">AI FITGUARD</div>
-          <h1 className="mt-3 text-3xl font-semibold leading-tight md:text-5xl">
-            更聪明的训练，更清晰的饮食，
-            <span className="bg-gradient-to-r from-indigo-400 via-sky-400 to-emerald-400 bg-clip-text text-transparent">
-              {' '}
-              更稳的进步
-            </span>
-          </h1>
-          <p className="mt-4 max-w-2xl text-sm text-slate-300 md:text-base">
-            以隐私优先为原则，在浏览器端运行AI模型，结合社区博客与课程体系，打造你的个性化健身路径。
-          </p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link
-              to="/tools/pose"
-              className="rounded-full bg-indigo-500 px-5 py-2 text-sm font-medium text-white shadow-glow hover:bg-indigo-400"
-            >
-              开始动作矫正
-            </Link>
-            <Link
-              to="/tools/food"
-              className="rounded-full border border-white/10 bg-white/5 px-5 py-2 text-sm text-slate-200 hover:bg-white/10"
-            >
-              开始食物分析
-            </Link>
+    <>
+      <section className="cl_hero-area">
+        <div className="common_width_1">
+          <div className="cl_hero-wrap" data-background={heroBg}>
+            <div className="cl_hero-content">
+              <h1>更聪明的训练，更清晰的饮食</h1>
+              <div className="cl_hero-content-btn">
+                <Link to="/tools/pose" className="cl_theme-btn cl_hero-btn">
+                  开始动作矫正 <Arrow15 />
+                </Link>
+                <Link to="/tools/food" className="cl_hero-btn-2">
+                  开始食物分析 <Arrow15 />
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="grid gap-5 md:grid-cols-2">
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-6 transition hover:-translate-y-0.5 hover:bg-white/10">
-          <div className="text-sm font-semibold">动作矫正（页面版）</div>
-          <div className="mt-2 text-sm text-slate-300">
-            左侧视频 + 右侧实时反馈，预留MoveNet骨架绘制与评分区域。
+      <section className="cl_blog-area pt-100 pb-70">
+        <div className="container">
+          <div className="row justify-content-center">
+            <div className="col-xl-5">
+              <div className="cl_section-area text-center mb-30 pb-2">
+                <span className="cl_section-subtitle">Our Blogs</span>
+                <h2 className="cl_section-title mb-0">Latest Blog Posts</h2>
+              </div>
+            </div>
           </div>
-          <Link to="/tools/pose" className="mt-4 inline-block text-sm text-indigo-300 hover:text-indigo-200">
-            进入 →
-          </Link>
-        </div>
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-6 transition hover:-translate-y-0.5 hover:bg-white/10">
-          <div className="text-sm font-semibold">食物热量评估（页面版）</div>
-          <div className="mt-2 text-sm text-slate-300">
-            左侧上传/拍照 + 右侧营养面板，预留YOLOv8检测框与记录按钮。
-          </div>
-          <Link to="/tools/food" className="mt-4 inline-block text-sm text-emerald-300 hover:text-emerald-200">
-            进入 →
-          </Link>
-        </div>
-      </section>
 
-      <section>
-        <div className="flex items-end justify-between">
-          <h2 className="text-lg font-semibold">最新博客</h2>
-          <Link to="/blogs" className="text-sm text-slate-300 hover:text-white">
-            查看全部 →
-          </Link>
-        </div>
-        <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {blogs.map((b) => (
-            <Link
-              key={b.id}
-              to={`/blogs/${b.id}`}
-              className="group overflow-hidden rounded-2xl border border-white/10 bg-white/5 transition hover:-translate-y-0.5 hover:bg-white/10"
-            >
-              <div className="h-28 overflow-hidden bg-gradient-to-br from-indigo-500/20 via-sky-500/10 to-emerald-500/20">
-                {b.cover_image_url ? (
-                  <img src={resolveMediaUrl(b.cover_image_url) ?? ''} className="h-full w-full object-cover" alt="" />
+          {blogs.length === 0 ? (
+            <div className="row">
+              <div className="col-12">
+                <div className="cl_blog_big-item mb-30">
+                  <div className="cl_blog_big-item-content">
+                    <h3>暂无博客</h3>
+                    <p>先在个人中心创建并发布一篇博客，然后回来查看。</p>
+                    <Link to="/profile" className="cl_blog_big-item-content-btn">
+                      去创建 <Arrow15 />
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="row">
+              <div className="col-xl-8">
+                {bigBlog ? (
+                  <div className="cl_blog_big-item mb-30">
+                    <div className="cl_blog_big-item-img">
+                      <Link to={`/blogs/${bigBlog.id}`}>
+                        <img
+                          src={
+                            resolveMediaUrl(bigBlog.cover_image_url) ??
+                            '/assets/images/blog/h1_1.png'
+                          }
+                          alt=""
+                        />
+                      </Link>
+                    </div>
+                    <div className="cl_blog_big-item-content">
+                      <div className="cl_blog_big-item-content-meta">
+                        <span>
+                          By <a href="#" onClick={(e) => e.preventDefault()}>{bigBlog.author.username}</a>
+                        </span>
+                        <span>
+                          <a href="#" onClick={(e) => e.preventDefault()}>
+                            {new Date(bigBlog.created_at).toLocaleDateString()}
+                          </a>
+                        </span>
+                      </div>
+                      <h3>
+                        <Link to={`/blogs/${bigBlog.id}`}>{bigBlog.title}</Link>
+                      </h3>
+                      <p>{bigBlog.excerpt}</p>
+                      <Link to={`/blogs/${bigBlog.id}`} className="cl_blog_big-item-content-btn">
+                        Read More <Arrow15 />
+                      </Link>
+                    </div>
+                  </div>
                 ) : null}
               </div>
-              <div className="p-4">
-                <div className="line-clamp-2 text-sm font-semibold group-hover:text-white">{b.title}</div>
-                <div className="mt-2 line-clamp-2 text-xs text-slate-400">{b.excerpt}</div>
-                <div className="mt-3 flex flex-wrap gap-1">
-                  {b.tags.slice(0, 2).map((t) => (
-                    <span key={t.id} className="rounded-full border border-white/10 bg-black/20 px-2 py-0.5 text-[11px] text-slate-300">
-                      {t.name}
-                    </span>
+
+              <div className="col-xl-4">
+                <div className="cl_blog-right pb-20">
+                  {sideBlogs.map((b, idx) => (
+                    <div className="cl_blog-item mb-10" key={b.id}>
+                      <div className="cl_blog-item-img">
+                        <Link to={`/blogs/${b.id}`}>
+                          <img
+                            src={resolveMediaUrl(b.cover_image_url) ?? `/assets/images/blog/h1_${idx + 2}.png`}
+                            alt=""
+                          />
+                        </Link>
+                      </div>
+                      <div className="cl_blog-item-content">
+                        <div className="cl_blog-item-content-meta">
+                          <span>
+                            By <a href="#" onClick={(e) => e.preventDefault()}>{b.author.username}</a>
+                          </span>
+                          <span>
+                            <a href="#" onClick={(e) => e.preventDefault()}>
+                              {new Date(b.created_at).toLocaleDateString()}
+                            </a>
+                          </span>
+                        </div>
+                        <h4>
+                          <Link to={`/blogs/${b.id}`}>{b.title}</Link>
+                        </h4>
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
-            </Link>
-          ))}
-          {blogs.length === 0 ? <div className="text-sm text-slate-400">暂无博客（先创建并发布一篇试试）</div> : null}
+            </div>
+          )}
         </div>
       </section>
 
-      <section>
-        <div className="flex items-end justify-between">
-          <h2 className="text-lg font-semibold">精品课程推荐</h2>
-          {auth.user ? (
-            <Link to="/courses" className="text-sm text-slate-300 hover:text-white">
-              进入课程 →
-            </Link>
-          ) : null}
-        </div>
-        {!auth.user ? (
-          <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-5 text-sm text-slate-300">
-            登录后查看精品课程与报名功能。
+      <section className="cl_price-area pt-100 pb-70">
+        <div className="container">
+          <div className="row justify-content-center">
+            <div className="col-xl-7">
+              <div className="cl_section-area text-center mb-30 pb-2">
+                <span className="cl_section-subtitle">Our Courses</span>
+                <h2 className="cl_section-title mb-0">精选课程推荐</h2>
+              </div>
+            </div>
           </div>
-        ) : (
-          <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {courses.map((c) => (
-              <Link
-                key={c.id}
-                to={`/courses/${c.id}`}
-                className="rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:-translate-y-0.5 hover:bg-white/10"
-              >
-                <div className="text-sm font-semibold">{c.title}</div>
-                <div className="mt-2 text-xs text-slate-400">讲师：{c.instructor_name}</div>
-                <div className="mt-2 flex items-center justify-between text-xs text-slate-300">
-                  <div>{c.is_free ? '免费' : `€${c.price ?? '-'}`}</div>
-                  <div>{c.avg_rating ? c.avg_rating.toFixed(1) : '-'}★</div>
+
+          {!auth.user ? (
+            <div className="row">
+              <div className="col-12">
+                <div className="cl_price-item active mb-30">
+                  <span className="cl_price-item-subtitle">LOGIN REQUIRED</span>
+                  <h4 className="cl_price-item-title">登录后查看课程与报名</h4>
+                  <h2 className="cl_price-item-amount">Free</h2>
+                  <ul className="cl_price-item-feature">
+                    <li>
+                      <i className="fa-sharp fa-light fa-check"></i> 课程列表 / 课程详情
+                    </li>
+                    <li>
+                      <i className="fa-sharp fa-light fa-check"></i> 报名与评论互动
+                    </li>
+                  </ul>
+                  <div className="cl_price-item-btn">
+                    <Link to="/login">Go Login</Link>
+                  </div>
                 </div>
-              </Link>
-            ))}
-            {courses.length === 0 ? <div className="text-sm text-slate-400">暂无课程（可在数据库先插入几条种子数据）</div> : null}
-          </div>
-        )}
+              </div>
+            </div>
+          ) : (
+            <div className="row">
+              {featuredCourses.map((c) => (
+                <div className="col-xl-4 col-md-6" key={c.id}>
+                  <div className="cl_price-item mb-30">
+                    <span className="cl_price-item-subtitle">{c.is_free ? 'FREE' : 'PREMIUM'}</span>
+                    <h4 className="cl_price-item-title">{c.title}</h4>
+                    <h2 className="cl_price-item-amount">
+                      {c.is_free ? '0' : c.price ?? '-'}
+                      <span>{c.is_free ? '' : ' / course'}</span>
+                    </h2>
+                    <ul className="cl_price-item-feature">
+                      <li>
+                        <i className="fa-sharp fa-light fa-check"></i> 讲师：{c.instructor_name}
+                      </li>
+                      <li>
+                        <i className="fa-sharp fa-light fa-check"></i> 评分：{c.avg_rating ? c.avg_rating.toFixed(1) : '-'}
+                      </li>
+                      <li>
+                        <i className="fa-sharp fa-light fa-check"></i> 报名人数：{c.enroll_count}
+                      </li>
+                    </ul>
+                    <div className="cl_price-item-btn">
+                      <Link to={`/courses/${c.id}`}>View Details</Link>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {featuredCourses.length === 0 ? (
+                <div className="col-12">
+                  <div className="cl_price-item active mb-30">
+                    <span className="cl_price-item-subtitle">EMPTY</span>
+                    <h4 className="cl_price-item-title">暂无课程</h4>
+                    <h2 className="cl_price-item-amount">-</h2>
+                    <div className="cl_price-item-btn">
+                      <Link to="/courses">Go Courses</Link>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          )}
+        </div>
       </section>
-
-      <section className="grid gap-4 md:grid-cols-3">
-        {[
-          { k: '训练次数', v: '1,248+' },
-          { k: '累计课程报名', v: '642+' },
-          { k: '社区互动', v: '3,910+' }
-        ].map((x) => (
-          <div key={x.k} className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center">
-            <div className="text-2xl font-semibold">{x.v}</div>
-            <div className="mt-1 text-xs text-slate-400">{x.k}</div>
-          </div>
-        ))}
-      </section>
-    </div>
+    </>
   )
 }
 

@@ -34,44 +34,89 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="mx-auto max-w-md rounded-3xl border border-white/10 bg-white/5 p-6">
-      <h1 className="text-xl font-semibold">注册</h1>
-      <div className="mt-4 space-y-3">
-        <input
-          className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm"
-          placeholder="邮箱"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        <input
-          className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm"
-          placeholder="用户名"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-        />
-        <input
-          className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm"
-          placeholder="密码"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        {error ? <div className="text-xs text-rose-300">{error}</div> : null}
-        <button
-          className="w-full rounded-xl bg-indigo-500 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-400 disabled:opacity-50"
-          disabled={busy || !email || !username || !password}
-          onClick={submit}
-        >
-          创建账号
-        </button>
-        <div className="text-xs text-slate-400">
-          已有账号？{' '}
-          <Link to="/login" className="text-indigo-300 hover:text-indigo-200">
-            去登录
-          </Link>
+    <>
+      <section className="cl_breadcrumb-area">
+        <div className="cl_breadcrumb-wrap" data-background="/assets/images/bg/breadcrumb.png">
+          <div className="container">
+            <div className="row justify-content-center">
+              <div className="col-md-9 col-12">
+                <div className="cl_breadcrumb-content">
+                  <h2 className="cl_breadcrumb-content-title">Register</h2>
+                  <div className="cl_breadcrumb-content-list">
+                    <Link to="/">Home</Link>
+                    <span>Register</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      </section>
+
+      <section className="pt-100 pb-100">
+        <div className="container">
+          <div className="row justify-content-center">
+            <div className="col-xl-6 col-lg-8">
+              <div className="cl_blog_details-reply">
+                <h3 className="cl_blog_details-reply-title">Create account</h3>
+                <p>创建账号后将自动登录并跳转个人中心。</p>
+                <form
+                  action="#"
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    submit().catch(() => {})
+                  }}
+                >
+                  <div className="row">
+                    <div className="col-12">
+                      <div className="cl_blog_details-reply-item">
+                        <label htmlFor="email">
+                          Email<span>*</span>
+                        </label>
+                        <input type="email" id="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+                      </div>
+                    </div>
+                    <div className="col-12">
+                      <div className="cl_blog_details-reply-item">
+                        <label htmlFor="username">
+                          Username<span>*</span>
+                        </label>
+                        <input id="username" required value={username} onChange={(e) => setUsername(e.target.value)} />
+                      </div>
+                    </div>
+                    <div className="col-12">
+                      <div className="cl_blog_details-reply-item">
+                        <label htmlFor="password">
+                          Password<span>*</span>
+                        </label>
+                        <input type="password" id="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+                      </div>
+                    </div>
+                    {error ? (
+                      <div className="col-12">
+                        <div className="cl_blog-widget mb-30">{error}</div>
+                      </div>
+                    ) : null}
+                    <div className="col-12">
+                      <div className="cl_blog_details-reply-item">
+                        <button type="submit" disabled={busy || !email || !username || !password}>
+                          Register
+                        </button>
+                      </div>
+                    </div>
+                    <div className="col-12">
+                      <div className="cl_blog-widget">
+                        已有账号？ <Link to="/login">去登录</Link>
+                      </div>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </>
   )
 }
 

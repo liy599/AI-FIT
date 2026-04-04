@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 
 type Member = {
   name: string
@@ -53,58 +54,152 @@ export default function AboutPage() {
   const [active, setActive] = useState<Member | null>(null)
 
   return (
-    <div className="space-y-10">
-      <section className="rounded-3xl border border-white/10 bg-white/5 p-8">
-        <h1 className="text-2xl font-semibold">About AI FitGuard</h1>
-        <p className="mt-3 max-w-3xl text-sm text-slate-300">
-          AI FitGuard 的愿景是让每个人在无需专业硬件的情况下，也能获得可靠的训练指导与饮食分析。平台以“隐私优先”为原则，
-          将视频/图像推理尽可能放在浏览器本地完成，并用社区与课程体系帮助用户持续进步。
-        </p>
-      </section>
-
-      <section>
-        <h2 className="text-lg font-semibold">团队成员</h2>
-        <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {members.map((m) => (
-            <button
-              key={m.name}
-              className="text-left rounded-2xl border border-white/10 bg-white/5 p-5 transition hover:-translate-y-0.5 hover:bg-white/10"
-              onClick={() => setActive(m)}
-            >
-              <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-500/30 to-emerald-500/30" />
-                <div>
-                  <div className="text-sm font-semibold">{m.name}</div>
-                  <div className="text-xs text-slate-400">{m.role}</div>
+    <>
+      <section className="cl_breadcrumb-area">
+        <div className="cl_breadcrumb-wrap" data-background="/assets/images/bg/breadcrumb.png">
+          <div className="container">
+            <div className="row justify-content-center">
+              <div className="col-md-9 col-12">
+                <div className="cl_breadcrumb-content">
+                  <h2 className="cl_breadcrumb-content-title">About Us</h2>
+                  <div className="cl_breadcrumb-content-list">
+                    <Link to="/">Home</Link>
+                    <span>About</span>
+                  </div>
                 </div>
               </div>
-              <div className="mt-3 text-sm text-slate-300">{m.bio}</div>
-            </button>
-          ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="cl_about-area pt-100 pb-100">
+        <div className="container">
+          <div className="cl_about-wrap">
+            <div className="row align-items-center">
+              <div className="col-xl-6">
+                <div className="cl_about-img">
+                  <img src="/assets/images/about/h1_1.png" alt="" />
+                </div>
+              </div>
+              <div className="col-xl-6">
+                <div className="cl_about-content mr-80 ml-10">
+                  <div className="cl_section-area mb-35">
+                    <span className="cl_section-subtitle cl_section-subtitle-about">AI FitGuard</span>
+                    <h2 className="cl_section-title cl_section-title-small mb-25">隐私优先的健身与营养助手</h2>
+                    <p className="cl_section-text mb-0">
+                      AI FitGuard 的愿景是让每个人在无需专业硬件的情况下，也能获得可靠的训练指导与饮食分析。平台尽可能在浏览器本地完成视频/图像推理，并结合社区与课程体系帮助用户持续进步。
+                    </p>
+                  </div>
+                  <ul className="cl_about-content-list">
+                    <li>
+                      <i className="fa-sharp fa-light fa-check"></i>动作矫正（Pose）
+                    </li>
+                    <li>
+                      <i className="fa-sharp fa-light fa-check"></i>食物营养分析（Food）
+                    </li>
+                    <li>
+                      <i className="fa-sharp fa-light fa-check"></i>社区博客与评论
+                    </li>
+                    <li>
+                      <i className="fa-sharp fa-light fa-check"></i>课程报名与评价
+                    </li>
+                  </ul>
+                  <div className="cl_about-content-btn">
+                    <Link to="/tools/pose" className="cl_theme-btn">
+                      Try Pose Tool
+                      <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path
+                          d="M12.9613 11.8986C12.9805 11.8986 13.3488 11.678 13.7796 11.4083C14.2103 11.1385 14.5543 10.9016 14.544 10.882C14.5336 10.8624 14.3268 10.583 14.0842 10.2612C13.5972 9.61499 13.1283 8.76064 12.9205 8.14091C12.273 6.2094 12.571 4.2037 13.7462 2.58473L14.0454 2.17245L13.4757 1.6028L12.9061 1.03311L12.5295 1.30145C10.0626 3.05956 7.10577 2.85727 4.48433 0.751109C4.31316 0.613566 4.16681 0.507421 4.15907 0.515159C4.08782 0.586408 3.19178 2.05146 3.192 2.09632C3.19215 2.12877 3.34886 2.26146 3.54023 2.3911C5.65916 3.8268 8.08355 4.29492 9.95758 3.63031L10.4071 3.4709L4.15728 9.74345L0.205318 13.7098L1.3582 14.8627L5.33478 10.9006L11.5926 4.66555L11.403 5.24471C10.911 6.74715 11.1125 8.52771 11.9778 10.3229C12.2243 10.8344 12.8883 11.8983 12.9613 11.8986Z"
+                          fill="currentColor"
+                        />
+                      </svg>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="cl_team-area pl-30 pr-30">
+        <div className="cl_team-wrap pt-100 pb-100">
+          <div className="container">
+            <div className="row justify-content-center">
+              <div className="col-xl-8">
+                <div className="cl_section-area text-center mb-30 pb-2">
+                  <span className="cl_section-subtitle">Our Team</span>
+                  <h2 className="cl_section-title cl_section-title-white mb-0">团队成员</h2>
+                </div>
+              </div>
+            </div>
+            <div className="row">
+              {members.map((m, idx) => (
+                <div className="col-xl-3 col-lg-4 col-md-6" key={m.name}>
+                  <div className="cl_team-item" style={{ marginBottom: 30 }}>
+                    <div className="cl_team-item-img">
+                      <img src={`/assets/images/team/h1_${(idx % 4) + 1}.png`} alt="" />
+                    </div>
+                    <div className="cl_team-item-content">
+                      <h4>
+                        <a
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            setActive(m)
+                          }}
+                        >
+                          {m.name}
+                        </a>
+                      </h4>
+                      <span>{m.role}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
       {active ? (
-        <div className="fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setActive(null)} />
-          <div className="absolute left-1/2 top-1/2 w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-3xl border border-white/10 bg-slate-950/90 p-6 backdrop-blur">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="text-sm font-semibold">{active.name}</div>
-                <div className="text-xs text-slate-400">{active.role}</div>
-              </div>
-              <button
-                className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-200 hover:bg-white/10"
-                onClick={() => setActive(null)}
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'rgba(0,0,0,0.65)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16
+          }}
+          onClick={() => setActive(null)}
+        >
+          <div
+            className="cl_blog-widget"
+            style={{ maxWidth: 680, width: '100%', margin: 0 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h4 className="cl_blog-widget-title mb-30">{active.name}</h4>
+            <p>{active.role}</p>
+            <p style={{ marginTop: 12 }}>{active.details}</p>
+            <div style={{ marginTop: 18 }}>
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault()
+                  setActive(null)
+                }}
               >
-                关闭
-              </button>
+                Close
+              </a>
             </div>
-            <div className="mt-4 text-sm text-slate-300">{active.details}</div>
           </div>
         </div>
       ) : null}
-    </div>
+    </>
   )
 }
 

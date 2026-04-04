@@ -1,0 +1,102 @@
+/* ///////////////////////////////////////////////////////////
+17. process
+/////////////////////////////////////////////////////////// */ 
+@use '../abstracts/variables' as *;
+
+
+.cl_h3_process {
+  &-item {
+    text-align: center;
+    &-img {
+      position: relative;
+      z-index: 1;
+      width: 216px;
+      height: 216px;
+      border: 1px dashed var(--clr-theme-primary);
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-left: auto;
+      margin-right: auto;
+      margin-bottom: 24px;
+      img {
+        width: 200px;
+        height: 200px;
+        border-radius: 50%;
+        z-index: -1;
+      }
+      span {
+        color: rgb(255, 255, 255);
+        font-family: $sora;
+        font-size: 18px;
+        font-weight: 600;
+        line-height: 34px;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--clr-theme-primary);
+        border-radius: 50%;
+        position: absolute;
+        right: 8px;
+        top: 21px;
+        z-index: auto;
+        &::before {
+          position: absolute;
+          left: 50%;
+          top: 50%;
+          content: "";
+          background: #fff;
+          width: 52px;
+          height: 52px;
+          border-radius: 50%;
+          z-index: -1;
+          transform: translate(-50%, -50%);
+        }
+      }
+    }
+    &-content {
+      h4 {
+        color: rgb(14, 56, 41);
+        font-family: $sora;
+        font-size: 24px;
+        font-weight: 600;
+        line-height: 1.4;
+        margin-bottom: 16px;
+      }
+      p {
+        color: rgba(14, 56, 41, 0.7);
+        font-family: $roboto;
+        font-size: 16px;
+        font-weight: 400;
+        line-height: 26px;
+        margin-bottom: 0;
+      }
+    }
+  }
+}
+
+.cl_h3_process-area {
+  .cl_h3_process-item-img.cl_h3_process-arrow {
+    &::after {
+      position: absolute;
+      top: 50%;
+      right: -195px;
+      transform: translateY(-50%);
+      content: "";
+      background-image: url('../../assets/images/process/h3_line.png');
+      background-position: right;
+      width: 158px;
+      height: 14px;
+      @media #{$xl}{
+        right: -145px;
+        width: 120px;
+      }
+      @media #{$md}{
+        display: none;
+      }
+    }
+  }
+}

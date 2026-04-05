@@ -1,0 +1,14 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: aifitguard
+      POSTGRES_PASSWORD: aifitguard
+      POSTGRES_DB: aifitguard
+    ports:
+      - "5432:5432"
+    volumes:
+      - aifitguard_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  aifitguard_postgres_data:

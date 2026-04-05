@@ -11,7 +11,21 @@ def create_app(config_object=Config):
     app = Flask(__name__)
     app.config.from_object(config_object)
 
-    cors.init_app(app, resources={r"/api/*": {"origins": "*"}, r"/uploads/*": {"origins": "*"}}, intercept_exceptions=True)
+    cors_origins_env = os.environ.get("CORS_ORIGINS", "").strip()
+    if cors_origins_env:
+        cors_origins = [o.strip() for o in cors_origins_env.split(",") if o.strip()]
+    else:
+        cors_origins = [
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            app.config.get("FRONTEND_BASE_URL", "http://localhost:5173"),
+        ]
+
+    cors.init_app(
+        app,
+        resources={r"/api/*": {"origins": cors_origins}, r"/uploads/*": {"origins": cors_origins}},
+        intercept_exceptions=True,
+    )
     db.init_app(app)
     jwt.init_app(app)
 

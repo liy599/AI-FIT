@@ -5,7 +5,36 @@
 __pycache__/
 *.py[cod]
 
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+
+.venv/
+venv/
+env/
+ENV/
+
+.coverage
+coverage/
+htmlcov/
+
+*.log
+
 backend/instance/*.db
 backend/instance/uploads/
 
-frontend/node_modules/
+node_modules/
+dist/
+build/
+
+frontend/.vite/
+frontend/vite.config.js
+
+.vscode/
+.idea/
+*.iml
+
+.DS_Store
+Thumbs.db
+Desktop.ini

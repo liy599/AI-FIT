@@ -32,7 +32,7 @@ def create_app(config_object=Config):
     upload_root = os.path.join(app.instance_path, "uploads")
     os.makedirs(upload_root, exist_ok=True)
     app.config.setdefault("UPLOAD_FOLDER", upload_root)
-    app.config.setdefault("MAX_CONTENT_LENGTH", 5 * 1024 * 1024)
+    app.config.setdefault("MAX_CONTENT_LENGTH", 80 * 1024 * 1024)
 
     from .routes.auth import bp as auth_bp
     from .routes.user import bp as user_bp
@@ -45,6 +45,7 @@ def create_app(config_object=Config):
     from .routes.course_comments import bp as course_comments_bp
     from .routes.feedback import bp as feedback_bp
     from .routes.nutrition import bp as nutrition_bp
+    from .routes.pose import bp as pose_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(user_bp, url_prefix="/api/user")
@@ -57,6 +58,7 @@ def create_app(config_object=Config):
     app.register_blueprint(course_comments_bp, url_prefix="/api")
     app.register_blueprint(feedback_bp, url_prefix="/api/feedback")
     app.register_blueprint(nutrition_bp, url_prefix="/api/nutrition")
+    app.register_blueprint(pose_bp, url_prefix="/api/pose")
 
     @app.get("/api/health")
     def health():
@@ -68,10 +70,9 @@ def create_app(config_object=Config):
 
     @app.errorhandler(RequestEntityTooLarge)
     def handle_file_too_large(_: RequestEntityTooLarge):
-        return jsonify({"error": "file too large (max 5MB)"}), 413
+        return jsonify({"error": "file too large (max 80MB)"}), 413
 
     with app.app_context():
         db.create_all()
 
     return app
-

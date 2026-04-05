@@ -10,7 +10,7 @@ import FoodPage from './pages/FoodPage'
 import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
 import NotFoundPage from './pages/NotFoundPage'
-import PosePage from './pages/PosePage'
+import PoseToolPage from './pages/PoseToolPage'
 import ProfilePage from './pages/ProfilePage'
 import RegisterPage from './pages/RegisterPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
@@ -29,7 +29,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/about" element={<AboutPage />} />
-          <Route path="/tools/pose" element={<PosePage />} />
+          <Route path="/tools/pose" element={<PoseToolPage />} />
           <Route path="/tools/food" element={<FoodPage />} />
           <Route path="/blogs" element={<BlogListPage />} />
           <Route path="/blogs/:id" element={<BlogDetailPage />} />

@@ -117,3 +117,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\demo.ps1
 
 - Docker 相关报错（`failed to connect to the docker API ... dockerDesktopLinuxEngine`）：表示 Docker Desktop 未启动或 Docker daemon 不可用。启动 Docker Desktop 后重试；本项目的一键脚本要求 Docker 以保证环境一致。
 - PowerShell 报 `npm.ps1` 执行策略限制：建议直接使用 `npm.cmd`（本仓库文档与脚本已默认使用），或自行调整当前用户执行策略。
+## Dependency Note
+
+When frontend dependencies change, run `npm.cmd install` inside [frontend/package.json](/d:/trae/trae_projects/AI-FIT/frontend/package.json) or rerun `powershell -ExecutionPolicy Bypass -File .\scripts\dev.ps1`.
+
+This matters for the Pose migration because the realtime page adds browser-side MoveNet / TensorFlow packages, and an existing `node_modules` directory does not guarantee those new packages are present.

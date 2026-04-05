@@ -78,13 +78,11 @@ if (-not (Test-Path $venvPython)) {
 
 & $venvPython -m pip install -r (Join-Path $backendDir "requirements.txt")
 
-if (-not (Test-Path (Join-Path $frontendDir "node_modules"))) {
-  Push-Location $frontendDir
-  try {
-    & npm.cmd install
-  } finally {
-    Pop-Location
-  }
+Push-Location $frontendDir
+try {
+  & npm.cmd install
+} finally {
+  Pop-Location
 }
 
 $backendCmd = "cd `"$backendDir`"; & `"$venvPython`" run.py"

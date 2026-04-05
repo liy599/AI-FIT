@@ -7,3 +7,612 @@ body {
   height: 100%;
 }
 
+.pose-tool-head {
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.pose-tool-subtitle {
+  margin: 0;
+  max-width: 560px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.pose-tool-subtitle-dark {
+  color: #64748b;
+}
+
+.pose-tool-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pose-mode-switch {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pose-mode-switch > button {
+  font-size: 0;
+}
+
+.pose-mode-switch > button:nth-child(1)::after {
+  content: 'Live Coaching';
+  font-size: 16px;
+}
+
+.pose-mode-switch > button:nth-child(2)::after {
+  content: 'Offline Video Analysis';
+  font-size: 16px;
+}
+
+.pose-tool-ghost-btn {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: transparent;
+  color: #fff;
+  border-radius: 999px;
+  padding: 12px 22px;
+  font-weight: 600;
+}
+
+.pose-tool-light-btn {
+  border-color: rgba(15, 23, 42, 0.14);
+  color: #0f172a;
+}
+
+.pose-stage {
+  position: relative;
+  margin-top: 22px;
+  margin-inline: auto;
+  border-radius: 18px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #030712 0%, #101828 100%);
+  width: 100%;
+}
+
+.pose-stage-landscape {
+  aspect-ratio: 16 / 9;
+  min-height: 360px;
+  max-height: 520px;
+}
+
+.pose-stage-portrait {
+  aspect-ratio: 9 / 16;
+  width: 100%;
+  max-width: none;
+  min-height: 620px;
+  max-height: 860px;
+}
+
+.pose-stage-media {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pose-stage-canvas {
+  z-index: 2;
+}
+
+.pose-stage-video-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pose-camera-toolbar {
+  margin-top: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.pose-camera-toolbar__hint {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.pose-camera-panel .pose-tool-subtitle-dark {
+  font-size: 0;
+}
+
+.pose-camera-panel .pose-tool-subtitle-dark::after {
+  content: 'Live coaching built on top of the current AI-FIT tool page style.';
+  font-size: 16px;
+}
+
+.pose-camera-toolbar__group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pose-camera-toolbar__label {
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.pose-orientation-switch {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pose-camera-panel .pose-orientation-switch > button {
+  font-size: 0;
+}
+
+.pose-camera-panel .pose-orientation-switch > button:nth-child(1)::after {
+  content: 'Landscape';
+  font-size: 16px;
+}
+
+.pose-camera-panel .pose-orientation-switch > button:nth-child(2)::after {
+  content: 'Portrait';
+  font-size: 16px;
+}
+
+.pose-size-switch {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pose-size-btn {
+  min-width: 54px;
+  padding: 10px 16px;
+}
+
+.pose-mini-btn {
+  padding: 10px 18px;
+  min-width: 88px;
+}
+
+.pose-slider-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.pose-slider-control input[type='range'] {
+  width: 180px;
+}
+
+.pose-camera-panel .pose-slider-control > span {
+  font-size: 0;
+}
+
+.pose-camera-panel .pose-slider-control > span::after {
+  content: 'Zoom';
+  font-size: 14px;
+}
+
+.pose-camera-panel .pose-camera-toolbar__hint {
+  font-size: 0;
+}
+
+.pose-camera-panel .pose-camera-toolbar__hint::after {
+  content: 'Lower zoom shows more of the body and helps keep the full body in frame.';
+  font-size: 13px;
+}
+
+.pose-stage-size-s {
+  max-width: 78%;
+}
+
+.pose-stage-size-m {
+  max-width: 86%;
+}
+
+.pose-stage-size-l {
+  max-width: 93%;
+}
+
+.pose-stage-size-xl {
+  max-width: 100%;
+}
+
+.pose-stage-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  color: #fff;
+  background: rgba(3, 7, 18, 0.55);
+}
+
+.pose-meta-row {
+  margin-top: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+}
+
+.pose-meta-row-light {
+  color: #475569;
+}
+
+.pose-status-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 68px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.pose-status-tag-light {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.pose-error-box {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(220, 38, 38, 0.16);
+  color: #fecaca;
+}
+
+.pose-error-box-light {
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.pose-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.pose-kpi-grid-light {
+  margin-bottom: 16px;
+}
+
+.pose-metric-card {
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 16px;
+}
+
+.pose-metric-card-light {
+  background: #f8fafc;
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+.pose-metric-label {
+  display: block;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.72);
+  margin-bottom: 8px;
+}
+
+.pose-metric-label-light {
+  color: #64748b;
+}
+
+.pose-metric-value {
+  display: block;
+  font-size: 26px;
+  line-height: 1.1;
+  color: #fff;
+}
+
+.pose-metric-value-light {
+  color: #0f172a;
+}
+
+.pose-tip-card {
+  margin-top: 16px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 16px;
+}
+
+.pose-tip-card p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.pose-tip-card-light {
+  background: #fff;
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+.pose-tip-card-light p {
+  color: #334155;
+}
+
+.pose-tip-card-light .pose-section-title {
+  color: #0f172a;
+}
+
+.pose-live-feedback > .pose-tip-card:nth-of-type(2),
+.pose-live-feedback > .pose-tip-card:nth-of-type(3) {
+  display: none;
+}
+
+.pose-live-feedback > .pose-tip-card:nth-of-type(5) {
+  display: block !important;
+}
+
+.pose-section-title {
+  color: #0f172a;
+}
+
+.pose-detail-list {
+  margin: 0;
+  padding-left: 18px;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.pose-detail-list-light {
+  color: #334155;
+}
+
+.pose-detail-list li + li {
+  margin-top: 8px;
+}
+
+.pose-export-row {
+  margin-top: 18px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pose-live-feedback .pose-export-row > button:nth-child(3) {
+  font-size: 0;
+}
+
+.pose-live-feedback .pose-export-row > button:nth-child(3)::after {
+  content: 'Save Training Record';
+  font-size: 16px;
+}
+
+.pose-range-check {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  color: #334155;
+}
+
+.pose-range-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pose-range-badge-ok {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.pose-range-badge-bad {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.pose-range-copy {
+  margin-top: 10px !important;
+  color: #64748b !important;
+}
+
+.pose-inline-note {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #ecfeff;
+  color: #155e75;
+}
+
+.pose-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 10px;
+}
+
+.pose-form-field {
+  display: grid;
+  gap: 8px;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.pose-form-field input,
+.pose-form-field select,
+.pose-form-field textarea {
+  width: 100%;
+  border: 1px solid rgba(148, 163, 184, 0.36);
+  border-radius: 14px;
+  padding: 12px 14px;
+  color: #0f172a;
+  background: #fff;
+  font-weight: 400;
+}
+
+.pose-video-preview {
+  margin-top: 18px;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #0f172a;
+}
+
+.pose-video-preview__media {
+  width: 100%;
+  max-height: 420px;
+  display: block;
+}
+
+.pose-progress-card {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pose-muted-copy {
+  margin: 0;
+  color: #64748b;
+}
+
+.pose-report-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.pose-report-card {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 16px;
+  padding: 14px;
+  background: #fff;
+}
+
+.pose-report-card-accent {
+  background: #f0fdfa;
+  border-color: #99f6e4;
+}
+
+.pose-report-title {
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: #0f172a;
+}
+
+.pose-report-label {
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 6px;
+}
+
+.pose-report-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.pose-report-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.pose-report-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.pose-report-issue-list {
+  display: grid;
+  gap: 8px;
+}
+
+.pose-report-issue {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.pose-report-issue span {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.pose-report-suggestions {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  color: #334155;
+}
+
+.pose-report-line-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.pose-mini-line {
+  width: 100%;
+  height: 110px;
+  background: #f8fafc;
+  border-radius: 10px;
+}
+
+@media (max-width: 991px) {
+  .pose-kpi-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .pose-report-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .pose-stage {
+    min-height: 360px;
+  }
+
+  .pose-stage-portrait {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 575px) {
+  .pose-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pose-form-grid,
+  .pose-report-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .pose-stage {
+    min-height: 300px;
+  }
+
+  .pose-tool-actions,
+  .pose-export-row {
+    width: 100%;
+  }
+
+  .pose-slider-control {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+

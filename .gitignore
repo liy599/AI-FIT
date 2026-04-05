@@ -24,6 +24,7 @@ htmlcov/
 backend/instance/*.db
 backend/instance/uploads/
 
+frontend/node_modules/
 node_modules/
 dist/
 build/
@@ -31,9 +32,17 @@ build/
 frontend/.vite/
 frontend/vite.config.js
 
+test-accounts-*.csv
+
 .vscode/
 .idea/
 *.iml
+*.tsbuildinfo
+
+.trae/
+.pw_audit/
+playwright-report/
+test-results/
 
 .DS_Store
 Thumbs.db

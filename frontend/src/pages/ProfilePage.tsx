@@ -25,16 +25,26 @@ type Workout = {
   workout_date: string
 }
 
-type Diet = {
+type MealHistory = {
   id: number
-  food_name: string
-  quantity: number | null
-  calories: number | null
-  protein: number | null
-  fat: number | null
-  carbohydrates: number | null
-  meal_type: string | null
-  meal_date: string
+  mealType: string
+  recordedOn: string
+  items: Array<{
+    id: number
+    grams: number
+    foodId: number
+    food: {
+      id: number
+      displayName: string
+      name: string
+    } | null
+  }>
+  totals: {
+    kcal: number
+    protein: number
+    fat: number
+    carbs: number
+  }
 }
 
 type MyBlog = {
@@ -66,7 +76,7 @@ export default function ProfilePage() {
 
   const [profile, setProfile] = useState<Profile | null>(null)
   const [workouts, setWorkouts] = useState<Workout[]>([])
-  const [diets, setDiets] = useState<Diet[]>([])
+  const [meals, setMeals] = useState<MealHistory[]>([])
   const [myBlogs, setMyBlogs] = useState<MyBlog[]>([])
   const [myComments, setMyComments] = useState<MyComment[]>([])
   const [tags, setTags] = useState<Tag[]>([])
@@ -97,17 +107,17 @@ export default function ProfilePage() {
     const now = new Date()
     const since = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
     const wk = workouts.filter((w) => new Date(w.workout_date) >= since)
-    const dt = diets.filter((d) => new Date(d.meal_date) >= since)
+    const dt = meals.filter((meal) => new Date(meal.recordedOn) >= since)
     const totalDuration = wk.reduce((acc, w) => acc + (w.duration ?? 0), 0)
     const avgForm = wk.length ? wk.reduce((acc, w) => acc + (w.form_score ?? 0), 0) / wk.length : null
-    const totalCaloriesIn = dt.reduce((acc, d) => acc + (d.calories ?? 0), 0)
+    const totalCaloriesIn = dt.reduce((acc, meal) => acc + meal.totals.kcal, 0)
     const days = 7
     return {
       totalDuration,
       avgForm,
       avgCaloriesIn: totalCaloriesIn ? totalCaloriesIn / days : null
     }
-  }, [workouts, diets])
+  }, [workouts, meals])
 
   async function loadProfile() {
     const p = await apiFetch<Profile>('/api/user/profile')
@@ -180,9 +190,9 @@ export default function ProfilePage() {
     setWorkouts(r.items)
   }
 
-  async function loadDiets() {
-    const r = await apiFetch<{ items: Diet[] }>('/api/diets?page=1&page_size=20')
-    setDiets(r.items)
+  async function loadMeals() {
+    const r = await apiFetch<{ items: MealHistory[] }>('/api/meals/history?page=1&page_size=20')
+    setMeals(r.items)
   }
 
   async function loadMyBlogs() {
@@ -200,7 +210,7 @@ export default function ProfilePage() {
     loadProfile().catch((e: unknown) => setError(e instanceof Error ? e.message : '加载失败'))
     apiFetch<Tag[]>('/api/tags', { auth: false }).then(setTags).catch(() => {})
     loadWorkouts().catch(() => {})
-    loadDiets().catch(() => {})
+    loadMeals().catch(() => {})
     loadMyBlogs().catch(() => {})
     loadMyComments().catch(() => {})
   }, [])
@@ -264,7 +274,7 @@ export default function ProfilePage() {
             onClick={() => {
               loadProfile().catch(() => {})
               loadWorkouts().catch(() => {})
-              loadDiets().catch(() => {})
+              loadMeals().catch(() => {})
               loadMyBlogs().catch(() => {})
               loadMyComments().catch(() => {})
             }}
@@ -403,21 +413,27 @@ export default function ProfilePage() {
         <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
           <div className="text-sm font-semibold">饮食记录</div>
           <div className="mt-4 space-y-3">
-            {diets.map((d) => (
-              <div key={d.id} className="rounded-2xl border border-white/10 bg-black/20 p-4">
+            {meals.map((meal) => (
+              <div key={meal.id} className="rounded-2xl border border-white/10 bg-black/20 p-4">
                 <div className="flex items-center justify-between text-sm">
-                  <div className="font-semibold">{d.food_name}</div>
+                  <div className="font-semibold">{meal.mealType}</div>
                   <div className="text-xs text-slate-400">
-                    {d.meal_date} {d.meal_type ? `· ${d.meal_type}` : ''}
+                    {meal.recordedOn} · {meal.items.length} items
                   </div>
                 </div>
                 <div className="mt-2 text-xs text-slate-400">
-                  {d.quantity ?? '—'}g · 热量 {d.calories ?? '—'}kcal · P {d.protein ?? '—'}g · F {d.fat ?? '—'}g · C{' '}
-                  {d.carbohydrates ?? '—'}g
+                  {meal.items
+                    .map((item) => item.food?.displayName || item.food?.name || `food#${item.foodId}`)
+                    .slice(0, 3)
+                    .join(' / ')}
+                </div>
+                <div className="mt-2 text-xs text-slate-400">
+                  Calories {meal.totals.kcal.toFixed(1)} kcal · P {meal.totals.protein.toFixed(1)} g · F {meal.totals.fat.toFixed(1)} g · C{' '}
+                  {meal.totals.carbs.toFixed(1)} g
                 </div>
               </div>
             ))}
-            {diets.length === 0 ? <div className="text-sm text-slate-400">暂无记录</div> : null}
+            {meals.length === 0 ? <div className="text-sm text-slate-400">暂无记录</div> : null}
           </div>
         </div>
       ) : null}

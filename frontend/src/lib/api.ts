@@ -2,7 +2,7 @@ import { getToken } from './auth'
 
 export const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://127.0.0.1:5000'
 
-export type ApiError = { error: string }
+export type ApiError = { error?: string; msg?: string; message?: string }
 
 function buildHeaders(options?: RequestInit & { auth?: boolean }) {
   const headers: Record<string, string> = {
@@ -29,9 +29,26 @@ async function throwIfNotOk(res: Response) {
       data = null
     }
   }
-  const msg =
-    typeof data === 'object' && data && 'error' in data ? String((data as ApiError).error) : res.statusText
-  throw new Error(msg)
+  throw new Error(extractErrorMessage(data, res))
+}
+
+function extractErrorMessage(data: unknown, res: Response) {
+  if (typeof data === 'object' && data) {
+    const apiError = data as ApiError
+    if (typeof apiError.error === 'string' && apiError.error.trim()) return apiError.error
+    if (typeof apiError.msg === 'string' && apiError.msg.trim()) return apiError.msg
+    if (typeof apiError.message === 'string' && apiError.message.trim()) return apiError.message
+  }
+  return res.statusText || `Request failed (${res.status})`
+}
+
+function parseJsonSafely(text: string) {
+  if (!text) return null
+  try {
+    return JSON.parse(text) as unknown
+  } catch {
+    return null
+  }
 }
 
 export async function apiFetch<T>(
@@ -43,14 +60,17 @@ export async function apiFetch<T>(
     ...buildHeaders(options)
   }
 
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers })
+  let res: Response
+  try {
+    res = await fetch(`${API_BASE}${path}`, { ...options, headers })
+  } catch {
+    throw new Error('Network request failed. Check API server and CORS configuration.')
+  }
   const text = await res.text()
-  const data = text ? (JSON.parse(text) as unknown) : null
+  const data = parseJsonSafely(text)
 
   if (!res.ok) {
-    const msg =
-      typeof data === 'object' && data && 'error' in data ? String((data as ApiError).error) : res.statusText
-    throw new Error(msg)
+    throw new Error(extractErrorMessage(data, res))
   }
 
   return data as T
@@ -64,14 +84,17 @@ export async function apiUpload<T>(
   const headers: Record<string, string> = buildHeaders(options)
   if ('Content-Type' in headers) delete headers['Content-Type']
 
-  const res = await fetch(`${API_BASE}${path}`, { ...options, method: options?.method ?? 'POST', body, headers })
+  let res: Response
+  try {
+    res = await fetch(`${API_BASE}${path}`, { ...options, method: options?.method ?? 'POST', body, headers })
+  } catch {
+    throw new Error('Upload failed. Check API server availability and file size limits.')
+  }
   const text = await res.text()
-  const data = text ? (JSON.parse(text) as unknown) : null
+  const data = parseJsonSafely(text)
 
   if (!res.ok) {
-    const msg =
-      typeof data === 'object' && data && 'error' in data ? String((data as ApiError).error) : res.statusText
-    throw new Error(msg)
+    throw new Error(extractErrorMessage(data, res))
   }
 
   return data as T

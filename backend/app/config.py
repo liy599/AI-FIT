@@ -13,4 +13,7 @@ class Config:
 
     FRONTEND_BASE_URL = os.environ.get("FRONTEND_BASE_URL", "http://localhost:5173")
     ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "")
+    STEPFUN_API_URL = os.environ.get("STEPFUN_API_URL", "")
+    STEPFUN_API_KEY = os.environ.get("STEPFUN_API_KEY", "")
+    STEPFUN_MODEL = os.environ.get("STEPFUN_MODEL", "step-1v-8k")
 

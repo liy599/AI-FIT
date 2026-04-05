@@ -66,7 +66,7 @@ export default function Footer() {
                     <Link to="/tools/pose">Pose</Link>
                   </li>
                   <li>
-                    <Link to="/tools/food">Food</Link>
+                    <Link to="/food">Food</Link>
                   </li>
                 </ul>
               </div>

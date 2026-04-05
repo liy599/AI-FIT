@@ -48,7 +48,7 @@ export default function Navbar(props: NavbarProps) {
             </NavLink>
           </li>
           <li>
-            <NavLink to="/tools/food" onClick={props.onNavigate}>
+            <NavLink to="/food" onClick={props.onNavigate}>
               Food
             </NavLink>
           </li>

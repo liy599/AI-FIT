@@ -7,9 +7,12 @@
 - 已知缺口与后续优先级
 
 相关详细报告：
-- [`POSE_MIGRATION_AUDIT_2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/POSE_MIGRATION_AUDIT_2026-04-05.md)
-- [`TRAIN_AI-FIT_全量功能比对报告_2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/TRAIN_AI-FIT_全量功能比对报告_2026-04-05.md)
-- [`POSE_MIGRATION_LOG.md`](/d:/trae/trae_projects/AI-FIT/info/POSE_MIGRATION_LOG.md)
+- [`POSE_MIGRATION_AUDIT_2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/pose/POSE_MIGRATION_AUDIT_2026-04-05.md)
+- [`TRAIN_AI-FIT_全量功能比对报告_2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/pose/TRAIN_AI-FIT_全量功能比对报告_2026-04-05.md)
+- [`POSE_MIGRATION_LOG.md`](/d:/trae/trae_projects/AI-FIT/info/pose/POSE_MIGRATION_LOG.md)
+- [`FOOD_MIGRATION_AUDIT_2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/food/FOOD_MIGRATION_AUDIT_2026-04-05.md)
+- [`FOOD_AI-FIT_全量功能比对报告_2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/food/FOOD_AI-FIT_全量功能比对报告_2026-04-05.md)
+- [`FOOD_MIGRATION_LOG.md`](/d:/trae/trae_projects/AI-FIT/info/food/FOOD_MIGRATION_LOG.md)
 
 ## 一、技术栈
 
@@ -65,11 +68,21 @@
 ### 训练与饮食记录
 
 - `GET/POST /api/workouts`
-- `GET/POST /api/diets`
+- food 正式链路：
+  - `GET /api/food/meta`
+  - `GET /api/foods`
+  - `GET /api/foods/<id>`
+  - `POST /api/foods/bulk`
+  - `GET /api/meals/today`
+  - `GET /api/meals/history`
+  - `GET /api/meals/<id>`
+  - `POST /api/meals`
+  - `DELETE /api/meals/<id>`
+  - `POST /api/recognize`
 
-### 营养分析
-
-- `POST /api/nutrition/analyze`
+说明：
+- 旧 `diets / nutrition` 已退出正式运行时，不再视为主站原生可用 API。
+- food 当前正式前端入口为 `/food` 与 `/food/meal/:mealType`。
 
 ### 反馈
 
@@ -89,7 +102,22 @@
 - 已迁入：`pose capability`
 - 未迁完：`training product system`
 
-## 四、pose 迁移当前状态
+## 四、food 迁移相关结论
+
+### 总体判断
+
+当前 food 状态不是“仍在 legacy 与正式链路并存过渡”，而是：
+
+- 已经完成 `foodidentity` 核心 food 主链路向 `AI-FIT` 的正式迁移
+- 已经完成 legacy food 运行入口下线
+- 尚未完成的是文档、提交边界与历史源目录归档层面的收口
+
+更准确地说：
+- 已迁入：`formal food runtime`
+- 已下线：`legacy food runtime`
+- 待收口：`docs / archive / submit hygiene`
+
+## 五、pose 迁移当前状态
 
 ### 已完成的核心能力
 
@@ -150,7 +178,7 @@
 - `frontend`：`npm.cmd run typecheck` 可通过
 - `backend`：`tests/test_pose.py` 可通过
 
-## 五、pose 迁移尚未完成的部分
+## 六、pose 迁移尚未完成的部分
 
 ### 1. 训练历史链路未迁完
 
@@ -202,7 +230,7 @@
 - 页面表面效果已基本可用
 - 但源码质量仍处于过渡态
 
-## 六、train 全量功能与 AI-FIT 当前对比
+## 七、train 全量功能与 AI-FIT 当前对比
 
 ### 已迁移
 
@@ -231,13 +259,74 @@
 - challenge
 - settings 独立设置页与相机偏好持久化
 
-## 七、当前真实状态一句话
+## 八、food 当前状态
+
+### 已完成的核心能力
+
+#### 后端正式闭环已落地
+
+已实现接口：
+- `GET /api/food/meta`
+- `GET /api/foods`
+- `GET /api/foods/<id>`
+- `POST /api/foods/bulk`
+- `GET /api/meals/today`
+- `GET /api/meals/history`
+- `GET /api/meals/<id>`
+- `POST /api/meals`
+- `DELETE /api/meals/<id>`
+- `POST /api/recognize`
+
+已落地模型：
+- `foods`
+- `meal_records`
+- `meal_items`
+
+同时已完成：
+- meals 与正式 JWT 用户绑定
+- food seed 与 runtime catalog 内置到主项目
+- recognize 缺配置时明确返回 `503 stepfun not configured`
+- legacy `/api/diets` 与 `/api/nutrition` 已下线为 `404`
+
+#### 前端正式 food 入口已落地
+
+当前统一入口：
+- 页面：`/food`
+- 餐次页：`/food/meal/:mealType`
+- 兼容入口：`/tools/food -> /food`
+
+#### 正式 food 主流程已打通
+
+已具备：
+- 首页查看今日营养总览
+- 四餐入口
+- 餐次页 food 搜索与分类筛选
+- 图片识别加入 food
+- grams 调整
+- meals 保存与删除
+- profile 页饮食记录改读正式 `/api/meals/history`
+
+#### 测试与校验状态
+
+已确认：
+- `frontend`：`npm.cmd run typecheck` 可通过
+- `backend`：`tests/test_food.py tests/test_food_recognize.py` 可通过
+- legacy API 探针：`/api/diets` 与 `/api/nutrition/analyze` 返回 `404`
+
+### food 当前主要剩余项
+
+当前剩余问题不是 food 功能闭环，而是：
+- `backend/.env.example` 中的 `STEPFUN_API_KEY` 示例值需要回退为占位符
+- `PROJECT_STATUS.md` 之外仍有部分文档残留旧 food 表述
+- `foodidentity/` 原目录已可以在文档归档完成后删除
+
+## 九、当前真实状态一句话
 
 当前 `AI-FIT` 的真实状态不是“已迁完 `train`”，而是：
 
 `已经把 train 中最重要的 pose 核心能力迁进来了，但训练历史、任务管理、统一报告层以及外围训练产品功能还没有完整迁入。`
 
-## 八、后续优先级
+## 十、后续优先级
 
 建议按以下顺序继续推进：
 
@@ -247,13 +336,19 @@
 4. 清理 `PoseToolPage.tsx` 与 `styles.css` 中的历史字符串和 CSS 覆盖兜底。
 5. 再评估是否继续迁移 settings、privacy、dashboard、exercise/category 等外围能力。
 
-## 九、已知工程限制
+food 方向建议：
+
+1. 先把 `backend/.env.example` 中的 `STEPFUN_API_KEY` 改回占位符。
+2. 再统一整理 food 本次提交边界，避免把无关改动混入。
+3. 删除 `foodidentity/` 原目录，仅保留 `info/` 下的迁移归档文档。
+
+## 十一、已知工程限制
 
 - 认证仍是 JWT 本地存储模式，没有 token 失效黑名单 / refresh token 体系。
 - 数据库目前仍依赖 `db.create_all()`，尚未引入正式迁移工具。
 - 构建层面曾受本机 `vite/esbuild spawn EPERM` 环境问题影响，这不是纯代码逻辑问题。
 
-## 十、快速索引
+## 十二、快速索引
 
 关键文件：
 - 前端姿态页：`frontend/src/pages/PoseToolPage.tsx`
@@ -264,6 +359,16 @@
 - pose 数据模型：`backend/app/models.py`
 
 关键文档：
-- [`POSE_MIGRATION_AUDIT_2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/POSE_MIGRATION_AUDIT_2026-04-05.md)
-- [`TRAIN_AI-FIT_全量功能比对报告_2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/TRAIN_AI-FIT_全量功能比对报告_2026-04-05.md)
-- [`POSE_MIGRATION_LOG.md`](/d:/trae/trae_projects/AI-FIT/info/POSE_MIGRATION_LOG.md)
+- [`POSE_MIGRATION_AUDIT_2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/pose/POSE_MIGRATION_AUDIT_2026-04-05.md)
+- [`TRAIN_AI-FIT_全量功能比对报告_2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/pose/TRAIN_AI-FIT_全量功能比对报告_2026-04-05.md)
+- [`POSE_MIGRATION_LOG.md`](/d:/trae/trae_projects/AI-FIT/info/pose/POSE_MIGRATION_LOG.md)
+- [`FOOD_MIGRATION_AUDIT_2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/food/FOOD_MIGRATION_AUDIT_2026-04-05.md)
+- [`FOOD_AI-FIT_全量功能比对报告_2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/food/FOOD_AI-FIT_全量功能比对报告_2026-04-05.md)
+- [`FOOD_MIGRATION_LOG.md`](/d:/trae/trae_projects/AI-FIT/info/food/FOOD_MIGRATION_LOG.md)
+
+
+
+
+
+
+

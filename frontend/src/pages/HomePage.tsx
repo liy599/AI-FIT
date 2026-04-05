@@ -90,7 +90,7 @@ export default function HomePage() {
                 <Link to="/tools/pose" className="cl_theme-btn cl_hero-btn">
                   开始动作矫正 <Arrow15 />
                 </Link>
-                <Link to="/tools/food" className="cl_hero-btn-2">
+                <Link to="/food" className="cl_hero-btn-2">
                   开始食物分析 <Arrow15 />
                 </Link>
               </div>

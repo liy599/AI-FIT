@@ -6,7 +6,8 @@ import BlogDetailPage from './pages/BlogDetailPage'
 import BlogListPage from './pages/BlogListPage'
 import CourseDetailPage from './pages/CourseDetailPage'
 import CoursesListPage from './pages/CoursesListPage'
-import FoodPage from './pages/FoodPage'
+import FoodMealPage from './pages/FoodMealPage'
+import FoodModulePage from './pages/FoodModulePage'
 import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
 import NotFoundPage from './pages/NotFoundPage'
@@ -29,8 +30,10 @@ export default function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/about" element={<AboutPage />} />
+          <Route path="/food" element={<FoodModulePage />} />
+          <Route path="/food/meal/:mealType" element={<FoodMealPage />} />
           <Route path="/tools/pose" element={<PoseToolPage />} />
-          <Route path="/tools/food" element={<FoodPage />} />
+          <Route path="/tools/food" element={<Navigate to="/food" replace />} />
           <Route path="/blogs" element={<BlogListPage />} />
           <Route path="/blogs/:id" element={<BlogDetailPage />} />
           <Route path="/courses" element={<RequireAuth children={<CoursesListPage />} />} />

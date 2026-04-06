@@ -129,15 +129,15 @@ export default function HomePage() {
               <div className="col-xl-8">
                 {bigBlog ? (
                   <div className="cl_blog_big-item mb-30">
-                    <div className="cl_blog_big-item-img">
+                    <div className="cl_blog_big-item-img overflow-hidden rounded-2xl">
                       <Link to={`/blogs/${bigBlog.id}`}>
-                        <img
-                          src={
-                            resolveMediaUrl(bigBlog.cover_image_url) ??
-                            '/assets/images/blog/h1_1.png'
-                          }
-                          alt=""
-                        />
+                        <div className="relative w-full aspect-video max-h-[400px] overflow-hidden bg-slate-100">
+                          <img
+                            className="absolute inset-0 h-full w-full object-cover object-center"
+                            src={resolveMediaUrl(bigBlog.cover_image_url) ?? '/assets/images/blog/h1_1.png'}
+                            alt=""
+                          />
+                        </div>
                       </Link>
                     </div>
                     <div className="cl_blog_big-item-content">
@@ -152,7 +152,9 @@ export default function HomePage() {
                         </span>
                       </div>
                       <h3>
-                        <Link to={`/blogs/${bigBlog.id}`}>{bigBlog.title}</Link>
+                        <Link to={`/blogs/${bigBlog.id}`} className="line-clamp-2">
+                          {bigBlog.title}
+                        </Link>
                       </h3>
                       <p>{bigBlog.excerpt}</p>
                       <Link to={`/blogs/${bigBlog.id}`} className="cl_blog_big-item-content-btn">
@@ -167,12 +169,15 @@ export default function HomePage() {
                 <div className="cl_blog-right pb-20">
                   {sideBlogs.map((b, idx) => (
                     <div className="cl_blog-item mb-10" key={b.id}>
-                      <div className="cl_blog-item-img">
+                      <div className="cl_blog-item-img overflow-hidden rounded-xl">
                         <Link to={`/blogs/${b.id}`}>
-                          <img
-                            src={resolveMediaUrl(b.cover_image_url) ?? `/assets/images/blog/h1_${idx + 2}.png`}
-                            alt=""
-                          />
+                          <div className="relative w-full aspect-video max-h-[120px] overflow-hidden bg-slate-100">
+                            <img
+                              className="absolute inset-0 h-full w-full object-cover object-center"
+                              src={resolveMediaUrl(b.cover_image_url) ?? `/assets/images/blog/h1_${idx + 2}.png`}
+                              alt=""
+                            />
+                          </div>
                         </Link>
                       </div>
                       <div className="cl_blog-item-content">
@@ -187,7 +192,9 @@ export default function HomePage() {
                           </span>
                         </div>
                         <h4>
-                          <Link to={`/blogs/${b.id}`}>{b.title}</Link>
+                          <Link to={`/blogs/${b.id}`} className="line-clamp-2">
+                            {b.title}
+                          </Link>
                         </h4>
                       </div>
                     </div>

@@ -175,14 +175,20 @@ export default function BlogListPage() {
           <div className="row">
             {items.map((b) => (
               <div className="col-xl-4 col-lg-6 col-md-6" key={b.id}>
-                <div className="cl_h2_blog-item mb-30">
-                  <div className="cl_h2_blog-item-img">
+                <div className="cl_h2_blog-item mb-30 flex h-full flex-col">
+                  <div className="cl_h2_blog-item-img overflow-hidden rounded-2xl">
                     <Link to={`/blogs/${b.id}`}>
-                      <img src={resolveMediaUrl(b.cover_image_url) ?? '/assets/images/blog/h2_1.png'} alt="" />
+                      <div className="relative w-full aspect-video overflow-hidden bg-slate-100">
+                        <img
+                          className="absolute inset-0 h-full w-full object-cover object-center"
+                          src={resolveMediaUrl(b.cover_image_url) ?? '/assets/images/blog/h2_1.png'}
+                          alt=""
+                        />
+                      </div>
                     </Link>
                     <span>{b.tags[0]?.name ?? 'Our Blog'}</span>
                   </div>
-                  <div className="cl_h2_blog-item-content">
+                  <div className="cl_h2_blog-item-content flex flex-1 flex-col">
                     <div className="cl_h2_blog-item-content-meta">
                       <span>
                         <i className="fa-light fa-user"></i>
@@ -198,7 +204,9 @@ export default function BlogListPage() {
                       </span>
                     </div>
                     <h4>
-                      <Link to={`/blogs/${b.id}`}>{b.title}</Link>
+                      <Link to={`/blogs/${b.id}`} className="line-clamp-2">
+                        {b.title}
+                      </Link>
                     </h4>
                   </div>
                 </div>

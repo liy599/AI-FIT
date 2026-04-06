@@ -1,98 +1,98 @@
-﻿# FOODIDENTITY 涓?AI-FIT 鍏ㄩ噺鍔熻兘姣斿鎶ュ憡
+# FOODIDENTITY 。AI-FIT 全量功能比对报告
 
-鏃ユ湡锛?026-04-05
+日期：026-04-05
 
-## 涓€銆佺洰鐨?
-鏈姤鍛婄敤浜庡洖绛斾袱涓棶棰橈細
+## 丢、目。
+本报告用于回答两个问题：
 
-1. `foodidentity` 褰撳墠鍒板簳鍖呭惈鍝簺鏍稿績 food 鍔熻兘銆?2. 杩欎簺鍔熻兘閲岋紝鍝簺宸茬粡杩佸叆褰撳墠 `AI-FIT`锛屽摢浜涘彧鏄儴鍒嗚縼绉伙紝鍝簺宸茬粡鏄庣‘涓嶅啀淇濈暀銆?
-娉ㄦ剰锛?- 鏈姤鍛婂叧娉ㄧ殑鏄€渀foodidentity` 鐨?food 浜у搧鑳藉姏涓?`AI-FIT` 褰撳墠鐘舵€佺殑瀵圭収鈥濄€?- `AI-FIT` 鏈韩杩樺寘鍚崥瀹€佽绋嬨€佺敤鎴蜂腑蹇冦€乸ose 绛夊師鐢熷姛鑳斤紝杩欎簺涓嶅睘浜庝粠 `foodidentity` 杩佸叆鐨勮寖鍥淬€?
-## 浜屻€佹€讳綋缁撹
+1. `foodidentity` 当前到底包含哪些核心 food 功能。2. 这些功能里，哪些已经迁入当前 `AI-FIT`，哪些只是部分迁移，哪些已经明确不再保留。
+注意。- 本报告关注的是”`foodidentity` 。food 产品能力。`AI-FIT` 当前状态的对照”。- `AI-FIT` 本身还包含博它69”课程”用户中心”pose 等原生功能，这些不属于从 `foodidentity` 迁入的范围。
+## 二””体结论
 
-褰撳墠鍙互涓嬬粨璁猴細
+当前可以下结论：
 
-- `foodidentity` 鐨勬牳蹇冧环鍊间富瑕侀泦涓湪鈥滀粖鏃ラギ椋熸€昏 + 椁愭缂栬緫 + 椋熺墿搴撴煡璇?+ 鍥剧墖璇嗗埆鍏ラ + meals 鎸佷箙鍖栤€濄€?- 杩欎簺鏍稿績鑳藉姏宸茬粡鍩烘湰瀹屾垚姝ｅ紡杩佺Щ锛屽苟鏀舵暃鍒?`AI-FIT` 鐨勬寮?food 閾捐矾涓€?- 涓?`foodidentity` 鐩告瘮锛屽綋鍓?`AI-FIT` 宸茬粡涓嶅啀淇濈暀 demo `userId` 鏂规锛岃€屾槸鏀逛负姝ｅ紡 JWT 鐢ㄦ埛浣撶郴锛岃繖灞炰簬姝ｅ紡鍖栧崌绾э紝涓嶆槸缂哄け銆?- 涓庢鍚屾椂锛宍AI-FIT` 宸茬粡鏄庣‘涓嬬嚎 legacy `/tools/food`銆乣/api/diets`銆乣/api/nutrition`锛岃鏄庢湰娆′笉鏄€滃弻绯荤粺骞跺瓨鈥濓紝鑰屾槸姝ｅ紡 runtime 鏇挎崲銆?
-涓€鍙ヨ瘽鍒ゆ柇锛?- `AI-FIT` 宸茬粡杩佸叆 `foodidentity` 鐨勬寮?food 涓婚摼璺€?- 褰撳墠鍓╀笅鐨勪笉鏄姛鑳介棴鐜己鍙ｏ紝鑰屾槸鏂囨。銆佹彁浜よ竟鐣屽拰鍘嗗彶鐩綍鏄惁缁х画淇濈暀鐨勯棶棰樸€?
-## 涓夈€乫oodidentity 鍔熻兘鍏ㄦ櫙
+- `foodidentity` 的核心价值主要集中在“今日饮食”览 + 餐次编辑 + 食物库查。+ 图片识别入餐 + meals 持久化”。- 这些核心能力已经基本完成正式迁移，并收敛至`AI-FIT` 的正式food 链路中。- 。`foodidentity` 相比，当。`AI-FIT` 已经不再保留 demo `userId` 方案，”是改为正式 JWT 用户体系，这属于正式化升级，不是缺失。- 与此同时，`AI-FIT` 已经明确下线 legacy `/tools/food`、`/api/diets`、`/api/nutrition`，说明本次不是”双系统并存”，而是正式 runtime 替换。
+丢句话判断：- `AI-FIT` 已经迁入 `foodidentity` 的正式food 主链路。- 当前剩下的不是功能闭环缺口，而是文档、提交边界和历史目录是否继续保留的问题。
+## 三”foodidentity 功能全景
 
-缁撳悎宸插綊妗ｇ殑鍔熻兘鍒嗘瀽銆佸疄鏂芥柟妗堜笌杩佺Щ鏃ュ織锛宍foodidentity` 褰撳墠鍙媶鎴愪互涓嬫ā鍧楋細
+结合已归档的功能分析、实施方案与迁移日志，`foodidentity` 当前可拆成以下模块：
 
-### 1. 浠婃棩楗鎬昏椤?
-`foodidentity` 鍖呭惈锛?- 浠婃棩鐑噺涓庝笁澶ц惀鍏荤礌鎬昏
-- 鍥涗釜椁愭鍏ュ彛
-- 褰撴棩宸蹭繚瀛橀娆″垪琛?- 鍒犻櫎椁愭
-- 璺宠浆鍒伴娆＄紪杈戦〉
+### 1. 今日饮食总览。
+`foodidentity` 包含。- 今日热量与三大营养素总览
+- 四个餐次入口
+- 当日已保存餐次列。- 删除餐次
+- 跳转到餐次编辑页
 
-璇佹嵁锛?- [`FOODIDENTITY_鏍稿績鍔熻兘鐩樼偣涓庤縼绉诲奖鍝嶅垎鏋恄2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/food/FOODIDENTITY_鏍稿績鍔熻兘鐩樼偣涓庤縼绉诲奖鍝嶅垎鏋恄2026-04-05.md)
-- [`FOODIDENTITY_姝ｅ紡杩佺Щ瀹炴柦鏂规_2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/food/FOODIDENTITY_姝ｅ紡杩佺Щ瀹炴柦鏂规_2026-04-05.md)
+证据：- [`FOODIDENTITY_核心功能盘点与迁移影响分析_2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/food/FOODIDENTITY_核心功能盘点与迁移影响分析_2026-04-05.md)
+- [`FOODIDENTITY_正式迁移实施方案_2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/food/FOODIDENTITY_正式迁移实施方案_2026-04-05.md)
 
-### 2. 椁愭缂栬緫涓婚摼璺?
-`foodidentity` 鍖呭惈锛?- 杩涘叆鎸囧畾椁愭缂栬緫椤?- 鏌ヨ food 鍒楄〃
-- 鎸夊垎绫讳笌鍏抽敭璇嶇瓫閫?- 浠?food 鍒楄〃鍔犲叆鎴栫Щ鍑洪娆?- 鎵撳紑椁愭鎶藉眽
-- 璋冩暣 grams
-- 淇濆瓨褰撳墠椁愭
-- 缂栬緫宸蹭繚瀛橀娆?
-璇佹嵁锛?- [`FOODIDENTITY_鏍稿績鍔熻兘鐩樼偣涓庤縼绉诲奖鍝嶅垎鏋恄2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/food/FOODIDENTITY_鏍稿績鍔熻兘鐩樼偣涓庤縼绉诲奖鍝嶅垎鏋恄2026-04-05.md)
-- [`FOODIDENTITY_姝ｅ紡杩佺Щ瀹炴柦鏂规_2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/food/FOODIDENTITY_姝ｅ紡杩佺Щ瀹炴柦鏂规_2026-04-05.md)
+### 2. 餐次编辑主链。
+`foodidentity` 包含。- 进入指定餐次编辑。- 查询 food 列表
+- 按分类与关键词筛。- 。food 列表加入或移出餐。- 打开餐次抽屉
+- 调整 grams
+- 保存当前餐次
+- 编辑已保存餐。
+证据：- [`FOODIDENTITY_核心功能盘点与迁移影响分析_2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/food/FOODIDENTITY_核心功能盘点与迁移影响分析_2026-04-05.md)
+- [`FOODIDENTITY_正式迁移实施方案_2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/food/FOODIDENTITY_正式迁移实施方案_2026-04-05.md)
 
-### 3. 椋熺墿搴撴煡璇?
-`foodidentity` 鍖呭惈锛?- `GET /foods`
+### 3. 食物库查。
+`foodidentity` 包含。- `GET /foods`
 - `GET /foods/:id`
 - `POST /foods/bulk`
-- 鏀寔 query / category / limit / offset
+- 支持 query / category / limit / offset
 
-璇佹嵁锛?- [`FOODIDENTITY_鏍稿績鍔熻兘鐩樼偣涓庤縼绉诲奖鍝嶅垎鏋恄2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/food/FOODIDENTITY_鏍稿績鍔熻兘鐩樼偣涓庤縼绉诲奖鍝嶅垎鏋恄2026-04-05.md)
-- [`FOODIDENTITY_姝ｅ紡杩佺Щ瀹炴柦鏂规_2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/food/FOODIDENTITY_姝ｅ紡杩佺Щ瀹炴柦鏂规_2026-04-05.md)
+证据：- [`FOODIDENTITY_核心功能盘点与迁移影响分析_2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/food/FOODIDENTITY_核心功能盘点与迁移影响分析_2026-04-05.md)
+- [`FOODIDENTITY_正式迁移实施方案_2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/food/FOODIDENTITY_正式迁移实施方案_2026-04-05.md)
 
-### 4. meals 鏁版嵁璇诲啓
+### 4. meals 数据读写
 
-`foodidentity` 鍖呭惈锛?- `GET /meals/today`
+`foodidentity` 包含。- `GET /meals/today`
 - `GET /meals/:mealId`
 - `POST /meals`
 - `DELETE /meals/:mealId`
-- 鍩轰簬 `userId` + `mealType` + `recordedOn` 瑕嗙洊淇濆瓨
+- 基于 `userId` + `mealType` + `recordedOn` 覆盖保存
 
-璇佹嵁锛?- [`FOODIDENTITY_鏍稿績鍔熻兘鐩樼偣涓庤縼绉诲奖鍝嶅垎鏋恄2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/food/FOODIDENTITY_鏍稿績鍔熻兘鐩樼偣涓庤縼绉诲奖鍝嶅垎鏋恄2026-04-05.md)
-- [`FOODIDENTITY_姝ｅ紡杩佺Щ瀹炴柦鏂规_2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/food/FOODIDENTITY_姝ｅ紡杩佺Щ瀹炴柦鏂规_2026-04-05.md)
+证据：- [`FOODIDENTITY_核心功能盘点与迁移影响分析_2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/food/FOODIDENTITY_核心功能盘点与迁移影响分析_2026-04-05.md)
+- [`FOODIDENTITY_正式迁移实施方案_2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/food/FOODIDENTITY_正式迁移实施方案_2026-04-05.md)
 
-### 5. 鍥剧墖璇嗗埆鍏ラ
+### 5. 图片识别入餐
 
-`foodidentity` 鍖呭惈锛?- 涓婁紶鍥剧墖
-- 璋冪敤 Stepfun 璇嗗埆 food labels
-- 鐢?food match 閫昏緫鏄犲皠鍐呴儴 foods
-- 杩斿洖 `foodIds`
+`foodidentity` 包含。- 上传图片
+- 调用 Stepfun 识别 food labels
+- 。food match 逻辑映射内部 foods
+- 返回 `foodIds`
 
-璇佹嵁锛?- [`FOODIDENTITY_鏍稿績鍔熻兘鐩樼偣涓庤縼绉诲奖鍝嶅垎鏋恄2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/food/FOODIDENTITY_鏍稿績鍔熻兘鐩樼偣涓庤縼绉诲奖鍝嶅垎鏋恄2026-04-05.md)
-- [`FOODIDENTITY_姝ｅ紡杩佺Щ瀹炴柦鏂规_2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/food/FOODIDENTITY_姝ｅ紡杩佺Щ瀹炴柦鏂规_2026-04-05.md)
+证据：- [`FOODIDENTITY_核心功能盘点与迁移影响分析_2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/food/FOODIDENTITY_核心功能盘点与迁移影响分析_2026-04-05.md)
+- [`FOODIDENTITY_正式迁移实施方案_2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/food/FOODIDENTITY_正式迁移实施方案_2026-04-05.md)
 
-### 6. 涓嶅睘浜庢寮忚縼绉荤洰鏍囩殑鍐呭
+### 6. 不属于正式迁移目标的内容
 
-`foodidentity` 杩樺寘鍚細
+`foodidentity` 还包含：
 - `yolo_project/`
 - `calorie_demo/`
-- 鐙珛 Docker / nginx / Express 閮ㄧ讲鍖呰
-- demo `useUserId` 鏈哄埗
+- 独立 Docker / nginx / Express 部署包装
+- demo `useUserId` 机制
 
-杩欎簺鍦ㄥ疄鏂芥柟妗堜腑宸叉槑纭笉绾冲叆姝ｅ紡杩佺Щ鐩爣銆?
-## 鍥涖€丄I-FIT 褰撳墠瀵瑰簲鑳藉姏
+这些在实施方案中已明确不纳入正式迁移目标。
+## 四”AI-FIT 当前对应能力
 
-褰撳墠 `AI-FIT` 涓紝涓?`foodidentity` 瀵瑰簲鐨勮兘鍔涗富瑕佹潵鑷互涓嬮儴鍒嗭細
+当前 `AI-FIT` 中，。`foodidentity` 对应的能力主要来自以下部分：
 
-### A. 宸蹭粠 foodidentity 杩佸叆鎴栧榻愮殑鑳藉姏
+### A. 已从 foodidentity 迁入或对齐的能力
 
-- 姝ｅ紡 food 棣栭〉锛歚/food`
-- 姝ｅ紡椁愭椤碉細`/food/meal/:mealType`
-- 姝ｅ紡 food API锛?  - `/api/food/meta`
+- 正式 food 首页：`/food`
+- 正式餐次页：`/food/meal/:mealType`
+- 正式 food API。  - `/api/food/meta`
   - `/api/foods`
   - `/api/meals`
   - `/api/recognize`
-- 姝ｅ紡 food 鏁版嵁妯″瀷锛?  - `foods`
+- 正式 food 数据模型。  - `foods`
   - `meal_records`
   - `meal_items`
-- 姝ｅ紡 meals 鍘嗗彶鎺ュ彛锛?  - `/api/meals/history`
-- 姝ｅ紡鐢ㄦ埛缁戝畾锛?  - meals 鏀逛负鍩轰簬 JWT 韬唤锛岃€屼笉鏄鎴风鐩存帴浼?`userId`
+- 正式 meals 历史接口。  - `/api/meals/history`
+- 正式用户绑定。  - meals 改为基于 JWT 身份，”不是客户端直接。`userId`
 
-璇佹嵁锛?- [`frontend/src/App.tsx`](/d:/trae/trae_projects/AI-FIT/frontend/src/App.tsx#L33)
+证据：- [`frontend/src/App.tsx`](/d:/trae/trae_projects/AI-FIT/frontend/src/App.tsx#L33)
 - [`frontend/src/App.tsx`](/d:/trae/trae_projects/AI-FIT/frontend/src/App.tsx#L34)
 - [`backend/app/__init__.py`](/d:/trae/trae_projects/AI-FIT/backend/app/__init__.py#L62)
 - [`backend/app/__init__.py`](/d:/trae/trae_projects/AI-FIT/backend/app/__init__.py#L63)
@@ -102,156 +102,156 @@
 - [`backend/app/models.py`](/d:/trae/trae_projects/AI-FIT/backend/app/models.py#L87)
 - [`backend/app/models.py`](/d:/trae/trae_projects/AI-FIT/backend/app/models.py#L100)
 
-### B. AI-FIT 褰撳墠瀵?foodidentity 鐨勬寮忓寲鍗囩骇
+### B. AI-FIT 当前。foodidentity 的正式化升级
 
-- 璁よ瘉浠?demo `userId` 鍒囨崲涓烘寮?JWT
-- 鍚庣浠庣嫭绔?Express + SQL 鏂囦欢鍒濆鍖栵紝鍒囧埌涓婚」鐩?Flask + SQLAlchemy + runtime seed
-- 棣栭〉涓庨娆￠〉鏀逛负涓荤珯椋庢牸椤甸潰锛岃€屼笉鏄繚鐣欏師 demo UI
-- profile 椤甸ギ椋熻褰曞凡鍒囧埌姝ｅ紡 `/api/meals/history`
+- 认证。demo `userId` 切换为正式JWT
+- 后端从独。Express + SQL 文件初始化，切到主项。Flask + SQLAlchemy + runtime seed
+- 首页与餐次页改为主站风格页面，”不是保留原 demo UI
+- profile 页饮食记录已切到正式 `/api/meals/history`
 
-璇佹嵁锛?- [`backend/app/routes/meals.py`](/d:/trae/trae_projects/AI-FIT/backend/app/routes/meals.py#L59)
+证据：- [`backend/app/routes/meals.py`](/d:/trae/trae_projects/AI-FIT/backend/app/routes/meals.py#L59)
 - [`backend/app/routes/meals.py`](/d:/trae/trae_projects/AI-FIT/backend/app/routes/meals.py#L95)
 - [`backend/app/routes/meals.py`](/d:/trae/trae_projects/AI-FIT/backend/app/routes/meals.py#L127)
 - [`frontend/src/pages/FoodModulePage.tsx`](/d:/trae/trae_projects/AI-FIT/frontend/src/pages/FoodModulePage.tsx#L54)
 - [`frontend/src/pages/FoodMealPage.tsx`](/d:/trae/trae_projects/AI-FIT/frontend/src/pages/FoodMealPage.tsx#L83)
 - [`frontend/src/pages/ProfilePage.tsx`](/d:/trae/trae_projects/AI-FIT/frontend/src/pages/ProfilePage.tsx#L193)
 
-## 浜斻€佸叏閲忔瘮瀵圭煩闃?
-### 1. 浠婃棩楗鎬昏椤?
-`foodidentity`锛?- 浠婃棩鎬昏
-- 鍥涢鍏ュ彛
-- 褰撴棩宸蹭繚瀛橀娆″垪琛?- 鍒犻櫎椁愭
+## 五”全量比对矩。
+### 1. 今日饮食总览。
+`foodidentity`。- 今日总览
+- 四餐入口
+- 当日已保存餐次列。- 删除餐次
 
-`AI-FIT` 褰撳墠鐘舵€侊細
-- 宸叉湁 `/food` 鎬昏椤?- 宸叉湁鍥涢鍏ュ彛
-- 宸插睍绀?today summary
-- 鍒犻櫎鍔ㄤ綔浠庨椤电Щ鍒伴娆＄紪杈戦〉瀹屾垚
+`AI-FIT` 当前状态：
+- 已有 `/food` 总览。- 已有四餐入口
+- 已展。today summary
+- 删除动作从首页移到餐次编辑页完成
 
-缁撹锛?- `鏍稿績鑳藉姏宸茶縼绉籤
-- `浜や簰甯冨眬涓嶅畬鍏ㄥ悓褰紝浣嗘寮忚涔夊凡瀵归綈`
+结论。- `核心能力已迁移`
+- `交互布局不完全同形，但正式语义已对齐`
 
-### 2. 椁愭缂栬緫涓婚摼璺?
-`foodidentity`锛?- 鎼滅储 foods
-- 鍒嗙被绛涢€?- 鍔犲叆椁愭
-- grams 璋冩暣
-- 淇濆瓨 meal
-- 缂栬緫宸蹭繚瀛?meal
+### 2. 餐次编辑主链。
+`foodidentity`。- 搜索 foods
+- 分类筛。- 加入餐次
+- grams 调整
+- 保存 meal
+- 编辑已保。meal
 
-`AI-FIT` 褰撳墠鐘舵€侊細
-- `/food/meal/:mealType` 宸插疄鐜?food 鍒楄〃銆佸垎绫荤瓫閫夈€佸姞鍏ョЩ闄ゃ€乬rams 璋冩暣銆佷繚瀛樸€佸垹闄?- 浼氬洖濉粖鏃ュ綋鍓嶉娆″凡鏈?meal
-- 闈炴硶 mealType 璺敱鏈夋槑纭敊璇洖閫€
+`AI-FIT` 当前状态：
+- `/food/meal/:mealType` 已实。food 列表、分类筛选”加入移除”grams 调整、保存”删。- 会回填今日当前餐次已。meal
+- 非法 mealType 路由有明确错误回逢
 
-缁撹锛?- `宸茶縼绉籤
+结论。- `已迁移`
 
-### 3. 椋熺墿搴撴煡璇?
-`foodidentity`锛?- `GET /foods`
+### 3. 食物库查。
+`foodidentity`。- `GET /foods`
 - `GET /foods/:id`
 - `POST /foods/bulk`
 
-`AI-FIT` 褰撳墠鐘舵€侊細
+`AI-FIT` 当前状态：
 - `GET /api/foods`
 - `GET /api/foods/<id>`
 - `POST /api/foods/bulk`
-- 宸叉湁 runtime catalog 涓?seed 鍏煎灞?
-缁撹锛?- `宸茶縼绉籤
+- 已有 runtime catalog 。seed 兼容。
+结论。- `已迁移`
 
-### 4. meals 鏁版嵁璇诲啓
+### 4. meals 数据读写
 
-`foodidentity`锛?- `GET /meals/today`
+`foodidentity`。- `GET /meals/today`
 - `GET /meals/:mealId`
 - `POST /meals`
 - `DELETE /meals/:mealId`
-- 鐢?`userId` 鏍囪瘑鐢ㄦ埛
+- 。`userId` 标识用户
 
-`AI-FIT` 褰撳墠鐘舵€侊細
-- 瀵瑰簲鑳藉姏閮藉凡瀛樺湪浜?`/api/meals/*`
-- 棰濆鏂板 `/api/meals/history`
-- 璁よ瘉鍗囩骇涓?JWT 鐢ㄦ埛韬唤
-- 澧炲姞绌?items銆侀潪娉?foodId銆侀潪娉曟棩鏈熺殑闃插尽鏍￠獙
+`AI-FIT` 当前状态：
+- 对应能力都已存在。`/api/meals/*`
+- 额外新增 `/api/meals/history`
+- 认证升级。JWT 用户身份
+- 增加。items、非。foodId、非法日期的防御校验
 
-缁撹锛?- `宸茶縼绉籤
-- `骞朵笖瀹屾垚浜嗘寮忓寲澧炲己`
+结论。- `已迁移`
+- `并且完成了正式化增强`
 
-### 5. 鍥剧墖璇嗗埆鍏ラ
+### 5. 图片识别入餐
 
-`foodidentity`锛?- 涓婁紶鍥剧墖
-- Stepfun 璇嗗埆
-- food 鍖归厤
-- 杩斿洖 `foodIds`
+`foodidentity`。- 上传图片
+- Stepfun 识别
+- food 匹配
+- 返回 `foodIds`
 
-`AI-FIT` 褰撳墠鐘舵€侊細
-- `/api/recognize` 宸叉壙鎺ヨ閾捐矾
-- 杩斿洖 `names / foodIds / unmatchedNames`
-- 閰嶇疆缂哄け鏃惰繑鍥?`503 stepfun not configured`
+`AI-FIT` 当前状态：
+- `/api/recognize` 已承接该链路
+- 返回 `names / foodIds / unmatchedNames`
+- 配置缺失时返。`503 stepfun not configured`
 
-缁撹锛?- `宸茶縼绉籤
-- `閿欒璇箟鏇存竻鏅癭
+结论。- `已迁移`
+- `错误语义更清晰`
 
-### 6. 鐢ㄦ埛鏍囪瘑鏈哄埗
+### 6. 用户标识机制
 
-`foodidentity`锛?- 鍓嶇 `useUserId` 鐢熸垚 demo 韬唤
-- 鍚庣淇′换瀹㈡埛绔紶鍏?`userId`
+`foodidentity`。- 前端 `useUserId` 生成 demo 身份
+- 后端信任客户端传。`userId`
 
-`AI-FIT` 褰撳墠鐘舵€侊細
-- 浣跨敤姝ｅ紡 JWT 韬唤
-- meals 涓嶅啀鎺ュ彈浠绘剰瀹㈡埛绔?`userId`
+`AI-FIT` 当前状态：
+- 使用正式 JWT 身份
+- meals 不再接受任意客户。`userId`
 
-缁撹锛?- `鏈繚鐣欐棫鏂规`
-- `杩欐槸姝ｅ紡鏇挎崲锛屼笉鏄己澶盽
+结论。- `未保留旧方案`
+- `这是正式替换，不是缺失`
 
-### 7. legacy food 閾捐矾
+### 7. legacy food 链路
 
-`foodidentity` / 鏃?AI-FIT food锛?- 鏃?`/tools/food`
-- 鏃?`/api/diets`
-- 鏃?`/api/nutrition`
-- 鏃?`FoodPage.tsx`
-- 鏃?`DietRecord`
+`foodidentity` / 。AI-FIT food。- 。`/tools/food`
+- 。`/api/diets`
+- 。`/api/nutrition`
+- 。`FoodPage.tsx`
+- 。`DietRecord`
 
-`AI-FIT` 褰撳墠鐘舵€侊細
-- `/tools/food` 宸查噸瀹氬悜鍒?`/food`
-- `/api/diets` 涓?`/api/nutrition` 宸蹭笅绾夸负 404
-- `FoodPage.tsx` 宸茬Щ闄?- `DietRecord` 宸茬Щ闄?
-缁撹锛?- `宸插畬鎴愭棫閾捐矾閫€鍦篳
+`AI-FIT` 当前状态：
+- `/tools/food` 已重定向。`/food`
+- `/api/diets` 。`/api/nutrition` 已下线为 404
+- `FoodPage.tsx` 已移。- `DietRecord` 已移。
+结论。- `已完成旧链路逢场`
 
-## 鍏€佽縼绉荤姸鎬佹€昏〃
+## 六”迁移状态”表
 
-### 宸茶縼绉?
-- 浠婃棩楗鎬昏鏍稿績鑳藉姏
-- 椁愭缂栬緫鏍稿績閾捐矾
-- foods 鏌ヨ / bulk 鏌ヨ
-- meals 淇濆瓨 / 鏌ヨ / 鍒犻櫎
-- 鍥剧墖璇嗗埆鍏ラ
-- 姝ｅ紡 food 鏁版嵁妯″瀷
-- profile 椤?food 鏁版嵁婧愬垏鎹㈠埌姝ｅ紡 meals
-- legacy food 杩愯鍏ュ彛涓嬬嚎
+### 已迁。
+- 今日饮食总览核心能力
+- 餐次编辑核心链路
+- foods 查询 / bulk 查询
+- meals 保存 / 查询 / 删除
+- 图片识别入餐
+- 正式 food 数据模型
+- profile 。food 数据源切换到正式 meals
+- legacy food 运行入口下线
 
-### 姝ｅ紡鍖栧寮?
-- demo `userId` -> JWT 鐢ㄦ埛韬唤
-- 鍚庣 seed 涓?runtime catalog 鍐呯疆鍒颁富椤圭洰
-- meals 澧炲姞 history 鎺ュ彛
-- 鏃ユ湡 / foodId / 绌?items 鏍￠獙鏇翠弗鏍?- 璇嗗埆澶辫触璺緞瀹氫箟鏇存竻鏅?
-### 鏈繚鐣欎笖涓嶅簲瑙嗕负缂哄け
+### 正式化增。
+- demo `userId` -> JWT 用户身份
+- 后端 seed 。runtime catalog 内置到主项目
+- meals 增加 history 接口
+- 日期 / foodId / 。items 校验更严。- 识别失败路径定义更清。
+### 未保留且不应视为缺失
 
 - `foodidentity/yolo_project/`
 - `foodidentity/calorie_demo/`
-- `foodidentity` 鐙珛閮ㄧ讲鍖呰
-- demo `useUserId` 鏈哄埗
+- `foodidentity` 独立部署包装
+- demo `useUserId` 机制
 
-## 涓冦€乫oodidentity 鐩綍鏄惁杩樿兘鍒犻櫎
+## 七”foodidentity 目录是否还能删除
 
-浠庘€滆繍琛屾椂渚濊禆鈥濊搴︾湅锛?
-- 褰撳墠姝ｅ紡鍓嶅悗绔繍琛岄摼璺凡缁忎笉渚濊禆 `foodidentity/`銆?- 鍒犻櫎璇ョ洰褰曞悗锛屾寮?`/food` 涓?`/api/food*` 杩愯閫昏緫鏈韩涓嶅簲鍙楀奖鍝嶃€?
-浣嗕粠鈥滃綋鍓嶄粨搴撶姸鎬佲€濊搴︾湅锛?
-- 鍙鍏堝畬鎴愭枃妗ｅ綊妗ｄ笌澶辨晥閾炬帴娓呯悊锛屽氨鍙互鍒犻櫎鍘?`foodidentity/` 鐩綍銆?- 鐩綍涓嬬殑瀹炴柦鏂规涓庡巻鍙插垎鏋愭枃妗ｏ紝褰撳墠浠嶇劧鏄湰娆¤縼绉荤殑婧愭枃妗ｃ€?
-鏇村噯纭殑缁撹鏄細
+从”运行时依赖”角度看。
+- 当前正式前后端运行链路已经不依赖 `foodidentity/`。- 删除该目录后，正式`/food` 。`/api/food*` 运行逻辑本身不应受影响。
+但从“当前仓库状态”角度看。
+- 只要先完成文档归档与失效链接清理，就可以删除。`foodidentity/` 目录。- 目录下的实施方案与历史分析文档，当前仍然是本次迁移的源文档。
+更准确的结论是：
 
-- `杩愯鏃跺眰闈細鍙互鑴辩`
-- `浠撳簱鏁寸悊灞傞潰锛氭殏涓嶅缓璁珛鍒荤墿鐞嗗垹闄
+- `运行时层面：可以脱离`
+- `仓库整理层面：暂不建议立刻物理删除`
 
-濡傛灉鍚庣画鍐冲畾褰诲簳鍒犻櫎锛屽缓璁厛瀹屾垚锛?
-1. 灏嗛渶瑕佷繚鐣欑殑 `foodidentity` 鏂囨。杩佸叆 `info/` 鎴栧綊妗ｇ洰褰曘€?2. 鏇存柊鎵€鏈夊紩鐢?`foodidentity/` 鐨勬枃妗ｄ笌娉ㄩ噴銆?3. 鍐嶇粺涓€鍒犻櫎 `foodidentity/` 鐩綍銆?
-## 鍏€佹渶缁堝垽鏂?
-濡傛灉姣旇緝瀵硅薄鏄?`foodidentity` 鐨勬寮?food 浜у搧鑳藉姏涓?`AI-FIT` 褰撳墠鐘舵€侊紝閭ｄ箞鐜板湪鐨勭湡瀹炵姸鎬佹槸锛?
-- `foodidentity` 鐨勬寮?food 涓婚摼璺凡缁忚縼鍏?AI-FIT銆?- `AI-FIT` 宸茬粡涓嶆槸鈥滅户缁寕鐫€鏃?food 鏂规璺戔€濈殑鐘舵€侊紝鑰屾槸鈥滄寮?runtime 宸插垏鎹㈠畬鎴愨€濈殑鐘舵€併€?- 褰撳墠鍓╀綑闂涓昏鏄枃妗ｆ敹鍙ｃ€佹彁浜よ竟鐣屽拰鍘嗗彶婧愮洰褰曟槸鍚﹀綊妗ｏ紝鑰屼笉鏄?food 鍔熻兘鏄惁杩佸畬銆?
+如果后续决定彻底删除，建议先完成。
+1. 将需要保留的 `foodidentity` 文档迁入 `info/` 或归档目录。2. 更新扢有引。`foodidentity/` 的文档与注释。3. 再统丢删除 `foodidentity/` 目录。
+## 八”最终判。
+如果比较对象。`foodidentity` 的正式food 产品能力。`AI-FIT` 当前状态，那么现在的真实状态是。
+- `foodidentity` 的正式food 主链路已经迁。AI-FIT。- `AI-FIT` 已经不是“继续挂睢。food 方案跑”的状态，而是“正式runtime 已切换完成”的状态。- 当前剩余问题主要是文档收口”提交边界和历史源目录是否归档，而不。food 功能是否迁完。
 
 

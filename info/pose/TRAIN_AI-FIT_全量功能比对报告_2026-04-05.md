@@ -1,333 +1,483 @@
-﻿# Train 涓?AI-FIT 鍏ㄩ噺鍔熻兘姣斿鎶ュ憡
+# Train 与 AI-FIT 全量功能比对报告
 
-鏃ユ湡锛?026-04-05
+日期：2026-04-05
 
-## 涓€銆佺洰鐨?
-鏈姤鍛婄敤浜庡洖绛斾袱涓棶棰橈細
+## 一、目的
 
-1. `train` 褰撳墠鍒板簳鍖呭惈鍝簺鍔熻兘銆?2. 杩欎簺鍔熻兘涓紝鍝簺宸茬粡杩佺Щ鍒板綋鍓?`AI-FIT`锛屽摢浜涘彧鏄儴鍒嗚縼绉伙紝鍝簺杩樻病鏈夎縼绉汇€?
-娉ㄦ剰锛?- 鏈姤鍛婂叧娉ㄧ殑鏄€渀train` 鐨勫姛鑳戒笌 `AI-FIT` 褰撳墠鐘舵€佺殑瀵圭収鈥濄€?- `AI-FIT` 鏈韩杩樺寘鍚崥瀹€佽绋嬨€佽惀鍏诲垎鏋愩€佺敤鎴蜂腑蹇冪瓑鍘熺敓鍔熻兘锛岃繖浜涗笉灞炰簬浠?`train` 杩佺Щ鑰屾潵锛屼絾浼氬湪鏂囨湯鍗曠嫭璇存槑锛岄伩鍏嶆贩娣嗐€?
-## 浜屻€佹€讳綋缁撹
+本报告用于回答两个问题：
 
-褰撳墠鍙互涓嬬粨璁猴細
+1. `train` 当前到底包含哪些功能。
+2. 这些功能中，哪些已经迁移到当前 `AI-FIT`，哪些只是部分迁移，哪些还没有迁移。
 
-- `train` 鐨勬牳蹇冧环鍊煎姛鑳戒富瑕侀泦涓湪鈥滆缁冭褰?+ 瀹炴椂濮挎€佺籂閿?+ 绂荤嚎瑙嗛鍒嗘瀽 + 鍘嗗彶涓庨殣绉佺鐞嗏€濄€?- 鍏朵腑鐪熸宸茬粡杩佸叆 `AI-FIT` 鐨勶紝涓昏鏄?`pose` 鐩稿叧鏍稿績鑳藉姏锛?  - 瀹炴椂濮挎€佺籂閿?  - 绂荤嚎瑙嗛鍒嗘瀽
-  - 鏈€灏忚棰?浠诲姟/鎶ュ憡/璁粌璁板綍鍚庣闂幆
-- 浣嗗鏋滀粠 `train` 鐨勫叏閲忎骇鍝佸姛鑳界湅锛屽綋鍓?`AI-FIT` 杩樻病鏈夊畬鏁磋縼瀹岋紝灏ゅ叾缂哄皯锛?  - 璁粌鍘嗗彶瀹屾暣閾捐矾
-  - 鍒嗘瀽鍘嗗彶 / 浠诲姟绠＄悊閾捐矾
-  - 璁粌浼氳瘽绠＄悊閾捐矾
-  - 闅愮涓庢暟鎹鍑鸿兘鍔?  - 浠〃鐩樸€佹寫鎴樸€佽缃瓑浜у搧澶栧洿鑳藉姏
+注意：
+- 本报告关注的是“`train` 的功能与 `AI-FIT` 当前状态的对照”。
+- `AI-FIT` 本身还包含博客、课程、营养分析、用户中心等原生功能，这些不属于从 `train` 迁移而来，但会在文末单独说明，避免混淆。
 
-涓€鍙ヨ瘽鍒ゆ柇锛?- `AI-FIT` 宸茶縼鍏?`train` 鐨勨€滃Э鎬佹牳蹇冭兘鍔涒€?- `AI-FIT` 灏氭湭杩佸叆 `train` 鐨勨€滃畬鏁磋缁冧骇鍝佷綋绯烩€?
-## 涓夈€乼rain 鍔熻兘鍏ㄦ櫙
+## 二、总体结论
 
-缁撳悎 `train/src/app` 椤甸潰缁撴瀯銆佸鑸€丄PI 涓庨〉闈㈠疄鐜帮紝`train` 褰撳墠鍔熻兘鍙互鎷嗘垚浠ヤ笅妯″潡锛?
-### 1. 璐﹀彿涓庝細璇?
-`train` 鍖呭惈锛?- 娉ㄥ唽
-- 鐧诲綍
-- 鐧诲嚭
-- 浼氳瘽鑾峰彇
+当前可以下结论：
 
-璇佹嵁锛?- 椤甸潰鐩綍锛歚/login`銆乣/register`
-- API锛歚/api/v1/auth/login`銆乣/api/v1/auth/register`銆乣/api/v1/auth/logout`銆乣/api/v1/auth/session`
+- `train` 的核心价值功能主要集中在“训练记录 + 实时姿态纠错 + 离线视频分析 + 历史与隐私管理”。
+- 其中真正已经迁入 `AI-FIT` 的，主要是 `pose` 相关核心能力：
+  - 实时姿态纠错
+  - 离线视频分析
+  - 最小视频/任务/报告/训练记录后端闭环
+- 但如果从 `train` 的全量产品功能看，当前 `AI-FIT` 还没有完整迁完，尤其缺少：
+  - 训练历史完整链路
+  - 分析历史 / 任务管理链路
+  - 训练会话管理链路
+  - 隐私与数据导出能力
+  - 仪表盘、挑战、设置等产品外围能力
 
-### 2. 璁粌涓婚摼璺?
-`train` 鍖呭惈锛?- 寮€濮嬭缁冧細璇?- 璇诲彇褰撳墠娲诲姩璁粌
-- 缂栬緫璁粌 sets
-- 瀹屾垚璁粌浼氳瘽
-- 淇濆瓨璁粌鎶ュ憡
-- 浠庤缁冧細璇濊烦鍒板疄鏃剁籂閿欐垨鍒嗘瀽
+一句话判断：
+- `AI-FIT` 已迁入 `train` 的“姿态核心能力”
+- `AI-FIT` 尚未迁入 `train` 的“完整训练产品体系”
 
-璇佹嵁锛?- 椤甸潰锛歚/train`
-- API锛歚/api/v1/private/trainings`銆乣/api/v1/private/trainings/active`銆乣/api/v1/private/trainings/[id]`銆乣/api/v1/private/trainings/[id]/complete`
+## 三、train 功能全景
 
-### 3. 瀹炴椂濮挎€佺籂閿?
-`train` 鍖呭惈锛?- 鎽勫儚澶村疄鏃跺Э鎬佹娴?- 娆℃暟缁熻
+结合 `train/src/app` 页面结构、导航、API 与页面实现，`train` 当前功能可以拆成以下模块：
+
+### 1. 账号与会话
+
+`train` 包含：
+- 注册
+- 登录
+- 登出
+- 会话获取
+
+证据：
+- 页面目录：`/login`、`/register`
+- API：`/api/v1/auth/login`、`/api/v1/auth/register`、`/api/v1/auth/logout`、`/api/v1/auth/session`
+
+### 2. 训练主链路
+
+`train` 包含：
+- 开始训练会话
+- 读取当前活动训练
+- 编辑训练 sets
+- 完成训练会话
+- 保存训练报告
+- 从训练会话跳到实时纠错或分析
+
+证据：
+- 页面：`/train`
+- API：`/api/v1/private/trainings`、`/api/v1/private/trainings/active`、`/api/v1/private/trainings/[id]`、`/api/v1/private/trainings/[id]/complete`
+
+### 3. 实时姿态纠错
+
+`train` 包含：
+- 摄像头实时姿态检测
+- 次数统计
 - Range Check
 - Coaching Tip
-- JSON/PDF 瀵煎嚭
-- 淇濆瓨鍒板巻鍙?- 鏌ョ湅宸蹭繚瀛樻姤鍛?
-璇佹嵁锛?- 椤甸潰锛歚/live`
-- 瀹炵幇锛歚train/src/app/live/LiveClient.tsx`
+- JSON/PDF 导出
+- 保存到历史
+- 查看已保存报告
 
-### 4. 绂荤嚎瑙嗛鍒嗘瀽
+证据：
+- 页面：`/live`
+- 实现：`train/src/app/live/LiveClient.tsx`
 
-`train` 鍖呭惈锛?- 涓婁紶鎴栭€夋嫨瑙嗛
-- 鍒涘缓鍒嗘瀽浠诲姟
-- 浠诲姟璇︽儏鏌ョ湅
-- 娴忚鍣ㄧ鍒嗘瀽
+### 4. 离线视频分析
+
+`train` 包含：
+- 上传或选择视频
+- 创建分析任务
+- 任务详情查看
+- 浏览器端分析
 - complete / retry / delete
-- 鎶ュ憡鏌ョ湅
-- 鍒嗘瀽鍘嗗彶
+- 报告查看
+- 分析历史
 
-璇佹嵁锛?- 椤甸潰锛歚/analysis`銆乣/analysis/[id]`銆乣/analysis/history`
-- API锛歚/api/v1/private/analysis/jobs`銆乣/api/v1/private/analysis/jobs/[id]`銆乣/api/v1/private/analysis/jobs/[id]/complete`銆乣/api/v1/private/analysis/jobs/[id]/retry`
+证据：
+- 页面：`/analysis`、`/analysis/[id]`、`/analysis/history`
+- API：`/api/v1/private/analysis/jobs`、`/api/v1/private/analysis/jobs/[id]`、`/api/v1/private/analysis/jobs/[id]/complete`、`/api/v1/private/analysis/jobs/[id]/retry`
 
-### 5. 瑙嗛璧勪骇绠＄悊
+### 5. 视频资产管理
 
-`train` 鍖呭惈锛?- 瑙嗛涓婁紶
-- 瑙嗛鍒楄〃
-- 瑙嗛鏂囦欢璇诲彇
+`train` 包含：
+- 视频上传
+- 视频列表
+- 视频文件读取
 
-璇佹嵁锛?- API锛歚/api/v1/private/videos`銆乣/api/v1/private/videos/[id]/file`
+证据：
+- API：`/api/v1/private/videos`、`/api/v1/private/videos/[id]/file`
 
-### 6. 璁粌鍘嗗彶
+### 6. 训练历史
 
-`train` 鍖呭惈锛?- 鍘嗗彶鏃ュ巻椤?- 鎸夋棩鏈熸煡鐪嬭缁冭褰?- 鏌ョ湅璁粌璇︽儏 / 鎶ュ憡
-- 鍒犻櫎璁粌璁板綍
-- 鍘嗗彶缁熻鍗犱綅
+`train` 包含：
+- 历史日历页
+- 按日期查看训练记录
+- 查看训练详情 / 报告
+- 删除训练记录
+- 历史统计占位
 
-璇佹嵁锛?- 椤甸潰锛歚/history`
-- API锛歚/api/v1/private/trainings`銆乣/api/v1/private/trainings/[id]`
+证据：
+- 页面：`/history`
+- API：`/api/v1/private/trainings`、`/api/v1/private/trainings/[id]`
 
-### 7. 鍔ㄤ綔涓庡垎绫?
-`train` 鍖呭惈锛?- 鍔ㄤ綔鍒楄〃
-- 鍔ㄤ綔鍒嗙被
-- 鑷畾涔夊姩浣?/ 鍒嗙被绠＄悊鐩稿叧 API
+### 7. 动作与分类
 
-璇佹嵁锛?- 椤甸潰锛歚/exercises`
-- API锛歚/api/v1/private/exercises`銆乣/api/v1/private/exercise-categories`銆乣/api/v1/private/exercise-categories/[id]`
+`train` 包含：
+- 动作列表
+- 动作分类
+- 自定义动作 / 分类管理相关 API
 
-### 8. 浠〃鐩?
-`train` 鍖呭惈锛?- 璁粌姹囨€?- 鍒嗘瀽姹囨€?- 褰撳墠鐘舵€?- 蹇嵎鍏ュ彛
+证据：
+- 页面：`/exercises`
+- API：`/api/v1/private/exercises`、`/api/v1/private/exercise-categories`、`/api/v1/private/exercise-categories/[id]`
 
-璇佹嵁锛?- 椤甸潰锛歚/dashboard`
+### 8. 仪表盘
 
-### 9. 鎸戞垬
+`train` 包含：
+- 训练汇总
+- 分析汇总
+- 当前状态
+- 快捷入口
 
-`train` 鍖呭惈锛?- Challenge 椤甸潰
-- Active / Past 鏍囩椤?- 鏂板缓鎸戞垬鍗犱綅鍏ュ彛
+证据：
+- 页面：`/dashboard`
 
-璇存槑锛?- 璇ユā鍧楀綋鍓嶆洿鍋忊€滃崰浣嶉〉 / 瑙勫垝涓姛鑳解€濓紝涓嶅睘浜庢垚鐔熶富鍔熻兘銆?
-### 10. 璁剧疆涓庣浉鏈哄亸濂?
-`train` 鍖呭惈锛?- 璐︽埛璁剧疆椤?- camera mirror / zoom / viewport width 鍋忓ソ
-- 鐧诲嚭
+### 9. 挑战
 
-璇佹嵁锛?- 椤甸潰锛歚/settings`
-- API锛歚/api/v1/private/camera/settings`
+`train` 包含：
+- Challenge 页面
+- Active / Past 标签页
+- 新建挑战占位入口
 
-### 11. 闅愮涓庢暟鎹?
-`train` 鍖呭惈锛?- 鏄惁淇濆瓨鍘熷瑙嗛
-- 瑙嗛 TTL
-- 鏁版嵁瀵煎嚭 JSON / CSV
-- 娓呯┖璁粌鏁版嵁
-- 娓呯┖鍒嗘瀽鏁版嵁
+说明：
+- 该模块当前更偏“占位页 / 规划中功能”，不属于成熟主功能。
 
-璇佹嵁锛?- 椤甸潰锛歚/privacy`
-- API锛歚/api/v1/private/privacy/settings`銆乣/api/v1/private/privacy/export`
+### 10. 设置与相机偏好
 
-## 鍥涖€丄I-FIT 褰撳墠宸插叿澶囩殑瀵瑰簲鑳藉姏
+`train` 包含：
+- 账户设置页
+- camera mirror / zoom / viewport width 偏好
+- 登出
 
-褰撳墠 `AI-FIT` 涓紝涓?`train` 瀵瑰簲鐨勮兘鍔涗富瑕佹潵鑷袱閮ㄥ垎锛?
-### A. 宸蹭粠 train 杩佸叆鎴栧榻愮殑鑳藉姏
+证据：
+- 页面：`/settings`
+- API：`/api/v1/private/camera/settings`
 
-- `/tools/pose` 缁熶竴濮挎€佸叆鍙?- 瀹炴椂濮挎€佺籂閿?- 绂荤嚎瑙嗛鍒嗘瀽
-- 瑙嗛涓婁紶 / 鍒楄〃 / 鏂囦欢璇诲彇
-- 鍒嗘瀽浠诲姟鍒涘缓 / 鏌ヨ / complete / fail
-- 璁粌璁板綍鍐欏叆 `training_sessions` / `training_sets`
+### 11. 隐私与数据
 
-璇佹嵁锛?- 鍓嶇锛歔`frontend/src/pages/PoseToolPage.tsx`](/d:/trae/trae_projects/AI-FIT/frontend/src/pages/PoseToolPage.tsx#L1)
-- 鍚庣锛歔`backend/app/routes/pose.py`](/d:/trae/trae_projects/AI-FIT/backend/app/routes/pose.py#L79)
-- 妯″瀷锛歔`backend/app/models.py`](/d:/trae/trae_projects/AI-FIT/backend/app/models.py#L250)
+`train` 包含：
+- 是否保存原始视频
+- 视频 TTL
+- 数据导出 JSON / CSV
+- 清空训练数据
+- 清空分析数据
 
-### B. AI-FIT 鍘熺敓宸叉湁锛屼絾涓嶅睘浜?train 杩佺Щ鐨勮兘鍔?
-- 鐢ㄦ埛绯荤粺
-- 涓汉璧勬枡椤?- 鍗氬涓庤瘎璁?- 璇剧▼涓庢姤鍚?- 楗 / 璁粌璁板綍
-- 钀ュ吇鍒嗘瀽
-- 鍙嶉
+证据：
+- 页面：`/privacy`
+- API：`/api/v1/private/privacy/settings`、`/api/v1/private/privacy/export`
 
-璇佹嵁锛?- 鍓嶇璺敱锛歔`frontend/src/App.tsx`](/d:/trae/trae_projects/AI-FIT/frontend/src/App.tsx#L24)
-- 鍚庣璺敱锛歚auth.py`銆乣user.py`銆乣blogs.py`銆乣comments.py`銆乣courses.py`銆乣course_comments.py`銆乣workouts.py`銆乣diets.py`銆乣nutrition.py`銆乣feedback.py`
+## 四、AI-FIT 当前已具备的对应能力
 
-## 浜斻€佸叏閲忔瘮瀵圭煩闃?
-### 1. 璐﹀彿涓庤璇?
-`train`锛?- 鐧诲綍 / 娉ㄥ唽 / 鐧诲嚭 / session
+当前 `AI-FIT` 中，与 `train` 对应的能力主要来自两部分：
 
-`AI-FIT` 褰撳墠鐘舵€侊細
-- 宸插叿澶囩瓑浠疯兘鍔?- 浣嗗疄鐜版満鍒朵笉鍚岋細`train` 鍋?session/cookie 浣撶郴锛宍AI-FIT` 浣跨敤 JWT
+### A. 已从 train 迁入或对齐的能力
 
-缁撹锛?- `鍔熻兘绛変环`
-- `涓嶅睘浜庢娆?pose 杩佺Щ閲嶇偣`
+- `/tools/pose` 统一姿态入口
+- 实时姿态纠错
+- 离线视频分析
+- 视频上传 / 列表 / 文件读取
+- 分析任务创建 / 查询 / complete / fail
+- 训练记录写入 `training_sessions` / `training_sets`
 
-### 2. 璁粌涓婚摼璺紙Training Session锛?
-`train`锛?- 鍒涘缓璁粌浼氳瘽
-- 娲诲姩璁粌妫€娴?- 缂栬緫璁粌 sets
-- 瀹屾垚璁粌
-- 璁粌浼氳瘽璇︽儏
+证据：
+- 前端：[`frontend/src/pages/PoseToolPage.tsx`](/d:/trae/trae_projects/AI-FIT/frontend/src/pages/PoseToolPage.tsx#L1)
+- 后端：[`backend/app/routes/pose.py`](/d:/trae/trae_projects/AI-FIT/backend/app/routes/pose.py#L79)
+- 模型：[`backend/app/models.py`](/d:/trae/trae_projects/AI-FIT/backend/app/models.py#L250)
 
-`AI-FIT` 褰撳墠鐘舵€侊細
-- 鍙湁 `POST /api/pose/trainings` 杩欑鈥滃畬鎴愬悗涓€娆℃€у啓鍏ヨ缁冭褰曗€濈殑鑳藉姏
-- 娌℃湁璁粌涓殑 session 鐢熷懡鍛ㄦ湡绠＄悊
-- 娌℃湁 active session
-- 娌℃湁 `/train` 绛変环椤甸潰
+### B. AI-FIT 原生已有，但不属于 train 迁移的能力
 
-缁撹锛?- `鏈縼绉籤
-- `鍙縼浜嗘渶缁堣惤搴擄紝涓嶆槸 train 鐨勫畬鏁磋缁冮摼璺痐
+- 用户系统
+- 个人资料页
+- 博客与评论
+- 课程与报名
+- 饮食 / 训练记录
+- 营养分析
+- 反馈
 
-### 3. 瀹炴椂濮挎€佺籂閿?
-`train`锛?- 瀹炴椂妫€娴嬨€佽鏁般€佹彁绀恒€佸鍑恒€佷繚瀛樺埌鍘嗗彶
+证据：
+- 前端路由：[`frontend/src/App.tsx`](/d:/trae/trae_projects/AI-FIT/frontend/src/App.tsx#L24)
+- 后端路由：`auth.py`、`user.py`、`blogs.py`、`comments.py`、`courses.py`、`course_comments.py`、`workouts.py`、`diets.py`、`nutrition.py`、`feedback.py`
 
-`AI-FIT` 褰撳墠鐘舵€侊細
-- 宸茶縼绉绘牳蹇冭兘鍔?- 椤甸潰鍏ュ彛缁熶竴鍒?`/tools/pose`
-- 鍙互淇濆瓨璁粌璁板綍
+## 五、全量比对矩阵
 
-缂哄彛锛?- 娌℃湁鈥滀繚瀛樺悗鏌ョ湅鍘嗗彶/鎶ュ憡鈥濆悗缁摼璺?- 娌℃湁 camera settings 鎸佷箙鍖?
-缁撹锛?- `鏍稿績鑳藉姏宸茶縼绉籤
-- `浜у搧绾ф敹鍙ｆ湭瀹屾垚`
+### 1. 账号与认证
 
-### 4. 绂荤嚎瑙嗛鍒嗘瀽
+`train`：
+- 登录 / 注册 / 登出 / session
 
-`train`锛?- 鍒涘缓鍒嗘瀽浠诲姟
-- 鏌ョ湅浠诲姟璇︽儏
+`AI-FIT` 当前状态：
+- 已具备等价能力
+- 但实现机制不同：`train` 偏 session/cookie 体系，`AI-FIT` 使用 JWT
+
+结论：
+- `功能等价`
+- `不属于此次 pose 迁移重点`
+
+### 2. 训练主链路（Training Session）
+
+`train`：
+- 创建训练会话
+- 活动训练检测
+- 编辑训练 sets
+- 完成训练
+- 训练会话详情
+
+`AI-FIT` 当前状态：
+- 只有 `POST /api/pose/trainings` 这种“完成后一次性写入训练记录”的能力
+- 没有训练中的 session 生命周期管理
+- 没有 active session
+- 没有 `/train` 等价页面
+
+结论：
+- `未迁移`
+- `只迁了最终落库，不是 train 的完整训练链路`
+
+### 3. 实时姿态纠错
+
+`train`：
+- 实时检测、计数、提示、导出、保存到历史
+
+`AI-FIT` 当前状态：
+- 已迁移核心能力
+- 页面入口统一到 `/tools/pose`
+- 可以保存训练记录
+
+缺口：
+- 没有“保存后查看历史/报告”后续链路
+- 没有 camera settings 持久化
+
+结论：
+- `核心能力已迁移`
+- `产品级收口未完成`
+
+### 4. 离线视频分析
+
+`train`：
+- 创建分析任务
+- 查看任务详情
 - complete / retry / delete
-- 鍒嗘瀽鍘嗗彶
+- 分析历史
 
-`AI-FIT` 褰撳墠鐘舵€侊細
-- 宸插疄鐜颁笂浼犺棰戙€佸垱寤轰换鍔°€佸墠绔垎鏋愩€乧omplete / fail 鍥炲啓
-- 鍙睍绀烘姤鍛婂苟瀵煎嚭 JSON/PDF
+`AI-FIT` 当前状态：
+- 已实现上传视频、创建任务、前端分析、complete / fail 回写
+- 可展示报告并导出 JSON/PDF
 
-缂哄彛锛?- 娌℃湁浠诲姟鍒楄〃椤?/ 鍒嗘瀽鍘嗗彶椤?- 娌℃湁 retry
-- 娌℃湁 delete
-- 娌℃湁鐙珛鐨勪换鍔¤鎯呰矾鐢?
-缁撹锛?- `鏍稿績鑳藉姏宸茶縼绉籤
-- `浠诲姟绠＄悊鑳藉姏鏈縼绉籤
+缺口：
+- 没有任务列表页 / 分析历史页
+- 没有 retry
+- 没有 delete
+- 没有独立的任务详情路由
 
-### 5. 瑙嗛璧勪骇绠＄悊
+结论：
+- `核心能力已迁移`
+- `任务管理能力未迁移`
 
-`train`锛?- 瑙嗛涓婁紶
-- 瑙嗛鍒楄〃
-- 瑙嗛鏂囦欢璇诲彇
+### 5. 视频资产管理
 
-`AI-FIT` 褰撳墠鐘舵€侊細
-- 宸插疄鐜?`POST /api/pose/videos`
-- 宸插疄鐜?`GET /api/pose/videos`
-- 宸插疄鐜?`GET /api/pose/videos/<id>/file`
+`train`：
+- 视频上传
+- 视频列表
+- 视频文件读取
 
-缁撹锛?- `宸茶縼绉籤
+`AI-FIT` 当前状态：
+- 已实现 `POST /api/pose/videos`
+- 已实现 `GET /api/pose/videos`
+- 已实现 `GET /api/pose/videos/<id>/file`
 
-### 6. 璁粌鍘嗗彶
+结论：
+- `已迁移`
 
-`train`锛?- 鍘嗗彶椤?- 鏃ユ湡缁村害鏌ョ湅
-- 浼氳瘽璇︽儏
-- 鍒犻櫎璁板綍
+### 6. 训练历史
 
-`AI-FIT` 褰撳墠鐘舵€侊細
-- 鍙湁鍐欏叆 `training_sessions` / `training_sets`
-- 娌℃湁鍘嗗彶鍒楄〃 API
-- 娌℃湁璇︽儏 API
-- 娌℃湁鍘嗗彶椤?
-缁撹锛?- `鏈縼绉籤
+`train`：
+- 历史页
+- 日期维度查看
+- 会话详情
+- 删除记录
 
-### 7. 鍒嗘瀽鍘嗗彶 / 浠诲姟绠＄悊
+`AI-FIT` 当前状态：
+- 只有写入 `training_sessions` / `training_sets`
+- 没有历史列表 API
+- 没有详情 API
+- 没有历史页
 
-`train`锛?- 鍒嗘瀽浠诲姟鍒楄〃
-- 鍗曚换鍔¤鎯?- retry / delete
+结论：
+- `未迁移`
 
-`AI-FIT` 褰撳墠鐘舵€侊細
-- 鍙湁鍒涘缓鍗曚换鍔°€佽幏鍙栧崟浠诲姟銆乧omplete / fail
-- 娌℃湁浠诲姟鍒楄〃
-- 娌℃湁浠诲姟鍘嗗彶
-- 娌℃湁 retry / delete
+### 7. 分析历史 / 任务管理
 
-缁撹锛?- `閮ㄥ垎杩佺Щ`
+`train`：
+- 分析任务列表
+- 单任务详情
+- retry / delete
 
-### 8. 鍔ㄤ綔涓庡垎绫荤鐞?
-`train`锛?- exercises
+`AI-FIT` 当前状态：
+- 只有创建单任务、获取单任务、complete / fail
+- 没有任务列表
+- 没有任务历史
+- 没有 retry / delete
+
+结论：
+- `部分迁移`
+
+### 8. 动作与分类管理
+
+`train`：
+- exercises
 - exercise categories
 - custom exercise API
 
-`AI-FIT` 褰撳墠鐘舵€侊細
-- 褰撳墠 pose 娴佺▼鍩烘湰鍐欐鍥寸粫 `squat`
-- 娌℃湁 train 閭ｅ鍔ㄤ綔 / 鍒嗙被浣撶郴
+`AI-FIT` 当前状态：
+- 当前 pose 流程基本写死围绕 `squat`
+- 没有 train 那套动作 / 分类体系
 
-缁撹锛?- `鏈縼绉籤
+结论：
+- `未迁移`
 
-### 9. 浠〃鐩?
-`train`锛?- dashboard 姹囨€昏缁?/ 鍒嗘瀽鐘舵€?
-`AI-FIT` 褰撳墠鐘舵€侊細
-- 鏃犲搴?dashboard
+### 9. 仪表盘
 
-缁撹锛?- `鏈縼绉籤
+`train`：
+- dashboard 汇总训练 / 分析状态
+
+`AI-FIT` 当前状态：
+- 无对应 dashboard
+
+结论：
+- `未迁移`
 
 ### 10. Challenge
 
-`train`锛?- 鏈夊崰浣嶉〉涓庡鑸叆鍙?
-`AI-FIT` 褰撳墠鐘舵€侊細
-- 鏃犲搴旀ā鍧?
-缁撹锛?- `鏈縼绉籤
-- `浣嗚妯″潡鏈韩鍦?train 涓篃涓嶆槸鎴愮啛鏍稿績鍔熻兘`
+`train`：
+- 有占位页与导航入口
 
-### 11. 璁剧疆涓庣浉鏈哄亸濂?
-`train`锛?- 鐙珛 settings 椤?- camera mirror / zoom / viewport width 鎸佷箙鍖?
-`AI-FIT` 褰撳墠鐘舵€侊細
-- 瀹炴椂椤甸噷鏈?Mirror / Size / Zoom 绫绘帶鍒?- 浣嗘病鏈夌嫭绔?settings 椤甸潰
-- 娌℃湁鐩告満鍋忓ソ鎸佷箙鍖栨帴鍙?- 褰撳墠鎺у埗涓昏鍋滅暀鍦ㄩ〉闈㈠唴鐘舵€?
-缁撹锛?- `閮ㄥ垎杩佺Щ`
-- `鍙縼浜嗙晫闈㈣兘鍔涳紝鏈縼鎸佷箙鍖栦笌璁剧疆椤礰
+`AI-FIT` 当前状态：
+- 无对应模块
 
-### 12. 闅愮涓庢暟鎹鍑?
-`train`锛?- 闅愮璁剧疆
-- 淇濆瓨鍘熻棰戝紑鍏?- TTL
-- JSON/CSV 瀵煎嚭
-- 鍒犻櫎鍏ㄩ儴璁粌 / 鍒嗘瀽鏁版嵁
+结论：
+- `未迁移`
+- `但该模块本身在 train 中也不是成熟核心功能`
 
-`AI-FIT` 褰撳墠鐘舵€侊細
-- 娌℃湁瀵瑰簲椤甸潰
-- 娌℃湁瀵瑰簲鎺ュ彛
-- 褰撳墠鍚庣瑙嗛鏄洿鎺ュ瓨鏈湴纾佺洏
+### 11. 设置与相机偏好
 
-缁撹锛?- `鏈縼绉籤
+`train`：
+- 独立 settings 页
+- camera mirror / zoom / viewport width 持久化
 
-### 13. 缁熶竴鎶ュ憡褰掓。灞?
-`train`锛?- 缁熶竴鎶ュ憡瑙勮寖鍖?- 閿欒缁熻
-- 鏃堕棿绾块噰鏍?- 缁撴瀯鍖?PDF
+`AI-FIT` 当前状态：
+- 实时页里有 Mirror / Size / Zoom 类控制
+- 但没有独立 settings 页面
+- 没有相机偏好持久化接口
+- 当前控制主要停留在页面内状态
 
-`AI-FIT` 褰撳墠鐘舵€侊細
-- 宸茶兘鐢熸垚鎶ュ憡骞跺鍑?- 浣?`frontend/src/lib/report/unified.ts` 浠嶆槸鏈€灏忓崰浣嶅疄鐜?
-缁撹锛?- `閮ㄥ垎杩佺Щ`
+结论：
+- `部分迁移`
+- `只迁了界面能力，未迁持久化与设置页`
 
-## 鍏€佽縼绉荤姸鎬佹€昏〃
+### 12. 隐私与数据导出
 
-### 宸茶縼绉?
-- pose 瀹炴椂绾犻敊鏍稿績鑳藉姏
-- pose 绂荤嚎瑙嗛鍒嗘瀽鏍稿績鑳藉姏
-- pose 瑙嗛涓婁紶 / 瑙嗛鍒楄〃 / 瑙嗛鏂囦欢璁块棶
-- pose 鍒嗘瀽浠诲姟鏈€灏忛棴鐜?- pose 璁粌璁板綍鏈€缁堣惤搴?
-### 閮ㄥ垎杩佺Щ
+`train`：
+- 隐私设置
+- 保存原视频开关
+- TTL
+- JSON/CSV 导出
+- 删除全部训练 / 分析数据
 
-- 瀹炴椂椤典骇鍝佹敹鍙?- 绂荤嚎鍒嗘瀽浠诲姟绠＄悊
-- 鎶ュ憡缁熶竴褰掓。灞?- 璁剧疆涓殑鐩告満鑳藉姏
+`AI-FIT` 当前状态：
+- 没有对应页面
+- 没有对应接口
+- 当前后端视频是直接存本地磁盘
 
-### 鏈縼绉?
-- 璁粌涓婚摼璺紙active session / update / complete锛?- 璁粌鍘嗗彶椤?- 鍒嗘瀽鍘嗗彶椤?- 浠诲姟 retry / delete / 鍒楄〃
-- exercises / categories 浣撶郴
+结论：
+- `未迁移`
+
+### 13. 统一报告归档层
+
+`train`：
+- 统一报告规范化
+- 错误统计
+- 时间线采样
+- 结构化 PDF
+
+`AI-FIT` 当前状态：
+- 已能生成报告并导出
+- 但 `frontend/src/lib/report/unified.ts` 仍是最小占位实现
+
+结论：
+- `部分迁移`
+
+## 六、迁移状态总表
+
+### 已迁移
+
+- pose 实时纠错核心能力
+- pose 离线视频分析核心能力
+- pose 视频上传 / 视频列表 / 视频文件访问
+- pose 分析任务最小闭环
+- pose 训练记录最终落库
+
+### 部分迁移
+
+- 实时页产品收口
+- 离线分析任务管理
+- 报告统一归档层
+- 设置中的相机能力
+
+### 未迁移
+
+- 训练主链路（active session / update / complete）
+- 训练历史页
+- 分析历史页
+- 任务 retry / delete / 列表
+- exercises / categories 体系
 - dashboard
 - privacy / export / TTL
 - challenge
 
-## 涓冦€丄I-FIT 鍘熺敓宸叉湁浣嗕笉灞炰簬 train 杩佺Щ鐨勮兘鍔?
-杩欓儴鍒嗛渶瑕佸崟鐙己璋冿紝鍚﹀垯浼氳鍒も€淎I-FIT 鍔熻兘鏇村锛屾墍浠?train 宸茶縼瀹屸€濄€?
-AI-FIT 褰撳墠鍘熺敓宸叉湁锛?- 鍗氬
-- 鍗氬璇勮涓庣偣璧?- 璇剧▼鍒楄〃 / 璇︽儏 / 鎶ュ悕 / 璇剧▼璇勮
-- 鐢ㄦ埛璧勬枡涓庡ご鍍忎笂浼?- workout 璁板綍
-- diet 璁板綍
-- 钀ュ吇鍒嗘瀽
-- 鍙嶉绯荤粺
+## 七、AI-FIT 原生已有但不属于 train 迁移的能力
 
-杩欎簺鍔熻兘璇存槑锛?- `AI-FIT` 涓嶆槸 `train` 鐨勫瓙闆?- `AI-FIT` 鏄竴涓洿骞夸箟鐨勭綉绔欏瀷浜у搧
-- 褰撳墠杩佺Щ宸ヤ綔鍙槸鍦ㄨ繖涓富绔欓噷鎺ュ叆 `train` 鐨勫Э鎬佽缁冭兘鍔涳紝鑰屼笉鏄妸 `train` 鏁翠綋鎼繃鏉?
-## 鍏€佹渶缁堝垽鏂?
-濡傛灉姣旇緝瀵硅薄鏄?`train` 鐨勨€滄墍鏈夊姛鑳解€濅笌 `AI-FIT` 褰撳墠鐘舵€侊紝閭ｄ箞鐜板湪鐨勭湡瀹炵姸鎬佹槸锛?
-- `train` 鐨勬牳蹇冨Э鎬佽兘鍔涘凡缁忚縼鍏?AI-FIT
-- `train` 鐨勫畬鏁磋缁冧骇鍝佷綋绯昏繕娌℃湁杩佸畬
+这部分需要单独强调，否则会误判“AI-FIT 功能更多，所以 train 已迁完”。
 
-鏇寸簿纭湴璇达細
-- 宸插畬鎴愮殑鏄?`pose capability migration`
-- 鏈畬鎴愮殑鏄?`training product migration`
+AI-FIT 当前原生已有：
+- 博客
+- 博客评论与点赞
+- 课程列表 / 详情 / 报名 / 课程评论
+- 用户资料与头像上传
+- workout 记录
+- diet 记录
+- 营养分析
+- 反馈系统
 
-## 涔濄€佸缓璁殑鍚庣画浼樺厛绾?
-寤鸿鎸変笅闈㈤『搴忕户缁帹杩涳紝鎬т环姣旀渶楂橈細
+这些功能说明：
+- `AI-FIT` 不是 `train` 的子集
+- `AI-FIT` 是一个更广义的网站型产品
+- 当前迁移工作只是在这个主站里接入 `train` 的姿态训练能力，而不是把 `train` 整体搬过来
 
-1. 鍏堣ˉ鈥滃Э鎬佽缁冨巻鍙测€濇煡璇笌鏌ョ湅閾捐矾銆?2. 鍐嶈ˉ鈥滃垎鏋愪换鍔″垪琛?/ 鍘嗗彶 / retry鈥濄€?3. 鍐嶆妸 `frontend/src/lib/report/unified.ts` 鏇挎崲涓?`train` 鐨勭湡瀹炵粺涓€褰掓。瀹炵幇銆?4. 鏈€鍚庡啀鍐冲畾鏄惁缁х画杩佺Щ璁剧疆銆侀殣绉併€乨ashboard銆乪xercise 鍒嗙被浣撶郴銆?
-## 鍗併€佺粨璁轰竴鍙ヨ瘽鐗?
-褰撳墠 `AI-FIT` 涓嶆槸鈥滃凡缁忚縼瀹?train鈥濓紝鑰屾槸鈥滃凡缁忔妸 train 涓渶閲嶈鐨?pose 鏍稿績鑳藉姏杩佽繘鏉ヤ簡锛屼絾璁粌鍘嗗彶銆佷换鍔＄鐞嗐€侀殣绉佽缃€佷华琛ㄧ洏绛夊鍥翠骇鍝佽兘鍔涜繕娌℃湁瀹屾暣杩佸叆鈥濄€?
+## 八、最终判断
+
+如果比较对象是 `train` 的“所有功能”与 `AI-FIT` 当前状态，那么现在的真实状态是：
+
+- `train` 的核心姿态能力已经迁入 AI-FIT
+- `train` 的完整训练产品体系还没有迁完
+
+更精确地说：
+- 已完成的是 `pose capability migration`
+- 未完成的是 `training product migration`
+
+## 九、建议的后续优先级
+
+建议按下面顺序继续推进，性价比最高：
+
+1. 先补“姿态训练历史”查询与查看链路。
+2. 再补“分析任务列表 / 历史 / retry”。
+3. 再把 `frontend/src/lib/report/unified.ts` 替换为 `train` 的真实统一归档实现。
+4. 最后再决定是否继续迁移设置、隐私、dashboard、exercise 分类体系。
+
+## 十、结论一句话版
+
+当前 `AI-FIT` 不是“已经迁完 train”，而是“已经把 train 中最重要的 pose 核心能力迁进来了，但训练历史、任务管理、隐私设置、仪表盘等外围产品能力还没有完整迁入”。

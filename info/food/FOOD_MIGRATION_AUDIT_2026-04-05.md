@@ -1,44 +1,44 @@
-﻿# FOOD Migration Audit
+# FOOD Migration Audit
 
-鏃ユ湡锛?026-04-05
+日期：026-04-05
 
-瀹℃煡鑼冨洿锛?- 瀵圭収 [`FOODIDENTITY_姝ｅ紡杩佺Щ瀹炴柦鏂规_2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/food/FOODIDENTITY_姝ｅ紡杩佺Щ瀹炴柦鏂规_2026-04-05.md) 瀹℃煡 food 姝ｅ紡杩佺Щ鐩爣鏄惁宸茬粡鐪熷疄钀藉湴
-- 浜ゅ弶鏍稿 `info/FOOD_MIGRATION_LOG.md` 涓褰曠殑杩佺Щ杩囩▼
-- 妫€鏌ュ綋鍓?AI-FIT 鍓嶅悗绔疄鐜版槸鍚︿笌鏃ュ織缁撹涓€鑷?- 鍒ゆ柇褰撳墠鐘舵€佹槸鍚﹀凡缁忚揪鍒扳€滄寮?food 杩愯鏃舵敹鏁涒€濓紝浠ュ強杩樺墿鍝簺鎻愪氦鍓嶉闄?
-鏈鍩轰簬浠ｇ爜涓庢祴璇曡褰曠‘璁ょ殑楠岃瘉椤癸細
-- `frontend`锛歚npm.cmd run typecheck` 宸插湪杩佺Щ鏃ュ織涓褰曢€氳繃
-- `backend`锛歚.\.venv\Scripts\python.exe -m pytest tests/test_food.py tests/test_food_recognize.py -q` 宸插湪杩佺Щ鏃ュ織涓褰曢€氳繃
-- legacy API 鎺㈤拡锛歚/api/food/meta -> 200`銆乣/api/foods -> 200`銆乣/api/diets -> 404`銆乣/api/nutrition/analyze -> 404`
+审查范围：- 对照 [`FOODIDENTITY_正式迁移实施方案_2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/food/FOODIDENTITY_正式迁移实施方案_2026-04-05.md) 审查 food 正式迁移目标是否已经真实落地
+- 交叉核对 `info/FOOD_MIGRATION_LOG.md` 中记录的迁移过程
+- 核查当前AI-FIT 前后端实现是否与日志结论一致。- 判断当前状态是否已经达到“正式food 运行时收敛”，以及还剩哪些提交前风险。
+本次基于代码与测试记录确认的验证项：
+- `frontend`：`npm.cmd run typecheck` 已在迁移日志中记录通过
+- `backend`：`.\.venv\Scripts\python.exe -m pytest tests/test_food.py tests/test_food_recognize.py -q` 已在迁移日志中记录通过
+- legacy API 探针：`/api/food/meta -> 200`、`/api/foods -> 200`、`/api/diets -> 404`、`/api/nutrition/analyze -> 404`
 
-## 涓€銆佹墽琛岀粨璁?
-褰撳墠缁撹姣旇緝鏄庣‘锛?
-- 杩欐 food 杩佺Щ宸茬粡瀹屾垚浜嗏€滄寮忚繍琛屾椂鏀舵暃鈥濓紝涓嶆槸鍋滅暀鍦ㄨ縼绉昏璁℃垨鍙岄摼璺苟瀛橀樁娈点€?- 鍓嶇姝ｅ紡鍏ュ彛宸茬粡鏀舵暃鍒?`/food` 涓?`/food/meal/:mealType`锛屾棫 `/tools/food` 鍙繚鐣欏吋瀹归噸瀹氬悜銆?- 鍚庣姝ｅ紡鍏ュ彛宸茬粡鏀舵暃鍒?`/api/food`銆乣/api/foods`銆乣/api/meals`銆乣/api/recognize`锛屾棫 `/api/diets` 涓?`/api/nutrition` 宸查€€鍑鸿繍琛屾椂銆?- 姝ｅ紡鏁版嵁妯″瀷宸茬粡鍒囧埌 `foods / meal_records / meal_items`锛屾棫 `DietRecord` 宸蹭粠浠ｇ爜涓诲共绉婚櫎銆?
-鏇村噯纭殑鐘舵€佽〃杩板簲涓猴細
+## 一、执行结果
+当前结论比较明确：
+- 这次 food 迁移已经完成了“正式运行时收敛”，不是停留在迁移设计或双链路并存阶段。- 前端正式入口已经收敛至`/food` 。`/food/meal/:mealType`，旧 `/tools/food` 只保留兼容重定向。- 后端正式入口已经收敛至`/api/food`、`/api/foods`、`/api/meals`、`/api/recognize`，旧 `/api/diets` 。`/api/nutrition` 已彻底退出运行时。- 正式数据模型已经切到 `foods / meal_records / meal_items`，旧 `DietRecord` 已从代码主干移除。
+更准确的状态表述应为：
 
-- `姝ｅ紡 food 杩愯閾捐矾宸插畬鎴恅
-- `legacy food 杩愯鍏ュ彛宸蹭笅绾縛
-- `foodidentity 宸蹭笉鍐嶆槸褰撳墠姝ｅ紡杩愯鏃朵緷璧朻
-- `浠撳簱浠嶆湁灏戦噺鎻愪氦杈圭晫涓庡畨鍏ㄦ€ч棶棰橀渶瑕佸湪鏈€缁堟彁浜ゅ墠鍗曠嫭澶勭悊`
+- `正式 food 运行链路已完成`
+- `legacy food 运行入口已下线`
+- `foodidentity 已不再是当前正式运行时依赖`
+- `仓库仍有少量提交边界与安全性问题需要在最终提交前单独处理`
 
-涓€鍙ヨ瘽鎬荤粨锛?
-- 濡傛灉鏍囧噯鏄€淎I-FIT 鏄惁宸茬粡鍏峰鐙珛杩愯鐨勬寮?food 妯″潡鈥?-> 鏄?- 濡傛灉鏍囧噯鏄€滆繖涓€鎵规敼鍔ㄦ槸鍚﹀彲浠ヤ笉鍔犵瓫閫夌洿鎺ユ暣浣撴彁浜も€?-> 杩樹笉寤鸿
+一句话总结：
+- 如果标准是“AI-FIT 是否已经具备独立运行的正式food 模块”-> 是- 如果标准是”这一批改动是否可以不加筛选直接整体提交”-> 还不建议
 
-## 浜屻€佷富瑕佸彂鐜?
-### 楂樹紭鍏堢骇闂
+## 二”主要发现
+### 高优先级问题
 
-1. `backend/.env.example` 褰撳墠鍖呭惈鍏蜂綋鐨?`STEPFUN_API_KEY`锛岃繖灞炰簬鎻愪氦瀹夊叏椋庨櫓锛屼笉搴旀贩鍏ユ湰娆?food 杩佺Щ鎻愪氦銆?
-璇佹嵁锛?- [`backend/.env.example`](/d:/trae/trae_projects/AI-FIT/backend/.env.example#L7)
+1. `backend/.env.example` 当前包含具体。`STEPFUN_API_KEY`，这属于提交安全风险，不应混入本次food 迁移提交。
+证据：- [`backend/.env.example`](/d:/trae/trae_projects/AI-FIT/backend/.env.example#L7)
 - [`backend/.env.example`](/d:/trae/trae_projects/AI-FIT/backend/.env.example#L8)
 - [`backend/.env.example`](/d:/trae/trae_projects/AI-FIT/backend/.env.example#L9)
 
-褰卞搷锛?- 鍗充娇 food 杩佺Щ鏈韩宸茬粡瀹屾垚锛屽甫鐪熷疄鏍峰紡鐨勫瘑閽ヤ粛浼氭薄鏌撴彁浜よ竟鐣屻€?- 杩欑被鍙樻洿涓嶅睘浜?food 杩佺Щ鏍稿績鍔熻兘锛屼笖浼氱粰鍚庣画浠撳簱瀹夊叏瀹¤甯︽潵棰濆椋庨櫓銆?
-鍒ゆ柇锛?- `涓嶅奖鍝嶈縼绉诲畬鎴愬害`
-- `褰卞搷鏈€缁堟彁浜ゅ畨鍏ㄦ€
+影响：- 即使 food 迁移本身已经完成，带真实样式的密钥仍会污染提交边界。- 这类变更不属。food 迁移核心功能，且会给后续仓库安全审计带来额外风险。
+判断：- `不影响迁移完成度`
+- `影响最终提交安全性`
 
-### 涓紭鍏堢骇闂
+### 中优先级问题
 
-1. 浠撳簱閲屼粛鏈変笌 food 涓荤嚎鏃犵洿鎺ュ叧绯荤殑骞惰鏀瑰姩锛屽綋鍓嶄笉閫傚悎鏁翠綋鎵撳寘鎻愪氦銆?
-璇佹嵁锛?- `git status` 涓粛鏈夎繖浜涢潪 food 鏍稿績鏀瑰姩锛?  - `backend/app/config.py`
+1. 仓库里仍有与 food 主线无直接关系的并行改动，当前不适合整体打包提交。
+证据：- `git status` 中仍有这些非 food 核心改动：  - `backend/app/config.py`
   - `backend/.env.example`
   - `frontend/src/components/Footer.tsx`
   - `frontend/src/components/Navbar.tsx`
@@ -46,55 +46,55 @@
   - `foodidentity/`
   - `info/FOOD_MIGRATION_STAGE1_DESIGN_2026-04-05.md`
 
-褰卞搷锛?- 浼氭ā绯婃湰娆?food 杩佺Щ鐨勬彁浜よ竟鐣屻€?- 浼氳浠ｇ爜瀹℃煡鑰呴毦浠ュ尯鍒嗏€渇ood 姝ｅ紡杩佺Щ浜嬪疄鈥濅笌鈥滀粨搴撻噷鍘熸湰瀛樺湪鐨勫叾浠栨敼鍔ㄢ€濄€?
-鍒ゆ柇锛?- `涓嶅奖鍝嶅綋鍓嶈繍琛屾椂缁撹`
-- `褰卞搷鎻愪氦娓呮櫚搴
+影响：- 会模糊本次food 迁移的提交边界。- 会让代码审查者难以区分”food 正式迁移事实”与“仓库里原本存在的其他改动”。
+判断：- `不影响当前运行时结论`
+- `影响提交清晰度`
 
-2. 浠撳簱鏂囨。涓粛鏈夐檲鏃ф弿杩帮紝璇存槑杩愯鏃跺凡缁忓畬鎴愭敹鏁涳紝浣嗘枃妗ｄ綋绯诲皻鏈畬鍏ㄥ悓姝ャ€?
-璇佹嵁锛?- [`info/PROJECT_STATUS.md`](/d:/trae/trae_projects/AI-FIT/info/project/PROJECT_STATUS.md#L68)
+2. 仓库文档中仍有陈旧描述，说明运行时已经完成收敛，但文档体系尚未完全同步。
+证据：- [`info/PROJECT_STATUS.md`](/d:/trae/trae_projects/AI-FIT/info/project/PROJECT_STATUS.md#L68)
 - [`info/PROJECT_STATUS.md`](/d:/trae/trae_projects/AI-FIT/info/project/PROJECT_STATUS.md#L72)
 
-褰卞搷锛?- 浠ｇ爜浜嬪疄宸茬粡鏄剧ず legacy API 涓嬬嚎锛屼絾閮ㄥ垎椤圭洰鐘舵€佹枃妗ｄ粛鎻愬埌 `/api/diets` 涓?`/api/nutrition`銆?- 浼氶€犳垚鈥滄棩蹇椼€佷唬鐮併€佺姸鎬佹枃妗ｂ€濅笁鑰呰〃杩颁笉瀹屽叏涓€鑷淬€?
-鍒ゆ柇锛?- `涓嶆槸杩佺Щ闃诲椤筦
-- `灞炰簬鍚庣画鏂囨。鏀跺彛椤筦
+影响：- 代码事实已经显示 legacy API 下线，但部分项目状态文档仍提到 `/api/diets` 。`/api/nutrition`。- 会”成“日志”代码”状态文档”三者表述不完全丢致。
+判断：- `不是迁移阻塞项`
+- `属于后续文档收口项`
 
-### 浣庝紭鍏堢骇闂
+### 低优先级问题
 
-1. `ProfilePage` 宸茬粡鍒囧埌姝ｅ紡 meals 鍘嗗彶鎺ュ彛锛屼絾璇ユ枃浠舵湰韬粛瀛樺湪鍘嗗彶缂栫爜闂锛屼笉瀹滀綔涓烘湰娆?food 杩佺Щ璐ㄩ噺缁撹鐨勫弽鍚戣瘉鎹€?
-璇佹嵁锛?- [`frontend/src/pages/ProfilePage.tsx`](/d:/trae/trae_projects/AI-FIT/frontend/src/pages/ProfilePage.tsx#L193)
+1. `ProfilePage` 已经切到正式 meals 历史接口，但该文件本身仍存在历史编码问题，不宜作为本次food 迁移质量结论的反向证据。
+证据：- [`frontend/src/pages/ProfilePage.tsx`](/d:/trae/trae_projects/AI-FIT/frontend/src/pages/ProfilePage.tsx#L193)
 - [`frontend/src/pages/ProfilePage.tsx`](/d:/trae/trae_projects/AI-FIT/frontend/src/pages/ProfilePage.tsx#L194)
 - [`frontend/src/pages/ProfilePage.tsx`](/d:/trae/trae_projects/AI-FIT/frontend/src/pages/ProfilePage.tsx#L412)
 
-褰卞搷锛?- 璇ラ〉宸茬粡涓嶅啀渚濊禆 `/api/diets`锛岃繖涓€鐐规槸姝ｅ悜瀹屾垚椤广€?- 浣嗛〉闈腑娈嬬暀鐨勫巻鍙茬紪鐮侀棶棰樿鏄庤繖閮ㄥ垎灞炰簬浠撳簱宸叉湁璐ㄩ噺鍊猴紝涓嶅缓璁妸瀹冧笌鏈 food 杩佺Щ涓荤嚎娣蜂负涓€璋堛€?
-鍒ゆ柇锛?- `涓嶆瀯鎴?food 杩佺Щ澶辫触`
-- `灞炰簬鐙珛鍓嶇璐ㄩ噺鍊篳
+影响：- 该页已经不再依赖 `/api/diets`，这丢点是正向完成项。- 但页面中残留的历史编码问题说明这部分属于仓库已有质量债，不建议把它与本次 food 迁移主线混为丢谈。
+判断：- `不构。food 迁移失败`
+- `属于独立前端质量债`
 
-## 涓夈€佸榻愮煩闃?
-### 1. 姝ｅ紡鍓嶇鍏ュ彛
+## 三”对齐矩。
+### 1. 正式前端入口
 
-鐘舵€侊細`宸插榻恅
+状态：`已对齐`
 
-宸茬‘璁ゅ畬鎴愶細
+已确认完成：
 
-- 姝ｅ紡鍏ュ彛涓?`/food`
-- 姝ｅ紡椁愭椤典负 `/food/meal/:mealType`
-- `/tools/food` 宸叉敼涓洪噸瀹氬悜鍒?`/food`
+- 正式入口。`/food`
+- 正式餐次页为 `/food/meal/:mealType`
+- `/tools/food` 已改为重定向。`/food`
 
-璇佹嵁锛?- [`frontend/src/App.tsx`](/d:/trae/trae_projects/AI-FIT/frontend/src/App.tsx#L33)
+证据：- [`frontend/src/App.tsx`](/d:/trae/trae_projects/AI-FIT/frontend/src/App.tsx#L33)
 - [`frontend/src/App.tsx`](/d:/trae/trae_projects/AI-FIT/frontend/src/App.tsx#L34)
 - [`frontend/src/App.tsx`](/d:/trae/trae_projects/AI-FIT/frontend/src/App.tsx#L36)
 
-缁撹锛?- 鍓嶇姝ｅ紡杩愯闈㈠凡缁忓畬鎴愬崟鍏ュ彛鏀舵暃銆?
-### 2. 姝ｅ紡鍚庣鍏ュ彛
+结论。- 前端正式运行面已经完成单入口收敛至
+### 2. 正式后端入口
 
-鐘舵€侊細`宸插榻恅
+状态：`已对齐`
 
-宸茬‘璁ゅ畬鎴愶細
+已确认完成：
 
-- 娉ㄥ唽姝ｅ紡 `food / foods / meals / recognize` 钃濆浘
-- 鏈户缁敞鍐?`diets` 涓?`nutrition`
+- 注册正式 `food / foods / meals / recognize` 蓝图
+- 未继续注。`diets` 。`nutrition`
 
-璇佹嵁锛?- [`backend/app/__init__.py`](/d:/trae/trae_projects/AI-FIT/backend/app/__init__.py#L47)
+证据：- [`backend/app/__init__.py`](/d:/trae/trae_projects/AI-FIT/backend/app/__init__.py#L47)
 - [`backend/app/__init__.py`](/d:/trae/trae_projects/AI-FIT/backend/app/__init__.py#L48)
 - [`backend/app/__init__.py`](/d:/trae/trae_projects/AI-FIT/backend/app/__init__.py#L49)
 - [`backend/app/__init__.py`](/d:/trae/trae_projects/AI-FIT/backend/app/__init__.py#L51)
@@ -103,39 +103,39 @@
 - [`backend/app/__init__.py`](/d:/trae/trae_projects/AI-FIT/backend/app/__init__.py#L64)
 - [`backend/app/__init__.py`](/d:/trae/trae_projects/AI-FIT/backend/app/__init__.py#L66)
 
-缁撹锛?- legacy API 宸茬粡浠庤繍琛屾椂娉ㄥ唽灞傞潰閫€鍑恒€?
-### 3. 姝ｅ紡鏁版嵁妯″瀷
+结论。- legacy API 已经从运行时注册层面逢出。
+### 3. 正式数据模型
 
-鐘舵€侊細`宸插榻恅
+状态：`已对齐`
 
-宸茬‘璁ゅ畬鎴愶細
+已确认完成：
 
-- 鏂版ā鍨嬭惤涓?`foods`
-- 鏂版ā鍨嬭惤涓?`meal_records`
-- 鏂版ā鍨嬭惤涓?`meal_items`
-- `User` 鍏宠仈鍒囧埌 `food_meal_records`
-- `DietRecord` 宸蹭粠涓诲共绉婚櫎
+- 新模型落。`foods`
+- 新模型落。`meal_records`
+- 新模型落。`meal_items`
+- `User` 关联切到 `food_meal_records`
+- `DietRecord` 已从主干移除
 
-璇佹嵁锛?- [`backend/app/models.py`](/d:/trae/trae_projects/AI-FIT/backend/app/models.py#L48)
+证据：- [`backend/app/models.py`](/d:/trae/trae_projects/AI-FIT/backend/app/models.py#L48)
 - [`backend/app/models.py`](/d:/trae/trae_projects/AI-FIT/backend/app/models.py#L70)
 - [`backend/app/models.py`](/d:/trae/trae_projects/AI-FIT/backend/app/models.py#L87)
 - [`backend/app/models.py`](/d:/trae/trae_projects/AI-FIT/backend/app/models.py#L100)
 
-缁撹锛?- food 鏁版嵁妯″瀷宸茬粡杩佸叆 AI-FIT 姝ｅ紡涓诲共锛屼笉鍐嶄緷闄勬棫 diets 妯″瀷銆?
-### 4. meals 姝ｅ紡闂幆
+结论。- food 数据模型已经迁入 AI-FIT 正式主干，不再依附旧 diets 模型。
+### 4. meals 正式闭环
 
-鐘舵€侊細`宸插榻恅
+状态：`已对齐`
 
-宸茬‘璁ゅ畬鎴愶細
+已确认完成：
 
 - `GET /api/meals/today`
 - `GET /api/meals/history`
 - `GET /api/meals/<id>`
 - `POST /api/meals`
 - `DELETE /api/meals/<id>`
-- meals 鎺ュ彛鍩轰簬 JWT 鐢ㄦ埛韬唤
-- 绌?items銆侀潪娉?foodId銆侀潪娉曟棩鏈熶細琚槑纭嫆缁?
-璇佹嵁锛?- [`backend/app/routes/meals.py`](/d:/trae/trae_projects/AI-FIT/backend/app/routes/meals.py#L59)
+- meals 接口基于 JWT 用户身份
+- 。items、非。foodId、非法日期会被明确拒。
+证据：- [`backend/app/routes/meals.py`](/d:/trae/trae_projects/AI-FIT/backend/app/routes/meals.py#L59)
 - [`backend/app/routes/meals.py`](/d:/trae/trae_projects/AI-FIT/backend/app/routes/meals.py#L95)
 - [`backend/app/routes/meals.py`](/d:/trae/trae_projects/AI-FIT/backend/app/routes/meals.py#L117)
 - [`backend/app/routes/meals.py`](/d:/trae/trae_projects/AI-FIT/backend/app/routes/meals.py#L127)
@@ -145,34 +145,34 @@
 - [`backend/tests/test_food.py`](/d:/trae/trae_projects/AI-FIT/backend/tests/test_food.py#L96)
 - [`backend/tests/test_food.py`](/d:/trae/trae_projects/AI-FIT/backend/tests/test_food.py#L113)
 
-缁撹锛?- meals 宸插叿澶囨寮忓彲鐢ㄧ殑淇濆瓨銆佹煡璇€佸垹闄や笌鍘嗗彶鏌ヨ鑳藉姏锛屼笉鍐嶆槸 legacy 鍏煎灞傘€?
-### 5. recognize 姝ｅ紡閾捐矾
+结论。- meals 已具备正式可用的保存、查诃69”删除与历史查询能力，不再是 legacy 兼容层。
+### 5. recognize 正式链路
 
-鐘舵€侊細`宸插榻恅
+状态：`已对齐`
 
-宸茬‘璁ゅ畬鎴愶細
+已确认完成：
 
-- `POST /api/recognize` 鐩存帴鍦?AI-FIT 鍚庣鎻愪緵
-- 缂哄皯 Stepfun 閰嶇疆鏃惰繑鍥?`503 stepfun not configured`
-- 鎴愬姛鏃惰繑鍥?`names / foodIds / unmatchedNames`
+- `POST /api/recognize` 直接。AI-FIT 后端提供
+- 缺少 Stepfun 配置时返。`503 stepfun not configured`
+- 成功时返。`names / foodIds / unmatchedNames`
 
-璇佹嵁锛?- [`backend/app/routes/recognize.py`](/d:/trae/trae_projects/AI-FIT/backend/app/routes/recognize.py#L12)
+证据：- [`backend/app/routes/recognize.py`](/d:/trae/trae_projects/AI-FIT/backend/app/routes/recognize.py#L12)
 - [`backend/app/routes/recognize.py`](/d:/trae/trae_projects/AI-FIT/backend/app/routes/recognize.py#L18)
 - [`backend/app/routes/recognize.py`](/d:/trae/trae_projects/AI-FIT/backend/app/routes/recognize.py#L31)
 - [`backend/app/routes/recognize.py`](/d:/trae/trae_projects/AI-FIT/backend/app/routes/recognize.py#L41)
 - [`backend/tests/test_food_recognize.py`](/d:/trae/trae_projects/AI-FIT/backend/tests/test_food_recognize.py#L23)
 
-缁撹锛?- recognize 姝ｅ紡鍏ュ彛宸茬粡杩佸叆涓婚」鐩紝涓斿け璐ヨ矾寰勬湁鏄庣‘琛屼负瀹氫箟銆?
-### 6. 姝ｅ紡棣栭〉涓庨娆￠〉鎵挎帴
+结论。- recognize 正式入口已经迁入主项目，且失败路径有明确行为定义。
+### 6. 正式首页与餐次页承接
 
-鐘舵€侊細`宸插榻恅
+状态：`已对齐`
 
-宸茬‘璁ゅ畬鎴愶細
+已确认完成：
 
-- `/food` 宸叉壙鎺ヤ粖鏃ユ瑙堜笌鍥涢鍏ュ彛
-- `/food/meal/:mealType` 宸叉壙鎺ユ悳绱€佽瘑鍒€佸姞椁愩€佸厠鏁拌皟鏁淬€佷繚瀛樸€佸垹闄?- 闈炴硶椁愭璺敱浼氭槑纭彁绀猴紝鑰屼笉鏄潤榛樺洖閫€
+- `/food` 已承接今日概览与四餐入口
+- `/food/meal/:mealType` 已承接搜紃69”识别”加餐”克数调整”保存”删。- 非法餐次路由会明确提示，而不是静默回逢
 
-璇佹嵁锛?- [`frontend/src/pages/FoodModulePage.tsx`](/d:/trae/trae_projects/AI-FIT/frontend/src/pages/FoodModulePage.tsx#L54)
+证据：- [`frontend/src/pages/FoodModulePage.tsx`](/d:/trae/trae_projects/AI-FIT/frontend/src/pages/FoodModulePage.tsx#L54)
 - [`frontend/src/pages/FoodModulePage.tsx`](/d:/trae/trae_projects/AI-FIT/frontend/src/pages/FoodModulePage.tsx#L173)
 - [`frontend/src/pages/FoodModulePage.tsx`](/d:/trae/trae_projects/AI-FIT/frontend/src/pages/FoodModulePage.tsx#L261)
 - [`frontend/src/pages/FoodMealPage.tsx`](/d:/trae/trae_projects/AI-FIT/frontend/src/pages/FoodMealPage.tsx#L83)
@@ -181,40 +181,40 @@
 - [`frontend/src/pages/FoodMealPage.tsx`](/d:/trae/trae_projects/AI-FIT/frontend/src/pages/FoodMealPage.tsx#L280)
 - [`frontend/src/pages/FoodMealPage.tsx`](/d:/trae/trae_projects/AI-FIT/frontend/src/pages/FoodMealPage.tsx#L303)
 
-缁撹锛?- 姝ｅ紡 food 鍓嶇椤甸潰宸茬粡涓嶆槸鍗犱綅椤碉紝鑰屾槸鍏峰涓氬姟闂幆鐨勬寮忔壙鎺ラ潰銆?
-### 7. 瀵?`foodidentity` 鐨勮繍琛屾椂渚濊禆
+结论。- 正式 food 前端页面已经不是占位页，而是具备业务闭环的正式承接面。
+### 7. 。`foodidentity` 的运行时依赖
 
-鐘舵€侊細`宸插榻恅
+状态：`已对齐`
 
-宸茬‘璁ゅ畬鎴愶細
+已确认完成：
 
-- 姝ｅ紡杩愯鏃朵唬鐮佹湭鍐嶇洿鎺?import `foodidentity`
-- seed 涓?runtime catalog 宸茶惤鍒颁富椤圭洰鍚庣
-- 瀹炴柦鏂规瑕佹眰鐨勨€滀富椤圭洰鐙珛鎵挎帴姝ｅ紡 food 鑳藉姏鈥濆凡鍩烘湰婊¤冻
+- 正式运行时代码未再直。import `foodidentity`
+- seed 。runtime catalog 已落到主项目后端
+- 实施方案要求的”主项目独立承接正式 food 能力”已基本满足
 
-璇佹嵁锛?- [`backend/app/__init__.py`](/d:/trae/trae_projects/AI-FIT/backend/app/__init__.py#L8)
+证据：- [`backend/app/__init__.py`](/d:/trae/trae_projects/AI-FIT/backend/app/__init__.py#L8)
 - [`backend/app/__init__.py`](/d:/trae/trae_projects/AI-FIT/backend/app/__init__.py#L80)
 - [`backend/app/routes/food.py`](/d:/trae/trae_projects/AI-FIT/backend/app/routes/food.py#L21)
-- 浠ｇ爜妫€绱㈡湭鍙戠幇褰撳墠姝ｅ紡鍓嶅悗绔繍琛屾椂浠ｇ爜鐩存帴渚濊禆 `foodidentity` 鐩綍
+- 代码棢索未发现当前正式前后端运行时代码直接依赖 `foodidentity` 目录
 
-缁撹锛?- `foodidentity` 褰撳墠鏇存帴杩戔€滆縼绉绘潵婧愬伐绋嬧€濓紝鑰屼笉鏄寮忚繍琛屾椂渚濊禆銆?
-## 鍥涖€佷笉搴旇鍒や负杩佺Щ澶辫触鐨勯棶棰?
-浠ヤ笅鍐呭涓嶅簲绠椾綔鏈 food 杩佺Щ澶辫触锛?
-- `foodidentity/` 鐩綍浠嶅瓨鍦ㄥ伐浣滃尯
-  - 杩佺Щ鏂规瑕佹眰鐨勫叧閿偣鏄€滄寮忚繍琛屾椂涓嶅啀渚濊禆瀹冣€濓紝涓嶆槸蹇呴』鍦ㄦ湰杞珛鍒荤墿鐞嗗垹闄ゆ暣涓洰褰曘€?- `ProfilePage`銆乣Navbar`銆乣Footer`銆乣HomePage` 绛夋枃浠朵粛鏈夊苟琛屾敼鍔?  - 杩欎細褰卞搷鎻愪氦杈圭晫锛屼絾涓嶆帹缈绘寮?food 閾捐矾宸茬粡鏀舵暃鐨勪簨瀹炪€?- 璇嗗埆鎺ュ彛鍦ㄦ湭閰嶇疆 Stepfun 鏃惰繑鍥?`503`
-  - 杩欐槸鏄庣‘璁捐鐨勯厤缃墠缃潯浠讹紝涓嶆槸杩佺Щ鏈畬鎴愩€?
-## 浜斻€佹渶缁堣瘎浼?
-褰撳墠 food 杩佺Щ瀹屾垚搴﹀彲鍒嗕负锛?
-- `姝ｅ紡杩愯鏃舵敹鏁涘害`锛氶珮
-- `涓庡疄鏂芥柟妗堢殑涓€鑷存€锛氶珮
-- `legacy 杩愯闈㈡竻鐞嗗畬鎴愬害`锛氶珮
-- `鏈€缁堟彁浜よ竟鐣屾竻鏅板害`锛氫腑
-- `鎻愪氦鍓嶅畨鍏ㄥ崼鐢熺姸鎬乣锛氫腑鍋忎綆
+结论。- `foodidentity` 当前更接近”迁移来源工程”，而不是正式运行时依赖。
+## 四”不应误判为迁移失败的问。
+以下内容不应算作本次 food 迁移失败。
+- `foodidentity/` 目录仍存在工作区
+  - 迁移方案要求的关键点是”正式运行时不再依赖它”，不是必须在本轮立刻物理删除整个目录。- `ProfilePage`、`Navbar`、`Footer`、`HomePage` 等文件仍有并行改。  - 这会影响提交边界，但不推翻正式food 链路已经收敛的事实。- 识别接口在未配置 Stepfun 时返。`503`
+  - 这是明确设计的配置前置条件，不是迁移未完成。
+## 五”最终评。
+当前 food 迁移完成度可分为。
+- `正式运行时收敛度`：高
+- `与实施方案的丢致”`：高
+- `legacy 运行面清理完成度`：高
+- `最终提交边界清晰度`：中
+- `提交前安全卫生状态`：中偏低
 
-寤鸿鐨勬渶缁堝姩浣滈『搴忥細
+建议的最终动作顺序：
 
-1. 鍏堝皢 [`backend/.env.example`](/d:/trae/trae_projects/AI-FIT/backend/.env.example#L8) 涓殑 `STEPFUN_API_KEY` 鏀瑰洖鏄惧紡鍗犱綅绗︼紝鍐嶅喅瀹氭槸鍚︾撼鍏ユ湰娆℃彁浜ゃ€?2. 涓ユ牸鎸?food 涓荤嚎绛涢€夋彁浜ゆ枃浠讹紝涓嶈鎶?`backend/app/config.py`銆乣foodidentity/` 涓庡叾浠栧苟琛屾敼鍔ㄩ粯璁ゆ贩鍏ャ€?3. 濡傞渶琛ユ枃妗ｄ竴鑷存€э紝鍐嶅悓姝ユ洿鏂?[`info/PROJECT_STATUS.md`](/d:/trae/trae_projects/AI-FIT/info/project/PROJECT_STATUS.md#L68) 涓?[`info/PROJECT_STATUS.md`](/d:/trae/trae_projects/AI-FIT/info/project/PROJECT_STATUS.md#L72)銆?
-搴曠嚎缁撹锛?
-- 杩欐 food 杩佺Щ宸茬粡鏄湡瀹炲畬鎴愮殑姝ｅ紡杩佺Щ锛屼笉鏄€滀繚鐣?legacy 杩愯闈⑩€濈殑鍗婅縼绉荤姸鎬併€?- 褰撳墠鏈€涓昏鐨勫墿浣欓棶棰樹笉鏄姛鑳界己鍙ｏ紝鑰屾槸鏈€缁堟彁浜よ竟鐣屼笌绀轰緥閰嶇疆瀹夊叏鎬с€?
+1. 先将 [`backend/.env.example`](/d:/trae/trae_projects/AI-FIT/backend/.env.example#L8) 中的 `STEPFUN_API_KEY` 改回显式占位符，再决定是否纳入本次提交”2. 严格。food 主线筛”提交文件，不要。`backend/app/config.py`、`foodidentity/` 与其他并行改动默认混入。3. 如需补文档一致”，再同步更。[`info/PROJECT_STATUS.md`](/d:/trae/trae_projects/AI-FIT/info/project/PROJECT_STATUS.md#L68) 。[`info/PROJECT_STATUS.md`](/d:/trae/trae_projects/AI-FIT/info/project/PROJECT_STATUS.md#L72)。
+底线结论。
+- 这次 food 迁移已经是真实完成的正式迁移，不是”保。legacy 运行面”的半迁移状态。- 当前朢主要的剩余问题不是功能缺口，而是最终提交边界与示例配置安全性。
 
 

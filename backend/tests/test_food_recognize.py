@@ -12,8 +12,8 @@ def test_parse_stepfun_string_array_variants():
 
 def test_food_label_matching():
     foods = [
-        FoodForMatch(id=1, name="banana", display_name="香蕉", aliases=[]),
-        FoodForMatch(id=2, name="french fries", display_name="薯条", aliases=["fries"]),
+        FoodForMatch(id=1, name="banana", display_name="Banana", aliases=[]),
+        FoodForMatch(id=2, name="french fries", display_name="French Fries", aliases=["fries"]),
     ]
     matched_ids, unmatched = match_food_labels(["bananas", "fries", "unknown item"], foods)
     assert matched_ids == [1, 2]

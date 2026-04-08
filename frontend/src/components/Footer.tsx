@@ -31,7 +31,7 @@ export default function Footer() {
               <div className="cl_footer-widget mb-40">
                 <h5 className="cl_footer-widget-title">About Us</h5>
                 <p className="cl_footer-widget-text mb-35">
-                  AI FitGuard：动作矫正 + 食物营养分析 + 社区博客 + 课程体系。视频/图像默认仅在浏览器本地处理。
+                  AI FitGuard: pose coaching + food & nutrition tracking + community blogs + courses. Video/image processing runs locally in your browser by default.
                 </p>
                 <div className="cl_footer-widget-social">
                   <a href="#" onClick={(e) => e.preventDefault()}>
@@ -101,7 +101,7 @@ export default function Footer() {
                     />
                   </svg>
                   <a href="#" onClick={(e) => e.preventDefault()}>
-                    Feedback Drawer（页面右下角）
+                    Feedback Drawer (bottom-right)
                   </a>
                 </div>
               </div>
@@ -131,4 +131,3 @@ export default function Footer() {
     </footer>
   )
 }
-

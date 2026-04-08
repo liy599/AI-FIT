@@ -94,17 +94,17 @@ export default function PoseToolPage() {
   }, [])
 
   const currentSuggestion = useMemo(() => {
-    if (!feedback) return '启动摄像头后，系统会给出实时动作建议。'
-    return feedback.warnings[0] ?? feedback.issues[0]?.message ?? feedback.lastRepMessage ?? '保持节奏稳定，膝盖与脚尖方向一致。'
+    if (!feedback) return 'Start the camera to receive live form coaching.'
+    return feedback.warnings[0] ?? feedback.issues[0]?.message ?? feedback.lastRepMessage ?? 'Keep a steady tempo and align your knees with your toes.'
   }, [feedback])
 
   const rangeStatus = useMemo(() => {
-    if (!distance) return '等待检测'
-    if (distance.status === 'calibrating') return '距离校准中'
-    if (distance.status === 'lost') return '未检测到稳定人体'
-    if (distance.label === 'too_close') return '距离过近'
-    if (distance.label === 'too_far') return '距离过远'
-    return '距离合适'
+    if (!distance) return 'Waiting for detection'
+    if (distance.status === 'calibrating') return 'Calibrating distance'
+    if (distance.status === 'lost') return 'Stable body not detected'
+    if (distance.label === 'too_close') return 'Too close'
+    if (distance.label === 'too_far') return 'Too far'
+    return 'Distance OK'
   }, [distance])
 
   const rangeCheck = useMemo(() => evaluateRangeCheck(feedback), [feedback])
@@ -125,8 +125,8 @@ export default function PoseToolPage() {
 
   const liveReport = useMemo(() => {
     const summary = feedback
-      ? `实时训练：总次数 ${feedback.session.totalReps}，正确 ${feedback.session.correctReps}，准确率 ${feedback.session.accuracyPct}%`
-      : '尚未生成实时训练数据'
+      ? `Live training: total ${feedback.session.totalReps}, correct ${feedback.session.correctReps}, accuracy ${feedback.session.accuracyPct}%`
+      : 'No live training data yet'
     return normalizeReportForArchive({
       version: 1,
       status: 'ok',
@@ -152,7 +152,7 @@ export default function PoseToolPage() {
   async function startLive() {
     setError(null)
     setLoading(true)
-    setLoadingMsg('正在初始化模型与摄像头...')
+    setLoadingMsg('Initializing model and camera...')
     setSaveTrainingMsg(null)
 
     let provider: RealtimePoseProvider | null = null
@@ -174,7 +174,7 @@ export default function PoseToolPage() {
 
       const video = videoRef.current
       const canvas = canvasRef.current
-      if (!video || !canvas) throw new Error('预览区域初始化失败')
+      if (!video || !canvas) throw new Error('Preview area initialization failed')
 
       video.srcObject = stream
       await video.play()
@@ -208,7 +208,7 @@ export default function PoseToolPage() {
         const ctx = canvasEl.getContext('2d')
         if (!ctx) return
         ctx.clearRect(0, 0, canvasEl.width, canvasEl.height)
-        drawCameraFrame(ctx, videoEl, canvasEl.width, canvasEl.height, previewScaleRef.current, previewMirrorRef.current)
+        const viewport = drawCameraFrame(ctx, videoEl, canvasEl.width, canvasEl.height, previewScaleRef.current, previewMirrorRef.current)
 
         try {
           const detected = await provider.detect(videoEl, frameTs)
@@ -233,16 +233,27 @@ export default function PoseToolPage() {
                 trackingState.joints2d,
                 canvasEl.width,
                 canvasEl.height,
-                nextFeedback.issues.length > 0 ? 'bad' : 'ok'
+                nextFeedback.issues.length > 0 ? 'bad' : 'ok',
+                viewport
+                  ? { viewport, mirror: previewMirrorRef.current }
+                  : { mirror: previewMirrorRef.current }
               )
             }
-            drawDistanceGuide(ctx, distanceState, canvasEl.width, canvasEl.height)
+            drawDistanceGuide(
+              ctx,
+              distanceState,
+              canvasEl.width,
+              canvasEl.height,
+              viewport
+                ? { viewport, mirror: previewMirrorRef.current }
+                : { mirror: previewMirrorRef.current }
+            )
           } else {
             setTracking(null)
             setDistance(null)
           }
         } catch (e: unknown) {
-          setError(e instanceof Error ? e.message : '实时检测失败')
+          setError(e instanceof Error ? e.message : 'Live detection failed')
         }
 
         const bucket = fpsRef.current
@@ -261,7 +272,7 @@ export default function PoseToolPage() {
       setLoading(false)
       setLoadingMsg(null)
       setRunning(false)
-      setError(e instanceof Error ? e.message : '无法打开摄像头')
+      setError(e instanceof Error ? e.message : 'Unable to access the camera')
     }
   }
 
@@ -300,19 +311,19 @@ export default function PoseToolPage() {
   function exportPdf(title: string, data: Record<string, unknown>) {
     const body = renderReportPdfBodyHtml(data, {
       title,
-      nowText: new Date().toLocaleString('zh-CN')
+      nowText: new Date().toLocaleString('en-US')
     })
     openPdfPrint(title, body)
   }
 
   async function saveTrainingRecord() {
     if (!user) {
-      setSaveTrainingMsg('登录后才能保存训练记录。')
+      setSaveTrainingMsg('Please log in to save training records.')
       return
     }
     const reps = feedback?.session.totalReps ?? 0
     if (reps <= 0) {
-      setSaveTrainingMsg('当前没有可保存的训练次数。')
+      setSaveTrainingMsg('No reps to save yet.')
       return
     }
 
@@ -327,9 +338,9 @@ export default function PoseToolPage() {
         sets: [{ reps, note: coachingTipText }],
         report: liveReport as Record<string, unknown>
       })
-      setSaveTrainingMsg(`已保存训练记录 #${session.id}`)
+      setSaveTrainingMsg(`Saved training record #${session.id}`)
     } catch (e: unknown) {
-      setSaveTrainingMsg(e instanceof Error ? e.message : '训练记录保存失败')
+      setSaveTrainingMsg(e instanceof Error ? e.message : 'Failed to save training record')
     } finally {
       setSavingTraining(false)
     }
@@ -357,15 +368,15 @@ export default function PoseToolPage() {
 
   async function runOfflineAnalysis() {
     if (!user) {
-      setOfflineError('登录后才能上传视频并保存分析任务。')
+      setOfflineError('Please log in to upload videos and save analysis tasks.')
       return
     }
     if (!offlineFile) {
-      setOfflineError('请先选择视频文件。')
+      setOfflineError('Please choose a video file first.')
       return
     }
     if (offlineFile.size > MAX_VIDEO_BYTES) {
-      setOfflineError('视频超过 80MB 限制，请压缩后重试。')
+      setOfflineError('Video exceeds the 80MB limit. Please compress it and try again.')
       return
     }
 
@@ -373,15 +384,15 @@ export default function PoseToolPage() {
     setOfflineError(null)
     setOfflineReport(null)
     setOfflineStatusMsg(null)
-    setOfflineProgress({ stage: '上传视频', processed: 0, total: 1 })
+    setOfflineProgress({ stage: 'Uploading video', processed: 0, total: 1 })
 
     let taskId: number | null = null
     let serverObjectUrl: string | null = null
 
     try {
       const video = await uploadPoseVideo(offlineFile)
-      setOfflineStatusMsg('视频已上传，正在创建分析任务。')
-      setOfflineProgress({ stage: '创建任务', processed: 1, total: 1 })
+      setOfflineStatusMsg('Video uploaded. Creating an analysis task...')
+      setOfflineProgress({ stage: 'Creating task', processed: 1, total: 1 })
 
       const task = await createPoseAnalysisTask({
         video_asset_id: video.id,
@@ -396,7 +407,7 @@ export default function PoseToolPage() {
       const extracted = await extractPose33FromVideoUrl(serverObjectUrl, {
         onProgress: (p) => {
           setOfflineProgress({
-            stage: p.stage === 'loading' ? '加载 MediaPipe 模型' : '提取姿态关键点',
+            stage: p.stage === 'loading' ? 'Loading MediaPipe model' : 'Extracting pose keypoints',
             processed: p.processed,
             total: p.total
           })
@@ -404,7 +415,7 @@ export default function PoseToolPage() {
       })
 
       const standard = chooseMotionStandard({ viewAngle: offlineViewAngle, exerciseName: 'squat' })
-      setOfflineProgress({ stage: standard ? '标准模板对比' : '通用动作分析', processed: 1, total: 1 })
+      setOfflineProgress({ stage: standard ? 'Comparing with motion standard' : 'Generic motion analysis', processed: 1, total: 1 })
 
       const report = standard
         ? buildMotionStandardCompareReport({
@@ -437,13 +448,13 @@ export default function PoseToolPage() {
             analysis: analyzeGenericMotion(extracted.frames)
           })
 
-      setOfflineProgress({ stage: '回写分析结果', processed: 1, total: 1 })
+      setOfflineProgress({ stage: 'Writing back results', processed: 1, total: 1 })
       const completed = await completePoseAnalysisTask(task.id, report as unknown as Record<string, unknown>)
       setOfflineTask(completed)
       setOfflineReport(report)
-      setOfflineStatusMsg('离线分析完成，结果已回写后端。')
+      setOfflineStatusMsg('Offline analysis completed. Results have been saved to the backend.')
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : '离线分析失败'
+      const message = e instanceof Error ? e.message : 'Offline analysis failed'
       setOfflineError(message)
       if (taskId !== null) {
         try {
@@ -484,10 +495,10 @@ export default function PoseToolPage() {
         <div className="container">
           <div className="pose-mode-switch mb-30">
             <button className={mode === 'live' ? 'cl_theme-btn' : 'pose-tool-ghost-btn pose-tool-light-btn'} onClick={() => setMode('live')} type="button">
-              实时纠错
+              Live Coaching
             </button>
             <button className={mode === 'offline' ? 'cl_theme-btn' : 'pose-tool-ghost-btn pose-tool-light-btn'} onClick={() => setMode('offline')} type="button">
-              离线视频分析
+              Offline Video Analysis
             </button>
           </div>
 
@@ -498,7 +509,7 @@ export default function PoseToolPage() {
                   <div className="pose-tool-head">
                     <div>
                       <h4 className="cl_blog-widget-title mb-15">Realtime Camera</h4>
-                      <p className="pose-tool-subtitle pose-tool-subtitle-dark">在当前 AI-FIT 工具页风格基础上扩展实时动作纠错能力。</p>
+                      <p className="pose-tool-subtitle pose-tool-subtitle-dark">Real-time form correction on top of the existing AI-FIT tool page.</p>
                     </div>
                     <div className="pose-tool-actions">
                       <button className="cl_theme-btn" onClick={() => void (running ? stopLive() : startLive())} type="button">
@@ -517,14 +528,14 @@ export default function PoseToolPage() {
                         onClick={() => setPreviewOrientation('landscape')}
                         type="button"
                       >
-                        横屏
+                        Landscape
                       </button>
                       <button
                         className={previewOrientation === 'portrait' ? 'cl_theme-btn pose-mini-btn' : 'pose-tool-ghost-btn pose-tool-light-btn pose-mini-btn'}
                         onClick={() => setPreviewOrientation('portrait')}
                         type="button"
                       >
-                        竖屏
+                        Portrait
                       </button>
                     </div>
                     <div className="pose-camera-toolbar__group">
@@ -553,7 +564,7 @@ export default function PoseToolPage() {
                       </div>
                     </div>
                     <label className="pose-slider-control">
-                      <span>画面缩放</span>
+                      <span>Zoom</span>
                       <input
                         type="range"
                         min="0.7"
@@ -564,7 +575,7 @@ export default function PoseToolPage() {
                       />
                       <strong>{Math.round(previewScale * 100)}%</strong>
                     </label>
-                    <span className="pose-camera-toolbar__hint">调低可显示更完整的人体，适合全身入镜。</span>
+                    <span className="pose-camera-toolbar__hint">Lower zoom shows more of your body and helps keep your full body in frame.</span>
                   </div>
 
                   <div
@@ -572,7 +583,7 @@ export default function PoseToolPage() {
                   >
                     <video ref={videoRef} autoPlay playsInline muted className="pose-stage-media pose-stage-video-hidden" />
                     <canvas ref={canvasRef} className="pose-stage-media pose-stage-canvas" />
-                    {!running ? <div className="pose-stage-overlay">{loadingMsg ?? '点击 Start 开始实时动作检测'}</div> : null}
+                    {!running ? <div className="pose-stage-overlay">{loadingMsg ?? 'Click Start to begin real-time pose detection'}</div> : null}
                   </div>
 
                   <div className="pose-meta-row pose-meta-row-light">
@@ -599,17 +610,17 @@ export default function PoseToolPage() {
                   </div>
 
                   <div className="pose-tip-card pose-tip-card-light">
-                    <h6 className="sub-title mb-15 pose-section-title">纠错建议</h6>
+                    <h6 className="sub-title mb-15 pose-section-title">Coaching Suggestions</h6>
                     <p>{currentSuggestion}</p>
                   </div>
 
                   <div className="pose-tip-card pose-tip-card-light">
-                    <h6 className="sub-title mb-15 pose-section-title">状态信息</h6>
+                    <h6 className="sub-title mb-15 pose-section-title">Status</h6>
                     <ul className="pose-detail-list pose-detail-list-light">
-                      <li>距离状态：{rangeStatus}</li>
-                      <li>跟踪质量：{feedback ? `${Math.round(feedback.trackingQuality * 100)}%` : '-'}</li>
-                      <li>正确次数：{feedback?.correctCount ?? 0}</li>
-                      <li>最近结果：{feedback?.lastRepResult ?? '-'}</li>
+                      <li>Distance: {rangeStatus}</li>
+                      <li>Tracking Quality: {feedback ? `${Math.round(feedback.trackingQuality * 100)}%` : '-'}</li>
+                      <li>Correct Reps: {feedback?.correctCount ?? 0}</li>
+                      <li>Last Result: {feedback?.lastRepResult ?? '-'}</li>
                     </ul>
                   </div>
 
@@ -662,7 +673,7 @@ export default function PoseToolPage() {
                       Export PDF
                     </button>
                     <button className="pose-tool-ghost-btn pose-tool-light-btn" disabled={savingTraining} onClick={() => void saveTrainingRecord()} type="button">
-                      {savingTraining ? 'Saving...' : '保存训练记录'}
+                      {savingTraining ? 'Saving...' : 'Save Training'}
                     </button>
                   </div>
 
@@ -677,7 +688,7 @@ export default function PoseToolPage() {
                   <div className="pose-tool-head">
                     <div>
                       <h4 className="cl_blog-widget-title mb-15">Offline Video Analysis</h4>
-                      <p className="pose-tool-subtitle pose-tool-subtitle-dark">上传视频后，前端使用 MediaPipe 提取关键点，完成分析后回写到新后端接口。</p>
+                      <p className="pose-tool-subtitle pose-tool-subtitle-dark">Upload a video and extract keypoints with MediaPipe in the browser, then save the report to the backend.</p>
                     </div>
                   </div>
 
@@ -705,7 +716,7 @@ export default function PoseToolPage() {
                   <label className="pose-form-field">
                     <span>Instruction</span>
                     <textarea
-                      placeholder="例如：关注深蹲底部稳定性和躯干前倾"
+                      placeholder="e.g. Focus on squat bottom stability and torso lean"
                       rows={4}
                       value={offlineInstruction}
                       onChange={(e) => setOfflineInstruction(e.target.value)}
@@ -714,7 +725,7 @@ export default function PoseToolPage() {
 
                   <div className="pose-export-row">
                     <button className="cl_theme-btn" disabled={offlineBusy} onClick={() => void runOfflineAnalysis()} type="button">
-                      {offlineBusy ? 'Analyzing...' : '上传并开始分析'}
+                      {offlineBusy ? 'Analyzing...' : 'Upload & Analyze'}
                     </button>
                     <button
                       className="pose-tool-ghost-btn pose-tool-light-btn"
@@ -758,17 +769,17 @@ export default function PoseToolPage() {
                 <div className="cl_blog-widget mb-30">
                   <h4 className="cl_blog-widget-title mb-30">Task Snapshot</h4>
                   <ul className="pose-detail-list pose-detail-list-light">
-                    <li>登录状态：{user ? `已登录 ${user.username}` : '未登录'}</li>
-                    <li>当前动作：squat</li>
-                    <li>任务状态：{offlineTask?.status ?? '-'}</li>
-                    <li>视角：{offlineTask?.view_angle ?? offlineViewAngle}</li>
-                    <li>文件：{offlineFile ? `${offlineFile.name} (${Math.round(offlineFile.size / 1024 / 1024)} MB)` : '-'}</li>
+                    <li>Account: {user ? `Signed in as ${user.username}` : 'Not signed in'}</li>
+                    <li>Exercise: squat</li>
+                    <li>Task Status: {offlineTask?.status ?? '-'}</li>
+                    <li>View Angle: {offlineTask?.view_angle ?? offlineViewAngle}</li>
+                    <li>File: {offlineFile ? `${offlineFile.name} (${Math.round(offlineFile.size / 1024 / 1024)} MB)` : '-'}</li>
                   </ul>
                 </div>
 
                 <div className="cl_blog-widget mb-30">
                   <h4 className="cl_blog-widget-title mb-30">Analysis Report</h4>
-                  {offlineReport ? <ReportVisualization report={offlineReport} /> : <p className="pose-muted-copy">尚未生成离线分析报告。</p>}
+                  {offlineReport ? <ReportVisualization report={offlineReport} /> : <p className="pose-muted-copy">No offline analysis report yet.</p>}
                 </div>
               </div>
             </div>
@@ -789,7 +800,7 @@ function drawCameraFrame(
 ) {
   const sourceWidth = video.videoWidth
   const sourceHeight = video.videoHeight
-  if (!sourceWidth || !sourceHeight) return
+  if (!sourceWidth || !sourceHeight) return null
 
   const safeScale = Math.min(1.15, Math.max(0.7, previewScale))
   const fitScale = Math.max(canvasWidth / sourceWidth, canvasHeight / sourceHeight) * safeScale
@@ -809,6 +820,8 @@ function drawCameraFrame(
     ctx.drawImage(video, offsetX, offsetY, drawWidth, drawHeight)
   }
   ctx.restore()
+
+  return { x: offsetX, y: offsetY, w: drawWidth, h: drawHeight }
 }
 
 function evaluateRangeCheck(feedback: RealtimeFeedback | null) {
@@ -851,8 +864,8 @@ function ReportVisualization(props: { report: PoseAnalysisReport }) {
   return (
     <div className="pose-report-stack">
       <div className="pose-report-card pose-report-card-accent">
-        <div className="pose-report-title">分析摘要</div>
-        <div>{typeof report.summary === 'string' ? report.summary : '无摘要'}</div>
+        <div className="pose-report-title">Summary</div>
+        <div>{typeof report.summary === 'string' ? report.summary : 'No summary'}</div>
       </div>
 
       <div className="pose-report-metrics">
@@ -868,8 +881,8 @@ function ReportVisualization(props: { report: PoseAnalysisReport }) {
 
       <div className="pose-report-columns">
         <div className="pose-report-card">
-          <div className="pose-report-title">问题列表</div>
-          {issues.length === 0 ? <div className="pose-muted-copy">未检测到明显问题</div> : null}
+          <div className="pose-report-title">Issues</div>
+          {issues.length === 0 ? <div className="pose-muted-copy">No obvious issues detected</div> : null}
           <div className="pose-report-issue-list">
             {issues.map((issue, index) => (
               <div key={index} className="pose-report-issue">
@@ -884,8 +897,8 @@ function ReportVisualization(props: { report: PoseAnalysisReport }) {
         </div>
 
         <div className="pose-report-card">
-          <div className="pose-report-title">改进建议</div>
-          {suggestions.length === 0 ? <div className="pose-muted-copy">暂无建议</div> : null}
+          <div className="pose-report-title">Suggestions</div>
+          {suggestions.length === 0 ? <div className="pose-muted-copy">No suggestions</div> : null}
           <ol className="pose-report-suggestions">
             {suggestions.map((item, index) => (
               <li key={index}>{item}</li>
@@ -912,7 +925,7 @@ function TimelinePreview(props: { timeline: unknown[] }) {
 
   return (
     <div className="pose-report-card">
-      <div className="pose-report-title">关键时间线</div>
+      <div className="pose-report-title">Key Timeline</div>
       <div className="pose-report-line-stack">
         {series.map((item) => (
           <div key={item.key}>
@@ -951,27 +964,27 @@ function asRecord(v: unknown): Record<string, unknown> | null {
 
 function prettyMetricName(key: string) {
   const map: Record<string, string> = {
-    reps: '次数',
-    repEstimate: '估计次数',
+    reps: 'Reps',
+    repEstimate: 'Estimated Reps',
     fps: 'FPS',
-    standardId: '模板 ID',
-    standardName: '模板名称',
-    extractedFrames: '提取帧数',
-    comparableFrames: '可对比帧',
-    avgScore: '平均评分',
-    minScore: '最低评分',
-    maxScore: '最高评分',
-    badFramePct: '异常帧占比',
-    coverage: '可见率',
-    stabilityScore: '稳定性',
-    mobilityScore: '活动范围',
-    rhythmScore: '节奏一致性',
-    symmetryScore: '对称性',
-    kneeAngleDeg: '膝关节角度',
-    hipAngleDeg: '髋关节角度',
-    torsoFromVerticalDeg: '躯干角度',
-    kneeFlexDeg: '膝屈角',
-    centerY: '重心高度'
+    standardId: 'Standard ID',
+    standardName: 'Standard Name',
+    extractedFrames: 'Extracted Frames',
+    comparableFrames: 'Comparable Frames',
+    avgScore: 'Average Score',
+    minScore: 'Min Score',
+    maxScore: 'Max Score',
+    badFramePct: 'Bad Frame %',
+    coverage: 'Visibility',
+    stabilityScore: 'Stability',
+    mobilityScore: 'Mobility',
+    rhythmScore: 'Rhythm',
+    symmetryScore: 'Symmetry',
+    kneeAngleDeg: 'Knee Angle',
+    hipAngleDeg: 'Hip Angle',
+    torsoFromVerticalDeg: 'Torso Angle',
+    kneeFlexDeg: 'Knee Flexion',
+    centerY: 'Center Height'
   }
   return map[key] ?? key
 }

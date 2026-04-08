@@ -29,7 +29,7 @@ export default function NotFoundPage() {
                 <div className="cl_error-content-img">
                   <img src="/assets/images/bg/404.png" alt="" />
                 </div>
-                <h2 className="cl_error-content-title">Whoops! 页面不存在</h2>
+                <h2 className="cl_error-content-title">Whoops! Page not found</h2>
                 <Link to="/" className="cl_theme-btn">
                   Go Back Home
                   <svg width="18" height="14" viewBox="0 0 18 14" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -47,4 +47,3 @@ export default function NotFoundPage() {
     </>
   )
 }
-

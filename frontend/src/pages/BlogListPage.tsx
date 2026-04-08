@@ -59,7 +59,7 @@ export default function BlogListPage() {
       })
       .catch((e: unknown) => {
         if (cancelled) return
-        setError(e instanceof Error ? e.message : '加载失败')
+        setError(e instanceof Error ? e.message : 'Failed to load')
       })
       .finally(() => {
         if (cancelled) return
@@ -215,7 +215,7 @@ export default function BlogListPage() {
 
             {!loading && items.length === 0 ? (
               <div className="col-12">
-                <div className="cl_blog-widget">暂无内容</div>
+                <div className="cl_blog-widget">No content</div>
               </div>
             ) : null}
           </div>
@@ -258,4 +258,3 @@ export default function BlogListPage() {
     </>
   )
 }
-

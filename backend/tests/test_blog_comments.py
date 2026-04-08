@@ -10,7 +10,7 @@ def _auth_headers(client, email="u@example.com", username="u1"):
 
 def test_blog_list_detail_like_and_comment(client, app):
     with app.app_context():
-        t = Tag(name="健身技巧")
+        t = Tag(name="Fitness Tips")
         db.session.add(t)
         db.session.commit()
         tag_id = t.id
@@ -43,4 +43,3 @@ def test_blog_list_detail_like_and_comment(client, app):
     r = client.get(f"/api/blogs/{blog_id}/comments", headers=headers)
     assert r.status_code == 200
     assert r.get_json()["total"] == 1
-

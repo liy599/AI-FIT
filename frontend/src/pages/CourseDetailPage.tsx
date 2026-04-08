@@ -55,7 +55,7 @@ export default function CourseDetailPage() {
   )
 
   useEffect(() => {
-    load().catch((e: unknown) => setError(e instanceof Error ? e.message : '加载失败'))
+    load().catch((e: unknown) => setError(e instanceof Error ? e.message : 'Failed to load'))
   }, [load])
 
   async function enroll() {
@@ -69,7 +69,7 @@ export default function CourseDetailPage() {
       })
       await load()
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : '报名失败')
+      setError(e instanceof Error ? e.message : 'Enrollment failed')
     } finally {
       setBusy(false)
     }
@@ -92,21 +92,21 @@ export default function CourseDetailPage() {
       setContent('')
       await load()
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : '评论失败')
+      setError(e instanceof Error ? e.message : 'Comment failed')
     } finally {
       setBusy(false)
     }
   }
 
-  if (!Number.isFinite(id)) return <div className="text-sm text-slate-400">无效ID</div>
+  if (!Number.isFinite(id)) return <div className="text-sm text-slate-400">Invalid ID</div>
 
   return (
     <div className="space-y-8">
       <div className="text-xs text-slate-400">
         <Link to="/courses" className="hover:text-white">
-          课程
+          Courses
         </Link>{' '}
-        / 详情
+        / Details
       </div>
 
       {error ? <div className="text-sm text-rose-300">{error}</div> : null}
@@ -117,11 +117,11 @@ export default function CourseDetailPage() {
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
                 <h1 className="text-2xl font-semibold">{course.title}</h1>
-                <div className="mt-2 text-sm text-slate-300">讲师：{course.instructor_name}</div>
+                <div className="mt-2 text-sm text-slate-300">Instructor: {course.instructor_name}</div>
                 <div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-400">
-                  <div>{course.is_free ? '免费' : `€${course.price ?? '-'}`}</div>
+                  <div>{course.is_free ? 'Free' : `€${course.price ?? '-'}`}</div>
                   <div>·</div>
-                  <div>{course.enroll_count} 人报名</div>
+                  <div>{course.enroll_count} enrolled</div>
                   <div>·</div>
                   <div>{course.avg_rating ? course.avg_rating.toFixed(1) : '-'}★</div>
                 </div>
@@ -130,7 +130,7 @@ export default function CourseDetailPage() {
               <div className="flex gap-2">
                 {course.enrolled ? (
                   <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/15 px-4 py-2 text-sm text-emerald-100">
-                    已报名
+                    Enrolled
                   </div>
                 ) : (
                   <button
@@ -138,7 +138,7 @@ export default function CourseDetailPage() {
                     disabled={busy}
                     onClick={enroll}
                   >
-                    {course.is_free ? '报名课程' : '模拟支付并报名'}
+                    {course.is_free ? 'Enroll' : 'Simulate payment & enroll'}
                   </button>
                 )}
               </div>
@@ -146,14 +146,14 @@ export default function CourseDetailPage() {
 
             <div className="mt-6 grid gap-4 lg:grid-cols-2">
               <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                <div className="text-xs text-slate-400">介绍视频</div>
+                <div className="text-xs text-slate-400">Intro video</div>
                 <div className="mt-2 text-sm text-slate-300">
-                  {course.intro_video_url ? course.intro_video_url : '（待填充视频链接）'}
+                  {course.intro_video_url ? course.intro_video_url : '(Video link coming soon)'}
                 </div>
               </div>
               <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                <div className="text-xs text-slate-400">讲师介绍</div>
-                <div className="mt-2 text-sm text-slate-300">{course.instructor_bio ?? '（待补充）'}</div>
+                <div className="text-xs text-slate-400">Instructor bio</div>
+                <div className="mt-2 text-sm text-slate-300">{course.instructor_bio ?? '(Coming soon)'}</div>
               </div>
             </div>
 
@@ -162,18 +162,18 @@ export default function CourseDetailPage() {
 
           <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">学员反馈</h2>
+              <h2 className="text-lg font-semibold">Reviews</h2>
               <button
                 className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-slate-200 hover:bg-white/10"
                 onClick={() => load().catch(() => {})}
               >
-                刷新
+                Refresh
               </button>
             </div>
 
             {course.enrolled ? (
               <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
-                <div className="text-xs text-slate-400">发表评论</div>
+                <div className="text-xs text-slate-400">Post a review</div>
                 <div className="mt-2 grid gap-2 md:grid-cols-3">
                   <select
                     className="rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm"
@@ -189,7 +189,7 @@ export default function CourseDetailPage() {
                   <div className="md:col-span-2">
                     <input
                       className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm"
-                      placeholder="写下你的体验…"
+                      placeholder="Share your experience…"
                       value={content}
                       onChange={(e) => setContent(e.target.value)}
                     />
@@ -200,11 +200,11 @@ export default function CourseDetailPage() {
                   disabled={busy || !content.trim()}
                   onClick={submitComment}
                 >
-                  发布
+                  Publish
                 </button>
               </div>
             ) : (
-              <div className="mt-4 text-sm text-slate-400">报名后可发表评论。</div>
+              <div className="mt-4 text-sm text-slate-400">Enroll to post a review.</div>
             )}
 
             <div className="mt-6 space-y-3">
@@ -221,22 +221,21 @@ export default function CourseDetailPage() {
                     <button
                       className="rounded-xl border border-white/10 bg-white/5 px-2 py-1 text-xs text-slate-200 hover:bg-white/10"
                       onClick={() => likeComment(c.id)}
-                      title={auth.user ? '' : '登录后可点赞'}
+                      title={auth.user ? '' : 'Sign in to like'}
                       disabled={!auth.user}
                     >
-                      {c.liked_by_me ? '已赞' : '点赞'} {c.like_count}
+                      {c.liked_by_me ? 'Liked' : 'Like'} {c.like_count}
                     </button>
                   </div>
                 </div>
               ))}
-              {comments.length === 0 ? <div className="text-sm text-slate-400">暂无评价</div> : null}
+              {comments.length === 0 ? <div className="text-sm text-slate-400">No reviews yet</div> : null}
             </div>
           </section>
         </>
       ) : (
-        <div className="text-sm text-slate-400">加载中…</div>
+        <div className="text-sm text-slate-400">Loading…</div>
       )}
     </div>
   )
 }
-

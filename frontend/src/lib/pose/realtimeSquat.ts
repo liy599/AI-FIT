@@ -91,18 +91,18 @@ export class RealtimeSquatAnalyzer {
     const nextState = isCountingPaused ? this.currentState : this.detectState(kneeAngle)
 
     if (offsetAngle !== null && offsetAngle > 55) {
-      warnings.push('请尽量保持侧面对镜头，识别会更稳定。')
+      warnings.push('Try to stay in a clear side view for more stable tracking.')
     }
     if (trackingQuality < 0.45) {
-      warnings.push('关键点置信度较低，请站到画面中央并露出全身。')
+      warnings.push('Low keypoint confidence. Stand centered and keep your full body in frame.')
     }
     if (torsoAngle !== null && torsoAngle < 20) {
-      issues.push({ message: '躯干前倾较明显', joints: [11, 12, 23, 24] })
+      issues.push({ message: 'Excessive forward torso lean', joints: [11, 12, 23, 24] })
     }
     if (knee !== undefined && footIndex !== undefined && hip !== undefined && ankle !== undefined) {
       const dir = Math.sign((ankle.x - hip.x) || 1)
       const kneeOverToeRatio = (knee.x - footIndex.x) * dir
-      if (kneeOverToeRatio > 0.06) issues.push({ message: '膝盖明显超过脚尖', joints: [idx.knee, idx.footIndex] })
+      if (kneeOverToeRatio > 0.06) issues.push({ message: 'Knee is noticeably past the toes', joints: [idx.knee, idx.footIndex] })
     }
 
     this.updateState(nextState)
@@ -167,7 +167,7 @@ export class RealtimeSquatAnalyzer {
       this.repCount += 1
       this.correctCount += 1
       this.lastRepResult = 'correct'
-      this.lastRepMessage = '动作完成，继续保持节奏。'
+      this.lastRepMessage = 'Rep completed. Keep the tempo steady.'
       this.lastRepFrameCount = this.frameCount
       this.frameCount = 0
       this.enteredBottom = false
@@ -267,4 +267,3 @@ export class RealtimeSquatAnalyzer {
     }
   }
 }
-

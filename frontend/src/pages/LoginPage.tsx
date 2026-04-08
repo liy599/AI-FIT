@@ -30,7 +30,7 @@ export default function LoginPage() {
       auth.setAuth(r.access_token, r.user)
       nav(from, { replace: true })
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : '登录失败')
+      setError(e instanceof Error ? e.message : 'Login failed')
     } finally {
       setBusy(false)
     }
@@ -47,7 +47,7 @@ export default function LoginPage() {
       })
       setResetLink(r.reset_link ?? null)
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : '请求失败')
+      setError(e instanceof Error ? e.message : 'Request failed')
     }
   }
 
@@ -77,7 +77,7 @@ export default function LoginPage() {
             <div className="col-xl-6 col-lg-8">
               <div className="cl_blog_details-reply">
                 <h3 className="cl_blog_details-reply-title">Sign in</h3>
-                <p>使用邮箱和密码登录（登录后可访问课程、个人中心等功能）。</p>
+                <p>Sign in with your email and password (after signing in you can access courses, your profile, and more).</p>
                 <form
                   action="#"
                   onSubmit={(e) => {
@@ -142,7 +142,7 @@ export default function LoginPage() {
                     {resetLink ? (
                       <div className="col-12">
                         <div className="cl_blog-widget mb-30">
-                          开发模式重置链接：{' '}
+                          Dev reset link:{' '}
                           <a href={resetLink} target="_blank" rel="noreferrer">
                             {resetLink}
                           </a>
@@ -151,7 +151,7 @@ export default function LoginPage() {
                     ) : null}
                     <div className="col-12">
                       <div className="cl_blog-widget">
-                        还没有账号？ <Link to="/register">去注册</Link>
+                        No account yet? <Link to="/register">Create one</Link>
                       </div>
                     </div>
                   </div>
@@ -164,4 +164,3 @@ export default function LoginPage() {
     </>
   )
 }
-

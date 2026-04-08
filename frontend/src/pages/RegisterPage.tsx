@@ -27,7 +27,7 @@ export default function RegisterPage() {
       auth.setAuth(r.access_token, r.user)
       nav('/profile', { replace: true })
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : '注册失败')
+      setError(e instanceof Error ? e.message : 'Registration failed')
     } finally {
       setBusy(false)
     }
@@ -59,7 +59,7 @@ export default function RegisterPage() {
             <div className="col-xl-6 col-lg-8">
               <div className="cl_blog_details-reply">
                 <h3 className="cl_blog_details-reply-title">Create account</h3>
-                <p>创建账号后将自动登录并跳转个人中心。</p>
+                <p>After registration, you will be signed in and redirected to your profile.</p>
                 <form
                   action="#"
                   onSubmit={(e) => {
@@ -106,7 +106,7 @@ export default function RegisterPage() {
                     </div>
                     <div className="col-12">
                       <div className="cl_blog-widget">
-                        已有账号？ <Link to="/login">去登录</Link>
+                        Already have an account? <Link to="/login">Sign in</Link>
                       </div>
                     </div>
                   </div>
@@ -119,4 +119,3 @@ export default function RegisterPage() {
     </>
   )
 }
-

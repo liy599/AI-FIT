@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { mkdir, rm } from 'node:fs/promises'
+import { mkdir, readFile, rm } from 'node:fs/promises'
 import net from 'node:net'
 import path from 'node:path'
 import { after, before, test } from 'node:test'
@@ -29,6 +29,18 @@ function runCommand(command, args, options) {
       if (code === 0) return resolve()
       reject(new Error(`${command} ${args.join(' ')} exited with code ${code ?? 'unknown'}`))
     })
+  })
+}
+
+function runCommandWithInput(command, args, input, options) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { ...options, stdio: ['pipe', 'inherit', 'inherit'] })
+    child.on('error', reject)
+    child.on('exit', (code) => {
+      if (code === 0) return resolve()
+      reject(new Error(`${command} ${args.join(' ')} exited with code ${code ?? 'unknown'}`))
+    })
+    child.stdin.end(input)
   })
 }
 
@@ -137,7 +149,8 @@ before(async () => {
     PORT: String(port)
   }
 
-  await runCommand('sqlite3', [dbPath, `.read ${schemaSqlPath}`], { cwd: PROJECT_ROOT, env })
+  const schemaSql = await readFile(schemaSqlPath, 'utf8')
+  await runCommandWithInput('sqlite3', [dbPath], schemaSql, { cwd: PROJECT_ROOT, env })
 
   nextProcess = spawn('npx', ['next', 'dev', '-p', String(port)], {
     cwd: PROJECT_ROOT,

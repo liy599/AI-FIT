@@ -17,8 +17,8 @@ def test_foods_list_and_bulk(client):
     foods = response.get_json()
     assert len(foods) >= 1
     assert foods[0]["displayName"]
-    assert foods[0]["displayName"] == "米饭"
-    assert foods[0]["category"] == "主食"
+    assert foods[0]["displayName"] == "Steamed Rice"
+    assert foods[0]["category"] == "Staples"
 
     response = client.post("/api/foods/bulk", json={"ids": [foods[0]["id"]]})
     assert response.status_code == 200

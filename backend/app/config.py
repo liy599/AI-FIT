@@ -7,7 +7,7 @@ class Config:
 
     SQLALCHEMY_DATABASE_URI = os.environ.get(
         "DATABASE_URL",
-        "postgresql+psycopg://aifitguard:aifitguard@localhost:5432/aifitguard",
+        "sqlite:///instance/aifitguard_dev.db",
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
@@ -16,4 +16,3 @@ class Config:
     STEPFUN_API_URL = os.environ.get("STEPFUN_API_URL", "")
     STEPFUN_API_KEY = os.environ.get("STEPFUN_API_KEY", "")
     STEPFUN_MODEL = os.environ.get("STEPFUN_MODEL", "step-1v-8k")
-

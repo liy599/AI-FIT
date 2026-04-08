@@ -11,6 +11,8 @@ import FoodModulePage from './pages/FoodModulePage'
 import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
 import NotFoundPage from './pages/NotFoundPage'
+import PoseGuidePage from './pages/PoseGuidePage'
+import PoseSelectPage from './pages/PoseSelectPage'
 import PoseToolPage from './pages/PoseToolPage'
 import ProfilePage from './pages/ProfilePage'
 import RegisterPage from './pages/RegisterPage'
@@ -32,7 +34,9 @@ export default function App() {
           <Route path="/about" element={<AboutPage />} />
           <Route path="/food" element={<FoodModulePage />} />
           <Route path="/food/meal/:mealType" element={<FoodMealPage />} />
-          <Route path="/tools/pose" element={<PoseToolPage />} />
+          <Route path="/tools/pose" element={<PoseSelectPage />} />
+          <Route path="/tools/pose/squat" element={<PoseGuidePage />} />
+          <Route path="/tools/pose/squat/tool" element={<PoseToolPage />} />
           <Route path="/tools/food" element={<Navigate to="/food" replace />} />
           <Route path="/blogs" element={<BlogListPage />} />
           <Route path="/blogs/:id" element={<BlogDetailPage />} />
@@ -48,4 +52,3 @@ export default function App() {
     </AuthProvider>
   )
 }
-

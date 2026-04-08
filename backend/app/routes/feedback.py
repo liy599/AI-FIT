@@ -12,7 +12,7 @@ bp = Blueprint("feedback", __name__)
 def list_feedback():
     page, page_size = parse_pagination(request.args, default_page_size=6, max_page_size=20)
 
-    q = UserFeedback.query.filter_by(type="评价").order_by(UserFeedback.created_at.desc())
+    q = UserFeedback.query.filter_by(type="\u8bc4\u4ef7").order_by(UserFeedback.created_at.desc())
     total = q.count()
     items = q.offset((page - 1) * page_size).limit(page_size).all()
 
@@ -44,24 +44,24 @@ def submit_feedback():
     data = request.get_json(silent=True) or {}
     raw_type = (data.get("type") or "").strip()
     type_map = {
-        "评价": "评价",
-        "review": "评价",
-        "rating": "评价",
-        "feedback": "评价",
-        "联系我们": "联系我们",
-        "contact": "联系我们",
-        "contact_us": "联系我们",
+        "\u8bc4\u4ef7": "\u8bc4\u4ef7",
+        "review": "\u8bc4\u4ef7",
+        "rating": "\u8bc4\u4ef7",
+        "feedback": "\u8bc4\u4ef7",
+        "\u8054\u7cfb\u6211\u4eec": "\u8054\u7cfb\u6211\u4eec",
+        "contact": "\u8054\u7cfb\u6211\u4eec",
+        "contact_us": "\u8054\u7cfb\u6211\u4eec",
     }
     ftype = type_map.get(raw_type, raw_type)
     content = (data.get("content") or "").strip()
     contact_email = (data.get("contact_email") or "").strip().lower() or None
     rating = data.get("rating")
 
-    if ftype not in ("评价", "联系我们") or not content:
+    if ftype not in ("\u8bc4\u4ef7", "\u8054\u7cfb\u6211\u4eec") or not content:
         return jsonify({"error": "type/content required"}), 400
     if user_id is None and not contact_email:
         return jsonify({"error": "contact_email required for anonymous"}), 400
-    if ftype == "评价" and rating is None:
+    if ftype == "\u8bc4\u4ef7" and rating is None:
         return jsonify({"error": "rating required"}), 400
 
     fb = UserFeedback(
@@ -74,4 +74,3 @@ def submit_feedback():
     db.session.add(fb)
     db.session.commit()
     return jsonify({"ok": True, "id": fb.id}), 201
-

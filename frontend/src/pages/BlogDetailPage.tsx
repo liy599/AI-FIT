@@ -106,7 +106,7 @@ function CommentItem(props: {
                 like().catch(() => {})
               }}
               style={!auth.user ? { opacity: 0.6, pointerEvents: 'none' } : undefined}
-              title={auth.user ? '' : '登录后可点赞'}
+              title={auth.user ? '' : 'Sign in to like'}
             >
               <i className="fa-light fa-thumbs-up" style={{ marginRight: 6 }}></i>
               {props.node.liked_by_me ? 'Liked' : 'Like'} ({props.node.like_count})
@@ -119,7 +119,7 @@ function CommentItem(props: {
                 setReplying((v) => !v)
               }}
               style={!auth.user ? { opacity: 0.6, pointerEvents: 'none' } : undefined}
-              title={auth.user ? '' : '登录后可回复'}
+              title={auth.user ? '' : 'Sign in to reply'}
             >
               <i className="fa-light fa-reply" style={{ marginRight: 6 }}></i>Reply
             </a>
@@ -227,7 +227,7 @@ export default function BlogDetailPage() {
   )
 
   useEffect(() => {
-    load().catch((e: unknown) => setError(e instanceof Error ? e.message : '加载失败'))
+    load().catch((e: unknown) => setError(e instanceof Error ? e.message : 'Failed to load'))
   }, [load])
 
   async function toggleLike() {
@@ -236,7 +236,7 @@ export default function BlogDetailPage() {
       await apiFetch(`/api/blogs/${blog.id}/like`, { method: 'POST' })
       await load()
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : '操作失败')
+      setError(e instanceof Error ? e.message : 'Action failed')
     }
   }
 
@@ -251,11 +251,11 @@ export default function BlogDetailPage() {
       setCommentText('')
       await load()
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : '发布失败')
+      setError(e instanceof Error ? e.message : 'Publish failed')
     }
   }
 
-  if (!Number.isFinite(id)) return <div className="cl_blog-widget">无效ID</div>
+  if (!Number.isFinite(id)) return <div className="cl_blog-widget">Invalid ID</div>
 
   return (
     <>
@@ -345,7 +345,7 @@ export default function BlogDetailPage() {
                               toggleLike().catch(() => {})
                             }}
                             style={!auth.user ? { opacity: 0.6, pointerEvents: 'none' } : undefined}
-                            title={auth.user ? '' : '登录后可点赞'}
+                            title={auth.user ? '' : 'Sign in to like'}
                           >
                             <i className="fa-light fa-thumbs-up"></i>
                           </a>
@@ -364,7 +364,7 @@ export default function BlogDetailPage() {
 
                     <div className="cl_blog_details-reply">
                       <h3 className="cl_blog_details-reply-title">Leave a Comment</h3>
-                      <p>{auth.user ? '发表评论（支持回复与多级评论）' : '请先登录后发表评论'}</p>
+                      <p>{auth.user ? 'Post a comment (supports replies and threads).' : 'Sign in to post a comment.'}</p>
                       <form
                         action="#"
                         onSubmit={(e) => {
@@ -419,7 +419,7 @@ export default function BlogDetailPage() {
                           onReload={() => load().catch(() => {})}
                         />
                       ))}
-                      {comments.length === 0 ? <div className="cl_blog-widget">暂无评论</div> : null}
+                      {comments.length === 0 ? <div className="cl_blog-widget">No comments yet</div> : null}
                     </div>
                   </>
                 )}
@@ -484,4 +484,3 @@ export default function BlogDetailPage() {
     </>
   )
 }
-

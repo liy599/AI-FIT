@@ -47,7 +47,7 @@ export default function CoursesListPage() {
       })
       .catch((e: unknown) => {
         if (cancelled) return
-        setError(e instanceof Error ? e.message : '加载失败')
+        setError(e instanceof Error ? e.message : 'Failed to load')
       })
       .finally(() => {
         if (cancelled) return
@@ -116,9 +116,9 @@ export default function CoursesListPage() {
                       setSp(next)
                     }}
                   >
-                    <option value="">全部</option>
-                    <option value="true">免费</option>
-                    <option value="false">付费</option>
+                    <option value="">All</option>
+                    <option value="true">Free</option>
+                    <option value="false">Paid</option>
                   </select>
                   <select
                     value={sort}
@@ -129,9 +129,9 @@ export default function CoursesListPage() {
                       setSp(next)
                     }}
                   >
-                    <option value="new">最新</option>
-                    <option value="hot">最热</option>
-                    <option value="rating">评分最高</option>
+                    <option value="new">Newest</option>
+                    <option value="hot">Most popular</option>
+                    <option value="rating">Top rated</option>
                   </select>
                 </div>
               </div>
@@ -165,13 +165,13 @@ export default function CoursesListPage() {
                   </h2>
                   <ul className="cl_price-item-feature">
                     <li>
-                      <i className="fa-sharp fa-light fa-check"></i>讲师：{c.instructor_name}
+                      <i className="fa-sharp fa-light fa-check"></i>Instructor: {c.instructor_name}
                     </li>
                     <li>
-                      <i className="fa-sharp fa-light fa-check"></i>报名人数：{c.enroll_count}
+                      <i className="fa-sharp fa-light fa-check"></i>Enrolled: {c.enroll_count}
                     </li>
                     <li>
-                      <i className="fa-sharp fa-light fa-check"></i>评分：{c.avg_rating ? c.avg_rating.toFixed(1) : '-'}
+                      <i className="fa-sharp fa-light fa-check"></i>Rating: {c.avg_rating ? c.avg_rating.toFixed(1) : '-'}
                     </li>
                   </ul>
                   <div className="cl_price-item-btn">
@@ -182,7 +182,7 @@ export default function CoursesListPage() {
             ))}
             {!loading && items.length === 0 ? (
               <div className="col-12">
-                <div className="cl_blog-widget mb-30">暂无课程</div>
+                <div className="cl_blog-widget mb-30">No courses yet</div>
               </div>
             ) : null}
           </div>
@@ -225,4 +225,3 @@ export default function CoursesListPage() {
     </>
   )
 }
-

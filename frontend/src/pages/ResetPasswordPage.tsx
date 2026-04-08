@@ -24,7 +24,7 @@ export default function ResetPasswordPage() {
       setOk(true)
       setTimeout(() => nav('/login'), 800)
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : '重置失败')
+      setError(e instanceof Error ? e.message : 'Reset failed')
     } finally {
       setBusy(false)
     }
@@ -56,7 +56,7 @@ export default function ResetPasswordPage() {
             <div className="col-xl-6 col-lg-8">
               <div className="cl_blog_details-reply">
                 <h3 className="cl_blog_details-reply-title">Set a new password</h3>
-                <p>该页面需要从邮件链接中携带 token 参数。</p>
+                <p>This page requires a token parameter from the reset link.</p>
                 <form
                   action="#"
                   onSubmit={(e) => {
@@ -86,7 +86,7 @@ export default function ResetPasswordPage() {
                     ) : null}
                     {ok ? (
                       <div className="col-12">
-                        <div className="cl_blog-widget mb-30">已重置，正在跳转登录…</div>
+                        <div className="cl_blog-widget mb-30">Password updated. Redirecting to login…</div>
                       </div>
                     ) : null}
                     <div className="col-12">
@@ -111,4 +111,3 @@ export default function ResetPasswordPage() {
     </>
   )
 }
-

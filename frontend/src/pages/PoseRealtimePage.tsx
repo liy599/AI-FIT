@@ -40,23 +40,23 @@ export default function PoseRealtimePage() {
   }, [])
 
   const currentSuggestion = useMemo(() => {
-    if (!feedback) return '启动摄像头后，系统会给出实时动作建议。'
-    return feedback.warnings[0] ?? feedback.issues[0]?.message ?? feedback.lastRepMessage ?? '保持节奏稳定，膝盖与脚尖方向一致。'
+    if (!feedback) return 'Start the camera to receive live form coaching.'
+    return feedback.warnings[0] ?? feedback.issues[0]?.message ?? feedback.lastRepMessage ?? 'Keep a steady tempo and align your knees with your toes.'
   }, [feedback])
 
   const rangeStatus = useMemo(() => {
-    if (!distance) return '等待检测'
-    if (distance.status === 'calibrating') return '距离校准中'
-    if (distance.status === 'lost') return '未检测到稳定人体'
-    if (distance.label === 'too_close') return '距离过近'
-    if (distance.label === 'too_far') return '距离过远'
-    return '距离合适'
+    if (!distance) return 'Waiting for detection'
+    if (distance.status === 'calibrating') return 'Calibrating distance'
+    if (distance.status === 'lost') return 'Stable body not detected'
+    if (distance.label === 'too_close') return 'Too close'
+    if (distance.label === 'too_far') return 'Too far'
+    return 'Distance OK'
   }, [distance])
 
   const report = useMemo(() => {
     const summary = feedback
-      ? `实时训练：总次数 ${feedback.session.totalReps}，正确 ${feedback.session.correctReps}，准确率 ${feedback.session.accuracyPct}%`
-      : '尚未生成实时训练数据'
+      ? `Live training: total ${feedback.session.totalReps}, correct ${feedback.session.correctReps}, accuracy ${feedback.session.accuracyPct}%`
+      : 'No live training data yet'
     return normalizeReportForArchive({
       tool: 'pose-live',
       generatedAt: new Date().toISOString(),
@@ -80,7 +80,7 @@ export default function PoseRealtimePage() {
   async function start() {
     setError(null)
     setLoading(true)
-    setLoadingMsg('正在初始化模型与摄像头...')
+    setLoadingMsg('Initializing model and camera...')
 
     let provider: RealtimePoseProvider | null = null
     try {
@@ -102,7 +102,7 @@ export default function PoseRealtimePage() {
 
       const video = videoRef.current
       const canvas = canvasRef.current
-      if (!video || !canvas) throw new Error('预览区域初始化失败')
+      if (!video || !canvas) throw new Error('Preview area initialization failed')
 
       video.srcObject = stream
       await video.play()
@@ -169,7 +169,7 @@ export default function PoseRealtimePage() {
             setDistance(null)
           }
         } catch (e: unknown) {
-          setError(e instanceof Error ? e.message : '实时检测失败')
+          setError(e instanceof Error ? e.message : 'Live detection failed')
         }
 
         const bucket = fpsRef.current
@@ -191,7 +191,7 @@ export default function PoseRealtimePage() {
       setLoading(false)
       setLoadingMsg(null)
       setRunning(false)
-      setError(e instanceof Error ? e.message : '无法打开摄像头')
+      setError(e instanceof Error ? e.message : 'Unable to access the camera')
     }
   }
 
@@ -229,7 +229,7 @@ export default function PoseRealtimePage() {
     const title = 'AI-FIT Pose Realtime Report'
     const body = renderReportPdfBodyHtml(report as Record<string, unknown>, {
       title,
-      nowText: new Date().toLocaleString('zh-CN')
+      nowText: new Date().toLocaleString('en-US')
     })
     openPdfPrint(title, body)
   }
@@ -262,7 +262,7 @@ export default function PoseRealtimePage() {
                 <div className="pose-tool-head">
                   <div>
                     <h4 className="cl_blog-widget-title mb-15">Realtime Camera</h4>
-                    <p className="pose-tool-subtitle">在当前 AI-FIT 工具页风格基础上扩展实时动作纠错能力。</p>
+                    <p className="pose-tool-subtitle">Real-time form correction on top of the existing AI-FIT tool page.</p>
                   </div>
                   <div className="pose-tool-actions">
                     <button className="cl_theme-btn" onClick={() => void (running ? stop() : start())} type="button">
@@ -277,7 +277,7 @@ export default function PoseRealtimePage() {
                 <div className="pose-stage">
                   <video ref={videoRef} autoPlay playsInline muted className="pose-stage-media" />
                   <canvas ref={canvasRef} className="pose-stage-media pose-stage-canvas" />
-                  {!running ? <div className="pose-stage-overlay">{loadingMsg ?? '点击 Start 开始实时动作检测'}</div> : null}
+                  {!running ? <div className="pose-stage-overlay">{loadingMsg ?? 'Click Start to begin real-time pose detection'}</div> : null}
                 </div>
 
                 <div className="pose-meta-row">
@@ -302,17 +302,17 @@ export default function PoseRealtimePage() {
                 </div>
 
                 <div className="pose-tip-card">
-                  <h6 className="sub-title mb-15">纠错建议</h6>
+                  <h6 className="sub-title mb-15">Coaching Suggestions</h6>
                   <p>{currentSuggestion}</p>
                 </div>
 
                 <div className="pose-tip-card">
-                  <h6 className="sub-title mb-15">状态信息</h6>
+                  <h6 className="sub-title mb-15">Status</h6>
                   <ul className="pose-detail-list">
-                    <li>距离状态：{rangeStatus}</li>
-                    <li>跟踪质量：{feedback ? `${Math.round(feedback.trackingQuality * 100)}%` : '-'}</li>
-                    <li>正确次数：{feedback?.correctCount ?? 0}</li>
-                    <li>最近结果：{feedback?.lastRepResult ?? '-'}</li>
+                    <li>Distance: {rangeStatus}</li>
+                    <li>Tracking Quality: {feedback ? `${Math.round(feedback.trackingQuality * 100)}%` : '-'}</li>
+                    <li>Correct Reps: {feedback?.correctCount ?? 0}</li>
+                    <li>Last Result: {feedback?.lastRepResult ?? '-'}</li>
                   </ul>
                 </div>
 

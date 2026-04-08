@@ -12,40 +12,40 @@ export default function AboutPage() {
   const members = useMemo<Member[]>(
     () => [
       {
-        name: '成员 A',
-        role: '全栈 / 架构',
-        bio: '负责系统架构、API与部署。',
-        details: '负责后端API设计、数据库建模、Docker部署与整体技术方案落地。'
+        name: 'Member A',
+        role: 'Full-stack / Architecture',
+        bio: 'Owns system architecture, APIs, and deployment.',
+        details: 'Responsible for backend API design, database modeling, deployment, and overall technical delivery.'
       },
       {
-        name: '成员 B',
-        role: '前端 / 交互',
-        bio: '负责整体UI与动效。',
-        details: '负责导航、动效、全局组件与页面可用性，确保华丽但不喧宾夺主。'
+        name: 'Member B',
+        role: 'Frontend / UX',
+        bio: 'Owns UI and interactions.',
+        details: 'Responsible for navigation, animations, shared components, and usability.'
       },
       {
-        name: '成员 C',
-        role: 'AI / 视觉',
-        bio: '负责姿态与食物识别探索。',
-        details: '负责TF.js模型调研与前端推理方案评估（MoveNet/YOLOv8）。'
+        name: 'Member C',
+        role: 'AI / Vision',
+        bio: 'Explores pose and food recognition.',
+        details: 'Evaluates TF.js models and browser-side inference approaches (MoveNet/YOLOv8).'
       },
       {
-        name: '成员 D',
-        role: '数据 / 测试',
-        bio: '负责测试与数据可视化。',
-        details: '负责统计报告逻辑、接口验证与测试覆盖率提升。'
+        name: 'Member D',
+        role: 'Data / QA',
+        bio: 'Owns testing and data visualization.',
+        details: 'Responsible for reporting logic, API verification, and improving test coverage.'
       },
       {
-        name: '成员 E',
-        role: '内容 / 运营',
-        bio: '负责博客内容与标签体系。',
-        details: '负责博客标签策略、内容模板与社区交互体验。'
+        name: 'Member E',
+        role: 'Content / Community',
+        bio: 'Owns blog content and tagging.',
+        details: 'Responsible for tag strategy, content templates, and community interaction experience.'
       },
       {
-        name: '成员 F',
-        role: '产品 / 需求',
-        bio: '负责需求梳理与验收。',
-        details: '负责需求拆解、验收标准与用户流程优化。'
+        name: 'Member F',
+        role: 'Product',
+        bio: 'Owns requirements and acceptance.',
+        details: 'Responsible for requirement breakdown, acceptance criteria, and optimizing user flows.'
       }
     ],
     []
@@ -86,23 +86,23 @@ export default function AboutPage() {
                 <div className="cl_about-content mr-80 ml-10">
                   <div className="cl_section-area mb-35">
                     <span className="cl_section-subtitle cl_section-subtitle-about">AI FitGuard</span>
-                    <h2 className="cl_section-title cl_section-title-small mb-25">隐私优先的健身与营养助手</h2>
+                    <h2 className="cl_section-title cl_section-title-small mb-25">A privacy-first fitness and nutrition assistant</h2>
                     <p className="cl_section-text mb-0">
-                      AI FitGuard 的愿景是让每个人在无需专业硬件的情况下，也能获得可靠的训练指导与饮食分析。平台尽可能在浏览器本地完成视频/图像推理，并结合社区与课程体系帮助用户持续进步。
+                      AI FitGuard helps you get reliable training guidance and nutrition insights without specialized hardware. Whenever possible, video/image inference runs locally in your browser, and the platform combines community and courses to support long-term progress.
                     </p>
                   </div>
                   <ul className="cl_about-content-list">
                     <li>
-                      <i className="fa-sharp fa-light fa-check"></i>动作矫正（Pose）
+                      <i className="fa-sharp fa-light fa-check"></i>Pose coaching
                     </li>
                     <li>
-                      <i className="fa-sharp fa-light fa-check"></i>食物营养分析（Food）
+                      <i className="fa-sharp fa-light fa-check"></i>Food & nutrition tracking
                     </li>
                     <li>
-                      <i className="fa-sharp fa-light fa-check"></i>社区博客与评论
+                      <i className="fa-sharp fa-light fa-check"></i>Community blogs and comments
                     </li>
                     <li>
-                      <i className="fa-sharp fa-light fa-check"></i>课程报名与评价
+                      <i className="fa-sharp fa-light fa-check"></i>Course enrollment and reviews
                     </li>
                   </ul>
                   <div className="cl_about-content-btn">
@@ -130,7 +130,7 @@ export default function AboutPage() {
               <div className="col-xl-8">
                 <div className="cl_section-area text-center mb-30 pb-2">
                   <span className="cl_section-subtitle">Our Team</span>
-                  <h2 className="cl_section-title cl_section-title-white mb-0">团队成员</h2>
+                  <h2 className="cl_section-title cl_section-title-white mb-0">Team</h2>
                 </div>
               </div>
             </div>
@@ -202,4 +202,3 @@ export default function AboutPage() {
     </>
   )
 }
-

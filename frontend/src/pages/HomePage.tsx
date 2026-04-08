@@ -85,13 +85,13 @@ export default function HomePage() {
         <div className="common_width_1">
           <div className="cl_hero-wrap" data-background={heroBg}>
             <div className="cl_hero-content">
-              <h1>更聪明的训练，更清晰的饮食</h1>
+              <h1>Train smarter. Eat clearer.</h1>
               <div className="cl_hero-content-btn">
                 <Link to="/tools/pose" className="cl_theme-btn cl_hero-btn">
-                  开始动作矫正 <Arrow15 />
+                  Start Pose Coaching <Arrow15 />
                 </Link>
                 <Link to="/food" className="cl_hero-btn-2">
-                  开始食物分析 <Arrow15 />
+                  Start Food Tracking <Arrow15 />
                 </Link>
               </div>
             </div>
@@ -115,10 +115,10 @@ export default function HomePage() {
               <div className="col-12">
                 <div className="cl_blog_big-item mb-30">
                   <div className="cl_blog_big-item-content">
-                    <h3>暂无博客</h3>
-                    <p>先在个人中心创建并发布一篇博客，然后回来查看。</p>
+                    <h3>No posts yet</h3>
+                    <p>Create and publish a blog post in your profile, then come back here to see it.</p>
                     <Link to="/profile" className="cl_blog_big-item-content-btn">
-                      去创建 <Arrow15 />
+                      Create one <Arrow15 />
                     </Link>
                   </div>
                 </div>
@@ -212,7 +212,7 @@ export default function HomePage() {
             <div className="col-xl-7">
               <div className="cl_section-area text-center mb-30 pb-2">
                 <span className="cl_section-subtitle">Our Courses</span>
-                <h2 className="cl_section-title mb-0">精选课程推荐</h2>
+                <h2 className="cl_section-title mb-0">Featured Courses</h2>
               </div>
             </div>
           </div>
@@ -222,14 +222,14 @@ export default function HomePage() {
               <div className="col-12">
                 <div className="cl_price-item active mb-30">
                   <span className="cl_price-item-subtitle">LOGIN REQUIRED</span>
-                  <h4 className="cl_price-item-title">登录后查看课程与报名</h4>
+                  <h4 className="cl_price-item-title">Sign in to view courses and enroll</h4>
                   <h2 className="cl_price-item-amount">Free</h2>
                   <ul className="cl_price-item-feature">
                     <li>
-                      <i className="fa-sharp fa-light fa-check"></i> 课程列表 / 课程详情
+                      <i className="fa-sharp fa-light fa-check"></i> Course list / details
                     </li>
                     <li>
-                      <i className="fa-sharp fa-light fa-check"></i> 报名与评论互动
+                      <i className="fa-sharp fa-light fa-check"></i> Enrollment and comments
                     </li>
                   </ul>
                   <div className="cl_price-item-btn">
@@ -251,13 +251,13 @@ export default function HomePage() {
                     </h2>
                     <ul className="cl_price-item-feature">
                       <li>
-                        <i className="fa-sharp fa-light fa-check"></i> 讲师：{c.instructor_name}
+                        <i className="fa-sharp fa-light fa-check"></i> Instructor: {c.instructor_name}
                       </li>
                       <li>
-                        <i className="fa-sharp fa-light fa-check"></i> 评分：{c.avg_rating ? c.avg_rating.toFixed(1) : '-'}
+                        <i className="fa-sharp fa-light fa-check"></i> Rating: {c.avg_rating ? c.avg_rating.toFixed(1) : '-'}
                       </li>
                       <li>
-                        <i className="fa-sharp fa-light fa-check"></i> 报名人数：{c.enroll_count}
+                        <i className="fa-sharp fa-light fa-check"></i> Enrolled: {c.enroll_count}
                       </li>
                     </ul>
                     <div className="cl_price-item-btn">
@@ -270,7 +270,7 @@ export default function HomePage() {
                 <div className="col-12">
                   <div className="cl_price-item active mb-30">
                     <span className="cl_price-item-subtitle">EMPTY</span>
-                    <h4 className="cl_price-item-title">暂无课程</h4>
+                    <h4 className="cl_price-item-title">No courses yet</h4>
                     <h2 className="cl_price-item-amount">-</h2>
                     <div className="cl_price-item-btn">
                       <Link to="/courses">Go Courses</Link>
@@ -285,4 +285,3 @@ export default function HomePage() {
     </>
   )
 }
-

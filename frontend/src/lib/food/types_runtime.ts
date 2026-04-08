@@ -1,11 +1,11 @@
 export type FoodCategory =
-  | '主食'
-  | '蔬果'
-  | '肉蛋奶'
-  | '豆类坚果'
-  | '中式菜肴'
-  | '西式菜肴'
-  | '零食'
+  | '\u4e3b\u98df'
+  | '\u852c\u679c'
+  | '\u8089\u86cb\u5976'
+  | '\u8c46\u7c7b\u575a\u679c'
+  | '\u4e2d\u5f0f\u83dc\u80b4'
+  | '\u897f\u5f0f\u83dc\u80b4'
+  | '\u96f6\u98df'
   | string
 
 export type FoodMealType = 'breakfast' | 'lunch' | 'dinner' | 'snack'

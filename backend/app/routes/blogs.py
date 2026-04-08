@@ -110,16 +110,11 @@ def list_blogs():
     if query_text:
         q = q.filter(or_(Blog.title.ilike(f"%{query_text}%"), Blog.content.ilike(f"%{query_text}%")))
     if tag_ids:
-        tag_blog_ids = (
-            db.session.query(BlogTag.blog_id)
-            .filter(BlogTag.tag_id.in_([int(t) for t in tag_ids]))
-            .subquery()
-        )
-        q = q.filter(Blog.id.in_(tag_blog_ids))
+        q = q.join(BlogTag).filter(BlogTag.tag_id.in_([int(t) for t in tag_ids]))
 
     q = q.order_by(Blog.created_at.desc())
-    total = q.count()
-    items = q.offset((page - 1) * page_size).limit(page_size).all()
+    total = q.order_by(None).distinct().count()
+    items = q.distinct().offset((page - 1) * page_size).limit(page_size).all()
 
     return jsonify({"items": [_blog_card(b) for b in items], "page": page, "page_size": page_size, "total": total})
 
@@ -247,4 +242,3 @@ def toggle_blog_like(blog_id: int):
 
     db.session.commit()
     return jsonify({"liked": liked, "like_count": blog.like_count})
-

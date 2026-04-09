@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { API_BASE, apiFetch } from '../lib/api'
 
@@ -44,6 +44,43 @@ function getViewCount(blog: BlogCard) {
   const vcc = (blog as unknown as { views?: unknown; view_count?: unknown; viewCount?: unknown }).viewCount
   const n = Number(v ?? vc ?? vcc ?? 0)
   return Number.isFinite(n) ? n : 0
+}
+
+function useRevealOnScroll<T extends HTMLElement>() {
+  const ref = useRef<T | null>(null)
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setVisible(true)
+      return
+    }
+
+    const el = ref.current
+    if (!el) return
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0]
+        if (!entry) return
+        if (entry.isIntersecting) {
+          setVisible(true)
+          return
+        }
+
+        const viewportH = window.innerHeight || 0
+        if (entry.boundingClientRect.top >= viewportH) {
+          setVisible(false)
+        }
+      },
+      { threshold: 0.15, rootMargin: '0px 0px -10% 0px' }
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+
+  return { ref, visible }
 }
 
 type TeaserVariant = 'hero' | 'recentLarge' | 'recentSmall' | 'grid'
@@ -109,6 +146,63 @@ function BlogTeaserCard({
             <img src="/figma/icon-clock.svg" alt="" className="h-3.5 w-3.5" />
             <span>{minutes} min read</span>
           </div>
+        </div>
+      </div>
+    </article>
+  )
+}
+
+function FeaturedBlogGridCard({
+  blog,
+  placeholderSrc,
+}: {
+  blog: BlogCard
+  placeholderSrc: string
+}) {
+  const cover = resolveMediaUrl(blog.cover_image_url) ?? placeholderSrc
+  const tag = blog.tags[0]?.name ?? 'Our Blog'
+  const minutes = estimateReadMinutes(blog.excerpt)
+
+  return (
+    <article className="group rounded-xl bg-white shadow-sm ring-1 ring-inset ring-neutral-200 transition-[transform,box-shadow] duration-200 hover:-translate-y-1 hover:shadow-md">
+      <div className="flex h-full flex-col p-3">
+        <div className="relative overflow-hidden rounded-xl bg-neutral-100 aspect-[16/9]">
+          <Link to={`/blogs/${blog.id}`} className="block h-full w-full">
+            <img
+              className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+              src={cover}
+              alt={blog.title}
+            />
+          </Link>
+          <div className="absolute left-4 top-4">
+            <span className="inline-flex items-center rounded-full bg-white/95 px-3 py-1 text-[11px] font-medium text-neutral-900 shadow-sm">
+              {tag}
+            </span>
+          </div>
+        </div>
+
+        <h3 className="mt-4 text-base font-semibold leading-snug tracking-tight text-neutral-900 line-clamp-2">
+          <Link to={`/blogs/${blog.id}`}>{blog.title}</Link>
+        </h3>
+
+        <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-neutral-500">
+          <div className="flex items-center gap-2">
+            <img src="/figma/icon-calendar.svg" alt="" className="h-3.5 w-3.5" />
+            <span>{formatLongDate(blog.created_at)}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <img src="/figma/icon-clock.svg" alt="" className="h-3.5 w-3.5" />
+            <span>{minutes} min read</span>
+          </div>
+        </div>
+
+        <div className="mt-auto pt-5">
+          <Link
+            to={`/blogs/${blog.id}`}
+            className="inline-flex h-10 w-full items-center justify-center rounded-full border border-neutral-900 bg-white px-5 text-sm font-medium text-neutral-900 transition-colors hover:bg-neutral-900 hover:text-white"
+          >
+            Read more
+          </Link>
         </div>
       </div>
     </article>
@@ -378,27 +472,47 @@ export default function BlogListPage() {
     return best
   }, [items])
 
+  const recentReveal = useRevealOnScroll<HTMLElement>()
+  const categoriesReveal = useRevealOnScroll<HTMLElement>()
+  const featuredReveal = useRevealOnScroll<HTMLElement>()
+  const joinReveal = useRevealOnScroll<HTMLElement>()
+  const featuredGridReveal = useRevealOnScroll<HTMLDivElement>()
+
   return (
     <main className="bg-white">
       <style>{`
-        @keyframes blogFadeUp {
-          from {
-            opacity: 0;
-            transform: translateY(24px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+        .reveal {
+          opacity: 0;
+          transform: translateY(40px);
+          transition: all 0.6s ease;
+          will-change: opacity, transform;
         }
-        .blog-fade-up {
-          animation: blogFadeUp 700ms ease-out both;
+        .reveal.visible {
+          opacity: 1;
+          transform: translateY(0);
         }
-        @media (prefers-reduced-motion: reduce) {
-          .blog-fade-up {
-            animation: none;
-          }
+        .reveal-stagger > * {
+          opacity: 0;
+          transform: translateY(40px);
+          transition: all 0.6s ease;
+          will-change: opacity, transform;
         }
+        .reveal-stagger.visible > * {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        .reveal-stagger.visible > *:nth-child(1) { transition-delay: 0ms; }
+        .reveal-stagger.visible > *:nth-child(2) { transition-delay: 100ms; }
+        .reveal-stagger.visible > *:nth-child(3) { transition-delay: 200ms; }
+        .reveal-stagger.visible > *:nth-child(4) { transition-delay: 300ms; }
+        .reveal-stagger.visible > *:nth-child(5) { transition-delay: 400ms; }
+        .reveal-stagger.visible > *:nth-child(6) { transition-delay: 500ms; }
+        .reveal-stagger.visible > *:nth-child(7) { transition-delay: 600ms; }
+        .reveal-stagger.visible > *:nth-child(8) { transition-delay: 700ms; }
+        .reveal-stagger.visible > *:nth-child(9) { transition-delay: 800ms; }
+        .reveal-stagger.visible > *:nth-child(10) { transition-delay: 900ms; }
+        .reveal-stagger.visible > *:nth-child(11) { transition-delay: 1000ms; }
+        .reveal-stagger.visible > *:nth-child(12) { transition-delay: 1100ms; }
       `}</style>
       <section className="bg-neutral-50 px-4 pb-20 pt-14 md:pb-32 md:pt-20">
         <div className="mx-auto grid max-w-[1200px] grid-cols-1 gap-10 lg:grid-cols-12 lg:items-center">
@@ -420,7 +534,10 @@ export default function BlogListPage() {
         </div>
       </section>
 
-      <section className="px-4 py-14 md:py-20 blog-fade-up" style={{ animationDelay: '60ms' }}>
+      <section
+        ref={recentReveal.ref}
+        className={`px-4 py-14 md:py-20 reveal${recentReveal.visible ? ' visible' : ''}`}
+      >
         <div className="mx-auto max-w-[1200px]">
           <h2 className="text-3xl font-semibold leading-tight tracking-tight text-neutral-900 md:text-4xl">
             Recent Blogs
@@ -486,7 +603,7 @@ export default function BlogListPage() {
               <div className="grid grid-cols-1 gap-8">
                 {recent.slice(1, 4).map((b, idx) => (
                   <article key={b.id} className="rounded-3xl p-3 hover:bg-neutral-50">
-                    <div className="flex items-start gap-5">
+                    <div className="flex items-start gap-[13px]">
                       <div className="relative h-[110px] w-[150px] flex-none overflow-hidden rounded-2xl bg-neutral-100 sm:h-[120px] sm:w-[170px]">
                         <Link to={`/blogs/${b.id}`} className="block h-full w-full">
                           <img
@@ -539,7 +656,10 @@ export default function BlogListPage() {
         </div>
       </section>
 
-      <section className="px-4 pt-16 md:pt-24 blog-fade-up" style={{ animationDelay: '140ms' }}>
+      <section
+        ref={categoriesReveal.ref}
+        className={`px-4 pt-16 md:pt-24 reveal${categoriesReveal.visible ? ' visible' : ''}`}
+      >
         <div className="mx-auto max-w-[1200px]">
           <h2 className="text-center text-lg font-semibold text-neutral-900">Blog Categories</h2>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
@@ -566,54 +686,35 @@ export default function BlogListPage() {
         </div>
       </section>
 
-      <section className="px-4 pt-16 md:pt-24">
+      <section ref={featuredReveal.ref} className={`px-4 pt-16 md:pt-24 reveal${featuredReveal.visible ? ' visible' : ''}`}>
         <div className="mx-auto max-w-[1200px]">
           <div className="flex items-center justify-between gap-6">
             <h2 className="text-lg font-semibold text-neutral-900">Featured Blogs</h2>
-            <div className="flex items-center gap-3">
-              <div className="h-1 w-24 rounded-full bg-neutral-200">
-                <div className="h-1 rounded-full bg-neutral-900" style={{ width: `${featuredProgress * 100}%` }} />
-              </div>
-              <div className="text-xs text-neutral-500">
-                01 / {String(Math.max(1, Math.min(6, featuredCount))).padStart(2, '0')}
-              </div>
-            </div>
           </div>
 
-          <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-12">
-            {featured[0] ? (
-              <div className="lg:col-span-3">
-                <BlogTeaserCard blog={featured[0]} placeholderSrc="/figma/featured-1.png" variant="grid" />
-              </div>
-            ) : null}
-            {featured[1] ? (
-              <div className="lg:col-span-6">
-                <BlogTeaserCard blog={featured[1]} placeholderSrc="/figma/featured-2.png" variant="grid" />
-              </div>
-            ) : null}
-            {featured[2] ? (
-              <div className="lg:col-span-3">
-                <BlogTeaserCard blog={featured[2]} placeholderSrc="/figma/featured-3.png" variant="grid" />
-              </div>
-            ) : null}
-          </div>
-
-          <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {featured.slice(3, 7).map((b, idx) => (
-              <BlogTeaserCard
+          <div
+            ref={featuredGridReveal.ref}
+            className={`mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 reveal-stagger${
+              featuredGridReveal.visible ? ' visible' : ''
+            }`}
+          >
+            {featured.slice(0, 3).map((b, idx) => (
+              <FeaturedBlogGridCard
                 key={b.id}
                 blog={b}
-                placeholderSrc={idx === 0 ? '/figma/featured-4.png' : idx === 1 ? '/figma/featured-5.png' : '/figma/featured-1.png'}
-                variant="grid"
+                placeholderSrc={idx === 0 ? '/figma/featured-1.png' : idx === 1 ? '/figma/featured-2.png' : '/figma/featured-3.png'}
               />
             ))}
           </div>
         </div>
       </section>
 
-      <section className="px-4 pt-16 md:pt-24 blog-fade-up" style={{ animationDelay: '220ms' }}>
+      <section
+        ref={joinReveal.ref}
+        className={`px-4 pt-16 md:pt-24 reveal${joinReveal.visible ? ' visible' : ''}`}
+      >
         <div className="mx-auto max-w-[1200px]">
-          <div className="grid grid-cols-1 gap-8 rounded-3xl bg-neutral-950 px-6 py-10 text-white md:px-10 lg:grid-cols-12 lg:items-center">
+          <div className="grid grid-cols-1 gap-8 rounded-3xl bg-neutral-950 px-6 py-[60px] text-white md:px-10 lg:grid-cols-12 lg:items-center">
             <div className="lg:col-span-7">
               <h2 className="text-2xl font-semibold leading-tight tracking-tight md:text-3xl">
                 Join the community –

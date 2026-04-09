@@ -64,13 +64,20 @@ export default function HomePage() {
   }, [heroSlides.length])
 
   useEffect(() => {
+    if (blogs.length === 0) return
+
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       setBlogReveal(2)
       return
     }
 
     const row1 = row1Ref.current
-    if (!row1) return
+    const row2 = row2Ref.current
+
+    if (!row1) {
+      setBlogReveal(2)
+      return
+    }
 
     const ioRow1 = new IntersectionObserver(
       (entries) => {
@@ -83,7 +90,6 @@ export default function HomePage() {
     )
     ioRow1.observe(row1)
 
-    const row2 = row2Ref.current
     let ioRow2: IntersectionObserver | null = null
     if (row2) {
       ioRow2 = new IntersectionObserver(
@@ -102,7 +108,7 @@ export default function HomePage() {
       ioRow1.disconnect()
       ioRow2?.disconnect()
     }
-  }, [])
+  }, [blogs.length])
 
   const featuredBlogs = blogs.slice(0, 6)
   const row1 = featuredBlogs.slice(0, 3)

@@ -627,3 +627,62 @@ body {
   display: block;
 }
 
+.cl_hero-carousel {
+  position: relative;
+  overflow: hidden;
+}
+
+.cl_hero-carousel-slides {
+  position: absolute;
+  inset: 0;
+}
+
+.cl_hero-carousel-slide {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  opacity: 0;
+  transform: scale(1.03);
+  transition: opacity 900ms ease, transform 12000ms ease;
+}
+
+.cl_hero-carousel-slide.is-active {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.cl_hero-carousel-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0.25) 45%, rgba(0, 0, 0, 0.1) 100%);
+}
+
+.cl_hero-carousel .cl_hero-content {
+  position: relative;
+  z-index: 1;
+}
+
+.cl_hero-carousel-dots {
+  position: absolute;
+  left: 24px;
+  bottom: 18px;
+  display: flex;
+  gap: 10px;
+  z-index: 2;
+}
+
+.cl_hero-carousel-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.25);
+  padding: 0;
+}
+
+.cl_hero-carousel-dot.is-active {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.95);
+}
+

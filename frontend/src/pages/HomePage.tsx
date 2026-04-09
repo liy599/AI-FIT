@@ -32,6 +32,13 @@ function Arrow15() {
 
 export default function HomePage() {
   const [blogs, setBlogs] = useState<BlogCard[]>([])
+  const heroSlides = [
+    { src: '/assets/images/hero/hero_slide_1.jpg', label: 'Outdoor gym equipment' },
+    { src: '/assets/images/hero/hero_slide_2.jpg', label: 'Kettlebell training' },
+    { src: '/assets/images/hero/hero_slide_3.jpg', label: 'Healthy garden salad' },
+    { src: '/assets/images/hero/hero_slide_4.jpg', label: 'Healthy meal' }
+  ] as const
+  const [heroIndex, setHeroIndex] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -46,7 +53,13 @@ export default function HomePage() {
     }
   }, [])
 
-  const heroBg = '/assets/images/hero/h1_1.png'
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setHeroIndex((i) => (i + 1) % heroSlides.length)
+    }, 6500)
+    return () => window.clearInterval(id)
+  }, [heroSlides.length])
+
   const bigBlog = blogs[0]
   const sideBlogs = blogs.slice(1, 4)
 
@@ -54,7 +67,17 @@ export default function HomePage() {
     <>
       <section className="cl_hero-area">
         <div className="common_width_1">
-          <div className="cl_hero-wrap" data-background={heroBg}>
+          <div className="cl_hero-wrap cl_hero-carousel">
+            <div className="cl_hero-carousel-slides" aria-hidden="true">
+              {heroSlides.map((s, idx) => (
+                <div
+                  key={s.src}
+                  className={`cl_hero-carousel-slide${idx === heroIndex ? ' is-active' : ''}`}
+                  style={{ backgroundImage: `url(${s.src})` }}
+                />
+              ))}
+            </div>
+            <div className="cl_hero-carousel-overlay" aria-hidden="true" />
             <div className="cl_hero-content">
               <h1>Train smarter. Eat clearer.</h1>
               <div className="cl_hero-content-btn">
@@ -65,6 +88,17 @@ export default function HomePage() {
                   Start Food Tracking <Arrow15 />
                 </Link>
               </div>
+            </div>
+            <div className="cl_hero-carousel-dots">
+              {heroSlides.map((s, idx) => (
+                <button
+                  key={s.src}
+                  type="button"
+                  className={`cl_hero-carousel-dot${idx === heroIndex ? ' is-active' : ''}`}
+                  aria-label={`Go to slide ${idx + 1}: ${s.label}`}
+                  onClick={() => setHeroIndex(idx)}
+                />
+              ))}
             </div>
           </div>
         </div>

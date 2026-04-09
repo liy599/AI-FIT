@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { API_BASE, apiFetch } from '../lib/api'
+import OrganicFluidBackground from '../components/OrganicFluidBackground'
 
 type Tag = { id: number; name: string }
 type BlogCard = {
@@ -514,8 +515,12 @@ export default function BlogListPage() {
         .reveal-stagger.visible > *:nth-child(11) { transition-delay: 1000ms; }
         .reveal-stagger.visible > *:nth-child(12) { transition-delay: 1100ms; }
       `}</style>
-      <section className="bg-neutral-50 px-4 pb-20 pt-14 md:pb-32 md:pt-20">
-        <div className="mx-auto grid max-w-[1200px] grid-cols-1 gap-10 lg:grid-cols-12 lg:items-center">
+      <section className="relative overflow-hidden bg-neutral-50 px-4 pb-20 pt-14 md:pb-32 md:pt-20">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[55%]">
+          <OrganicFluidBackground className="absolute inset-0 h-full w-full overflow-hidden rounded-none" />
+          <div className="absolute inset-0 bg-gradient-to-b from-neutral-50 via-neutral-50/70 to-transparent" />
+        </div>
+        <div className="relative mx-auto grid max-w-[1200px] grid-cols-1 gap-10 lg:grid-cols-12 lg:items-center">
           <div className="lg:col-span-6">
             <div className="flex min-h-[220px] items-center lg:min-h-[420px]">
               <h1 className="text-[44px] font-semibold leading-[1.02] tracking-tight text-neutral-900 sm:text-[56px] md:text-[64px]">
@@ -711,17 +716,18 @@ export default function BlogListPage() {
 
       <section
         ref={joinReveal.ref}
-        className={`px-4 pt-16 md:pt-24 reveal${joinReveal.visible ? ' visible' : ''}`}
+        className={`px-4 pt-16 md:pt-24 pb-16 reveal${joinReveal.visible ? ' visible' : ''}`}
       >
         <div className="mx-auto max-w-[1200px]">
-          <div className="grid grid-cols-1 gap-8 rounded-3xl bg-neutral-950 px-6 py-[60px] text-white md:px-10 lg:grid-cols-12 lg:items-center">
-            <div className="lg:col-span-7">
+          <div className="relative grid grid-cols-1 gap-8 rounded-3xl px-6 py-[60px] text-white shadow-xl md:px-10 lg:grid-cols-12 lg:items-center">
+            <OrganicFluidBackground />
+            <div className="relative z-10 lg:col-span-7">
               <h2 className="text-2xl font-semibold leading-tight tracking-tight md:text-3xl">
                 Join the community –
                 <br />
                 Get Updates and Tips
               </h2>
-              <p className="mt-4 max-w-[520px] text-sm leading-relaxed text-white/70 md:text-base">
+              <p className="mt-4 max-w-[520px] text-sm leading-relaxed text-white md:text-base">
                 Get the latest articles, resources, and insights straight to your inbox.
               </p>
 
@@ -736,7 +742,7 @@ export default function BlogListPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Enter your email"
-                  className="h-11 flex-1 rounded-full bg-white/10 px-4 text-sm text-white placeholder:text-white/50 outline-none ring-1 ring-inset ring-white/15 focus:ring-white/30"
+                  className="h-11 flex-1 rounded-full bg-white/5 px-4 text-sm text-white placeholder:text-white outline-none ring-1 ring-inset ring-white/10 focus:ring-white/25"
                 />
                 <button
                   type="submit"
@@ -747,7 +753,7 @@ export default function BlogListPage() {
               </form>
             </div>
 
-            <div className="lg:col-span-5">
+            <div className="relative z-10 lg:col-span-5">
               {hero ? (
                 <div className="rounded-3xl bg-white p-3 text-neutral-900">
                   <div className="relative overflow-hidden rounded-3xl bg-neutral-100 aspect-[16/9]">

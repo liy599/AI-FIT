@@ -1073,3 +1073,73 @@ body {
   }
 }
 
+.cl_brand {
+  display: inline-flex;
+  align-items: center;
+  font-family: "Outfit", sans-serif;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: var(--clr-body-heading);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.cl_brand:hover {
+  color: var(--clr-body-heading);
+}
+
+.cl_brand--light {
+  color: #fff;
+}
+
+.cl_brand--light:hover {
+  color: #fff;
+}
+
+.cl_header-account {
+  position: relative;
+}
+
+.cl_header-account-submenu {
+  position: absolute;
+  left: 0;
+  right: auto;
+  top: calc(100% + 10px);
+  background: #fff;
+  width: 200px;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s linear 0s;
+  box-shadow: 0 9px 19px rgba(0, 0, 0, 0.1);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  border-radius: 12px;
+  overflow: hidden;
+  z-index: 200;
+}
+
+.cl_header-account:hover .cl_header-account-submenu,
+.cl_header-account:focus-within .cl_header-account-submenu {
+  opacity: 1;
+  visibility: visible;
+}
+
+.cl_header-account-submenu li:not(:last-child) {
+  border-bottom: 1px solid #f2f2f2;
+}
+
+.cl_header-account-submenu .menu-action-btn {
+  width: 100%;
+  text-align: left;
+  padding: 12px 16px;
+  background: transparent;
+  border: 0;
+  color: var(--clr-common-black);
+}
+
+.cl_header-account-submenu .menu-action-btn:hover {
+  background-color: var(--clr-theme-primary);
+  color: #fff;
+}
+

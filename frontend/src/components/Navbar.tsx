@@ -54,51 +54,26 @@ export default function Navbar(props: NavbarProps) {
           Blog
         </NavLink>
       </li>
-      {auth.user ? (
-        <li className="menu-has-child">
-          <NavLink to="/profile" onClick={props.onNavigate}>
-            Account
-          </NavLink>
-          <ul className="submenu">
-            <li>
-              <NavLink to="/profile" onClick={props.onNavigate}>
-                Profile
-              </NavLink>
-            </li>
-            <li>
-              <button
-                type="button"
-                className="menu-action-btn"
-                onClick={() => {
-                  auth.logout()
-                  props.onNavigate?.()
-                  nav('/')
-                }}
-              >
-                Logout
-              </button>
-            </li>
-          </ul>
+      <li>
+        <NavLink to={auth.user ? '/profile' : '/login'} onClick={props.onNavigate}>
+          Account
+        </NavLink>
+      </li>
+      {props.variant === 'mobile' && auth.user ? (
+        <li>
+          <button
+            type="button"
+            className="menu-action-btn"
+            onClick={() => {
+              auth.logout()
+              props.onNavigate?.()
+              nav('/')
+            }}
+          >
+            Logout
+          </button>
         </li>
-      ) : (
-        <li className="menu-has-child">
-          <NavLink to="/login" onClick={props.onNavigate}>
-            Account
-          </NavLink>
-          <ul className="submenu">
-            <li>
-              <NavLink to="/login" onClick={props.onNavigate}>
-                Login
-              </NavLink>
-            </li>
-            <li>
-              <NavLink to="/register" onClick={props.onNavigate}>
-                Register
-              </NavLink>
-            </li>
-          </ul>
-        </li>
-      )}
+      ) : null}
     </>
   )
 
@@ -117,8 +92,8 @@ export default function Navbar(props: NavbarProps) {
           <div className="cl_header-wrap">
             <div className="cl_header-left">
               <div className="cl_header-logo">
-                <Link to="/">
-                  <img src="/assets/images/logo/logo.png" alt="AI FitGuard logo" />
+                <Link to="/" className="cl_brand">
+                  AI FitGuard
                 </Link>
               </div>
               <div className="cl_header-menu">
@@ -139,24 +114,40 @@ export default function Navbar(props: NavbarProps) {
                 <i className="fa-regular fa-magnifying-glass"></i>
               </button>
               {auth.user ? (
-                <Link to="/profile" className="cl_header-action-btn d-none d-xxl-flex">
-                  {auth.user.avatar_url ? (
-                    <img
-                      src={resolveAvatarUrl(auth.user.avatar_url) ?? ''}
-                      alt={`${auth.user.username} avatar`}
-                      style={{ width: 28, height: 28, borderRadius: 9999, objectFit: 'cover' }}
-                    />
-                  ) : (
-                    <i className="fa-regular fa-user"></i>
-                  )}
-                </Link>
+                <div className="cl_header-account d-none d-xxl-flex">
+                  <Link to="/profile" className="cl_header-action-btn" aria-label="Open profile menu">
+                    {auth.user.avatar_url ? (
+                      <img
+                        src={resolveAvatarUrl(auth.user.avatar_url) ?? ''}
+                        alt={`${auth.user.username} avatar`}
+                        style={{ width: 28, height: 28, borderRadius: 9999, objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <i className="fa-regular fa-user"></i>
+                    )}
+                  </Link>
+                  <ul className="cl_header-account-submenu" aria-label="Profile menu">
+                    <li>
+                      <button
+                        type="button"
+                        className="menu-action-btn"
+                        onClick={() => {
+                          auth.logout()
+                          nav('/')
+                        }}
+                      >
+                        Logout
+                      </button>
+                    </li>
+                  </ul>
+                </div>
               ) : (
-                <Link to="/login" className="cl_header-action-btn d-none d-xxl-flex">
+                <Link to="/login" className="cl_header-action-btn d-none d-xxl-flex" aria-label="Login">
                   <i className="fa-regular fa-user"></i>
                 </Link>
               )}
               <a href="tel:+000000000" className="cl_header-action-call d-none d-xl-flex">
-                <i className="fa-regular fa-phone"></i> <span>AI FitGuard</span>
+                <span>AI FitGuard</span>
               </a>
               <Link to={auth.user ? '/profile' : '/register'} className="cl_header-btn d-none d-md-flex">
                 {auth.user ? 'My Profile' : 'Create Account'}

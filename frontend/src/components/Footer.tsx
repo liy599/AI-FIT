@@ -8,8 +8,8 @@ export default function Footer() {
           <div className="row align-items-center">
             <div className="col-md-4">
               <div className="cl_footer-logo">
-                <Link to="/">
-                  <img src="/assets/images/logo/logo-white.png" alt="AI FitGuard logo" />
+                <Link to="/" className="cl_brand cl_brand--light">
+                  AI FitGuard
                 </Link>
               </div>
             </div>

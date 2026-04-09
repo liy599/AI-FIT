@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
-import { useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import BackToTop from './BackToTop'
 import FeedbackDrawer from './FeedbackDrawer'
 import Footer from './Footer'
@@ -138,7 +138,9 @@ export default function Layout(props: { children: React.ReactNode }) {
         onKeyDown={(event) => trapFocus(event, mobileDialogRef.current)}
       >
         <div className="logo icon-img-100">
-          <img src="/assets/images/logo/logo-white.png" alt="AI FitGuard logo" />
+          <Link to="/" className="cl_brand cl_brand--light">
+            AI FitGuard
+          </Link>
         </div>
         <button
           type="button"

@@ -7,7 +7,7 @@ class Config:
 
     SQLALCHEMY_DATABASE_URI = os.environ.get(
         "DATABASE_URL",
-        "sqlite:///instance/aifitguard_dev.db",
+        "postgresql+psycopg://aifitguard:aifitguard@localhost:5432/aifitguard",
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 

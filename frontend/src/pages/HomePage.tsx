@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { API_BASE, apiFetch } from '../lib/api'
 
@@ -32,6 +32,9 @@ function Arrow15() {
 
 export default function HomePage() {
   const [blogs, setBlogs] = useState<BlogCard[]>([])
+  const [blogReveal, setBlogReveal] = useState<0 | 1 | 2>(0)
+  const row1Ref = useRef<HTMLDivElement | null>(null)
+  const row2Ref = useRef<HTMLDivElement | null>(null)
   const heroSlides = [
     { src: '/assets/images/hero/hero_slide_1.jpg', label: 'Outdoor gym equipment' },
     { src: '/assets/images/hero/hero_slide_2.jpg', label: 'Kettlebell training' },
@@ -60,8 +63,50 @@ export default function HomePage() {
     return () => window.clearInterval(id)
   }, [heroSlides.length])
 
-  const bigBlog = blogs[0]
-  const sideBlogs = blogs.slice(1, 4)
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setBlogReveal(2)
+      return
+    }
+
+    const row1 = row1Ref.current
+    if (!row1) return
+
+    const ioRow1 = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0]
+        if (!entry?.isIntersecting) return
+        setBlogReveal((prev) => (prev >= 1 ? prev : 1))
+        ioRow1.disconnect()
+      },
+      { threshold: 0.15, rootMargin: '0px 0px -10% 0px' }
+    )
+    ioRow1.observe(row1)
+
+    const row2 = row2Ref.current
+    let ioRow2: IntersectionObserver | null = null
+    if (row2) {
+      ioRow2 = new IntersectionObserver(
+        (entries) => {
+          const entry = entries[0]
+          if (!entry?.isIntersecting) return
+          setBlogReveal((prev) => (prev >= 2 ? prev : 2))
+          ioRow2?.disconnect()
+        },
+        { threshold: 0.15, rootMargin: '0px 0px -10% 0px' }
+      )
+      ioRow2.observe(row2)
+    }
+
+    return () => {
+      ioRow1.disconnect()
+      ioRow2?.disconnect()
+    }
+  }, [])
+
+  const featuredBlogs = blogs.slice(0, 6)
+  const row1 = featuredBlogs.slice(0, 3)
+  const row2 = featuredBlogs.slice(3, 6)
 
   return (
     <>
@@ -106,102 +151,86 @@ export default function HomePage() {
 
       <section className="cl_blog-area pt-100 pb-70">
         <div className="container">
-          <div className="row justify-content-center">
-            <div className="col-xl-5">
-              <div className="cl_section-area text-center mb-30 pb-2">
-                <span className="cl_section-subtitle">Our Blogs</span>
-                <h2 className="cl_section-title mb-0">Latest Blog Posts</h2>
-              </div>
+          <div className="cl_home-blogs-header">
+            <div className="cl_section-area mb-0 pb-0">
+              <span className="cl_section-subtitle">Our Blogs</span>
+              <h2 className="cl_section-title mb-0">Featured Blogs</h2>
             </div>
+            <Link to="/blogs" className="cl_home-blogs-viewall">
+              View all <Arrow15 />
+            </Link>
           </div>
 
           {blogs.length === 0 ? (
-            <div className="row">
-              <div className="col-12">
-                <div className="cl_blog_big-item mb-30">
-                  <div className="cl_blog_big-item-content">
-                    <h3>No posts yet</h3>
-                    <p>Create and publish a blog post in your profile, then come back here to see it.</p>
-                    <Link to="/profile" className="cl_blog_big-item-content-btn">
-                      Create one <Arrow15 />
-                    </Link>
-                  </div>
-                </div>
-              </div>
+            <div className="cl_home-blogs-empty">
+              <h3 className="cl_home-blogs-empty-title">No posts yet</h3>
+              <p className="cl_home-blogs-empty-text">
+                Create and publish a blog post in your profile, then come back here to see it.
+              </p>
+              <Link to="/profile" className="cl_home-blogs-empty-cta">
+                Create one <Arrow15 />
+              </Link>
             </div>
           ) : (
-            <div className="row">
-              <div className="col-xl-8">
-                {bigBlog ? (
-                  <div className="cl_blog_big-item mb-30">
-                    <div className="cl_blog_big-item-img overflow-hidden rounded-2xl">
-                      <Link to={`/blogs/${bigBlog.id}`}>
-                        <div className="relative w-full aspect-video max-h-[400px] overflow-hidden bg-slate-100">
-                          <img
-                            className="absolute inset-0 h-full w-full object-cover object-center"
-                            src={resolveMediaUrl(bigBlog.cover_image_url) ?? '/assets/images/blog/h1_1.png'}
-                            alt={bigBlog.title}
-                          />
+            <div className="cl_home-blogs-grid">
+              <div ref={row1Ref} className={`cl_home-blogs-row${blogReveal >= 1 ? ' is-visible' : ''}`}>
+                {row1.map((b, idx) => {
+                  const tagLabel = b.tags[0]?.name ?? 'AI FitGuard'
+                  const img =
+                    resolveMediaUrl(b.cover_image_url) ?? `/assets/images/blog/h2_${(idx % 9) + 1}.png`
+                  return (
+                    <article className="cl_home-blog-card" key={b.id}>
+                      <Link to={`/blogs/${b.id}`} className="cl_home-blog-card-media">
+                        <img src={img} alt={b.title} loading="lazy" />
+                        <span className="cl_home-blog-card-tag">{tagLabel}</span>
+                      </Link>
+                      <div className="cl_home-blog-card-body">
+                        <h3 className="cl_home-blog-card-title">
+                          <Link to={`/blogs/${b.id}`}>{b.title}</Link>
+                        </h3>
+                        <p className="cl_home-blog-card-excerpt">{b.excerpt}</p>
+                        <div className="cl_home-blog-card-meta">
+                          <span>By {b.author.username}</span>
+                          <span>{new Date(b.created_at).toLocaleDateString()}</span>
                         </div>
-                      </Link>
-                    </div>
-                    <div className="cl_blog_big-item-content">
-                      <div className="cl_blog_big-item-content-meta">
-                        <span>
-                          By <span>{bigBlog.author.username}</span>
-                        </span>
-                        <span>
-                          <span>{new Date(bigBlog.created_at).toLocaleDateString()}</span>
-                        </span>
-                      </div>
-                      <h3>
-                        <Link to={`/blogs/${bigBlog.id}`} className="line-clamp-2">
-                          {bigBlog.title}
+                        <Link to={`/blogs/${b.id}`} className="cl_home-blog-card-cta">
+                          Read more <Arrow15 />
                         </Link>
-                      </h3>
-                      <p>{bigBlog.excerpt}</p>
-                      <Link to={`/blogs/${bigBlog.id}`} className="cl_blog_big-item-content-btn">
-                        Read More <Arrow15 />
-                      </Link>
-                    </div>
-                  </div>
-                ) : null}
+                      </div>
+                    </article>
+                  )
+                })}
               </div>
-
-              <div className="col-xl-4">
-                <div className="cl_blog-right pb-20">
-                  {sideBlogs.map((b, idx) => (
-                    <div className="cl_blog-item mb-10" key={b.id}>
-                      <div className="cl_blog-item-img overflow-hidden rounded-xl">
-                        <Link to={`/blogs/${b.id}`}>
-                          <div className="relative w-full aspect-video max-h-[120px] overflow-hidden bg-slate-100">
-                            <img
-                              className="absolute inset-0 h-full w-full object-cover object-center"
-                              src={resolveMediaUrl(b.cover_image_url) ?? `/assets/images/blog/h1_${idx + 2}.png`}
-                              alt={b.title}
-                            />
-                          </div>
+              {row2.length > 0 ? (
+                <div ref={row2Ref} className={`cl_home-blogs-row${blogReveal >= 2 ? ' is-visible' : ''}`}>
+                  {row2.map((b, idx) => {
+                    const tagLabel = b.tags[0]?.name ?? 'AI FitGuard'
+                    const img =
+                      resolveMediaUrl(b.cover_image_url) ?? `/assets/images/blog/h2_${((idx + 3) % 9) + 1}.png`
+                    return (
+                      <article className="cl_home-blog-card" key={b.id}>
+                        <Link to={`/blogs/${b.id}`} className="cl_home-blog-card-media">
+                          <img src={img} alt={b.title} loading="lazy" />
+                          <span className="cl_home-blog-card-tag">{tagLabel}</span>
                         </Link>
-                      </div>
-                      <div className="cl_blog-item-content">
-                        <div className="cl_blog-item-content-meta">
-                          <span>
-                            By <span>{b.author.username}</span>
-                          </span>
-                          <span>
+                        <div className="cl_home-blog-card-body">
+                          <h3 className="cl_home-blog-card-title">
+                            <Link to={`/blogs/${b.id}`}>{b.title}</Link>
+                          </h3>
+                          <p className="cl_home-blog-card-excerpt">{b.excerpt}</p>
+                          <div className="cl_home-blog-card-meta">
+                            <span>By {b.author.username}</span>
                             <span>{new Date(b.created_at).toLocaleDateString()}</span>
-                          </span>
-                        </div>
-                        <h4>
-                          <Link to={`/blogs/${b.id}`} className="line-clamp-2">
-                            {b.title}
+                          </div>
+                          <Link to={`/blogs/${b.id}`} className="cl_home-blog-card-cta">
+                            Read more <Arrow15 />
                           </Link>
-                        </h4>
-                      </div>
-                    </div>
-                  ))}
+                        </div>
+                      </article>
+                    )
+                  })}
                 </div>
-              </div>
+              ) : null}
             </div>
           )}
         </div>

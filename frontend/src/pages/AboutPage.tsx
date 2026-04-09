@@ -54,6 +54,7 @@ export default function AboutPage() {
   const [active, setActive] = useState<Member | null>(null)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const closeRef = useRef<HTMLButtonElement | null>(null)
+  const [aboutVisual, setAboutVisual] = useState<'gym' | 'food'>('gym')
 
   useEffect(() => {
     if (!active) {
@@ -62,6 +63,13 @@ export default function AboutPage() {
     }
     closeRef.current?.focus()
   }, [active])
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setAboutVisual((v) => (v === 'gym' ? 'food' : 'gym'))
+    }, 3800)
+    return () => window.clearInterval(id)
+  }, [])
 
   useEffect(() => {
     if (!active) return
@@ -98,7 +106,38 @@ export default function AboutPage() {
             <div className="row align-items-center">
               <div className="col-xl-6">
                 <div className="cl_about-img">
-                  <img src="/assets/images/about/h1_1.png" alt="AI FitGuard product overview" />
+                  <div className={`cl_about-visual-stack ${aboutVisual === 'food' ? 'is-food' : 'is-gym'}`}>
+                    <div className="cl_about-visual-label" aria-hidden="true">
+                      {aboutVisual === 'food' ? 'Nutrition' : 'Training'}
+                    </div>
+                    <img
+                      className="cl_about-visual-base"
+                      src="/assets/images/about/about_privacy_gym.jpg"
+                      alt="Gym equipment"
+                    />
+                    <img
+                      className={`cl_about-visual-top${aboutVisual === 'food' ? ' is-active' : ''}`}
+                      src="/assets/images/about/about_privacy_food.jpg"
+                      alt="Healthy chickpea salad bowl"
+                    />
+                    <div className="cl_about-visual-badge" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path
+                          d="M7 10V8a5 5 0 0 1 10 0v2"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <path
+                          d="M6 10h12v10H6V10Z"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </div>
+                  </div>
                 </div>
               </div>
               <div className="col-xl-6">
@@ -150,9 +189,9 @@ export default function AboutPage() {
                 </div>
               </div>
             </div>
-            <div className="row">
+            <div className="row justify-content-center">
               {members.map((m, idx) => (
-                <div className="col-xl-3 col-lg-4 col-md-6" key={m.name}>
+                <div className="col-xl-4 col-lg-4 col-md-4 col-sm-6" key={m.name}>
                     <div className="cl_team-item" style={{ marginBottom: 30 }}>
                       <div className="cl_team-item-img">
                         <img src={`/assets/images/team/h1_${(idx % 4) + 1}.png`} alt={`${m.name} portrait`} />

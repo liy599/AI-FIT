@@ -41,34 +41,32 @@ if (-not (Test-Path $frontendEnv)) {
   Copy-Item (Join-Path $frontendDir ".env.example") $frontendEnv
 }
 
-$dockerAvailable = $false
-if (Get-Command docker -ErrorAction SilentlyContinue) {
-  if (Test-ExternalOk -File "docker" -Args @("info")) {
-    $dockerAvailable = $true
-  }
+if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
+  throw "docker CLI not found on PATH. Install Docker Desktop and retry."
 }
 
-if ($dockerAvailable) {
-  & docker compose up -d db
-  if ($LASTEXITCODE -ne 0) {
-    $dockerAvailable = $false
-  } else {
-    for ($i = 0; $i -lt 30; $i++) {
-      if (Get-Command Test-NetConnection -ErrorAction SilentlyContinue) {
-        try {
-          if (Test-NetConnection -ComputerName "127.0.0.1" -Port 5432 -InformationLevel Quiet -WarningAction SilentlyContinue) {
-            break
-          }
-        } catch {
-        }
+$dockerInfo = cmd /c "docker info 2>&1"
+if ($LASTEXITCODE -ne 0) {
+  Write-Host $dockerInfo
+  throw "Docker Desktop / Docker daemon is required for consistent local environment. Start Docker Desktop and retry."
+}
+
+$composeUp = cmd /c "docker compose up -d db 2>&1"
+if ($LASTEXITCODE -ne 0) {
+  Write-Host $composeUp
+  throw "Failed to start Postgres via docker compose. Common causes: port 5432 already in use, Docker Desktop Engine not running, or compose plugin issues."
+}
+
+for ($i = 0; $i -lt 30; $i++) {
+  if (Get-Command Test-NetConnection -ErrorAction SilentlyContinue) {
+    try {
+      if (Test-NetConnection -ComputerName "127.0.0.1" -Port 5432 -InformationLevel Quiet -WarningAction SilentlyContinue) {
+        break
       }
-      Start-Sleep -Seconds 1
+    } catch {
     }
   }
-}
-
-if (-not $dockerAvailable) {
-  throw "Docker Desktop / Docker daemon is required for consistent local environment. Start Docker Desktop and retry."
+  Start-Sleep -Seconds 1
 }
 
 $venvPython = Join-Path $backendDir ".venv\Scripts\python.exe"

@@ -686,3 +686,140 @@ body {
   border-color: rgba(255, 255, 255, 0.95);
 }
 
+.cl_about-visual-stack {
+  position: relative;
+  overflow: hidden;
+  border-radius: 20px;
+  transform: translateZ(0);
+  animation: cl_about-float 7s ease-in-out infinite;
+}
+
+.cl_about-visual-label {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 3;
+  padding: 8px 12px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.38);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(6px);
+}
+
+.cl_about-visual-stack.is-gym .cl_about-visual-label {
+  animation: cl_about-label-enter-gym 450ms ease;
+}
+
+.cl_about-visual-stack.is-food .cl_about-visual-label {
+  animation: cl_about-label-enter-food 450ms ease;
+}
+
+.cl_about-visual-stack img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cl_about-visual-base {
+  position: relative;
+  z-index: 0;
+}
+
+.cl_about-visual-top {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0;
+  transform: scale(1.02);
+  transition: opacity 900ms ease, transform 12000ms ease;
+  will-change: opacity, transform;
+}
+
+.cl_about-visual-top.is-active {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.cl_about-visual-badge {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 2;
+  width: 54px;
+  height: 54px;
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.38);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: cl_about-pulse 2.8s ease-in-out infinite;
+}
+
+.cl_about-visual-badge svg {
+  width: 24px;
+  height: 24px;
+  color: #fff;
+}
+
+@keyframes cl_about-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes cl_about-label-enter-gym {
+  from {
+    transform: translateY(-6px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes cl_about-label-enter-food {
+  from {
+    transform: translateY(-6px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes cl_about-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cl_about-visual-stack,
+  .cl_about-visual-badge {
+    animation: none;
+  }
+  .cl_about-visual-label {
+    animation: none;
+  }
+  .cl_about-visual-top {
+    transition: none;
+  }
+}
+

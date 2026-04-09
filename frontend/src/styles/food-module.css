@@ -1,0 +1,256 @@
+.food-module-hero {
+  background: linear-gradient(135deg, #0f766e 0%, #10b981 55%, #34d399 100%);
+  color: #fff;
+  border: none;
+  overflow: hidden;
+}
+
+.food-module-hero-grid {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.food-module-hero-copy {
+  max-width: 700px;
+}
+
+.food-module-hero-eyebrow {
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.82;
+}
+
+.food-module-hero-title {
+  font-size: clamp(34px, 2.6vw, 42px);
+  line-height: 1.08;
+  margin-top: 12px;
+  margin-bottom: 14px;
+}
+
+.food-module-hero-desc {
+  margin-bottom: 0;
+  color: rgba(255, 255, 255, 0.88);
+  max-width: 620px;
+}
+
+.food-module-hero-side {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  min-width: 260px;
+}
+
+.food-module-hero-status {
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.food-module-hero-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.food-module-overview-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.food-module-overview-sub {
+  margin-bottom: 0;
+  color: #64748b;
+}
+
+.food-module-overview-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.food-module-login-card,
+.food-module-auth-expired-card {
+  margin-top: 22px;
+  padding: 20px;
+  border-radius: 18px;
+  background: #f8fafc;
+}
+
+.food-module-loading {
+  margin-top: 22px;
+  color: #64748b;
+}
+
+.food-module-error-wrap {
+  margin-top: 22px;
+  display: grid;
+  gap: 14px;
+}
+
+.food-module-error {
+  border-radius: 16px;
+  background: #fef2f2;
+  color: #b91c1c;
+  padding: 14px 16px;
+}
+
+.food-module-auth-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.food-module-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+  margin-top: 22px;
+}
+
+.food-module-metric {
+  padding: 18px;
+  border-radius: 18px;
+}
+
+.food-module-metric-label {
+  font-size: 13px;
+}
+
+.food-module-metric-value {
+  font-size: 28px;
+  font-weight: 700;
+  margin-top: 6px;
+}
+
+.food-module-metric--calories {
+  background: #fff7ed;
+}
+
+.food-module-metric--calories .food-module-metric-label {
+  color: #9a3412;
+}
+
+.food-module-metric--calories .food-module-metric-value {
+  color: #7c2d12;
+}
+
+.food-module-metric--protein {
+  background: #eff6ff;
+}
+
+.food-module-metric--protein .food-module-metric-label {
+  color: #1d4ed8;
+}
+
+.food-module-metric--protein .food-module-metric-value {
+  color: #1e3a8a;
+}
+
+.food-module-metric--fat {
+  background: #fefce8;
+}
+
+.food-module-metric--fat .food-module-metric-label {
+  color: #a16207;
+}
+
+.food-module-metric--fat .food-module-metric-value {
+  color: #854d0e;
+}
+
+.food-module-metric--carbs {
+  background: #f0fdf4;
+}
+
+.food-module-metric--carbs .food-module-metric-label {
+  color: #15803d;
+}
+
+.food-module-metric--carbs .food-module-metric-value {
+  color: #166534;
+}
+
+.food-module-meals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.food-module-meal-card {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 20px;
+  padding: 20px;
+  background: #fff;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 320px;
+}
+
+.food-module-meal-accent {
+  height: 10px;
+  border-radius: 999px;
+  margin-bottom: 16px;
+}
+
+.food-module-meal-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+  min-height: 82px;
+}
+
+.food-module-meal-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.food-module-meal-note {
+  font-size: 13px;
+  color: #64748b;
+  margin-top: 6px;
+}
+
+.food-module-meal-count {
+  min-width: 76px;
+  text-align: right;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.food-module-meal-summary {
+  margin-top: 16px;
+  color: #334155;
+  font-size: 14px;
+  flex: 1;
+}
+
+.food-module-meal-actions {
+  margin-top: 18px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 575px) {
+  .food-module-hero-side {
+    min-width: 100%;
+  }
+
+  .food-module-hero-actions,
+  .food-module-overview-actions,
+  .food-module-auth-actions,
+  .food-module-meal-actions {
+    width: 100%;
+  }
+}

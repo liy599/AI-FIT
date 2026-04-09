@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { API_BASE, apiFetch } from '../lib/api'
+import AppButton from '../components/ui/AppButton'
+import AppInput from '../components/ui/AppInput'
+import AppTag from '../components/ui/AppTag'
 
 type Tag = { id: number; name: string }
 type BlogCard = {
@@ -106,12 +109,11 @@ export default function BlogListPage() {
             <div className="col-xl-8 col-lg-7">
               <div className="cl_blog-widget mb-30">
                 <form
-                  action="#"
                   onSubmit={(e) => {
                     e.preventDefault()
                   }}
                 >
-                  <input
+                  <AppInput
                     type="text"
                     placeholder="Search Here"
                     value={q}
@@ -134,20 +136,12 @@ export default function BlogListPage() {
                   <div className="cl_blog-widget-tag">
                     {tags.map((t) => {
                       const active = tagIds.includes(t.id)
-                      return (
-                        <a
-                          key={t.id}
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault()
-                            toggleTag(t.id)
-                          }}
-                          style={active ? { background: '#35CC95', color: '#fff' } : undefined}
-                        >
-                          {t.name}
-                        </a>
-                      )
-                    })}
+                        return (
+                          <AppTag key={t.id} as="button" active={active} onClick={() => toggleTag(t.id)}>
+                            {t.name}
+                          </AppTag>
+                        )
+                      })}
                   </div>
                 </div>
               ) : null}
@@ -160,12 +154,12 @@ export default function BlogListPage() {
                 <h4 className="cl_blog-widget-title mb-30">Summary</h4>
                 <ul>
                   <li>
-                    <a href="#" onClick={(e) => e.preventDefault()}>
+                    <span>
                       <span>
                         <i className="fa-light fa-chevrons-right"></i>Total
                       </span>{' '}
                       ({total})
-                    </a>
+                    </span>
                   </li>
                 </ul>
               </div>
@@ -182,7 +176,7 @@ export default function BlogListPage() {
                         <img
                           className="absolute inset-0 h-full w-full object-cover object-center"
                           src={resolveMediaUrl(b.cover_image_url) ?? '/assets/images/blog/h2_1.png'}
-                          alt=""
+                          alt={b.title}
                         />
                       </div>
                     </Link>
@@ -192,15 +186,11 @@ export default function BlogListPage() {
                     <div className="cl_h2_blog-item-content-meta">
                       <span>
                         <i className="fa-light fa-user"></i>
-                        <a href="#" onClick={(e) => e.preventDefault()}>
-                          BY {b.author.username}
-                        </a>
+                        <span>BY {b.author.username}</span>
                       </span>
                       <span>
                         <i className="fa-light fa-calendar"></i>
-                        <a href="#" onClick={(e) => e.preventDefault()}>
-                          {new Date(b.created_at).toLocaleDateString()}
-                        </a>
+                        <span>{new Date(b.created_at).toLocaleDateString()}</span>
                       </span>
                     </div>
                     <h4>
@@ -226,8 +216,10 @@ export default function BlogListPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
                   <div>Page {page}</div>
                   <div style={{ display: 'flex', gap: 12 }}>
-                    <button
+                    <AppButton
                       type="button"
+                      variant="neutral"
+                      size="md"
                       disabled={page <= 1}
                       onClick={() => {
                         const next = new URLSearchParams(sp)
@@ -236,9 +228,11 @@ export default function BlogListPage() {
                       }}
                     >
                       Prev
-                    </button>
-                    <button
+                    </AppButton>
+                    <AppButton
                       type="button"
+                      variant="neutral"
+                      size="md"
                       disabled={page * 12 >= total}
                       onClick={() => {
                         const next = new URLSearchParams(sp)
@@ -247,7 +241,7 @@ export default function BlogListPage() {
                       }}
                     >
                       Next
-                    </button>
+                    </AppButton>
                   </div>
                 </div>
               </div>

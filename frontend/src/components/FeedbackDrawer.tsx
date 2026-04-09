@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { apiFetch } from '../lib/api'
 import { useAuth } from '../state/auth-context'
 
@@ -21,8 +22,47 @@ export default function FeedbackDrawer() {
   const [rating, setRating] = useState(5)
   const [content, setContent] = useState('')
   const [email, setEmail] = useState('')
+  const triggerRef = useRef<HTMLButtonElement | null>(null)
+  const closeRef = useRef<HTMLButtonElement | null>(null)
+  const panelRef = useRef<HTMLElement | null>(null)
 
   const submitEnabled = useMemo(() => content.trim().length >= 2, [content])
+
+  useEffect(() => {
+    if (!open) return
+    closeRef.current?.focus()
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpen(false)
+        triggerRef.current?.focus()
+      }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [open])
+
+  function trapFocus(event: ReactKeyboardEvent<HTMLElement>) {
+    if (event.key !== 'Tab' || !panelRef.current) return
+    const focusable = panelRef.current.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )
+    if (!focusable.length) return
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault()
+      last.focus()
+      return
+    }
+    if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault()
+      first.focus()
+    }
+  }
 
   useEffect(() => {
     if (!open) return
@@ -70,21 +110,44 @@ export default function FeedbackDrawer() {
   return (
     <>
       <button
+        ref={triggerRef}
         className="fixed left-0 top-1/2 z-50 -translate-y-1/2 rounded-r-xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-slate-200 backdrop-blur hover:bg-white/10"
         onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-controls="feedback-drawer"
       >
         Feedback
       </button>
 
       {open ? (
         <div className="fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setOpen(false)} />
-          <aside className="absolute left-0 top-0 h-full w-[360px] border-r border-white/10 bg-slate-950/90 p-5 backdrop-blur">
+          <div
+            className="absolute inset-0 bg-black/60"
+            onClick={() => {
+              setOpen(false)
+              triggerRef.current?.focus()
+            }}
+          />
+          <aside
+            id="feedback-drawer"
+            ref={panelRef}
+            className="absolute left-0 top-0 h-full w-[360px] border-r border-white/10 bg-slate-950/90 p-5 backdrop-blur"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="feedback-center-title"
+            onKeyDown={trapFocus}
+          >
             <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold">Feedback Center</div>
+              <div className="text-sm font-semibold" id="feedback-center-title">
+                Feedback Center
+              </div>
               <button
+                ref={closeRef}
                 className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-slate-200 hover:bg-white/10"
-                onClick={() => setOpen(false)}
+                onClick={() => {
+                  setOpen(false)
+                  triggerRef.current?.focus()
+                }}
               >
                 Close
               </button>

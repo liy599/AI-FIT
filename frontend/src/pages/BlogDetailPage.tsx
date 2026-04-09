@@ -84,7 +84,7 @@ function CommentItem(props: {
   return (
     <div style={{ marginBottom: 24 }}>
       <div className="cl_blog_details-comment mb-45">
-        <img src={resolveMediaUrl(props.node.user.avatar_url) ?? '/assets/images/blog/blog-comment.png'} alt="" />
+        <img src={resolveMediaUrl(props.node.user.avatar_url) ?? '/assets/images/blog/blog-comment.png'} alt={`${props.node.user.username} avatar`} />
         <div className="cl_blog_details-comment-info">
           <h4 className="cl_blog_details-comment-info-title">{props.node.user.username}</h4>
           {editing ? (
@@ -98,10 +98,10 @@ function CommentItem(props: {
           )}
 
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 10 }}>
-            <a
-              href="#"
+            <button
+              type="button"
+              className="text-link-btn"
               onClick={(e) => {
-                e.preventDefault()
                 if (!auth.user) return
                 like().catch(() => {})
               }}
@@ -110,11 +110,11 @@ function CommentItem(props: {
             >
               <i className="fa-light fa-thumbs-up" style={{ marginRight: 6 }}></i>
               {props.node.liked_by_me ? 'Liked' : 'Like'} ({props.node.like_count})
-            </a>
-            <a
-              href="#"
+            </button>
+            <button
+              type="button"
+              className="text-link-btn"
               onClick={(e) => {
-                e.preventDefault()
                 if (!auth.user) return
                 setReplying((v) => !v)
               }}
@@ -122,40 +122,40 @@ function CommentItem(props: {
               title={auth.user ? '' : 'Sign in to reply'}
             >
               <i className="fa-light fa-reply" style={{ marginRight: 6 }}></i>Reply
-            </a>
+            </button>
             {canEdit ? (
               editing ? (
-                <a
-                  href="#"
+                <button
+                  type="button"
+                  className="text-link-btn"
                   onClick={(e) => {
-                    e.preventDefault()
                     saveEdit().catch(() => {})
                   }}
                 >
                   <i className="fa-light fa-check" style={{ marginRight: 6 }}></i>Save
-                </a>
+                </button>
               ) : (
-                <a
-                  href="#"
+                <button
+                  type="button"
+                  className="text-link-btn"
                   onClick={(e) => {
-                    e.preventDefault()
                     setEditing(true)
                   }}
                 >
                   <i className="fa-light fa-pen" style={{ marginRight: 6 }}></i>Edit
-                </a>
+                </button>
               )
             ) : null}
             {canDelete ? (
-              <a
-                href="#"
+              <button
+                type="button"
+                className="text-link-btn"
                 onClick={(e) => {
-                  e.preventDefault()
                   remove().catch(() => {})
                 }}
               >
                 <i className="fa-light fa-trash" style={{ marginRight: 6 }}></i>Delete
-              </a>
+              </button>
             ) : null}
           </div>
 
@@ -297,25 +297,19 @@ export default function BlogDetailPage() {
                   <>
                     <div className="cl_blog_details-content">
                       <div className="cl_blog_details-content-img mb-30">
-                        <img src={resolveMediaUrl(blog.cover_image_url) ?? '/assets/images/blog/blog-classic-1.png'} alt="" />
+                        <img src={resolveMediaUrl(blog.cover_image_url) ?? '/assets/images/blog/blog-classic-1.png'} alt={blog.title} />
                         {blog.tags[0]?.name ? (
-                          <a href="#" className="cl_blog_details-content-img-tag" onClick={(e) => e.preventDefault()}>
-                            {blog.tags[0].name}
-                          </a>
+                          <span className="cl_blog_details-content-img-tag">{blog.tags[0].name}</span>
                         ) : null}
                       </div>
                       <div className="cl_blog_classic-item-content-meta">
                         <span>
                           <i className="fa-light fa-user"></i>
-                          <a href="#" onClick={(e) => e.preventDefault()}>
-                            BY {blog.author.username}
-                          </a>
+                          <span>BY {blog.author.username}</span>
                         </span>
                         <span>
                           <i className="fa-light fa-calendar"></i>
-                          <a href="#" onClick={(e) => e.preventDefault()}>
-                            {new Date(blog.created_at).toLocaleDateString()}
-                          </a>
+                          <span>{new Date(blog.created_at).toLocaleDateString()}</span>
                         </span>
                       </div>
                       <h3 className="cl_blog_details-content-title mb-20">{blog.title}</h3>
@@ -331,16 +325,16 @@ export default function BlogDetailPage() {
                       <div className="cl_blog_details-content-bottom mb-40">
                         <div className="cl_blog-widget-tag">
                           {blog.tags.map((t) => (
-                            <a href="#" key={t.id} onClick={(e) => e.preventDefault()}>
+                            <span key={t.id} className="blog-tag-static">
                               {t.name}
-                            </a>
+                            </span>
                           ))}
                         </div>
                         <div className="cl_blog_details-content-social">
-                          <a
-                            href="#"
+                          <button
+                            type="button"
+                            className="text-link-btn"
                             onClick={(e) => {
-                              e.preventDefault()
                               if (!auth.user) return
                               toggleLike().catch(() => {})
                             }}
@@ -348,16 +342,12 @@ export default function BlogDetailPage() {
                             title={auth.user ? '' : 'Sign in to like'}
                           >
                             <i className="fa-light fa-thumbs-up"></i>
-                          </a>
-                          <a href="#" onClick={(e) => e.preventDefault()}>
+                          </button>
+                          <span>
                             <i className="fa-light fa-eye"></i>
-                          </a>
-                          <a href="#" onClick={(e) => e.preventDefault()}>
-                            {blog.like_count}
-                          </a>
-                          <a href="#" onClick={(e) => e.preventDefault()}>
-                            {blog.view_count}
-                          </a>
+                          </span>
+                          <span>{blog.like_count}</span>
+                          <span>{blog.view_count}</span>
                         </div>
                       </div>
                     </div>
@@ -393,16 +383,16 @@ export default function BlogDetailPage() {
                               <button type="submit" disabled={!auth.user || !commentText.trim()}>
                                 Send Now
                               </button>
-                              <a
-                                href="#"
+                              <button
+                                type="button"
+                                className="text-link-btn"
                                 style={{ marginLeft: 14 }}
                                 onClick={(e) => {
-                                  e.preventDefault()
                                   load().catch(() => {})
                                 }}
                               >
                                 Refresh
-                              </a>
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -431,22 +421,22 @@ export default function BlogDetailPage() {
                 {blog ? (
                   <div className="cl_blog-widget mb-30">
                     <div className="cl_blog-widget-author">
-                      <img src="/assets/images/blog/blog_widget-1.png" alt="" />
+                      <img src="/assets/images/blog/blog_widget-1.png" alt={`${blog.author.username} profile`} />
                       <h4 className="cl_blog-widget-author-title">{blog.author.username}</h4>
                       <p>Views: {blog.view_count} · Likes: {blog.like_count}</p>
                       <div className="cl_blog-widget-author-social">
-                        <a href="#" onClick={(e) => e.preventDefault()}>
+                        <button type="button" className="footer-icon-btn" aria-label="Facebook link coming soon">
                           <i className="fa-brands fa-facebook-f"></i>
-                        </a>
-                        <a href="#" onClick={(e) => e.preventDefault()}>
+                        </button>
+                        <button type="button" className="footer-icon-btn" aria-label="Instagram link coming soon">
                           <i className="fa-brands fa-instagram"></i>
-                        </a>
-                        <a href="#" onClick={(e) => e.preventDefault()}>
+                        </button>
+                        <button type="button" className="footer-icon-btn" aria-label="LinkedIn link coming soon">
                           <i className="fa-brands fa-linkedin-in"></i>
-                        </a>
-                        <a href="#" onClick={(e) => e.preventDefault()}>
+                        </button>
+                        <button type="button" className="footer-icon-btn" aria-label="YouTube link coming soon">
                           <i className="fa-brands fa-youtube"></i>
-                        </a>
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -454,7 +444,6 @@ export default function BlogDetailPage() {
 
                 <div className="cl_blog-widget mb-30">
                   <form
-                    action="#"
                     onSubmit={(e) => {
                       e.preventDefault()
                     }}
@@ -470,9 +459,9 @@ export default function BlogDetailPage() {
                   <h4 className="cl_blog-widget-title mb-35">Popular tags</h4>
                   <div className="cl_blog-widget-tag">
                     {(blog?.tags ?? []).map((t) => (
-                      <a href="#" key={t.id} onClick={(e) => e.preventDefault()}>
+                      <span key={t.id} className="blog-tag-static">
                         {t.name}
-                      </a>
+                      </span>
                     ))}
                   </div>
                 </div>

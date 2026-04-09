@@ -11,8 +11,8 @@ function resolveAvatarUrl(url: string | null | undefined) {
 
 type NavbarProps = {
   variant: 'desktop' | 'mobile'
-  onOpenMobile?: () => void
-  onOpenSearch?: () => void
+  onOpenMobile?: (trigger?: HTMLElement | null) => void
+  onOpenSearch?: (trigger?: HTMLElement | null) => void
   onNavigate?: () => void
 }
 
@@ -33,14 +33,9 @@ export default function Navbar(props: NavbarProps) {
         </NavLink>
       </li>
       <li className="menu-has-child">
-        <a
-          href="#"
-          onClick={(e) => {
-            e.preventDefault()
-          }}
-        >
+        <NavLink to="/tools/pose" onClick={props.onNavigate}>
           Tools
-        </a>
+        </NavLink>
         <ul className="submenu">
           <li>
             <NavLink to="/tools/pose" onClick={props.onNavigate}>
@@ -66,14 +61,9 @@ export default function Navbar(props: NavbarProps) {
       </li>
       {auth.user ? (
         <li className="menu-has-child">
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault()
-            }}
-          >
+          <NavLink to="/profile" onClick={props.onNavigate}>
             Account
-          </a>
+          </NavLink>
           <ul className="submenu">
             <li>
               <NavLink to="/profile" onClick={props.onNavigate}>
@@ -81,30 +71,25 @@ export default function Navbar(props: NavbarProps) {
               </NavLink>
             </li>
             <li>
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault()
+              <button
+                type="button"
+                className="menu-action-btn"
+                onClick={() => {
                   auth.logout()
                   props.onNavigate?.()
                   nav('/')
                 }}
               >
                 Logout
-              </a>
+              </button>
             </li>
           </ul>
         </li>
       ) : (
         <li className="menu-has-child">
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault()
-            }}
-          >
+          <NavLink to="/login" onClick={props.onNavigate}>
             Account
-          </a>
+          </NavLink>
           <ul className="submenu">
             <li>
               <NavLink to="/login" onClick={props.onNavigate}>
@@ -138,7 +123,7 @@ export default function Navbar(props: NavbarProps) {
             <div className="cl_header-left">
               <div className="cl_header-logo">
                 <Link to="/">
-                  <img src="/assets/images/logo/logo.png" alt="" />
+                  <img src="/assets/images/logo/logo.png" alt="AI FitGuard logo" />
                 </Link>
               </div>
               <div className="cl_header-menu">
@@ -148,22 +133,22 @@ export default function Navbar(props: NavbarProps) {
               </div>
             </div>
             <div className="cl_header-right">
-              <a
-                href="#"
+              <button
+                type="button"
                 className="cl_header-action-btn cl_search_popup d-none d-lg-flex"
                 onClick={(e) => {
-                  e.preventDefault()
-                  props.onOpenSearch?.()
+                  props.onOpenSearch?.(e.currentTarget)
                 }}
+                aria-label="Open search"
               >
                 <i className="fa-regular fa-magnifying-glass"></i>
-              </a>
+              </button>
               {auth.user ? (
                 <Link to="/profile" className="cl_header-action-btn d-none d-xxl-flex">
                   {auth.user.avatar_url ? (
                     <img
                       src={resolveAvatarUrl(auth.user.avatar_url) ?? ''}
-                      alt=""
+                      alt={`${auth.user.username} avatar`}
                       style={{ width: 28, height: 28, borderRadius: 9999, objectFit: 'cover' }}
                     />
                   ) : (
@@ -191,10 +176,11 @@ export default function Navbar(props: NavbarProps) {
                 className="cl_header-menubar cl_menubar d-xl-none"
                 role="button"
                 tabIndex={0}
-                onClick={() => props.onOpenMobile?.()}
+                onClick={(e) => props.onOpenMobile?.(e.currentTarget)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') props.onOpenMobile?.()
+                  if (e.key === 'Enter' || e.key === ' ') props.onOpenMobile?.(e.currentTarget)
                 }}
+                aria-label="Open menu"
               >
                 <i className="fa-regular fa-bars"></i>
               </span>

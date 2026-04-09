@@ -378,7 +378,7 @@ export default function ProfilePage() {
                 <div className="flex items-center gap-4">
                   <div className="h-16 w-16 overflow-hidden rounded-full border border-slate-200 bg-slate-50">
                     {profile.avatar_url ? (
-                      <img src={resolveAvatarUrl(profile.avatar_url) ?? ''} className="h-full w-full object-cover" alt="" />
+                      <img src={resolveAvatarUrl(profile.avatar_url) ?? ''} className="h-full w-full object-cover" alt={`${profile.username} avatar`} />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center text-xs text-slate-500">No avatar</div>
                     )}
@@ -480,7 +480,7 @@ export default function ProfilePage() {
                 <div className="flex items-center gap-4">
                   <div className="h-16 w-16 overflow-hidden rounded-full border border-slate-200 bg-slate-50">
                     {profile.avatar_url ? (
-                      <img src={resolveAvatarUrl(profile.avatar_url) ?? ''} className="h-full w-full object-cover" alt="" />
+                      <img src={resolveAvatarUrl(profile.avatar_url) ?? ''} className="h-full w-full object-cover" alt={`${profile.username} avatar`} />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center text-xs text-slate-500">No avatar</div>
                     )}
@@ -621,7 +621,7 @@ export default function ProfilePage() {
                           <img
                             src={resolveAvatarUrl(b.cover_image_url) ?? ''}
                             className="h-full w-full object-cover"
-                            alt=""
+                            alt={`${b.title} cover`}
                           />
                         ) : null}
                       </div>
@@ -675,7 +675,7 @@ export default function ProfilePage() {
                           <img
                             src={resolveAvatarUrl(newBlog.cover_image_url) ?? ''}
                             className="h-full w-full object-cover"
-                            alt=""
+                            alt="New blog cover preview"
                           />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center text-xs text-slate-500">Cover</div>

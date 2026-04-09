@@ -135,7 +135,7 @@ export default function HomePage() {
                           <img
                             className="absolute inset-0 h-full w-full object-cover object-center"
                             src={resolveMediaUrl(bigBlog.cover_image_url) ?? '/assets/images/blog/h1_1.png'}
-                            alt=""
+                            alt={bigBlog.title}
                           />
                         </div>
                       </Link>
@@ -143,12 +143,10 @@ export default function HomePage() {
                     <div className="cl_blog_big-item-content">
                       <div className="cl_blog_big-item-content-meta">
                         <span>
-                          By <a href="#" onClick={(e) => e.preventDefault()}>{bigBlog.author.username}</a>
+                          By <span>{bigBlog.author.username}</span>
                         </span>
                         <span>
-                          <a href="#" onClick={(e) => e.preventDefault()}>
-                            {new Date(bigBlog.created_at).toLocaleDateString()}
-                          </a>
+                          <span>{new Date(bigBlog.created_at).toLocaleDateString()}</span>
                         </span>
                       </div>
                       <h3>
@@ -175,7 +173,7 @@ export default function HomePage() {
                             <img
                               className="absolute inset-0 h-full w-full object-cover object-center"
                               src={resolveMediaUrl(b.cover_image_url) ?? `/assets/images/blog/h1_${idx + 2}.png`}
-                              alt=""
+                              alt={b.title}
                             />
                           </div>
                         </Link>
@@ -183,12 +181,10 @@ export default function HomePage() {
                       <div className="cl_blog-item-content">
                         <div className="cl_blog-item-content-meta">
                           <span>
-                            By <a href="#" onClick={(e) => e.preventDefault()}>{b.author.username}</a>
+                            By <span>{b.author.username}</span>
                           </span>
                           <span>
-                            <a href="#" onClick={(e) => e.preventDefault()}>
-                              {new Date(b.created_at).toLocaleDateString()}
-                            </a>
+                            <span>{new Date(b.created_at).toLocaleDateString()}</span>
                           </span>
                         </div>
                         <h4>

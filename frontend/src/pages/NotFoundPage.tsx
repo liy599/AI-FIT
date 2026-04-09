@@ -27,7 +27,7 @@ export default function NotFoundPage() {
             <div className="col-xl-8 col-lg-9 col-md-11">
               <div className="cl_error-content">
                 <div className="cl_error-content-img">
-                  <img src="/assets/images/bg/404.png" alt="" />
+                  <img src="/assets/images/bg/404.png" alt="404 illustration" />
                 </div>
                 <h2 className="cl_error-content-title">Whoops! Page not found</h2>
                 <Link to="/" className="cl_theme-btn">

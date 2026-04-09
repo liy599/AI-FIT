@@ -1,0 +1,58 @@
+:root {
+  --color-brand: #35cc95;
+  --color-brand-hover: #2eb884;
+  --color-brand-active: #27a173;
+  --color-text-primary: #0e3829;
+  --color-text-secondary: rgba(14, 56, 41, 0.7);
+  --color-text-muted: #64748b;
+  --color-bg-page: #f0fcf8;
+  --color-bg-surface: #ffffff;
+  --color-bg-soft: #f8fafc;
+  --color-border-default: rgba(14, 56, 41, 0.12);
+  --color-success: #166534;
+  --color-success-bg: #f0fdf4;
+  --color-warning: #9a3412;
+  --color-warning-bg: #fff7ed;
+  --color-error: #b91c1c;
+  --color-error-bg: #fef2f2;
+  --color-info: #0f766e;
+  --color-info-bg: #ecfeff;
+
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 20px;
+  --radius-pill: 999px;
+
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  --shadow-soft: 0 8px 20px rgba(15, 23, 42, 0.06);
+  --shadow-brand: 0 12px 24px rgba(15, 118, 110, 0.08);
+
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-md: 16px;
+  --font-size-lg: 18px;
+  --font-size-xl: 24px;
+}
+
+:where(a, button, input, select, textarea, [role='button'], [tabindex]):focus {
+  outline: none;
+}
+
+:where(a, button, input, select, textarea, [role='button'], [tabindex]):focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+:where(button):disabled,
+:where(input):disabled,
+:where(select):disabled,
+:where(textarea):disabled {
+  cursor: not-allowed;
+}

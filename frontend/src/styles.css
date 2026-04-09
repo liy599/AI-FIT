@@ -53,20 +53,6 @@ body {
   flex-wrap: wrap;
 }
 
-.pose-mode-switch > button {
-  font-size: 0;
-}
-
-.pose-mode-switch > button:nth-child(1)::after {
-  content: 'Live Coaching';
-  font-size: 16px;
-}
-
-.pose-mode-switch > button:nth-child(2)::after {
-  content: 'Offline Video Analysis';
-  font-size: 16px;
-}
-
 .pose-tool-ghost-btn {
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: transparent;
@@ -136,15 +122,6 @@ body {
   font-size: 13px;
 }
 
-.pose-camera-panel .pose-tool-subtitle-dark {
-  font-size: 0;
-}
-
-.pose-camera-panel .pose-tool-subtitle-dark::after {
-  content: 'Live coaching built on top of the current AI-FIT tool page style.';
-  font-size: 16px;
-}
-
 .pose-camera-toolbar__group {
   display: flex;
   align-items: center;
@@ -162,20 +139,6 @@ body {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
-}
-
-.pose-camera-panel .pose-orientation-switch > button {
-  font-size: 0;
-}
-
-.pose-camera-panel .pose-orientation-switch > button:nth-child(1)::after {
-  content: 'Landscape';
-  font-size: 16px;
-}
-
-.pose-camera-panel .pose-orientation-switch > button:nth-child(2)::after {
-  content: 'Portrait';
-  font-size: 16px;
 }
 
 .pose-size-switch {
@@ -205,24 +168,6 @@ body {
 
 .pose-slider-control input[type='range'] {
   width: 180px;
-}
-
-.pose-camera-panel .pose-slider-control > span {
-  font-size: 0;
-}
-
-.pose-camera-panel .pose-slider-control > span::after {
-  content: 'Zoom';
-  font-size: 14px;
-}
-
-.pose-camera-panel .pose-camera-toolbar__hint {
-  font-size: 0;
-}
-
-.pose-camera-panel .pose-camera-toolbar__hint::after {
-  content: 'Lower zoom shows more of the body and helps keep the full body in frame.';
-  font-size: 13px;
 }
 
 .pose-stage-size-s {
@@ -365,15 +310,6 @@ body {
   color: #0f172a;
 }
 
-.pose-live-feedback > .pose-tip-card:nth-of-type(2),
-.pose-live-feedback > .pose-tip-card:nth-of-type(3) {
-  display: none;
-}
-
-.pose-live-feedback > .pose-tip-card:nth-of-type(5) {
-  display: block !important;
-}
-
 .pose-section-title {
   color: #0f172a;
 }
@@ -397,15 +333,6 @@ body {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
-}
-
-.pose-live-feedback .pose-export-row > button:nth-child(3) {
-  font-size: 0;
-}
-
-.pose-live-feedback .pose-export-row > button:nth-child(3)::after {
-  content: 'Save Training Record';
-  font-size: 16px;
 }
 
 .pose-range-check {
@@ -630,5 +557,73 @@ body {
     width: 100%;
     justify-content: space-between;
   }
+}
+
+.menu-action-btn,
+.text-link-btn,
+.footer-icon-btn,
+.footer-text-btn,
+.blog-tag-btn {
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  margin: 0;
+  padding: 0;
+}
+
+.blog-tag-btn {
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  min-height: 32px;
+  padding: 4px 10px;
+}
+
+.blog-tag-static {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #334155;
+  padding: 4px 10px;
+}
+
+.cl_header-menu nav ul li .submenu li .menu-action-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 12px 25px;
+  color: var(--clr-common-black);
+  line-height: 20px;
+}
+
+.zq_mobile_menu .menu-navbar .main-menu .sub-menu li .menu-action-btn {
+  width: 100%;
+  text-align: left;
+  padding: 20px 20px 20px 50px;
+  opacity: 0.6;
+  color: #fff;
+  font-size: 29px;
+}
+
+.cl_footer-widget-social .footer-icon-btn {
+  font-size: 18px;
+  color: var(--clr-theme-primary);
+  display: block;
+}
+
+.cl_footer-widget-social .footer-icon-btn:hover {
+  color: #fff;
+}
+
+.cl_footer-widget-address .footer-text-btn {
+  color: rgba(255, 255, 255, 0.7);
+  text-align: left;
+}
+
+.cl_footer-copyright-menu ul li .footer-text-btn {
+  color: rgb(255, 255, 255);
+  display: block;
 }
 

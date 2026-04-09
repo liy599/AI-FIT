@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 type Member = {
@@ -52,6 +52,25 @@ export default function AboutPage() {
   )
 
   const [active, setActive] = useState<Member | null>(null)
+  const triggerRef = useRef<HTMLButtonElement | null>(null)
+  const closeRef = useRef<HTMLButtonElement | null>(null)
+
+  useEffect(() => {
+    if (!active) {
+      triggerRef.current?.focus()
+      return
+    }
+    closeRef.current?.focus()
+  }, [active])
+
+  useEffect(() => {
+    if (!active) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setActive(null)
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [active])
 
   return (
     <>
@@ -79,7 +98,7 @@ export default function AboutPage() {
             <div className="row align-items-center">
               <div className="col-xl-6">
                 <div className="cl_about-img">
-                  <img src="/assets/images/about/h1_1.png" alt="" />
+                  <img src="/assets/images/about/h1_1.png" alt="AI FitGuard product overview" />
                 </div>
               </div>
               <div className="col-xl-6">
@@ -137,21 +156,22 @@ export default function AboutPage() {
             <div className="row">
               {members.map((m, idx) => (
                 <div className="col-xl-3 col-lg-4 col-md-6" key={m.name}>
-                  <div className="cl_team-item" style={{ marginBottom: 30 }}>
-                    <div className="cl_team-item-img">
-                      <img src={`/assets/images/team/h1_${(idx % 4) + 1}.png`} alt="" />
-                    </div>
+                    <div className="cl_team-item" style={{ marginBottom: 30 }}>
+                      <div className="cl_team-item-img">
+                        <img src={`/assets/images/team/h1_${(idx % 4) + 1}.png`} alt={`${m.name} portrait`} />
+                      </div>
                     <div className="cl_team-item-content">
                       <h4>
-                        <a
-                          href="#"
+                        <button
+                          type="button"
+                          className="text-link-btn"
                           onClick={(e) => {
-                            e.preventDefault()
+                            triggerRef.current = e.currentTarget
                             setActive(m)
                           }}
                         >
                           {m.name}
-                        </a>
+                        </button>
                       </h4>
                       <span>{m.role}</span>
                     </div>
@@ -181,20 +201,19 @@ export default function AboutPage() {
             className="cl_blog-widget"
             style={{ maxWidth: 680, width: '100%', margin: 0 }}
             onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="about-member-title"
           >
-            <h4 className="cl_blog-widget-title mb-30">{active.name}</h4>
+            <h4 className="cl_blog-widget-title mb-30" id="about-member-title">
+              {active.name}
+            </h4>
             <p>{active.role}</p>
             <p style={{ marginTop: 12 }}>{active.details}</p>
             <div style={{ marginTop: 18 }}>
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault()
-                  setActive(null)
-                }}
-              >
+              <button type="button" className="text-link-btn" onClick={() => setActive(null)} ref={closeRef}>
                 Close
-              </a>
+              </button>
             </div>
           </div>
         </div>

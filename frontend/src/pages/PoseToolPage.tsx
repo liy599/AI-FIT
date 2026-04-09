@@ -98,15 +98,6 @@ export default function PoseToolPage() {
     return feedback.warnings[0] ?? feedback.issues[0]?.message ?? feedback.lastRepMessage ?? 'Keep a steady tempo and align your knees with your toes.'
   }, [feedback])
 
-  const rangeStatus = useMemo(() => {
-    if (!distance) return 'Waiting for detection'
-    if (distance.status === 'calibrating') return 'Calibrating distance'
-    if (distance.status === 'lost') return 'Stable body not detected'
-    if (distance.label === 'too_close') return 'Too close'
-    if (distance.label === 'too_far') return 'Too far'
-    return 'Distance OK'
-  }, [distance])
-
   const rangeCheck = useMemo(() => evaluateRangeCheck(feedback), [feedback])
 
   const rangeStatusText = useMemo(() => {
@@ -117,11 +108,6 @@ export default function PoseToolPage() {
     if (distance.label === 'too_far') return 'Too far'
     return 'Distance OK'
   }, [distance])
-
-  const coachingTipText = useMemo(() => {
-    if (!feedback) return 'Start the camera to receive live coaching feedback.'
-    return feedback.warnings[0] ?? feedback.issues[0]?.message ?? feedback.lastRepMessage ?? 'Keep a steady tempo and align your knees with your toes.'
-  }, [feedback])
 
   const liveReport = useMemo(() => {
     const summary = feedback
@@ -335,7 +321,7 @@ export default function PoseToolPage() {
         ended_at: new Date().toISOString(),
         exercise_type: 'squat',
         note: 'Saved from live pose coaching',
-        sets: [{ reps, note: coachingTipText }],
+        sets: [{ reps, note: currentSuggestion }],
         report: liveReport as Record<string, unknown>
       })
       setSaveTrainingMsg(`Saved training record #${session.id}`)
@@ -610,49 +596,8 @@ export default function PoseToolPage() {
                   </div>
 
                   <div className="pose-tip-card pose-tip-card-light">
-                    <h6 className="sub-title mb-15 pose-section-title">Coaching Suggestions</h6>
-                    <p>{currentSuggestion}</p>
-                  </div>
-
-                  <div className="pose-tip-card pose-tip-card-light">
-                    <h6 className="sub-title mb-15 pose-section-title">Status</h6>
-                    <ul className="pose-detail-list pose-detail-list-light">
-                      <li>Distance: {rangeStatus}</li>
-                      <li>Tracking Quality: {feedback ? `${Math.round(feedback.trackingQuality * 100)}%` : '-'}</li>
-                      <li>Correct Reps: {feedback?.correctCount ?? 0}</li>
-                      <li>Last Result: {feedback?.lastRepResult ?? '-'}</li>
-                    </ul>
-                  </div>
-
-                  <div style={{ display: 'none' }}>
-                  <div className="pose-tip-card pose-tip-card-light" style={{ display: 'none' }}>
-                    <h6 className="sub-title mb-15 pose-section-title">Range Check</h6>
-                    <div className="pose-range-check">
-                      <span className={rangeCheck.ok ? 'pose-range-badge pose-range-badge-ok' : 'pose-range-badge pose-range-badge-bad'}>
-                        {rangeCheck.ok ? 'In range' : 'Out of range'}
-                      </span>
-                      <span>{rangeCheck.reason}</span>
-                    </div>
-                    <p className="pose-range-copy">Frames in last rep: {feedback?.lastRepFrameCount ?? '-'}</p>
-                    <MetricCard label="Side Offset" value={feedback?.offsetAngle ?? '-'} unit={feedback?.offsetAngle ? '°' : ''} />
-                  </div>
-
-                  </div>
-
-                  <div className="pose-tip-card pose-tip-card-light" style={{ display: 'none' }}>
-                    <h6 className="sub-title mb-15 pose-section-title">Range Check</h6>
-                    <div className="pose-range-check">
-                      <span className={rangeCheck.ok ? 'pose-range-badge pose-range-badge-ok' : 'pose-range-badge pose-range-badge-bad'}>
-                        {rangeCheck.ok ? 'In range' : 'Out of range'}
-                      </span>
-                      <span>{rangeCheck.reason}</span>
-                    </div>
-                    <p className="pose-range-copy">Frames in last rep: {feedback?.lastRepFrameCount ?? '-'}</p>
-                  </div>
-
-                  <div className="pose-tip-card pose-tip-card-light">
                     <h6 className="sub-title mb-15 pose-section-title">Coaching Tip</h6>
-                    <p>{coachingTipText}</p>
+                    <p>{currentSuggestion}</p>
                   </div>
 
                   <div className="pose-tip-card pose-tip-card-light">
@@ -663,6 +608,18 @@ export default function PoseToolPage() {
                       <li>Correct Reps: {feedback?.correctCount ?? 0}</li>
                       <li>Last Result: {feedback?.lastRepResult ?? '-'}</li>
                     </ul>
+                  </div>
+
+                  <div className="pose-tip-card pose-tip-card-light">
+                    <h6 className="sub-title mb-15 pose-section-title">Range Check</h6>
+                    <div className="pose-range-check">
+                      <span className={rangeCheck.ok ? 'pose-range-badge pose-range-badge-ok' : 'pose-range-badge pose-range-badge-bad'}>
+                        {rangeCheck.ok ? 'In range' : 'Out of range'}
+                      </span>
+                      <span>{rangeCheck.reason}</span>
+                    </div>
+                    <p className="pose-range-copy">Frames in last rep: {feedback?.lastRepFrameCount ?? '-'}</p>
+                    <MetricCard label="Side Offset" value={feedback?.offsetAngle ?? '-'} unit={feedback?.offsetAngle ? '°' : ''} />
                   </div>
 
                   <div className="pose-export-row">

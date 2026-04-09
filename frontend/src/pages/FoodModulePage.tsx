@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { getTodaySummary } from '../lib/food/api'
 import type { DaySummary, FoodMealType } from '../lib/food/types_runtime'
 import { useAuth } from '../state/auth-context'
+import AppButton from '../components/ui/AppButton'
+import '../styles/food-module.css'
 
 const mealCards: Array<{ type: FoodMealType; label: string; note: string; accent: string }> = [
   {
@@ -122,38 +124,20 @@ export default function FoodModulePage() {
 
       <section className="pt-100 pb-100">
         <div className="container">
-          <div
-            className="cl_blog-widget mb-30"
-            style={{
-              background: 'linear-gradient(135deg, #0f766e 0%, #10b981 55%, #34d399 100%)',
-              color: '#fff',
-              border: 'none',
-              overflow: 'hidden'
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap' }}>
-              <div style={{ maxWidth: 700 }}>
-                <div style={{ fontSize: 13, letterSpacing: '0.08em', textTransform: 'uppercase', opacity: 0.82 }}>
-                  AI-FIT Food Tracker
-                </div>
-                <h3 style={{ fontSize: 42, lineHeight: 1.08, marginTop: 12, marginBottom: 14 }}>Track meals and nutrition in one place.</h3>
-                <p style={{ marginBottom: 0, color: 'rgba(255,255,255,0.88)', maxWidth: 620 }}>
+          <div className="cl_blog-widget mb-30 food-module-hero">
+            <div className="food-module-hero-grid">
+              <div className="food-module-hero-copy">
+                <div className="food-module-hero-eyebrow">AI-FIT Food Tracker</div>
+                <h3 className="food-module-hero-title">Track meals and nutrition in one place.</h3>
+                <p className="food-module-hero-desc">
                   Build breakfast, lunch, dinner, and snacks inside AI-FIT. Keep daily nutrition totals visible, save each meal by time of day, and use image recognition when you want a faster entry flow.
                 </p>
               </div>
-              <div style={{ display: 'grid', gap: 12, alignContent: 'start', minWidth: 260 }}>
-                <div
-                  style={{
-                    padding: '10px 14px',
-                    borderRadius: 999,
-                    background: 'rgba(255,255,255,0.16)',
-                    fontSize: 13,
-                    fontWeight: 700
-                  }}
-                >
+              <div className="food-module-hero-side">
+                <div className="food-module-hero-status">
                   {auth.user ? `${completedMeals} meals saved today` : 'Login to load today summary'}
                 </div>
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                <div className="food-module-hero-actions">
                   <Link to="/food/meal/lunch" className="cl_theme-btn">
                     Open Lunch
                   </Link>
@@ -168,14 +152,14 @@ export default function FoodModulePage() {
           <div className="row">
             <div className="col-12">
               <div className="cl_blog-widget mb-30">
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+                <div className="food-module-overview-head">
                   <div>
                     <h4 className="cl_blog-widget-title mb-15">Today Overview</h4>
-                    <p style={{ marginBottom: 0, color: '#64748b' }}>
+                    <p className="food-module-overview-sub">
                       Start from a meal below. Breakfast, lunch, dinner, and snack all feed into the same daily nutrition summary.
                     </p>
                   </div>
-                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                  <div className="food-module-overview-actions">
                     <Link to="/food/meal/lunch" className="cl_theme-btn">
                       Open Lunch
                     </Link>
@@ -183,9 +167,9 @@ export default function FoodModulePage() {
                 </div>
 
                 {!auth.user ? (
-                  <div style={{ marginTop: 22, padding: 20, borderRadius: 18, background: '#f8fafc' }}>
+                  <div className="food-module-login-card">
                     <h6 className="sub-title mb-10">Login Required</h6>
-                    <p style={{ marginBottom: 14, color: '#64748b' }}>
+                    <p className="food-module-overview-sub mb-15">
                       Meals are bound to the formal user account. Login first to load today&apos;s summary and continue editing meals.
                     </p>
                     <Link to="/login" className="cl_theme-btn">
@@ -193,110 +177,69 @@ export default function FoodModulePage() {
                     </Link>
                   </div>
                 ) : loading ? (
-                  <div style={{ marginTop: 22, color: '#64748b' }}>Loading today&apos;s summary...</div>
+                  <div className="food-module-loading">Loading today&apos;s summary...</div>
                 ) : error ? (
-                  <div style={{ marginTop: 22, display: 'grid', gap: 14 }}>
-                    <div style={{ borderRadius: 16, background: '#fef2f2', color: '#b91c1c', padding: '14px 16px' }}>{error}</div>
+                  <div className="food-module-error-wrap">
+                    <div className="food-module-error">{error}</div>
                     {summaryAuthError ? (
-                      <div style={{ padding: 20, borderRadius: 18, background: '#f8fafc' }}>
+                      <div className="food-module-auth-expired-card">
                         <h6 className="sub-title mb-10">Login Expired</h6>
-                        <p style={{ marginBottom: 14, color: '#64748b' }}>
+                        <p className="food-module-overview-sub mb-15">
                           The current session could not load today&apos;s meal summary. Re-login to continue with formal meal records.
                         </p>
-                        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                        <div className="food-module-auth-actions">
                           <Link to="/login" className="cl_theme-btn">
                             Go Login
                           </Link>
-                          <button type="button" className="cl_theme-btn" onClick={auth.logout}>
+                          <AppButton type="button" variant="brand" onClick={auth.logout}>
                             Clear Session
-                          </button>
+                          </AppButton>
                         </div>
                       </div>
                     ) : null}
                   </div>
                 ) : (
                   <>
-                    <div
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-                        gap: 14,
-                        marginTop: 22
-                      }}
-                    >
-                      <div style={{ padding: 18, borderRadius: 18, background: '#fff7ed' }}>
-                        <div style={{ color: '#9a3412', fontSize: 13 }}>Calories</div>
-                        <div style={{ fontSize: 28, fontWeight: 700, color: '#7c2d12', marginTop: 6 }}>
-                          {formatMetric(totals.kcal, 'kcal')}
-                        </div>
+                    <div className="food-module-metrics">
+                      <div className="food-module-metric food-module-metric--calories">
+                        <div className="food-module-metric-label">Calories</div>
+                        <div className="food-module-metric-value">{formatMetric(totals.kcal, 'kcal')}</div>
                       </div>
-                      <div style={{ padding: 18, borderRadius: 18, background: '#eff6ff' }}>
-                        <div style={{ color: '#1d4ed8', fontSize: 13 }}>Protein</div>
-                        <div style={{ fontSize: 28, fontWeight: 700, color: '#1e3a8a', marginTop: 6 }}>
-                          {formatMetric(totals.protein, 'g')}
-                        </div>
+                      <div className="food-module-metric food-module-metric--protein">
+                        <div className="food-module-metric-label">Protein</div>
+                        <div className="food-module-metric-value">{formatMetric(totals.protein, 'g')}</div>
                       </div>
-                      <div style={{ padding: 18, borderRadius: 18, background: '#fefce8' }}>
-                        <div style={{ color: '#a16207', fontSize: 13 }}>Fat</div>
-                        <div style={{ fontSize: 28, fontWeight: 700, color: '#854d0e', marginTop: 6 }}>
-                          {formatMetric(totals.fat, 'g')}
-                        </div>
+                      <div className="food-module-metric food-module-metric--fat">
+                        <div className="food-module-metric-label">Fat</div>
+                        <div className="food-module-metric-value">{formatMetric(totals.fat, 'g')}</div>
                       </div>
-                      <div style={{ padding: 18, borderRadius: 18, background: '#f0fdf4' }}>
-                        <div style={{ color: '#15803d', fontSize: 13 }}>Carbs</div>
-                        <div style={{ fontSize: 28, fontWeight: 700, color: '#166534', marginTop: 6 }}>
-                          {formatMetric(totals.carbs, 'g')}
-                        </div>
+                      <div className="food-module-metric food-module-metric--carbs">
+                        <div className="food-module-metric-label">Carbs</div>
+                        <div className="food-module-metric-value">{formatMetric(totals.carbs, 'g')}</div>
                       </div>
                     </div>
 
-                    <div
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                        gap: 16,
-                        marginTop: 24
-                      }}
-                    >
+                    <div className="food-module-meals">
                       {mealCards.map((meal) => {
                         const currentMeal = findMeal(summary, meal.type)
                         return (
-                          <div
-                            key={meal.type}
-                            style={{
-                              border: '1px solid rgba(148, 163, 184, 0.18)',
-                              borderRadius: 20,
-                              padding: 20,
-                              background: '#fff',
-                              overflow: 'hidden',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              minHeight: 320
-                            }}
-                          >
-                            <div
-                              style={{
-                                height: 10,
-                                borderRadius: 999,
-                                background: meal.accent,
-                                marginBottom: 16
-                              }}
-                            />
-                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start', minHeight: 82 }}>
+                          <div key={meal.type} className="food-module-meal-card">
+                            <div className="food-module-meal-accent" style={{ background: meal.accent }} />
+                            <div className="food-module-meal-head">
                               <div>
-                                <div style={{ fontSize: 18, fontWeight: 700, color: '#0f172a' }}>{meal.label}</div>
-                                <div style={{ fontSize: 13, color: '#64748b', marginTop: 6 }}>{meal.note}</div>
+                                <div className="food-module-meal-title">{meal.label}</div>
+                                <div className="food-module-meal-note">{meal.note}</div>
                               </div>
-                              <div style={{ minWidth: 76, textAlign: 'right', fontSize: 12, color: '#64748b' }}>
+                              <div className="food-module-meal-count">
                                 {currentMeal ? `${currentMeal.items.length} items` : 'No record'}
                               </div>
                             </div>
-                            <div style={{ marginTop: 16, color: '#334155', fontSize: 14, flex: 1 }}>
+                            <div className="food-module-meal-summary">
                               {currentMeal
                                 ? `Current meal total: ${currentMeal.totals.kcal.toFixed(1)} kcal`
                                 : 'No saved meal yet. Open this slot to add foods and save the formal record.'}
                             </div>
-                            <div style={{ marginTop: 18, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                            <div className="food-module-meal-actions">
                               <Link to={`/food/meal/${meal.type}`} className="cl_theme-btn">
                                 Open {meal.label}
                               </Link>

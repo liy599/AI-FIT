@@ -9,7 +9,7 @@ export default function Footer() {
             <div className="col-md-4">
               <div className="cl_footer-logo">
                 <Link to="/">
-                  <img src="/assets/images/logo/logo-white.png" alt="" />
+                  <img src="/assets/images/logo/logo-white.png" alt="AI FitGuard logo" />
                 </Link>
               </div>
             </div>
@@ -34,18 +34,18 @@ export default function Footer() {
                   AI FitGuard: pose coaching + food & nutrition tracking + community blogs + courses. Video/image processing runs locally in your browser by default.
                 </p>
                 <div className="cl_footer-widget-social">
-                  <a href="#" onClick={(e) => e.preventDefault()}>
+                  <button type="button" className="footer-icon-btn" aria-label="Facebook link coming soon">
                     <i className="fa-brands fa-facebook-f"></i>
-                  </a>
-                  <a href="#" onClick={(e) => e.preventDefault()}>
+                  </button>
+                  <button type="button" className="footer-icon-btn" aria-label="Instagram link coming soon">
                     <i className="fa-brands fa-instagram"></i>
-                  </a>
-                  <a href="#" onClick={(e) => e.preventDefault()}>
+                  </button>
+                  <button type="button" className="footer-icon-btn" aria-label="LinkedIn link coming soon">
                     <i className="fa-brands fa-linkedin-in"></i>
-                  </a>
-                  <a href="#" onClick={(e) => e.preventDefault()}>
+                  </button>
+                  <button type="button" className="footer-icon-btn" aria-label="YouTube link coming soon">
                     <i className="fa-brands fa-youtube"></i>
-                  </a>
+                  </button>
                 </div>
               </div>
             </div>
@@ -100,9 +100,9 @@ export default function Footer() {
                       strokeLinejoin="round"
                     />
                   </svg>
-                  <a href="#" onClick={(e) => e.preventDefault()}>
+                  <button type="button" className="footer-text-btn">
                     Feedback Drawer (bottom-right)
-                  </a>
+                  </button>
                 </div>
               </div>
             </div>
@@ -110,19 +110,19 @@ export default function Footer() {
         </div>
         <div className="cl_footer-copyright">
           <div className="cl_footer-copyright-text">
-            <p>Copyright © {new Date().getFullYear()} AI FitGuard</p>
+            <p>{`Copyright ${String.fromCharCode(169)} ${new Date().getFullYear()} AI FitGuard`}</p>
           </div>
           <div className="cl_footer-copyright-menu">
             <ul>
               <li>
-                <a href="#" onClick={(e) => e.preventDefault()}>
+                <button type="button" className="footer-text-btn">
                   Terms
-                </a>
+                </button>
               </li>
               <li>
-                <a href="#" onClick={(e) => e.preventDefault()}>
+                <button type="button" className="footer-text-btn">
                   Privacy
-                </a>
+                </button>
               </li>
             </ul>
           </div>

@@ -23,7 +23,7 @@ function resolveMediaUrl(url: string | null | undefined) {
 function formatLongDate(value: string) {
   const d = new Date(value)
   if (Number.isNaN(d.getTime())) return value
-  return d.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
+  return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 }
 
 function estimateReadMinutes(text: string) {
@@ -186,11 +186,11 @@ function getStackTransform(position: number, count: number) {
   if (count <= 1) return 'translateX(-50%) translateY(0px) rotate(0deg) scale(1)'
   if (count === 2) {
     if (position === 0) return 'translateX(-50%) translateY(0px) translateX(-66px) rotate(0deg) scale(1)'
-    return 'translateX(-50%) translateY(14px) translateX(0px) rotate(10deg) scale(0.95)'
+    return 'translateX(-50%) translateY(14px) translateX(0px) rotate(5deg) scale(0.95)'
   }
   if (position === 0) return 'translateX(-50%) translateY(0px) translateX(-72px) rotate(0deg) scale(1)'
-  if (position === 1) return 'translateX(-50%) translateY(14px) translateX(0px) rotate(10deg) scale(0.95)'
-  return 'translateX(-50%) translateY(27px) translateX(72px) rotate(20deg) scale(0.92)'
+  if (position === 1) return 'translateX(-50%) translateY(14px) translateX(0px) rotate(5deg) scale(0.95)'
+  return 'translateX(-50%) translateY(27px) translateX(72px) rotate(10deg) scale(0.92)'
 }
 
 function TopViewedStack({ blogs, loading }: { blogs: BlogCard[]; loading: boolean }) {
@@ -400,14 +400,14 @@ export default function BlogListPage() {
           }
         }
       `}</style>
-      <section className="px-4 pt-14 md:pt-20">
+      <section className="bg-neutral-50 px-4 pb-20 pt-14 md:pb-32 md:pt-20">
         <div className="mx-auto grid max-w-[1200px] grid-cols-1 gap-10 lg:grid-cols-12 lg:items-center">
           <div className="lg:col-span-6">
             <div className="flex min-h-[220px] items-center lg:min-h-[420px]">
               <h1 className="text-[44px] font-semibold leading-[1.02] tracking-tight text-neutral-900 sm:text-[56px] md:text-[64px]">
-                健身/饮食
+                Fitness / Nutrition
                 <br />
-                社区
+                Community
               </h1>
             </div>
           </div>

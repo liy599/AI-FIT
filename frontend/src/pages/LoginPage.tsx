@@ -13,11 +13,28 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [resetLink, setResetLink] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+
+  function buildResetPath(resetLink?: string) {
+    if (!resetLink) return null
+    try {
+      const u = new URL(resetLink, window.location.origin)
+      if (u.pathname === '/reset-password') return `${u.pathname}${u.search}${u.hash}`
+      const token = u.searchParams.get('token')
+      if (token) return `/reset-password?token=${encodeURIComponent(token)}`
+      return null
+    } catch {
+      if (resetLink.includes('token=')) {
+        const token = resetLink.split('token=')[1]?.split('&')[0]
+        if (token) return `/reset-password?token=${encodeURIComponent(token)}`
+      }
+      return null
+    }
+  }
 
   async function submit() {
     setError(null)
-    setResetLink(null)
+    setNotice(null)
     setBusy(true)
     try {
       const r = await apiFetch<{
@@ -38,14 +55,19 @@ export default function LoginPage() {
 
   async function forgot() {
     setError(null)
-    setResetLink(null)
+    setNotice(null)
     try {
       const r = await apiFetch<{ reset_link?: string }>('/api/auth/forgot-password', {
         method: 'POST',
         auth: false,
         body: JSON.stringify({ email })
       })
-      setResetLink(r.reset_link ?? null)
+      const path = buildResetPath(r.reset_link)
+      if (path) {
+        nav(path, { replace: true })
+        return
+      }
+      setNotice('If the email exists, check your inbox for the reset link.')
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Request failed')
     }
@@ -77,7 +99,7 @@ export default function LoginPage() {
             <div className="col-xl-6 col-lg-8">
               <div className="cl_blog_details-reply">
                 <h3 className="cl_blog_details-reply-title">Sign in</h3>
-                <p>Sign in with your email and password (after signing in you can access courses, your profile, and more).</p>
+                <p>Sign in with your email and password (after signing in you can access your profile and more).</p>
                 <form
                   action="#"
                   onSubmit={(e) => {
@@ -119,6 +141,11 @@ export default function LoginPage() {
                         <div className="cl_blog-widget mb-30">{error}</div>
                       </div>
                     ) : null}
+                    {notice ? (
+                      <div className="col-12">
+                        <div className="cl_blog-widget mb-30">{notice}</div>
+                      </div>
+                    ) : null}
                     <div className="col-12">
                       <div className="cl_blog_details-reply-item">
                         <button type="submit" disabled={busy || !email || !password}>
@@ -139,16 +166,6 @@ export default function LoginPage() {
                         </button>
                       </div>
                     </div>
-                    {resetLink ? (
-                      <div className="col-12">
-                        <div className="cl_blog-widget mb-30">
-                          Dev reset link:{' '}
-                          <a href={resetLink} target="_blank" rel="noreferrer">
-                            {resetLink}
-                          </a>
-                        </div>
-                      </div>
-                    ) : null}
                     <div className="col-12">
                       <div className="cl_blog-widget">
                         No account yet? <Link to="/register">Create one</Link>

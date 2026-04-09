@@ -107,7 +107,7 @@ export default function AboutPage() {
                     <span className="cl_section-subtitle cl_section-subtitle-about">AI FitGuard</span>
                     <h2 className="cl_section-title cl_section-title-small mb-25">A privacy-first fitness and nutrition assistant</h2>
                     <p className="cl_section-text mb-0">
-                      AI FitGuard helps you get reliable training guidance and nutrition insights without specialized hardware. Whenever possible, video/image inference runs locally in your browser, and the platform combines community and courses to support long-term progress.
+                      AI FitGuard helps you get reliable training guidance and nutrition insights without specialized hardware. Whenever possible, video/image inference runs locally in your browser, and the platform combines community features to support long-term progress.
                     </p>
                   </div>
                   <ul className="cl_about-content-list">
@@ -119,9 +119,6 @@ export default function AboutPage() {
                     </li>
                     <li>
                       <i className="fa-sharp fa-light fa-check"></i>Community blogs and comments
-                    </li>
-                    <li>
-                      <i className="fa-sharp fa-light fa-check"></i>Course enrollment and reviews
                     </li>
                   </ul>
                   <div className="cl_about-content-btn">

@@ -31,7 +31,7 @@ export default function Footer() {
               <div className="cl_footer-widget mb-40">
                 <h5 className="cl_footer-widget-title">About Us</h5>
                 <p className="cl_footer-widget-text mb-35">
-                  AI FitGuard: pose coaching + food & nutrition tracking + community blogs + courses. Video/image processing runs locally in your browser by default.
+                  AI FitGuard: pose coaching + food & nutrition tracking + community blogs. Video/image processing runs locally in your browser by default.
                 </p>
                 <div className="cl_footer-widget-social">
                   <button type="button" className="footer-icon-btn" aria-label="Facebook link coming soon">
@@ -58,9 +58,6 @@ export default function Footer() {
                   </li>
                   <li>
                     <Link to="/blogs">Blog</Link>
-                  </li>
-                  <li>
-                    <Link to="/courses">Courses</Link>
                   </li>
                   <li>
                     <Link to="/tools/pose">Pose</Link>

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { API_BASE, apiFetch } from '../lib/api'
-import { useAuth } from '../state/auth-context'
 
 type BlogCard = {
   id: number
@@ -11,17 +10,6 @@ type BlogCard = {
   author: { id: number; username: string }
   created_at: string
   tags: { id: number; name: string }[]
-}
-
-type CourseCard = {
-  id: number
-  title: string
-  cover_image_url: string | null
-  instructor_name: string
-  is_free: boolean
-  price: number | null
-  avg_rating: number | null
-  enroll_count: number
 }
 
 function resolveMediaUrl(url: string | null | undefined) {
@@ -43,9 +31,7 @@ function Arrow15() {
 }
 
 export default function HomePage() {
-  const auth = useAuth()
   const [blogs, setBlogs] = useState<BlogCard[]>([])
-  const [courses, setCourses] = useState<CourseCard[]>([])
 
   useEffect(() => {
     let cancelled = false
@@ -60,24 +46,9 @@ export default function HomePage() {
     }
   }, [])
 
-  useEffect(() => {
-    if (!auth.user) return
-    let cancelled = false
-    apiFetch<{ items: CourseCard[] }>('/api/courses?page=1&page_size=4&sort=hot')
-      .then((r) => {
-        if (cancelled) return
-        setCourses(r.items)
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [auth.user])
-
   const heroBg = '/assets/images/hero/h1_1.png'
   const bigBlog = blogs[0]
   const sideBlogs = blogs.slice(1, 4)
-  const featuredCourses = courses.slice(0, 3)
 
   return (
     <>
@@ -197,83 +168,6 @@ export default function HomePage() {
                   ))}
                 </div>
               </div>
-            </div>
-          )}
-        </div>
-      </section>
-
-      <section className="cl_price-area pt-100 pb-70">
-        <div className="container">
-          <div className="row justify-content-center">
-            <div className="col-xl-7">
-              <div className="cl_section-area text-center mb-30 pb-2">
-                <span className="cl_section-subtitle">Our Courses</span>
-                <h2 className="cl_section-title mb-0">Featured Courses</h2>
-              </div>
-            </div>
-          </div>
-
-          {!auth.user ? (
-            <div className="row">
-              <div className="col-12">
-                <div className="cl_price-item active mb-30">
-                  <span className="cl_price-item-subtitle">LOGIN REQUIRED</span>
-                  <h4 className="cl_price-item-title">Sign in to view courses and enroll</h4>
-                  <h2 className="cl_price-item-amount">Free</h2>
-                  <ul className="cl_price-item-feature">
-                    <li>
-                      <i className="fa-sharp fa-light fa-check"></i> Course list / details
-                    </li>
-                    <li>
-                      <i className="fa-sharp fa-light fa-check"></i> Enrollment and comments
-                    </li>
-                  </ul>
-                  <div className="cl_price-item-btn">
-                    <Link to="/login">Go Login</Link>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="row">
-              {featuredCourses.map((c) => (
-                <div className="col-xl-4 col-md-6" key={c.id}>
-                  <div className="cl_price-item mb-30">
-                    <span className="cl_price-item-subtitle">{c.is_free ? 'FREE' : 'PREMIUM'}</span>
-                    <h4 className="cl_price-item-title">{c.title}</h4>
-                    <h2 className="cl_price-item-amount">
-                      {c.is_free ? '0' : c.price ?? '-'}
-                      <span>{c.is_free ? '' : ' / course'}</span>
-                    </h2>
-                    <ul className="cl_price-item-feature">
-                      <li>
-                        <i className="fa-sharp fa-light fa-check"></i> Instructor: {c.instructor_name}
-                      </li>
-                      <li>
-                        <i className="fa-sharp fa-light fa-check"></i> Rating: {c.avg_rating ? c.avg_rating.toFixed(1) : '-'}
-                      </li>
-                      <li>
-                        <i className="fa-sharp fa-light fa-check"></i> Enrolled: {c.enroll_count}
-                      </li>
-                    </ul>
-                    <div className="cl_price-item-btn">
-                      <Link to={`/courses/${c.id}`}>View Details</Link>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {featuredCourses.length === 0 ? (
-                <div className="col-12">
-                  <div className="cl_price-item active mb-30">
-                    <span className="cl_price-item-subtitle">EMPTY</span>
-                    <h4 className="cl_price-item-title">No courses yet</h4>
-                    <h2 className="cl_price-item-amount">-</h2>
-                    <div className="cl_price-item-btn">
-                      <Link to="/courses">Go Courses</Link>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
             </div>
           )}
         </div>

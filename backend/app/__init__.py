@@ -41,8 +41,6 @@ def create_app(config_object=Config):
     from .routes.tags import bp as tags_bp
     from .routes.blogs import bp as blogs_bp
     from .routes.comments import bp as comments_bp
-    from .routes.courses import bp as courses_bp
-    from .routes.course_comments import bp as course_comments_bp
     from .routes.feedback import bp as feedback_bp
     from .routes.food import bp as food_bp
     from .routes.foods import bp as foods_bp
@@ -56,8 +54,6 @@ def create_app(config_object=Config):
     app.register_blueprint(tags_bp, url_prefix="/api/tags")
     app.register_blueprint(blogs_bp, url_prefix="/api/blogs")
     app.register_blueprint(comments_bp, url_prefix="/api")
-    app.register_blueprint(courses_bp, url_prefix="/api/courses")
-    app.register_blueprint(course_comments_bp, url_prefix="/api")
     app.register_blueprint(feedback_bp, url_prefix="/api/feedback")
     app.register_blueprint(food_bp, url_prefix="/api/food")
     app.register_blueprint(foods_bp, url_prefix="/api/foods")

@@ -4,8 +4,6 @@ import { AuthProvider, useAuth } from './state/auth-context'
 import AboutPage from './pages/AboutPage'
 import BlogDetailPage from './pages/BlogDetailPage'
 import BlogListPage from './pages/BlogListPage'
-import CourseDetailPage from './pages/CourseDetailPage'
-import CoursesListPage from './pages/CoursesListPage'
 import FoodMealPage from './pages/FoodMealPage'
 import FoodModulePage from './pages/FoodModulePage'
 import HomePage from './pages/HomePage'
@@ -40,8 +38,6 @@ export default function App() {
           <Route path="/tools/food" element={<Navigate to="/food" replace />} />
           <Route path="/blogs" element={<BlogListPage />} />
           <Route path="/blogs/:id" element={<BlogDetailPage />} />
-          <Route path="/courses" element={<RequireAuth children={<CoursesListPage />} />} />
-          <Route path="/courses/:id" element={<RequireAuth children={<CourseDetailPage />} />} />
           <Route path="/profile" element={<RequireAuth children={<ProfilePage />} />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />

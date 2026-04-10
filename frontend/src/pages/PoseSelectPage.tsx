@@ -23,8 +23,8 @@ const POSE_CATEGORIES: PoseCategory[] = [
     title: 'Chest',
     subtitle: 'Push movements',
     exercises: [
-      { id: 'pushup', name: 'Push-up', status: 'coming_soon', href: '/tools/pose/pushup' },
-      { id: 'bench_press', name: 'Bench Press', status: 'coming_soon', href: '/tools/pose/bench-press' }
+      { id: 'pushup', name: 'Push-Up', secondary: 'Bodyweight', status: 'coming_soon', href: '/tools/pose/pushup' },
+      { id: 'bench_press', name: 'Bench Press', secondary: 'Barbell', status: 'coming_soon', href: '/tools/pose/bench-press' }
     ]
   },
   {
@@ -32,8 +32,8 @@ const POSE_CATEGORIES: PoseCategory[] = [
     title: 'Back',
     subtitle: 'Pull movements',
     exercises: [
-      { id: 'pullup', name: 'Pull-up', status: 'coming_soon', href: '/tools/pose/pullup' },
-      { id: 'row', name: 'Row', status: 'coming_soon', href: '/tools/pose/row' }
+      { id: 'pullup', name: 'Pull-Up', secondary: 'Bodyweight', status: 'coming_soon', href: '/tools/pose/pullup' },
+      { id: 'row', name: 'Bent-Over Row', secondary: 'Barbell', status: 'coming_soon', href: '/tools/pose/row' }
     ]
   },
   {
@@ -41,8 +41,8 @@ const POSE_CATEGORIES: PoseCategory[] = [
     title: 'Shoulders',
     subtitle: 'Pressing & stability',
     exercises: [
-      { id: 'ohp', name: 'Overhead Press', status: 'coming_soon', href: '/tools/pose/ohp' },
-      { id: 'lateral_raise', name: 'Lateral Raise', status: 'coming_soon', href: '/tools/pose/lateral-raise' }
+      { id: 'ohp', name: 'Overhead Press', secondary: 'Barbell', status: 'coming_soon', href: '/tools/pose/ohp' },
+      { id: 'lateral_raise', name: 'Lateral Raise', secondary: 'Dumbbell', status: 'coming_soon', href: '/tools/pose/lateral-raise' }
     ]
   },
   {
@@ -50,27 +50,8 @@ const POSE_CATEGORIES: PoseCategory[] = [
     title: 'Legs',
     subtitle: 'Lower body & hip-dominant',
     exercises: [
-      { id: 'squat', name: 'Squat', status: 'ready', href: '/tools/pose/squat' },
-      { id: 'lunge', name: 'Lunge', status: 'coming_soon', href: '/tools/pose/lunge' },
-      { id: 'calf_raise', name: 'Calf Raise', status: 'coming_soon', href: '/tools/pose/calf-raise' }
-    ]
-  },
-  {
-    id: 'cardio',
-    title: 'Cardio',
-    subtitle: 'Cardiovascular & cadence',
-    exercises: [
-      { id: 'jumping_jack', name: 'Jumping Jack', status: 'coming_soon', href: '/tools/pose/jumping-jack' },
-      { id: 'burpee', name: 'Burpee', status: 'coming_soon', href: '/tools/pose/burpee' }
-    ]
-  },
-  {
-    id: 'stretch',
-    title: 'Stretching',
-    subtitle: 'Mobility & recovery',
-    exercises: [
-      { id: 'hamstring', name: 'Hamstring Stretch', status: 'coming_soon', href: '/tools/pose/stretch-hamstring' },
-      { id: 'hip_flexor', name: 'Hip Flexor Stretch', status: 'coming_soon', href: '/tools/pose/stretch-hip-flexor' }
+      { id: 'squat', name: 'Deep Squat', secondary: 'Bodyweight', status: 'ready', href: '/tools/pose/squat' },
+      { id: 'lunge', name: 'Forward Lunge', secondary: 'Bodyweight', status: 'coming_soon', href: '/tools/pose/lunge' }
     ]
   }
 ]
@@ -96,18 +77,25 @@ export default function PoseSelectPage() {
         </div>
       </section>
 
-      <section className="pt-100 pb-100">
+      <section className="pt-100 pb-100 pose-select-page">
         <div className="container">
           <div className="row justify-content-center">
             <div className="col-xl-10 col-lg-11">
-              <div className="cl_blog-widget mb-30">
-                <h4 className="cl_blog-widget-title mb-15">Choose what you want to train</h4>
-                <p className="pose-tool-subtitle">Pick an exercise first, review the camera guidance, then start real-time form correction.</p>
+              <div className="cl_blog-widget mb-30 pose-select-hero">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                  <h4 className="cl_blog-widget-title mb-0">Choose what you want to train</h4>
+                  <Link to="/tools/pose/squat/tool/history" className="pose-tool-ghost-btn pose-tool-light-btn">
+                    Training History
+                  </Link>
+                </div>
+                <p className="pose-tool-subtitle" style={{ marginTop: 14 }}>
+                  Pick an exercise first, review the camera guidance, then start real-time form correction.
+                </p>
               </div>
 
               <div className="row">
                 {POSE_CATEGORIES.map((cat) => (
-                  <div key={cat.id} className="col-xl-4 col-lg-6">
+                  <div key={cat.id} className="col-xl-6 col-lg-6 col-md-6">
                     <div className="cl_blog-widget mb-30">
                       <h5 className="cl_blog-widget-title mb-15">
                         {cat.title}
@@ -131,12 +119,17 @@ export default function PoseSelectPage() {
                               }}
                             >
                               <div style={{ display: 'grid' }}>
-                                <strong style={{ lineHeight: 1.2 }}>{ex.name}</strong>
+                                <strong style={{ lineHeight: 1.2, color: '#0f172a' }}>{ex.name}</strong>
                                 {ex.secondary ? <span style={{ fontSize: 12, color: '#64748b' }}>{ex.secondary}</span> : null}
                               </div>
                               {disabled ? (
                                 <span
                                   style={{
+                                    minWidth: 98,
+                                    height: 34,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
                                     fontSize: 12,
                                     color: '#64748b',
                                     border: '1px solid rgba(148,163,184,0.45)',
@@ -148,7 +141,19 @@ export default function PoseSelectPage() {
                                   Coming soon
                                 </span>
                               ) : (
-                                <Link to={ex.href} className="cl_theme-btn" style={{ padding: '8px 12px', fontSize: 12 }}>
+                                <Link
+                                  to={ex.href}
+                                  className="cl_theme-btn"
+                                  style={{
+                                    minWidth: 98,
+                                    height: 34,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    padding: '0 12px',
+                                    fontSize: 12
+                                  }}
+                                >
                                   Select
                                 </Link>
                               )}

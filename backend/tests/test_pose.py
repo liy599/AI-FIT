@@ -130,3 +130,54 @@ def test_pose_training_save(client):
     assert len(session["sets"]) == 1
     assert session["sets"][0]["exercise_type"] == "squat"
     assert session["sets"][0]["reps"] == 12
+
+
+def test_pose_training_list_and_detail_with_date_filter(client):
+    token = register_and_token(client, email="pose4@example.com", username="pose-user-4")
+
+    response = client.post(
+        "/api/pose/trainings",
+        headers=auth_header(token),
+        json={
+            "started_at": "2026-04-01T08:00:00Z",
+            "ended_at": "2026-04-01T08:04:00Z",
+            "exercise_type": "squat",
+            "sets": [{"reps": 10}],
+            "report": {"summary": "older"},
+        },
+    )
+    assert response.status_code == 201
+    older_id = response.get_json()["session"]["id"]
+
+    response = client.post(
+        "/api/pose/trainings",
+        headers=auth_header(token),
+        json={
+            "started_at": "2026-04-08T09:00:00Z",
+            "ended_at": "2026-04-08T09:06:00Z",
+            "exercise_type": "squat",
+            "sets": [{"reps": 14}],
+            "report": {"summary": "newer"},
+        },
+    )
+    assert response.status_code == 201
+    newer_id = response.get_json()["session"]["id"]
+
+    response = client.get("/api/pose/trainings?page=1&page_size=20", headers=auth_header(token))
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["total"] == 2
+    assert payload["items"][0]["id"] == newer_id
+    assert payload["items"][1]["id"] == older_id
+
+    response = client.get("/api/pose/trainings?date_from=2026-04-05&date_to=2026-04-10", headers=auth_header(token))
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["total"] == 1
+    assert payload["items"][0]["id"] == newer_id
+
+    response = client.get(f"/api/pose/trainings/{newer_id}", headers=auth_header(token))
+    assert response.status_code == 200
+    detail = response.get_json()["session"]
+    assert detail["id"] == newer_id
+    assert detail["report"]["summary"] == "newer"

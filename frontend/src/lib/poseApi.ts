@@ -35,6 +35,8 @@ export type PoseTrainingSession = {
   ended_at: string | null
   note: string | null
   report: Record<string, unknown> | null
+  created_at?: string
+  updated_at?: string
   sets: Array<{
     id: number
     exercise_type: string
@@ -99,6 +101,24 @@ export async function createPoseTraining(input: {
     method: 'POST',
     body: JSON.stringify(input)
   })
+  return data.session
+}
+
+export async function listPoseTrainings(params?: { page?: number; page_size?: number; date_from?: string; date_to?: string }) {
+  const query = new URLSearchParams()
+  if (params?.page) query.set('page', String(params.page))
+  if (params?.page_size) query.set('page_size', String(params.page_size))
+  if (params?.date_from) query.set('date_from', params.date_from)
+  if (params?.date_to) query.set('date_to', params.date_to)
+  const suffix = query.toString()
+  const data = await apiFetch<{ items: PoseTrainingSession[]; page: number; page_size: number; total: number }>(
+    `/api/pose/trainings${suffix ? `?${suffix}` : ''}`
+  )
+  return data
+}
+
+export async function getPoseTraining(sessionId: number) {
+  const data = await apiFetch<{ session: PoseTrainingSession }>(`/api/pose/trainings/${sessionId}`)
   return data.session
 }
 

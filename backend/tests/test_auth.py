@@ -33,3 +33,13 @@ def test_password_reset_flow(client):
     r = client.post("/api/auth/login", json={"email": "b@example.com", "password": "new-pass"})
     assert r.status_code == 200
 
+
+def test_forgot_password_requires_email(client):
+    r = client.post("/api/auth/forgot-password", json={})
+    assert r.status_code == 400
+
+
+def test_forgot_password_email_not_found(client):
+    r = client.post("/api/auth/forgot-password", json={"email": "noone@example.com"})
+    assert r.status_code == 404
+

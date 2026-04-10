@@ -35,6 +35,15 @@ export default function LoginPage() {
   async function submit() {
     setError(null)
     setNotice(null)
+    if (busy) return
+    if (!email.trim()) {
+      setError('Email is required.')
+      return
+    }
+    if (!password.trim()) {
+      setError('Password is required.')
+      return
+    }
     setBusy(true)
     try {
       const r = await apiFetch<{
@@ -56,6 +65,10 @@ export default function LoginPage() {
   async function forgot() {
     setError(null)
     setNotice(null)
+    if (!email.trim()) {
+      setError('Email is required.')
+      return
+    }
     try {
       const r = await apiFetch<{ reset_link?: string }>('/api/auth/forgot-password', {
         method: 'POST',
@@ -67,9 +80,10 @@ export default function LoginPage() {
         nav(path, { replace: true })
         return
       }
-      setNotice('If the email exists, check your inbox for the reset link.')
+      setNotice('Email not found.')
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Request failed')
+      const msg = e instanceof Error ? e.message : 'Request failed'
+      setError(msg === 'email not found' ? 'Email not found.' : msg)
     }
   }
 
@@ -102,6 +116,7 @@ export default function LoginPage() {
                 <p>Sign in with your email and password (after signing in you can access your profile and more).</p>
                 <form
                   action="#"
+                  noValidate
                   onSubmit={(e) => {
                     e.preventDefault()
                     submit().catch(() => {})
@@ -138,17 +153,17 @@ export default function LoginPage() {
                     </div>
                     {error ? (
                       <div className="col-12">
-                        <div className="cl_blog-widget mb-30">{error}</div>
+                        <div className="cl_blog-widget cl_auth-alert cl_auth-alert--error mb-30">{error}</div>
                       </div>
                     ) : null}
                     {notice ? (
                       <div className="col-12">
-                        <div className="cl_blog-widget mb-30">{notice}</div>
+                        <div className="cl_blog-widget cl_auth-alert cl_auth-alert--notice mb-30">{notice}</div>
                       </div>
                     ) : null}
                     <div className="col-12">
                       <div className="cl_blog_details-reply-item">
-                        <button type="submit" disabled={busy || !email || !password}>
+                        <button type="submit">
                           Login
                         </button>
                       </div>
@@ -157,7 +172,6 @@ export default function LoginPage() {
                       <div className="cl_blog_details-reply-item">
                         <button
                           type="button"
-                          disabled={!email}
                           onClick={() => {
                             forgot().catch(() => {})
                           }}
@@ -167,7 +181,7 @@ export default function LoginPage() {
                       </div>
                     </div>
                     <div className="col-12">
-                      <div className="cl_blog-widget">
+                      <div className="cl_blog-widget cl_auth-switch">
                         No account yet? <Link to="/register">Create one</Link>
                       </div>
                     </div>

@@ -326,7 +326,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6 px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full min-h-[calc(100vh-120px)] max-w-5xl space-y-6 px-4 pt-6 pb-32 text-slate-900 sm:px-6 lg:px-8">
       <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
         <div className="flex items-center justify-between">
           <div>

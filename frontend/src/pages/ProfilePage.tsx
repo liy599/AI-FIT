@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { API_BASE, apiFetch, apiUpload } from '../lib/api'
+import { listPoseTrainings, type PoseTrainingSession } from '../lib/poseApi'
 import { useAuth } from '../state/auth-context'
 
 type Profile = {
@@ -69,7 +70,7 @@ type Tag = { id: number; name: string }
 export default function ProfilePage() {
   const auth = useAuth()
   const navigate = useNavigate()
-  const [tab, setTab] = useState<'Profile' | 'Workouts' | 'Meals' | 'Report' | 'Blogs' | 'Comments'>('Profile')
+  const [tab, setTab] = useState<'Profile' | 'Workouts' | 'Meals' | 'Report' | 'History' | 'Blogs' | 'Comments'>('Profile')
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const noticeTimerRef = useRef<number | null>(null)
@@ -84,6 +85,15 @@ export default function ProfilePage() {
   const [myBlogs, setMyBlogs] = useState<MyBlog[]>([])
   const [myComments, setMyComments] = useState<MyComment[]>([])
   const [tags, setTags] = useState<Tag[]>([])
+
+  const [poseMonth, setPoseMonth] = useState(() => {
+    const now = new Date()
+    return new Date(now.getFullYear(), now.getMonth(), 1)
+  })
+  const [poseSelectedYmd, setPoseSelectedYmd] = useState(() => formatYmdLocal(new Date()))
+  const [poseSessions, setPoseSessions] = useState<PoseTrainingSession[]>([])
+  const [poseLoading, setPoseLoading] = useState(false)
+  const [poseError, setPoseError] = useState<string | null>(null)
 
   const [edit, setEdit] = useState<{
     username: string
@@ -124,6 +134,63 @@ export default function ProfilePage() {
       avgCaloriesIn: totalCaloriesIn ? totalCaloriesIn / days : null
     }
   }, [workouts, meals])
+
+  const poseSessionsByDay = useMemo(() => {
+    const map = new Map<string, PoseTrainingSession[]>()
+    for (const session of poseSessions) {
+      const key = formatYmdLocal(new Date(session.started_at))
+      const prev = map.get(key)
+      if (prev) prev.push(session)
+      else map.set(key, [session])
+    }
+    for (const list of map.values()) list.sort((a, b) => (a.started_at < b.started_at ? -1 : a.started_at > b.started_at ? 1 : 0))
+    return map
+  }, [poseSessions])
+
+  useEffect(() => {
+    if (tab !== 'History') return
+    const year = poseMonth.getFullYear()
+    const month = poseMonth.getMonth()
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
+    const dateFrom = `${year}-${pad2(month + 1)}-01`
+    const dateTo = `${year}-${pad2(month + 1)}-${pad2(daysInMonth)}`
+
+    let active = true
+    setPoseLoading(true)
+    setPoseError(null)
+    ;(async () => {
+      let page = 1
+      const page_size = 50
+      let all: PoseTrainingSession[] = []
+      while (true) {
+        const r = await listPoseTrainings({ page, page_size, date_from: dateFrom, date_to: dateTo })
+        all = all.concat(r.items)
+        if (all.length >= r.total) break
+        page += 1
+        if (page > 100) break
+      }
+      if (!active) return
+      setPoseSessions(all)
+      setPoseLoading(false)
+      setPoseError(null)
+    })().catch((e: unknown) => {
+      if (!active) return
+      setPoseLoading(false)
+      setPoseError(e instanceof Error ? e.message : 'Failed to load training history')
+    })
+
+    return () => {
+      active = false
+    }
+  }, [tab, poseMonth])
+
+  useEffect(() => {
+    if (tab !== 'History') return
+    const year = poseMonth.getFullYear()
+    const month = pad2(poseMonth.getMonth() + 1)
+    const prefix = `${year}-${month}-`
+    if (!poseSelectedYmd.startsWith(prefix)) setPoseSelectedYmd(`${prefix}01`)
+  }, [tab, poseMonth, poseSelectedYmd])
 
   function flashNotice(message: string) {
     setNotice(message)
@@ -351,7 +418,7 @@ export default function ProfilePage() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {(['Profile', 'Workouts', 'Meals', 'Report', 'Blogs', 'Comments'] as const).map((t) => (
+        {(['Profile', 'Workouts', 'Meals', 'Report', 'History', 'Blogs', 'Comments'] as const).map((t) => (
           <button
             key={t}
             className={[
@@ -362,7 +429,19 @@ export default function ProfilePage() {
             ].join(' ')}
             onClick={() => setTab(t)}
           >
-            {t}
+            {t === 'History' ? (
+              <span className="inline-flex items-center gap-2">
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1.5A2.5 2.5 0 0 1 22 6.5v13A2.5 2.5 0 0 1 19.5 22h-15A2.5 2.5 0 0 1 2 19.5v-13A2.5 2.5 0 0 1 4.5 4H6V3a1 1 0 0 1 1-1Zm12.5 6H4.5a.5.5 0 0 0-.5.5v11a.5.5 0 0 0 .5.5h15a.5.5 0 0 0 .5-.5v-11a.5.5 0 0 0-.5-.5ZM7 12h2v2H7v-2Zm4 0h2v2h-2v-2Zm4 0h2v2h-2v-2ZM7 16h2v2H7v-2Zm4 0h2v2h-2v-2Z"
+                  />
+                </svg>
+                <span>History</span>
+              </span>
+            ) : (
+              t
+            )}
           </button>
         ))}
       </div>
@@ -599,6 +678,136 @@ export default function ProfilePage() {
         </div>
       ) : null}
 
+      {tab === 'History' ? (
+        <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="text-sm font-semibold">Training History</div>
+              <div className="mt-1 text-xs text-slate-600">Calendar view of your pose training sessions</div>
+            </div>
+            <Link
+              to="/tools/pose/squat/tool/history"
+              className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+            >
+              Open full history
+            </Link>
+          </div>
+
+          {poseError ? <div className="mt-3 text-sm text-rose-700">{poseError}</div> : null}
+
+          <div className="mt-4 grid gap-4 lg:grid-cols-[320px_1fr]">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex items-center justify-between">
+                <button
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                  onClick={() => setPoseMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
+                >
+                  ←
+                </button>
+                <div className="text-sm font-semibold">{poseMonth.toLocaleString(undefined, { year: 'numeric', month: 'long' })}</div>
+                <button
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                  onClick={() => setPoseMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
+                >
+                  →
+                </button>
+              </div>
+
+              <div className="mt-3 grid grid-cols-7 gap-1 text-center text-xs text-slate-600">
+                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
+                  <div key={d} className="py-1">
+                    {d}
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-1 grid grid-cols-7 gap-1">
+                {buildMonthCells(poseMonth).map((cell, idx) => {
+                  if (!cell) return <div key={`empty-${idx}`} className="h-9" />
+                  const ymd = `${cell.year}-${pad2(cell.month + 1)}-${pad2(cell.day)}`
+                  const active = ymd === poseSelectedYmd
+                  const hasItems = poseSessionsByDay.has(ymd)
+                  return (
+                    <button
+                      key={ymd}
+                      className={[
+                        'relative h-9 rounded-xl border text-sm transition',
+                        active ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-200 bg-white text-slate-800 hover:bg-slate-50'
+                      ].join(' ')}
+                      onClick={() => setPoseSelectedYmd(ymd)}
+                    >
+                      {cell.day}
+                      {hasItems ? (
+                        <span
+                          className={[
+                            'absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full',
+                            active ? 'bg-white' : 'bg-indigo-600'
+                          ].join(' ')}
+                        />
+                      ) : null}
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div className="mt-3 flex items-center justify-between text-xs text-slate-600">
+                <button className="rounded-xl border border-slate-200 bg-white px-3 py-2 hover:bg-slate-50" onClick={() => setPoseMonth(startOfMonth(new Date()))}>
+                  This month
+                </button>
+                {poseLoading ? <div>Loading…</div> : <div>{poseSessions.length} sessions</div>}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold">{poseSelectedYmd}</div>
+                  <div className="mt-1 text-xs text-slate-600">
+                    {poseSessionsByDay.get(poseSelectedYmd)?.length ?? 0} sessions
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {(poseSessionsByDay.get(poseSelectedYmd) ?? []).map((s) => {
+                  const started = new Date(s.started_at)
+                  const ended = s.ended_at ? new Date(s.ended_at) : null
+                  const totalReps = s.sets.reduce((acc, item) => acc + (item.reps ?? 0), 0)
+                  return (
+                    <div key={s.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <div className="text-sm font-semibold">Session #{s.id}</div>
+                          <div className="mt-1 text-xs text-slate-600">
+                            {started.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {ended ? ` - ${ended.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
+                          </div>
+                          <div className="mt-2 text-xs text-slate-600">
+                            {s.sets.length} sets · {totalReps} reps
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Link
+                            to={`/tools/pose/squat/tool/history/${s.id}`}
+                            className="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+                          >
+                            View report
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {(poseSessionsByDay.get(poseSelectedYmd) ?? []).length === 0 && !poseLoading ? (
+                  <div className="text-sm text-slate-600">No sessions on this day</div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {tab === 'Blogs' ? (
         <div className="space-y-4">
           <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
@@ -802,3 +1011,29 @@ export default function ProfilePage() {
   )
 }
 
+function pad2(value: number) {
+  return String(value).padStart(2, '0')
+}
+
+function formatYmdLocal(date: Date) {
+  const y = date.getFullYear()
+  const m = pad2(date.getMonth() + 1)
+  const d = pad2(date.getDate())
+  return `${y}-${m}-${d}`
+}
+
+function startOfMonth(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1)
+}
+
+function buildMonthCells(monthStart: Date) {
+  const year = monthStart.getFullYear()
+  const month = monthStart.getMonth()
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const mondayIndex = (new Date(year, month, 1).getDay() + 6) % 7
+  const cells: Array<{ year: number; month: number; day: number } | null> = []
+  for (let i = 0; i < mondayIndex; i += 1) cells.push(null)
+  for (let day = 1; day <= daysInMonth; day += 1) cells.push({ year, month, day })
+  while (cells.length % 7 !== 0) cells.push(null)
+  return cells
+}

@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '../state/auth-context'
 import { chooseMotionStandard } from '../lib/pose/analysisSelector'
@@ -656,7 +656,7 @@ export default function PoseToolPage() {
                 <div className="cl_blog-widget mb-30 pose-camera-panel h-100 w-100 pose-live-camera-card">
                   <div className="pose-tool-head">
                     <div>
-                      <h4 className="cl_blog-widget-title mb-15">Realtime Camera</h4>
+                      <h4 className="cl_blog-widget-title mb-15">{exercise.displayName} · Realtime Camera</h4>
                       <p className="pose-tool-subtitle pose-tool-subtitle-dark">{exercise.liveSubtitle}</p>
                     </div>
                     <div className="pose-tool-actions">
@@ -882,7 +882,7 @@ export default function PoseToolPage() {
                 <div className="cl_blog-widget mb-30">
                   <div className="pose-tool-head">
                     <div>
-                      <h4 className="cl_blog-widget-title mb-15">Offline Video Analysis</h4>
+                      <h4 className="cl_blog-widget-title mb-15">{selectedActionName} · Offline Video Analysis</h4>
                       <p className="pose-tool-subtitle pose-tool-subtitle-dark">Upload a video and extract keypoints with MediaPipe in the browser, then save the report to the backend.</p>
                     </div>
                   </div>
@@ -1315,4 +1315,3 @@ function toIssueCode(message: string) {
     .replace(/^_+|_+$/g, '')
     .slice(0, 64)
 }
-

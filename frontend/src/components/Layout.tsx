@@ -10,8 +10,6 @@ export default function Layout(props: { children: React.ReactNode }) {
   const loc = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
-  const rafRef = useRef<number | null>(null)
-  const lastPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
   const mobileDialogRef = useRef<HTMLDivElement | null>(null)
   const searchDialogRef = useRef<HTMLDivElement | null>(null)
   const mobileCloseButtonRef = useRef<HTMLButtonElement | null>(null)
@@ -96,35 +94,8 @@ export default function Layout(props: { children: React.ReactNode }) {
     applyDataBackground()
   }, [applyDataBackground, loc.pathname])
 
-  useEffect(() => {
-    const cursor1 = document.querySelector<HTMLElement>('.cursor1')
-    const cursor2 = document.querySelector<HTMLElement>('.cursor2')
-    if (!cursor1 || !cursor2) return
-
-    const onMove = (e: MouseEvent) => {
-      lastPos.current = { x: e.clientX, y: e.clientY }
-      if (rafRef.current) return
-      rafRef.current = window.requestAnimationFrame(() => {
-        rafRef.current = null
-        const { x, y } = lastPos.current
-        cursor1.style.transform = `translate(${x}px, ${y}px)`
-        cursor2.style.transform = `translate(${x}px, ${y}px)`
-      })
-    }
-
-    document.addEventListener('mousemove', onMove, { passive: true })
-    return () => {
-      document.removeEventListener('mousemove', onMove)
-      if (rafRef.current) window.cancelAnimationFrame(rafRef.current)
-      rafRef.current = null
-    }
-  }, [])
-
   return (
     <>
-      <div className="cursor1"></div>
-      <div className="cursor2"></div>
-
       <BackToTop />
 
       <div

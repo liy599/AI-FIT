@@ -70,41 +70,6 @@ navLinks.forEach(navLink => {
 	})
 })
 
-/////////////////////////////////////////////////////
-// 07. Cursor Animations
-var client_cursor = document.getElementById("client_cursor");
-function mousemoveHandler(e) {
-    try {
-      const target = e.target;
-
-      let tl = gsap.timeline({
-        defaults: {
-          x: e.clientX,
-          y: e.clientY,
-        }
-      })
-      let t2 = gsap.timeline({
-        defaults: {
-          x: e.clientX,
-          y: e.clientY,
-        }
-      })
-
-      // Main Cursor Moving 
-      tl.to(".cursor1", {
-        ease: "power2.out"
-      })
-        .to(".cursor2", {
-          ease: "power2.out"
-        }, "-=0.4")
-
-    } catch (error) {
-      console.log(error)
-    }
-
-}
-document.addEventListener("mousemove", mousemoveHandler);
-
 //////////////////////////////////////////////////////////////////////////////////
 // 08. Active GSAP
 if (document.querySelector("#has_smooth").classList.contains("has-smooth")) {

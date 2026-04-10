@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, time
 
 from flask import Blueprint, current_app, jsonify, request, send_file, url_for
 from flask_jwt_extended import get_jwt_identity, jwt_required
@@ -74,6 +74,43 @@ def _parse_dt(value: str | None):
     if text.endswith("Z"):
         text = text[:-1] + "+00:00"
     return datetime.fromisoformat(text)
+
+
+def _parse_date_boundary(value: str | None, *, end_of_day: bool):
+    if not value:
+        return None
+    text = value.strip()
+    if not text:
+        return None
+    try:
+        day = datetime.fromisoformat(text).date()
+    except ValueError as exc:
+        raise ValueError("date must be in YYYY-MM-DD format") from exc
+    return datetime.combine(day, time.max if end_of_day else time.min)
+
+
+def _training_session_public(session: TrainingSession):
+    ordered_sets = sorted(session.sets, key=lambda item: (item.set_order, item.id))
+    return {
+        "id": session.id,
+        "started_at": session.started_at.isoformat(),
+        "ended_at": session.ended_at.isoformat() if session.ended_at else None,
+        "note": session.note,
+        "report": session.report_json,
+        "created_at": session.created_at.isoformat(),
+        "updated_at": session.updated_at.isoformat(),
+        "sets": [
+            {
+                "id": item.id,
+                "exercise_type": item.exercise_type,
+                "set_order": item.set_order,
+                "reps": item.reps,
+                "weight": float(item.weight) if item.weight is not None else None,
+                "note": item.note,
+            }
+            for item in ordered_sets
+        ],
+    }
 
 
 @bp.get("/videos")
@@ -257,7 +294,6 @@ def create_training_session():
     db.session.add(session)
     db.session.flush()
 
-    created_sets = []
     for idx, raw in enumerate(sets_data, start=1):
         if not isinstance(raw, dict):
             db.session.rollback()
@@ -275,31 +311,49 @@ def create_training_session():
             note=(raw.get("note") or "").strip() or None,
         )
         db.session.add(item)
-        created_sets.append(item)
 
     db.session.commit()
-    return (
-        jsonify(
-            {
-                "session": {
-                    "id": session.id,
-                    "started_at": session.started_at.isoformat(),
-                    "ended_at": session.ended_at.isoformat() if session.ended_at else None,
-                    "note": session.note,
-                    "report": session.report_json,
-                    "sets": [
-                        {
-                            "id": item.id,
-                            "exercise_type": item.exercise_type,
-                            "set_order": item.set_order,
-                            "reps": item.reps,
-                            "weight": float(item.weight) if item.weight is not None else None,
-                            "note": item.note,
-                        }
-                        for item in created_sets
-                    ],
-                }
-            }
-        ),
-        201,
+    return jsonify({"session": _training_session_public(session)}), 201
+
+
+@bp.get("/trainings")
+@jwt_required()
+def list_training_sessions():
+    user_id = int(get_jwt_identity())
+    page, page_size = parse_pagination(request.args, default_page_size=20)
+    date_from = request.args.get("date_from")
+    date_to = request.args.get("date_to")
+
+    try:
+        from_dt = _parse_date_boundary(date_from, end_of_day=False)
+        to_dt = _parse_date_boundary(date_to, end_of_day=True)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    q = TrainingSession.query.filter_by(user_id=user_id)
+    if from_dt:
+        q = q.filter(TrainingSession.started_at >= from_dt)
+    if to_dt:
+        q = q.filter(TrainingSession.started_at <= to_dt)
+    q = q.order_by(TrainingSession.started_at.desc(), TrainingSession.id.desc())
+
+    total = q.count()
+    items = q.offset((page - 1) * page_size).limit(page_size).all()
+    return jsonify(
+        {
+            "items": [_training_session_public(item) for item in items],
+            "page": page,
+            "page_size": page_size,
+            "total": total,
+        }
     )
+
+
+@bp.get("/trainings/<int:session_id>")
+@jwt_required()
+def get_training_session(session_id: int):
+    user_id = int(get_jwt_identity())
+    session = TrainingSession.query.filter_by(id=session_id, user_id=user_id).first()
+    if session is None:
+        return jsonify({"error": "not found"}), 404
+    return jsonify({"session": _training_session_public(session)})

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+﻿import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../state/auth-context'
 import { chooseMotionStandard } from '../lib/pose/analysisSelector'
@@ -20,17 +20,26 @@ import {
   uploadPoseVideo,
   type PoseAnalysisTask
 } from '../lib/poseApi'
-import { openPdfPrint } from '../lib/report/print'
-import { normalizeReportForArchive, renderReportPdfBodyHtml } from '../lib/report/unified'
+import { normalizeReportForArchive } from '../lib/report/unified'
 
 const LIVE_TARGET_FPS = 24
 const LIVE_TARGET_FRAME_MS = 1000 / LIVE_TARGET_FPS
 const MAX_VIDEO_BYTES = 80 * 1024 * 1024
+const LIVE_SESSION_LIMIT_MS = 2 * 60 * 1000
 
 type Mode = 'live' | 'offline'
 type OfflineProgress = { stage: string; processed: number; total: number } | null
-type PreviewOrientation = 'landscape' | 'portrait'
-type PreviewSize = 's' | 'm' | 'l' | 'xl'
+type LiveSessionStatus = 'idle' | 'running' | 'ended'
+type LiveSessionEndReason = 'manual' | 'timeout' | null
+type LiveSessionSummary = {
+  durationSec: number
+  reps: number
+  correctReps: number
+  incorrectReps: number
+  accuracyPct: number
+  sessionComment: string
+  topIssues: string[]
+}
 
 export default function PoseToolPage() {
   const { user } = useAuth()
@@ -45,9 +54,13 @@ export default function PoseToolPage() {
   const fpsRef = useRef<{ windowStart: number; frames: number }>({ windowStart: performance.now(), frames: 0 })
   const lastProcessedTsRef = useRef(0)
   const sessionStartedAtRef = useRef<string | null>(null)
+  const sessionStartedPerfRef = useRef<number | null>(null)
   const previewUrlRef = useRef<string | null>(null)
   const previewScaleRef = useRef(0.86)
   const previewMirrorRef = useRef(true)
+  const feedbackRef = useRef<RealtimeFeedback | null>(null)
+  const liveProviderRef = useRef<RealtimePoseProvider | null>(null)
+  const liveProviderPromiseRef = useRef<Promise<RealtimePoseProvider> | null>(null)
 
   const [running, setRunning] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -60,9 +73,11 @@ export default function PoseToolPage() {
   const [savingTraining, setSavingTraining] = useState(false)
   const [saveTrainingMsg, setSaveTrainingMsg] = useState<string | null>(null)
   const [previewScale, setPreviewScale] = useState(0.86)
-  const [previewOrientation, setPreviewOrientation] = useState<PreviewOrientation>('landscape')
   const [previewMirror, setPreviewMirror] = useState(true)
-  const [previewSize, setPreviewSize] = useState<PreviewSize>('xl')
+  const [liveSessionStatus, setLiveSessionStatus] = useState<LiveSessionStatus>('idle')
+  const [liveSessionEndReason, setLiveSessionEndReason] = useState<LiveSessionEndReason>(null)
+  const [liveSessionElapsedMs, setLiveSessionElapsedMs] = useState(0)
+  const [liveSessionSummary, setLiveSessionSummary] = useState<LiveSessionSummary | null>(null)
 
   const [offlineFile, setOfflineFile] = useState<File | null>(null)
   const [offlinePreviewUrl, setOfflinePreviewUrl] = useState<string | null>(null)
@@ -84,12 +99,55 @@ export default function PoseToolPage() {
   }, [previewMirror])
 
   useEffect(() => {
+    feedbackRef.current = feedback
+  }, [feedback])
+
+  useEffect(() => {
+    if (!running) return
+    const timer = window.setInterval(() => {
+      const startedAt = sessionStartedPerfRef.current
+      if (!startedAt) return
+      const elapsed = Math.min(LIVE_SESSION_LIMIT_MS, Math.max(0, performance.now() - startedAt))
+      setLiveSessionElapsedMs(elapsed)
+      if (elapsed >= LIVE_SESSION_LIMIT_MS) {
+        stopLive('timeout')
+      }
+    }, 250)
+    return () => window.clearInterval(timer)
+  }, [running])
+
+  useEffect(() => {
     return () => {
       cleanupRef.current?.()
       const v = videoRef.current
       const stream = v?.srcObject as MediaStream | null
       stream?.getTracks().forEach((t) => t.stop())
       if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current)
+      liveProviderRef.current?.close()
+      liveProviderRef.current = null
+      liveProviderPromiseRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    if (!liveProviderRef.current && !liveProviderPromiseRef.current) {
+      const preload = createBestRealtimePoseProvider()
+        .then((provider) => {
+          if (!active) {
+            provider.close()
+            return provider
+          }
+          liveProviderRef.current = provider
+          return provider
+        })
+      liveProviderPromiseRef.current = preload
+      void preload.catch(() => {
+          liveProviderPromiseRef.current = null
+        })
+    }
+    return () => {
+      active = false
     }
   }, [])
 
@@ -113,12 +171,20 @@ export default function PoseToolPage() {
     const summary = feedback
       ? `Live training: total ${feedback.session.totalReps}, correct ${feedback.session.correctReps}, accuracy ${feedback.session.accuracyPct}%`
       : 'No live training data yet'
+    const issueMessages = collectLiveIssueMessages(feedback)
+    const suggestions = buildLiveSuggestions(feedback, currentSuggestion)
     return normalizeReportForArchive({
       version: 1,
       status: 'ok',
       tool: 'pose-live',
       generatedAt: new Date().toISOString(),
       summary,
+      keyMetrics: {
+        totalReps: feedback?.session.totalReps ?? 0,
+        correctReps: feedback?.session.correctReps ?? 0,
+        incorrectReps: feedback?.session.incorrectReps ?? 0,
+        formAccuracyPct: feedback?.session.accuracyPct ?? 0
+      },
       modelName: 'MoveNet Lightning',
       effectiveFps,
       repCount: feedback?.repCount ?? 0,
@@ -131,23 +197,49 @@ export default function PoseToolPage() {
       trackingQuality: feedback?.trackingQuality ?? null,
       currentSuggestion,
       warnings: feedback?.warnings ?? [],
-      issues: feedback?.issues?.map((x) => x.message) ?? []
+      issues: issueMessages.map((message) => ({
+        code: toIssueCode(message),
+        severity: 'warning',
+        message,
+        atFrame: null
+      })),
+      suggestions
     })
   }, [currentSuggestion, effectiveFps, feedback])
+
+  async function getLiveProvider() {
+    if (liveProviderRef.current) return liveProviderRef.current
+    if (!liveProviderPromiseRef.current) {
+      liveProviderPromiseRef.current = createBestRealtimePoseProvider()
+        .then((provider) => {
+          liveProviderRef.current = provider
+          return provider
+        })
+        .catch((e) => {
+          liveProviderPromiseRef.current = null
+          throw e
+        })
+    }
+    return liveProviderPromiseRef.current
+  }
 
   async function startLive() {
     setError(null)
     setLoading(true)
     setLoadingMsg('Initializing model and camera...')
     setSaveTrainingMsg(null)
+    setLiveSessionStatus('idle')
+    setLiveSessionEndReason(null)
+    setLiveSessionElapsedMs(0)
+    setLiveSessionSummary(null)
+    sessionStartedPerfRef.current = null
 
-    let provider: RealtimePoseProvider | null = null
     try {
       if (!analyzerRef.current) analyzerRef.current = new RealtimeSquatAnalyzer()
       if (!stabilizerRef.current) stabilizerRef.current = new MoveNetStabilizer(2500)
       if (!distanceTrackerRef.current) distanceTrackerRef.current = new DistanceTracker(3000)
 
-      provider = await createBestRealtimePoseProvider()
+      const provider = await getLiveProvider()
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: 1280 },
@@ -168,16 +260,17 @@ export default function PoseToolPage() {
       canvas.height = video.videoHeight || 1280
 
       sessionStartedAtRef.current = new Date().toISOString()
+      sessionStartedPerfRef.current = performance.now()
       fpsRef.current = { windowStart: performance.now(), frames: 0 }
       lastProcessedTsRef.current = 0
       setRunning(true)
       setLoading(false)
       setLoadingMsg(null)
+      setLiveSessionStatus('running')
 
       let cancelled = false
       cleanupRef.current = () => {
         cancelled = true
-        provider?.close()
       }
 
       const tick = async () => {
@@ -254,15 +347,19 @@ export default function PoseToolPage() {
 
       void tick()
     } catch (e: unknown) {
-      provider?.close()
       setLoading(false)
       setLoadingMsg(null)
       setRunning(false)
+      setLiveSessionStatus('idle')
       setError(e instanceof Error ? e.message : 'Unable to access the camera')
     }
   }
 
-  function stopLive() {
+  function stopLive(reason: Exclude<LiveSessionEndReason, null> = 'manual') {
+    const startedAt = sessionStartedPerfRef.current
+    const elapsedMs = startedAt ? Math.min(LIVE_SESSION_LIMIT_MS, Math.max(0, performance.now() - startedAt)) : liveSessionElapsedMs
+    const snapshot = feedbackRef.current
+
     cleanupRef.current?.()
     cleanupRef.current = null
     const v = videoRef.current
@@ -274,6 +371,22 @@ export default function PoseToolPage() {
     setLoadingMsg(null)
     setTracking(null)
     setDistance(null)
+    setLiveSessionElapsedMs(elapsedMs)
+    setLiveSessionStatus('ended')
+    setLiveSessionEndReason(reason)
+    setLiveSessionSummary({
+      durationSec: Math.round(elapsedMs / 1000),
+      reps: snapshot?.session.totalReps ?? 0,
+      correctReps: snapshot?.session.correctReps ?? 0,
+      incorrectReps: snapshot?.session.incorrectReps ?? 0,
+      accuracyPct: snapshot?.session.accuracyPct ?? 0,
+      sessionComment: getSessionComment(snapshot?.session.accuracyPct ?? 0, snapshot?.session.totalReps ?? 0),
+      topIssues: getTopIssues(snapshot)
+    })
+    sessionStartedPerfRef.current = null
+    if (reason === 'timeout') {
+      setSaveTrainingMsg('Session reached the 2-minute limit and stopped automatically.')
+    }
   }
 
   function resetLiveSession() {
@@ -282,24 +395,18 @@ export default function PoseToolPage() {
     setError(null)
     setSaveTrainingMsg(null)
     sessionStartedAtRef.current = running ? new Date().toISOString() : sessionStartedAtRef.current
-  }
-
-  function exportJson(name: string, data: unknown) {
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${name}-${Date.now()}.json`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  function exportPdf(title: string, data: Record<string, unknown>) {
-    const body = renderReportPdfBodyHtml(data, {
-      title,
-      nowText: new Date().toLocaleString('en-US')
-    })
-    openPdfPrint(title, body)
+    if (running) {
+      sessionStartedPerfRef.current = performance.now()
+      setLiveSessionElapsedMs(0)
+      setLiveSessionStatus('running')
+      setLiveSessionEndReason(null)
+    } else {
+      sessionStartedPerfRef.current = null
+      setLiveSessionElapsedMs(0)
+      setLiveSessionStatus('idle')
+      setLiveSessionEndReason(null)
+    }
+    setLiveSessionSummary(null)
   }
 
   async function saveTrainingRecord() {
@@ -477,7 +584,7 @@ export default function PoseToolPage() {
         </div>
       </section>
 
-      <section className="pt-100 pb-100">
+      <section className="pt-100 pb-100 pose-tool-page">
         <div className="container">
           <div className="pose-mode-switch mb-30">
             <button className={mode === 'live' ? 'cl_theme-btn' : 'pose-tool-ghost-btn pose-tool-light-btn'} onClick={() => setMode('live')} type="button">
@@ -486,16 +593,19 @@ export default function PoseToolPage() {
             <button className={mode === 'offline' ? 'cl_theme-btn' : 'pose-tool-ghost-btn pose-tool-light-btn'} onClick={() => setMode('offline')} type="button">
               Offline Video Analysis
             </button>
+            <Link to="/tools/pose/squat/tool/history" className="pose-tool-ghost-btn pose-tool-light-btn">
+              Training History
+            </Link>
           </div>
 
           {mode === 'live' ? (
-            <div className="row">
-              <div className="col-xl-7 col-lg-7">
-                <div className="cl_blog-widget mb-30 pose-camera-panel">
+            <div className="row pose-live-layout pose-live-shell">
+              <div className="col-xl-8 col-lg-7 d-flex">
+                <div className="cl_blog-widget mb-30 pose-camera-panel h-100 w-100 pose-live-camera-card">
                   <div className="pose-tool-head">
                     <div>
                       <h4 className="cl_blog-widget-title mb-15">Realtime Camera</h4>
-                      <p className="pose-tool-subtitle pose-tool-subtitle-dark">Real-time form correction on top of the existing AI-FIT tool page.</p>
+                      <p className="pose-tool-subtitle pose-tool-subtitle-dark">Real-time squatting movement guidance - Your personal trainer</p>
                     </div>
                     <div className="pose-tool-actions">
                       <button className="cl_theme-btn" onClick={() => void (running ? stopLive() : startLive())} type="button">
@@ -507,23 +617,59 @@ export default function PoseToolPage() {
                     </div>
                   </div>
 
-                  <div className="pose-camera-toolbar">
-                    <div className="pose-orientation-switch">
-                      <button
-                        className={previewOrientation === 'landscape' ? 'cl_theme-btn pose-mini-btn' : 'pose-tool-ghost-btn pose-tool-light-btn pose-mini-btn'}
-                        onClick={() => setPreviewOrientation('landscape')}
-                        type="button"
+                  <div className="pose-tip-card pose-tip-card-light pose-live-session-card">
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                      <strong>
+                        {liveSessionStatus === 'running'
+                          ? 'Started: Live coaching is in progress'
+                          : liveSessionStatus === 'ended'
+                            ? 'Terminated: Live coaching has ended'
+                            : 'Ready: Click Start to begin live coaching'}
+                      </strong>
+                      <span
+                        style={{
+                          borderRadius: 9999,
+                          padding: '4px 10px',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          background: liveSessionStatus === 'running' ? '#dcfce7' : liveSessionStatus === 'ended' ? '#fee2e2' : '#e2e8f0',
+                          color: liveSessionStatus === 'running' ? '#166534' : liveSessionStatus === 'ended' ? '#991b1b' : '#334155'
+                        }}
                       >
-                        Landscape
-                      </button>
-                      <button
-                        className={previewOrientation === 'portrait' ? 'cl_theme-btn pose-mini-btn' : 'pose-tool-ghost-btn pose-tool-light-btn pose-mini-btn'}
-                        onClick={() => setPreviewOrientation('portrait')}
-                        type="button"
-                      >
-                        Portrait
-                      </button>
+                        {liveSessionStatus === 'running' ? 'STARTED' : liveSessionStatus === 'ended' ? 'TERMINATED' : 'IDLE'}
+                      </span>
                     </div>
+                    <div style={{ marginTop: 10, height: 8, borderRadius: 9999, background: '#e2e8f0', overflow: 'hidden' }}>
+                      <div
+                        style={{
+                          width: `${Math.min(100, (liveSessionElapsedMs / LIVE_SESSION_LIMIT_MS) * 100)}%`,
+                          height: '100%',
+                          background: liveSessionStatus === 'ended' ? '#ef4444' : '#10b981',
+                          transition: 'width 0.2s linear'
+                        }}
+                      />
+                    </div>
+                    <div style={{ marginTop: 8, display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#64748b' }}>
+                      <span>Time Progress</span>
+                      <span>{formatDuration(liveSessionElapsedMs)} / 02:00</span>
+                    </div>
+                    <div className="pose-live-metrics-line" style={{ marginTop: 10, display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 13, color: '#475569' }}>
+                      <span title="AI model used for real-time pose estimation.">AI Model: MoveNet</span>
+                      <span title="Frames processed per second. Higher means smoother feedback.">Speed (FPS): {effectiveFps ?? '-'}</span>
+                      <span title="Current pose keypoint detection stability.">Detection Status: {tracking?.status ?? '-'}</span>
+                      <span title="Current squat phase recognized by the analyzer.">Movement Stage: {feedback?.phase ?? '-'}</span>
+                    </div>
+                  </div>
+
+                  <div
+                    className="pose-stage pose-stage-landscape"
+                  >
+                    <video ref={videoRef} autoPlay playsInline muted className="pose-stage-media pose-stage-video-hidden" />
+                    <canvas ref={canvasRef} className="pose-stage-media pose-stage-canvas" />
+                    {!running ? <div className="pose-stage-overlay">{loadingMsg ?? 'Click Start to begin real-time pose detection'}</div> : null}
+                  </div>
+
+                  <div className="pose-camera-toolbar pose-camera-toolbar-compact">
                     <div className="pose-camera-toolbar__group">
                       <span className="pose-camera-toolbar__label">Mirror</span>
                       <button
@@ -533,21 +679,6 @@ export default function PoseToolPage() {
                       >
                         {previewMirror ? 'On' : 'Off'}
                       </button>
-                    </div>
-                    <div className="pose-camera-toolbar__group">
-                      <span className="pose-camera-toolbar__label">Size</span>
-                      <div className="pose-size-switch">
-                        {(['s', 'm', 'l', 'xl'] as const).map((item) => (
-                          <button
-                            key={item}
-                            className={previewSize === item ? 'cl_theme-btn pose-size-btn' : 'pose-tool-ghost-btn pose-tool-light-btn pose-size-btn'}
-                            onClick={() => setPreviewSize(item)}
-                            type="button"
-                          >
-                            {item.toUpperCase()}
-                          </button>
-                        ))}
-                      </div>
                     </div>
                     <label className="pose-slider-control">
                       <span>Zoom</span>
@@ -561,81 +692,136 @@ export default function PoseToolPage() {
                       />
                       <strong>{Math.round(previewScale * 100)}%</strong>
                     </label>
-                    <span className="pose-camera-toolbar__hint">Lower zoom shows more of your body and helps keep your full body in frame.</span>
-                  </div>
-
-                  <div
-                    className={`pose-stage ${previewOrientation === 'portrait' ? 'pose-stage-portrait' : 'pose-stage-landscape'} pose-stage-size-${previewSize}`}
-                  >
-                    <video ref={videoRef} autoPlay playsInline muted className="pose-stage-media pose-stage-video-hidden" />
-                    <canvas ref={canvasRef} className="pose-stage-media pose-stage-canvas" />
-                    {!running ? <div className="pose-stage-overlay">{loadingMsg ?? 'Click Start to begin real-time pose detection'}</div> : null}
-                  </div>
-
-                  <div className="pose-meta-row pose-meta-row-light">
-                    <span className="pose-status-tag pose-status-tag-light">{running ? 'Live' : 'Idle'}</span>
-                    <span>Model: MoveNet Lightning</span>
-                    <span>FPS: {effectiveFps ?? '-'}</span>
-                    <span>Tracking: {tracking?.status ?? '-'}</span>
-                    <span>Phase: {feedback?.phase ?? '-'}</span>
                   </div>
 
                   {error ? <div className="pose-error-box">{error}</div> : null}
                 </div>
               </div>
 
-              <div className="col-xl-5 col-lg-5">
-                <div className="cl_blog-widget mb-30 pose-live-feedback">
-                  <h4 className="cl_blog-widget-title mb-30">Live Feedback</h4>
-                  <div className="pose-kpi-grid pose-kpi-grid-light">
-                    <MetricCard label="Rep Count" value={feedback?.repCount ?? 0} />
-                    <MetricCard label="Accuracy" value={feedback?.session.accuracyPct ?? 0} unit="%" />
-                    <MetricCard label="Knee Angle" value={feedback?.kneeAngle ?? '-'} unit={feedback?.kneeAngle ? '°' : ''} />
-                    <MetricCard label="Hip Angle" value={feedback?.hipAngle ?? '-'} unit={feedback?.hipAngle ? '°' : ''} />
-                    <MetricCard label="Torso Angle" value={feedback?.torsoAngle ?? '-'} unit={feedback?.torsoAngle ? '°' : ''} />
-                  </div>
-
-                  <div className="pose-tip-card pose-tip-card-light">
-                    <h6 className="sub-title mb-15 pose-section-title">Coaching Tip</h6>
-                    <p>{currentSuggestion}</p>
-                  </div>
-
-                  <div className="pose-tip-card pose-tip-card-light">
-                    <h6 className="sub-title mb-15 pose-section-title">Status</h6>
-                    <ul className="pose-detail-list pose-detail-list-light">
-                      <li>Distance: {rangeStatusText}</li>
-                      <li>Tracking Quality: {feedback ? `${Math.round(feedback.trackingQuality * 100)}%` : '-'}</li>
-                      <li>Correct Reps: {feedback?.correctCount ?? 0}</li>
-                      <li>Last Result: {feedback?.lastRepResult ?? '-'}</li>
-                    </ul>
-                  </div>
-
-                  <div className="pose-tip-card pose-tip-card-light">
-                    <h6 className="sub-title mb-15 pose-section-title">Range Check</h6>
-                    <div className="pose-range-check">
-                      <span className={rangeCheck.ok ? 'pose-range-badge pose-range-badge-ok' : 'pose-range-badge pose-range-badge-bad'}>
-                        {rangeCheck.ok ? 'In range' : 'Out of range'}
-                      </span>
-                      <span>{rangeCheck.reason}</span>
+              <div className="col-xl-4 col-lg-5 d-flex">
+                {liveSessionStatus === 'ended' && liveSessionSummary ? (
+                  <div className="cl_blog-widget mb-30 pose-live-feedback h-100 w-100 pose-live-right-card">
+                    <div className="pose-panel-head">
+                      <span className="pose-panel-kicker">Session Closed</span>
+                      <h4 className="pose-panel-title">Training Summary</h4>
+                      <p className="pose-panel-subtitle">{liveSessionEndReason === 'timeout' ? 'Auto-ended at 2-minute limit' : 'Ended manually by user'}</p>
                     </div>
-                    <p className="pose-range-copy">Frames in last rep: {feedback?.lastRepFrameCount ?? '-'}</p>
-                    <MetricCard label="Side Offset" value={feedback?.offsetAngle ?? '-'} unit={feedback?.offsetAngle ? '°' : ''} />
+                    <ul className="pose-detail-list pose-detail-list-light pose-live-summary-list pose-kv-grid">
+                      <li className="pose-kv-item pose-kv-item-wide">
+                        <span className="pose-kv-label">Session</span>
+                        <strong className="pose-kv-value">{liveSessionEndReason === 'timeout' ? 'Ended by 2-minute limit' : 'Stopped by user'}</strong>
+                      </li>
+                      <li className="pose-kv-item">
+                        <span className="pose-kv-label">Duration</span>
+                        <strong className="pose-kv-value">{formatDuration(liveSessionElapsedMs)}</strong>
+                      </li>
+                      <li className="pose-kv-item">
+                        <span className="pose-kv-label">Total Reps</span>
+                        <strong className="pose-kv-value">{liveSessionSummary.reps}</strong>
+                      </li>
+                      <li className="pose-kv-item">
+                        <span className="pose-kv-label">Correct Reps</span>
+                        <strong className="pose-kv-value">{liveSessionSummary.correctReps}</strong>
+                      </li>
+                      <li className="pose-kv-item">
+                        <span className="pose-kv-label">Incorrect Reps</span>
+                        <strong className="pose-kv-value">{liveSessionSummary.incorrectReps}</strong>
+                      </li>
+                      <li className="pose-kv-item">
+                        <span className="pose-kv-label">Accuracy</span>
+                        <strong className="pose-kv-value">{liveSessionSummary.accuracyPct}%</strong>
+                      </li>
+                      <li className="pose-kv-item pose-kv-item-placeholder" aria-hidden="true">
+                        <span className="pose-kv-label pose-placeholder-hidden">Placeholder</span>
+                        <strong className="pose-kv-value pose-placeholder-hidden">0</strong>
+                      </li>
+                    </ul>
+                    <div className="pose-tip-card pose-tip-card-light pose-live-section">
+                      <h6 className="sub-title mb-15 pose-section-title">Session Insight</h6>
+                      <p>{liveSessionSummary.sessionComment}</p>
+                    </div>
+                    {liveSessionSummary.topIssues.length > 0 ? (
+                      <div className="pose-tip-card pose-tip-card-light pose-live-section">
+                        <h6 className="sub-title mb-15 pose-section-title">Top Issues</h6>
+                        <ul className="pose-detail-list pose-detail-list-light">
+                          {liveSessionSummary.topIssues.map((item, idx) => (
+                            <li key={`${item}-${idx}`}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                    <div className="pose-export-row">
+                      <button className="pose-tool-ghost-btn pose-tool-light-btn" disabled={savingTraining} onClick={() => void saveTrainingRecord()} type="button">
+                        {savingTraining ? 'Saving...' : 'Save Training'}
+                      </button>
+                    </div>
+                    {saveTrainingMsg ? <div className="pose-inline-note">{saveTrainingMsg}</div> : null}
                   </div>
+                ) : (
+                  <div className="cl_blog-widget mb-30 pose-live-feedback h-100 w-100 pose-live-right-card">
+                    <div className="pose-panel-head">
+                      <span className="pose-panel-kicker">In Session</span>
+                      <h4 className="pose-panel-title">Live Feedback</h4>
+                      <p className="pose-panel-subtitle">Real-time form diagnostics and coaching cues</p>
+                    </div>
+                    <div className="pose-kpi-grid pose-kpi-grid-light">
+                      <MetricCard label={<LabelWithTip label="Completed Reps" tip="Number of squat reps detected in this session." />} value={feedback?.repCount ?? 0} />
+                      <MetricCard label={<LabelWithTip label="Form Accuracy" tip="Percentage of reps judged as good form." />} value={feedback?.session.accuracyPct ?? 0} unit="%" />
+                      <MetricCard label={<LabelWithTip label="Knee Bend" tip="Estimated knee joint angle during your movement." />} value={feedback?.kneeAngle ?? '-'} unit={feedback?.kneeAngle ? '°' : ''} />
+                      <MetricCard label={<LabelWithTip label="Hip Bend" tip="Estimated hip joint angle during your movement." />} value={feedback?.hipAngle ?? '-'} unit={feedback?.hipAngle ? '°' : ''} />
+                      <MetricCard label={<LabelWithTip label="Torso Lean" tip="Estimated torso angle relative to upright posture." />} value={feedback?.torsoAngle ?? '-'} unit={feedback?.torsoAngle ? '°' : ''} />
+                      <MetricCardPlaceholder />
+                    </div>
 
-                  <div className="pose-export-row">
-                    <button className="pose-tool-ghost-btn pose-tool-light-btn" onClick={() => exportJson('pose-live-report', liveReport)} type="button">
-                      Export JSON
-                    </button>
-                    <button className="pose-tool-ghost-btn pose-tool-light-btn" onClick={() => exportPdf('AI-FIT Pose Realtime Report', liveReport as Record<string, unknown>)} type="button">
-                      Export PDF
-                    </button>
-                    <button className="pose-tool-ghost-btn pose-tool-light-btn" disabled={savingTraining} onClick={() => void saveTrainingRecord()} type="button">
-                      {savingTraining ? 'Saving...' : 'Save Training'}
-                    </button>
+                    <div className="pose-tip-card pose-tip-card-light pose-live-section">
+                      <h6 className="sub-title mb-15 pose-section-title">Coaching Tip</h6>
+                      <p className="pose-live-coaching-copy">{currentSuggestion}</p>
+                    </div>
+
+                    <div className="pose-tip-card pose-tip-card-light pose-live-section">
+                      <h6 className="sub-title mb-15 pose-section-title">Status</h6>
+                      <ul className="pose-detail-list pose-detail-list-light pose-kv-grid pose-status-kv-grid">
+                        <li className="pose-kv-item pose-kv-item-wide">
+                          <span className="pose-kv-label" title="Whether your camera distance is suitable for stable full-body detection.">Camera Distance</span>
+                          <strong className="pose-kv-value">{rangeStatusText}</strong>
+                        </li>
+                        <li className="pose-kv-item">
+                          <span className="pose-kv-label" title="Confidence and stability of keypoint tracking.">Detection Quality</span>
+                          <strong className="pose-kv-value">{feedback ? `${Math.round(feedback.trackingQuality * 100)}%` : '-'}</strong>
+                        </li>
+                        <li className="pose-kv-item">
+                          <span className="pose-kv-label" title="How many reps were judged as acceptable form.">Good Reps</span>
+                          <strong className="pose-kv-value">{feedback?.correctCount ?? 0}</strong>
+                        </li>
+                        <li className="pose-kv-item">
+                          <span className="pose-kv-label" title="Result of your most recent completed rep.">Last Rep Result</span>
+                          <strong className="pose-kv-value">{feedback?.lastRepResult ?? '-'}</strong>
+                        </li>
+                        <li className="pose-kv-item pose-kv-item-placeholder" aria-hidden="true">
+                          <span className="pose-kv-label pose-placeholder-hidden">Placeholder</span>
+                          <strong className="pose-kv-value pose-placeholder-hidden">0</strong>
+                        </li>
+                      </ul>
+                    </div>
+
+                    <div className="pose-tip-card pose-tip-card-light pose-live-section">
+                      <h6 className="sub-title mb-15 pose-section-title">Depth Check</h6>
+                      <div className="pose-range-check">
+                        <span className={rangeCheck.ok ? 'pose-range-badge pose-range-badge-ok' : 'pose-range-badge pose-range-badge-bad'}>
+                          {rangeCheck.ok ? 'In range' : 'Out of range'}
+                        </span>
+                        <p className="pose-range-reason">{rangeCheck.reason}</p>
+                      </div>
+                      <MetricCard
+                        label={<LabelWithTip label="Camera Side Alignment" tip="How close your camera is to a clean side-view angle. Smaller is usually better for squat checks." />}
+                        value={feedback?.offsetAngle ?? '-'}
+                        unit={feedback?.offsetAngle ? '°' : ''}
+                      />
+                    </div>
+
+                    {saveTrainingMsg ? <div className="pose-inline-note">{saveTrainingMsg}</div> : null}
                   </div>
-
-                  {saveTrainingMsg ? <div className="pose-inline-note">{saveTrainingMsg}</div> : null}
-                </div>
+                )}
               </div>
             </div>
           ) : (
@@ -683,22 +869,6 @@ export default function PoseToolPage() {
                   <div className="pose-export-row">
                     <button className="cl_theme-btn" disabled={offlineBusy} onClick={() => void runOfflineAnalysis()} type="button">
                       {offlineBusy ? 'Analyzing...' : 'Upload & Analyze'}
-                    </button>
-                    <button
-                      className="pose-tool-ghost-btn pose-tool-light-btn"
-                      disabled={!offlineReport}
-                      onClick={() => offlineReport && exportJson('pose-offline-report', offlineReport)}
-                      type="button"
-                    >
-                      Export JSON
-                    </button>
-                    <button
-                      className="pose-tool-ghost-btn pose-tool-light-btn"
-                      disabled={!offlineReport}
-                      onClick={() => offlineReport && exportPdf('AI-FIT Pose Offline Report', offlineReport as unknown as Record<string, unknown>)}
-                      type="button"
-                    >
-                      Export PDF
                     </button>
                   </div>
 
@@ -798,7 +968,7 @@ function evaluateRangeCheck(feedback: RealtimeFeedback | null) {
   return { ok: true, reason: 'Current rep is in range' }
 }
 
-function MetricCard(props: { label: string; value: string | number; unit?: string }) {
+function MetricCard(props: { label: ReactNode; value: string | number; unit?: string }) {
   return (
     <div className="pose-metric-card pose-metric-card-light">
       <span className="pose-metric-label pose-metric-label-light">{props.label}</span>
@@ -806,6 +976,26 @@ function MetricCard(props: { label: string; value: string | number; unit?: strin
         {props.value}
         {props.unit ?? ''}
       </strong>
+    </div>
+  )
+}
+
+function LabelWithTip(props: { label: string; tip: string }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      <span>{props.label}</span>
+      <span title={props.tip} style={{ cursor: 'help', color: '#64748b', fontSize: 12 }}>
+        ⓘ
+      </span>
+    </span>
+  )
+}
+
+function MetricCardPlaceholder() {
+  return (
+    <div className="pose-metric-card pose-metric-card-light pose-metric-card-placeholder" aria-hidden="true">
+      <span className="pose-metric-label pose-metric-label-light pose-placeholder-hidden">Placeholder</span>
+      <strong className="pose-metric-value pose-metric-value-light pose-placeholder-hidden">0</strong>
     </div>
   )
 }
@@ -846,7 +1036,7 @@ function ReportVisualization(props: { report: PoseAnalysisReport }) {
                 <strong>{String(issue.message ?? issue.code ?? 'Issue')}</strong>
                 <span>
                   {String(issue.severity ?? '-')}
-                  {typeof issue.atFrame === 'number' ? ` · frame ${issue.atFrame}` : ''}
+                  {typeof issue.atFrame === 'number' ? ` 路 frame ${issue.atFrame}` : ''}
                 </span>
               </div>
             ))}
@@ -951,3 +1141,91 @@ function formatMetricValue(v: unknown) {
   if (v >= 0 && v <= 1) return `${Math.round(v * 100)}%`
   return Number.isInteger(v) ? String(v) : v.toFixed(2)
 }
+
+function formatDuration(ms: number) {
+  const safeMs = Math.max(0, Math.round(ms))
+  const totalSec = Math.floor(safeMs / 1000)
+  const minutes = Math.floor(totalSec / 60)
+  const seconds = totalSec % 60
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+}
+
+function getSessionComment(accuracyPct: number, reps: number) {
+  if (reps <= 0) return 'No completed reps were detected. Try a full-depth squat with a steady tempo.'
+  if (accuracyPct >= 90) return 'Excellent consistency. Keep the same depth and tempo in your next set.'
+  if (accuracyPct >= 75) return 'Good overall form. Focus on the repeated issues to improve consistency.'
+  if (accuracyPct >= 50) return 'Mixed quality set. Slow down and prioritize controlled reps.'
+  return 'Form is not stable yet. Reduce speed and focus on one correction cue at a time.'
+}
+
+function getTopIssues(snapshot: RealtimeFeedback | null) {
+  if (!snapshot) return []
+  const raw = [
+    ...(snapshot.lastRepReasonLabels ?? []),
+    ...(snapshot.issues?.map((x) => x.message) ?? []),
+    ...(snapshot.warnings ?? [])
+  ]
+  const seen = new Set<string>()
+  const deduped: string[] = []
+  for (const item of raw) {
+    const normalized = item.trim()
+    if (!normalized) continue
+    if (seen.has(normalized)) continue
+    seen.add(normalized)
+    deduped.push(normalized)
+    if (deduped.length >= 2) break
+  }
+  return deduped
+}
+
+function collectLiveIssueMessages(feedback: RealtimeFeedback | null) {
+  if (!feedback) return []
+  const raw = [
+    ...(feedback.issues?.map((x) => x.message) ?? []),
+    ...(feedback.lastRepReasonLabels ?? []),
+    ...(feedback.warnings ?? [])
+  ]
+  const seen = new Set<string>()
+  const deduped: string[] = []
+  for (const item of raw) {
+    const text = item.trim()
+    if (!text || seen.has(text)) continue
+    seen.add(text)
+    deduped.push(text)
+  }
+  return deduped
+}
+
+function buildLiveSuggestions(feedback: RealtimeFeedback | null, fallbackSuggestion: string) {
+  const suggestions = new Set<string>()
+  const messages = collectLiveIssueMessages(feedback)
+  for (const message of messages) {
+    const mapped = mapSuggestionFromIssue(message)
+    if (mapped) suggestions.add(mapped)
+  }
+  if (suggestions.size === 0 && fallbackSuggestion.trim()) {
+    suggestions.add(fallbackSuggestion.trim())
+  }
+  if (suggestions.size === 0) {
+    suggestions.add('Keep your movement controlled and maintain a stable side-view camera angle.')
+  }
+  return Array.from(suggestions).slice(0, 4)
+}
+
+function mapSuggestionFromIssue(issue: string) {
+  const text = issue.toLowerCase()
+  if (text.includes('torso lean')) return 'Brace your core and keep your chest up during the descent.'
+  if (text.includes('knee') && text.includes('toes')) return 'Control knee travel and keep pressure through mid-foot and heel.'
+  if (text.includes('side view')) return 'Rotate to a clearer side-view and keep your full body in frame.'
+  if (text.includes('confidence') || text.includes('frame')) return 'Improve lighting and move slightly back so joints stay visible.'
+  return ''
+}
+
+function toIssueCode(message: string) {
+  return message
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 64)
+}
+

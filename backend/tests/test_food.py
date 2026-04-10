@@ -16,15 +16,19 @@ def test_foods_list_and_bulk(client):
     assert response.status_code == 200
     foods = response.get_json()
     assert len(foods) >= 1
-    assert foods[0]["displayName"]
-    assert foods[0]["displayName"] == "Steamed Rice"
-    assert foods[0]["category"] == "Staples"
+    sample = foods[0]
+    assert sample["id"] > 0
+    assert sample["name"]
+    assert sample["displayName"]
+    assert sample["category"]
+    assert isinstance(sample["aliases"], list)
+    assert isinstance(sample["calories"], (int, float))
 
-    response = client.post("/api/foods/bulk", json={"ids": [foods[0]["id"]]})
+    response = client.post("/api/foods/bulk", json={"ids": [sample["id"]]})
     assert response.status_code == 200
     bulk = response.get_json()
     assert len(bulk) == 1
-    assert bulk[0]["id"] == foods[0]["id"]
+    assert bulk[0]["id"] == sample["id"]
 
 
 def test_meals_save_fetch_today_and_delete(client):

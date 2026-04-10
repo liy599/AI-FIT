@@ -1,0 +1,131 @@
+import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { listPoseTrainings, type PoseTrainingSession } from '../lib/poseApi'
+import { DEMO_POSE_TRAINING, DEMO_POSE_TRAINING_ID } from '../lib/poseTrainingMock'
+
+export default function PoseTrainingHistoryPage() {
+  const [items, setItems] = useState<PoseTrainingSession[]>([])
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const query = useMemo(() => ({ date_from: dateFrom || undefined, date_to: dateTo || undefined }), [dateFrom, dateTo])
+  const displayItems = items.length > 0 ? items : [DEMO_POSE_TRAINING]
+
+  useEffect(() => {
+    let active = true
+    setLoading(true)
+    setError(null)
+    listPoseTrainings({ page: 1, page_size: 50, ...query })
+      .then((data) => {
+        if (!active) return
+        setItems(data.items)
+      })
+      .catch((e: unknown) => {
+        if (!active) return
+        setError(e instanceof Error ? e.message : 'Failed to load training history')
+      })
+      .finally(() => {
+        if (!active) return
+        setLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [query])
+
+  return (
+    <>
+      <section className="cl_breadcrumb-area">
+        <div className="cl_breadcrumb-wrap" data-background="/assets/images/bg/breadcrumb.png">
+          <div className="container">
+            <div className="row justify-content-center">
+              <div className="col-md-9 col-12">
+                <div className="cl_breadcrumb-content">
+                  <h2 className="cl_breadcrumb-content-title">Training History</h2>
+                  <div className="cl_breadcrumb-content-list">
+                    <Link to="/">Home</Link>
+                    <Link to="/tools/pose/squat/tool">Pose Tool</Link>
+                    <span>History</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="pt-100 pb-100">
+        <div className="container">
+          <div className="row justify-content-center">
+            <div className="col-xl-10 col-lg-11">
+              <div className="cl_blog-widget mb-30">
+                <div className="pose-history-head">
+                  <h4 className="cl_blog-widget-title mb-0">Saved Training Records</h4>
+                  <Link to="/tools/pose/squat/tool" className="pose-tool-ghost-btn pose-tool-light-btn">
+                    Back to Tool
+                  </Link>
+                </div>
+
+                <div className="pose-history-filters">
+                  <label className="pose-form-field">
+                    <span>From Date</span>
+                    <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+                  </label>
+                  <label className="pose-form-field">
+                    <span>To Date</span>
+                    <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+                  </label>
+                  <button className="pose-tool-ghost-btn pose-tool-light-btn pose-filter-clear-btn" type="button" onClick={() => { setDateFrom(''); setDateTo('') }}>
+                    Clear
+                  </button>
+                </div>
+
+                <div className="pose-inline-note" style={{ marginTop: 0, marginBottom: 12 }}>
+                  You can open a demo record any time to preview the report page UI.
+                </div>
+
+                {loading ? <p className="pose-muted-copy">Loading history...</p> : null}
+                {error ? <div className="pose-error-box pose-error-box-light">{error}</div> : null}
+                {!loading && !error && items.length === 0 ? <p className="pose-muted-copy">No saved records in this date range. Showing demo entry below.</p> : null}
+
+                {!loading && !error ? (
+                  <div className="pose-history-list">
+                    {displayItems.map((item) => {
+                      const reps = item.sets.reduce((total, setItem) => total + (setItem.reps ?? 0), 0)
+                      const reportSummary =
+                        item.report && typeof item.report.summary === 'string' && item.report.summary.trim()
+                          ? item.report.summary
+                          : 'No summary in report'
+                      return (
+                        <Link key={item.id} to={`/tools/pose/squat/tool/history/${item.id}`} className="pose-history-item">
+                          <div className="pose-history-item-top">
+                            <strong>{item.id === DEMO_POSE_TRAINING_ID ? 'Demo Session' : `Session #${item.id}`}</strong>
+                            <span>{formatDateTime(item.started_at)}</span>
+                          </div>
+                          <div className="pose-history-meta">
+                            <span>Total Reps: {reps}</span>
+                            <span>Sets: {item.sets.length}</span>
+                            <span>Ended: {item.ended_at ? formatDateTime(item.ended_at) : 'In progress'}</span>
+                          </div>
+                          <p className="pose-history-summary">{reportSummary}</p>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </>
+  )
+}
+
+function formatDateTime(value: string) {
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return value
+  return parsed.toLocaleString()
+}

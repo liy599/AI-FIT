@@ -11,6 +11,8 @@ import LoginPage from './pages/LoginPage'
 import NotFoundPage from './pages/NotFoundPage'
 import PoseGuidePage from './pages/PoseGuidePage'
 import PoseSelectPage from './pages/PoseSelectPage'
+import PoseTrainingHistoryPage from './pages/PoseTrainingHistoryPage'
+import PoseTrainingReportPage from './pages/PoseTrainingReportPage'
 import PoseToolPage from './pages/PoseToolPage'
 import ProfilePage from './pages/ProfilePage'
 import RegisterPage from './pages/RegisterPage'
@@ -35,6 +37,8 @@ export default function App() {
           <Route path="/tools/pose" element={<PoseSelectPage />} />
           <Route path="/tools/pose/squat" element={<PoseGuidePage />} />
           <Route path="/tools/pose/squat/tool" element={<PoseToolPage />} />
+          <Route path="/tools/pose/squat/tool/history" element={<RequireAuth children={<PoseTrainingHistoryPage />} />} />
+          <Route path="/tools/pose/squat/tool/history/:sessionId" element={<RequireAuth children={<PoseTrainingReportPage />} />} />
           <Route path="/tools/food" element={<Navigate to="/food" replace />} />
           <Route path="/blogs" element={<BlogListPage />} />
           <Route path="/blogs/:id" element={<BlogDetailPage />} />

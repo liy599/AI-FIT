@@ -1,13 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import {
-  createPoseAiEnhancedReportRaw,
-  getPoseTraining,
-  parsePoseAiEnhancedReportResponse,
-  type AiEnhancedReportV1,
-  type PoseAiEnhancedReportMeta,
-  type PoseTrainingSession
-} from '../lib/poseApi'
+import { getPoseExerciseByType } from '../lib/pose/exercises'
+import { getPoseTraining, type PoseTrainingSession } from '../lib/poseApi'
+import { buildTrainingRecordName } from '../lib/pose/trainingName'
 import { DEMO_POSE_TRAINING, DEMO_POSE_TRAINING_ID } from '../lib/poseTrainingMock'
 
 export default function PoseTrainingReportPage() {
@@ -16,10 +11,6 @@ export default function PoseTrainingReportPage() {
   const [session, setSession] = useState<PoseTrainingSession | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [aiReport, setAiReport] = useState<AiEnhancedReportV1 | null>(null)
-  const [aiMeta, setAiMeta] = useState<PoseAiEnhancedReportMeta | null>(null)
-  const [aiLoading, setAiLoading] = useState(false)
-  const [aiError, setAiError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!Number.isInteger(sessionId)) {
@@ -61,47 +52,16 @@ export default function PoseTrainingReportPage() {
     }
   }, [sessionId])
 
-  useEffect(() => {
-    setAiReport(null)
-    setAiMeta(null)
-    setAiLoading(false)
-    setAiError(null)
-  }, [sessionId])
-
   const totalReps = useMemo(() => session?.sets.reduce((total, item) => total + (item.reps ?? 0), 0) ?? 0, [session])
-
-  useEffect(() => {
-    const baseReport = session?.report
-    if (!baseReport) return
-    let active = true
-    setAiLoading(true)
-    setAiError(null)
-    ;(async () => {
-      const raw = await createPoseAiEnhancedReportRaw({ report: baseReport, language: 'en-US' })
-      if (!active) return
-      const parsed = parsePoseAiEnhancedReportResponse(raw)
-      if (!parsed) {
-        setAiReport(null)
-        setAiMeta(null)
-        setAiError('AI report is temporarily unavailable.')
-        return
-      }
-      setAiReport(parsed.report)
-      setAiMeta(parsed.meta)
-      setAiError(null)
-    })()
-      .catch((e: unknown) => {
-        if (!active) return
-        setAiError(e instanceof Error ? e.message : 'Failed to load AI report')
-      })
-      .finally(() => {
-        if (!active) return
-        setAiLoading(false)
-      })
-    return () => {
-      active = false
-    }
-  }, [session?.report, sessionId])
+  const sessionName = useMemo(() => {
+    if (!session) return ''
+    if (session.note?.trim()) return session.note.trim()
+    const exerciseType = session.sets[0]?.exercise_type ?? 'squat'
+    return buildTrainingRecordName({
+      startedAt: session.started_at,
+      exerciseName: getPoseExerciseByType(exerciseType).displayName
+    })
+  }, [session])
 
   return (
     <>
@@ -130,7 +90,7 @@ export default function PoseTrainingReportPage() {
             <div className="col-xl-10 col-lg-11">
               <div className="cl_blog-widget mb-30">
                 <div className="pose-history-head">
-                  <h4 className="cl_blog-widget-title mb-0">Session Report {session ? `#${session.id}` : ''}</h4>
+                  <h4 className="cl_blog-widget-title mb-0">{session ? sessionName : 'Session Report'}</h4>
                   <Link to="/tools/pose/squat/tool/history" className="pose-tool-ghost-btn pose-tool-light-btn">
                     Back to History
                   </Link>
@@ -169,14 +129,7 @@ export default function PoseTrainingReportPage() {
                       </ul>
                     </div>
 
-                    <div className="pose-report-card" style={{ marginTop: 12 }}>
-                      <div className="pose-report-title" style={{ marginBottom: 0 }}>
-                        AI Enhanced Report
-                      </div>
-                      {aiLoading ? <p className="pose-muted-copy" style={{ marginTop: 10 }}>Generating AI report...</p> : null}
-                      {aiError ? <div className="pose-error-box pose-error-box-light">{aiError}</div> : null}
-                      {aiReport ? <AiEnhancedReportV1Panel report={aiReport} meta={aiMeta} session={session} /> : null}
-                    </div>
+                    <PoseSavedReport report={session.report} />
                   </>
                 ) : null}
               </div>
@@ -188,55 +141,49 @@ export default function PoseTrainingReportPage() {
   )
 }
 
-function AiEnhancedReportV1Panel(props: { report: AiEnhancedReportV1; meta: PoseAiEnhancedReportMeta | null; session: PoseTrainingSession }) {
+function PoseSavedReport(props: { report: Record<string, unknown> | null }) {
   const report = props.report
-  const meta = props.meta
-  const session = props.session
-  const workoutTime = formatSessionDuration(session.started_at, session.ended_at)
-  const exerciseSummary = useMemo(() => {
-    const acc = new Map<string, number>()
-    for (const item of session.sets) {
-      const key = (item.exercise_type || 'exercise').trim() || 'exercise'
-      const prev = acc.get(key) ?? 0
-      acc.set(key, prev + (item.reps ?? 0))
-    }
-    return Array.from(acc.entries()).map(([name, reps]) => `${name} × ${reps} reps`)
-  }, [session.sets])
-  const scoreText = typeof report.score === 'number' && Number.isFinite(report.score) ? `${Math.max(0, Math.min(100, Math.round(report.score)))}/100` : '—/100'
+  if (!report) {
+    return (
+      <div className="pose-report-card" style={{ marginTop: 12 }}>
+        <div className="pose-report-title">Analysis Report</div>
+        <p className="pose-muted-copy">No archived report content.</p>
+      </div>
+    )
+  }
+
+  const keyMetrics = asRecord(report.keyMetrics) ?? {}
+  const issues = Array.isArray(report.issues) ? report.issues : []
+  const suggestions = Array.isArray(report.suggestions) ? report.suggestions.filter((x): x is string => typeof x === 'string') : []
 
   return (
     <div className="pose-report-stack" style={{ marginTop: 12 }}>
-      <div className="pose-report-metrics pose-report-metrics-3">
-        <div className="pose-report-card">
-          <div className="pose-report-label">AI Score</div>
-          <div className="pose-report-value">{scoreText}</div>
-        </div>
-        <div className="pose-report-card">
-          <div className="pose-report-label">Workout Time</div>
-          <div className="pose-report-value pose-report-value-small">{workoutTime}</div>
-        </div>
-        <div className="pose-report-card">
-          <div className="pose-report-label">Exercise & Reps</div>
-          {exerciseSummary.length > 0 ? (
-            <div className="pose-report-value pose-report-value-small">{exerciseSummary.join(' · ')}</div>
-          ) : (
-            <div className="pose-report-value pose-report-value-small">No set records</div>
-          )}
-        </div>
+      <div className="pose-report-card pose-report-card-accent">
+        <div className="pose-report-title">Summary</div>
+        <div>{typeof report.summary === 'string' && report.summary.trim() ? report.summary : 'No summary'}</div>
+      </div>
+
+      <div className="pose-report-metrics">
+        {Object.entries(keyMetrics).map(([key, value]) => (
+          <div key={key} className="pose-report-card">
+            <div className="pose-report-label">{key}</div>
+            <div className="pose-report-value pose-report-value-small">{formatMetricValue(value)}</div>
+          </div>
+        ))}
       </div>
 
       <div className="pose-report-card">
         <div className="pose-report-title">Issues</div>
-        {report.issues.length === 0 ? <div className="pose-muted-copy">No notable issues found.</div> : null}
-        {report.issues.length > 0 ? (
+        {issues.length === 0 ? <div className="pose-muted-copy">No notable issues found.</div> : null}
+        {issues.length > 0 ? (
           <div className="pose-report-issue-list">
-            {report.issues.map((item, idx) => (
-              <div key={`${idx}-${item.title}`} className="pose-report-issue">
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <strong>{item.title}</strong>
-                  <span className={severityTagClass(item.severity)}>{item.severity.toUpperCase()}</span>
-                </div>
-                {item.evidence ? <div style={{ color: '#334155' }}>Evidence: {item.evidence}</div> : null}
+            {issues.map((item, idx) => (
+              <div key={idx} className="pose-report-issue">
+                <strong>
+                  {typeof item === 'object' && item !== null
+                    ? String((item as Record<string, unknown>).message ?? (item as Record<string, unknown>).title ?? 'Issue')
+                    : String(item)}
+                </strong>
               </div>
             ))}
           </div>
@@ -245,58 +192,27 @@ function AiEnhancedReportV1Panel(props: { report: AiEnhancedReportV1; meta: Pose
 
       <div className="pose-report-card">
         <div className="pose-report-title">Suggestions</div>
-        {report.suggestions.length === 0 ? <div className="pose-muted-copy">No suggestions available.</div> : null}
-        {report.suggestions.length > 0 ? (
+        {suggestions.length === 0 ? <div className="pose-muted-copy">No suggestions available.</div> : null}
+        {suggestions.length > 0 ? (
           <ol className="pose-report-suggestions">
-            {report.suggestions.map((item, idx) => (
+            {suggestions.map((item, idx) => (
               <li key={`${idx}-${item}`}>{item}</li>
             ))}
           </ol>
         ) : null}
       </div>
-
-      <div className="pose-report-card pose-report-card-accent">
-        <div className="pose-report-title">Summary</div>
-        <div>{report.summary || 'No summary available.'}</div>
-      </div>
-
-      <div className="pose-report-card">
-        <div className="pose-report-title">Disclaimer</div>
-        <div style={{ color: '#334155' }}>{report.disclaimer || 'This report is for fitness guidance only and is not medical advice.'}</div>
-      </div>
-
-      {meta ? (
-        <div className="pose-report-card">
-          <div className="pose-report-title">Report Source</div>
-          <div className="pose-muted-copy">
-            {report.source.provider}
-            {report.source.model ? ` (${report.source.model})` : ''}
-            {meta.degraded ? ' · fallback mode' : ''}
-          </div>
-        </div>
-      ) : null}
     </div>
   )
 }
 
-function severityTagClass(severity: 'info' | 'warning' | 'error') {
-  if (severity === 'error') return 'pose-status-tag pose-status-tag-light'
-  if (severity === 'warning') return 'pose-status-tag'
-  return 'pose-muted-copy'
+function asRecord(v: unknown): Record<string, unknown> | null {
+  return typeof v === 'object' && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : null
 }
 
-function formatSessionDuration(startedAt: string, endedAt: string | null) {
-  const start = new Date(startedAt)
-  if (Number.isNaN(start.getTime())) return endedAt ? `${startedAt} - ${endedAt}` : startedAt
-  if (!endedAt) return 'In progress'
-  const end = new Date(endedAt)
-  if (Number.isNaN(end.getTime())) return `${formatDateTime(startedAt)} - ${endedAt}`
-  const ms = Math.max(0, end.getTime() - start.getTime())
-  const totalMin = Math.round(ms / 60000)
-  const hours = Math.floor(totalMin / 60)
-  const mins = totalMin % 60
-  if (hours > 0) return `${hours}h ${mins}m`
-  return `${mins}m`
+function formatMetricValue(v: unknown) {
+  if (typeof v !== 'number') return String(v ?? '-')
+  if (v >= 0 && v <= 1) return `${Math.round(v * 100)}%`
+  return Number.isInteger(v) ? String(v) : v.toFixed(2)
 }
 
 function formatDateTime(value: string) {

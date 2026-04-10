@@ -361,6 +361,24 @@ def get_training_session(session_id: int):
     return jsonify({"session": _training_session_public(session)})
 
 
+@bp.put("/trainings/<int:session_id>/report")
+@jwt_required()
+def update_training_session_report(session_id: int):
+    user_id = int(get_jwt_identity())
+    session = TrainingSession.query.filter_by(id=session_id, user_id=user_id).first()
+    if session is None:
+        return jsonify({"error": "not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    report = data.get("report")
+    if not isinstance(report, dict):
+        return jsonify({"error": "report required"}), 400
+
+    session.report_json = report
+    db.session.commit()
+    return jsonify({"session": _training_session_public(session)})
+
+
 @bp.post("/reports/ai")
 @jwt_required()
 def create_ai_report():

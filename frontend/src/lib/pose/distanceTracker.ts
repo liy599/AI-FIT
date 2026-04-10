@@ -22,9 +22,19 @@ export class DistanceTracker {
   private prepDurationMs: number
   private startMs: number | null = null
   private baseline: Baseline | null = null
+  private ratioEma: number | null = null
+  private lastLabel: DistanceLabel = 'unknown'
+  private targetRatioFactor = 0.75
 
   constructor(prepDurationMs = 4000) {
     this.prepDurationMs = prepDurationMs
+  }
+
+  recalibrate(tMs?: number) {
+    this.startMs = typeof tMs === 'number' && Number.isFinite(tMs) ? tMs : null
+    this.baseline = null
+    this.ratioEma = null
+    this.lastLabel = 'unknown'
   }
 
   ingest(input: { tMs: number; landmarks: NormalizedLandmark[]; worldLandmarks: NormalizedLandmark[] | null }): DistanceState {
@@ -36,18 +46,24 @@ export class DistanceTracker {
     const q = avgKeyJointVisibility(input.landmarks)
     const currentBox = bboxFromLandmarks(input.landmarks)
     if (q < 0.2 || !currentBox) {
+      this.lastLabel = 'unknown'
       return {
         status: 'lost',
         prepProgress,
         prepRemainingMs,
         label: 'unknown',
         ratio: null,
-        targetBox: this.baseline?.box ?? null,
+        targetBox: this.baseline ? centerBox(this.baseline.box) : null,
         currentBox
       }
     }
 
-    const ratio = Math.max(currentBox.w, currentBox.h)
+    // Use skeleton-chain scale first (shoulder-hip-knee-ankle), fallback to area-based scale.
+    // This is more robust to front/side orientation and squat up/down posture changes.
+    const rawRatio = bodyScaleFromLandmarks(input.landmarks) ?? Math.sqrt(Math.max(1e-6, currentBox.w * currentBox.h))
+    const emaAlpha = 0.2
+    this.ratioEma = this.ratioEma === null ? rawRatio : lerp(this.ratioEma, rawRatio, emaAlpha)
+    const ratio = this.ratioEma
     if (!this.baseline) {
       this.baseline = { ratio, box: currentBox }
     } else if (prepProgress < 1) {
@@ -59,8 +75,10 @@ export class DistanceTracker {
     }
 
     const ready = prepProgress >= 1 && !!this.baseline
-    const rel = this.baseline ? ratio / Math.max(1e-6, this.baseline.ratio) : 1
-    const label: DistanceLabel = ready ? (rel > 1.18 ? 'too_close' : rel < 0.85 ? 'too_far' : 'ok') : 'unknown'
+    const targetRatio = this.baseline ? this.baseline.ratio * this.targetRatioFactor : ratio
+    const rel = ratio / Math.max(1e-6, targetRatio)
+    const label = ready ? classifyDistanceWithHysteresis(rel, this.lastLabel) : 'unknown'
+    this.lastLabel = label
 
     return {
       status: ready ? 'ready' : 'calibrating',
@@ -68,9 +86,39 @@ export class DistanceTracker {
       prepRemainingMs,
       label,
       ratio,
-      targetBox: this.baseline?.box ?? null,
+      targetBox: this.baseline ? centerBox(this.baseline.box) : null,
       currentBox
     }
+  }
+}
+
+function classifyDistanceWithHysteresis(rel: number, prev: DistanceLabel): DistanceLabel {
+  // Enter thresholds are wider than recover thresholds to reduce red/orange flicker during reps.
+  const TOO_CLOSE_ENTER = 1.38
+  const TOO_CLOSE_EXIT = 1.24
+  const TOO_FAR_ENTER = 0.5
+  const TOO_FAR_EXIT = 0.62
+
+  if (prev === 'too_close') return rel >= TOO_CLOSE_EXIT ? 'too_close' : 'ok'
+  if (prev === 'too_far') return rel <= TOO_FAR_EXIT ? 'too_far' : 'ok'
+  if (rel > TOO_CLOSE_ENTER) return 'too_close'
+  if (rel < TOO_FAR_ENTER) return 'too_far'
+  return 'ok'
+}
+
+function centerBox(box: BoxNorm): BoxNorm {
+  // Keep target guide centered but avoid becoming a too-thin vertical strip.
+  const w = Math.min(0.92, Math.max(box.w, 0.28))
+  const h = Math.min(0.96, Math.max(box.h, 0.58))
+  const x = clamp01(0.5 - w / 2)
+  const y = clamp01(0.5 - h / 2)
+  const maxX = Math.max(0, 1 - w)
+  const maxY = Math.max(0, 1 - h)
+  return {
+    x: Math.min(x, maxX),
+    y: Math.min(y, maxY),
+    w,
+    h
   }
 }
 
@@ -101,6 +149,39 @@ function bboxFromLandmarks(lm: NormalizedLandmark[]): BoxNorm | null {
   const h = Math.max(0, maxY - minY)
   if (w < 0.05 || h < 0.08) return null
   return { x: minX, y: minY, w, h }
+}
+
+function bodyScaleFromLandmarks(lm: NormalizedLandmark[]): number | null {
+  const left = chainScale(lm, [11, 23, 25, 27])
+  const right = chainScale(lm, [12, 24, 26, 28])
+  if (left !== null && right !== null) return (left + right) / 2
+  if (left !== null) return left
+  if (right !== null) return right
+  return null
+}
+
+function chainScale(lm: NormalizedLandmark[], indices: [number, number, number, number]): number | null {
+  const [a, b, c, d] = indices.map((idx) => lm[idx])
+  if (!isVisible(a) || !isVisible(b) || !isVisible(c) || !isVisible(d)) return null
+  const ab = dist2d(a, b)
+  const bc = dist2d(b, c)
+  const cd = dist2d(c, d)
+  const total = ab + bc + cd
+  return Number.isFinite(total) && total > 1e-6 ? total : null
+}
+
+function isVisible(p: NormalizedLandmark | undefined) {
+  if (!p) return false
+  const v = typeof p.visibility === 'number' ? p.visibility : 1
+  return Number.isFinite(v) && v >= 0.2
+}
+
+function dist2d(a: NormalizedLandmark, b: NormalizedLandmark) {
+  const ax = clamp01(a.x)
+  const ay = clamp01(a.y)
+  const bx = clamp01(b.x)
+  const by = clamp01(b.y)
+  return Math.hypot(ax - bx, ay - by)
 }
 
 function avgKeyJointVisibility(landmarks: NormalizedLandmark[]) {

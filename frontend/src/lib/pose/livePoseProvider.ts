@@ -19,7 +19,7 @@ export async function createBestRealtimePoseProvider(): Promise<RealtimePoseProv
   return {
     modelName: 'movenet_lightning',
     detect: async (video) => {
-      const out = await detectMoveNetLandmarks(detector as MoveNetDetector, video)
+      const out = await detectMoveNetLandmarks(detector as MoveNetDetector, video, { flipHorizontal: false })
       return { landmarks: out.landmarks33, worldLandmarks: null, source: 'movenet_lightning' as const }
     },
     close: () => detector.dispose?.()

@@ -29,11 +29,15 @@ export type RealtimeFeedback = {
     correctReps: number
     incorrectReps: number
     accuracyPct: number
+    unassessedReps?: number
     depthInsufficientCount: number
     kneeOverToeCount: number
     forwardLeanCount: number
     backwardLeanCount: number
     sideViewWarningCount: number
+    avgRepDurationSec?: number | null
+    fastRepCount?: number
+    slowRepCount?: number
   }
 }
 
@@ -42,14 +46,26 @@ const LM = {
   right: { shoulder: 12, hip: 24, knee: 26, ankle: 28, heel: 30, footIndex: 32, nose: 0, rShoulder: 11 }
 }
 
-const KNEE_OVER_TOE_WARN_RATIO = 0.06
-const KNEE_OVER_TOE_FAIL_RATIO = 0.11
-const KNEE_OVER_TOE_FAIL_MIN_FRAMES = 3
+const KNEE_OVER_TOE_WARN_RATIO = 0.07
+const KNEE_OVER_TOE_FAIL_RATIO = 0.14
+const KNEE_OVER_TOE_FAIL_MIN_FRAMES = 5
+const ASSUMED_ANALYZER_FPS = 24
+const REP_FAST_SEC = 1.1
+const REP_SLOW_SEC = 3.6
+const REP_COUNT_MIN_FRAMES = 8
+const REP_VALID_MIN_FRAMES = 8
+const REP_VALID_RATIO_MIN = 0.45
+const TRACKING_QUALITY_MIN = 0.28
+const S1_ENTER_KNEE_ANGLE = 150
+const S1_EXIT_KNEE_ANGLE = 145
+const S3_ENTER_KNEE_ANGLE = 100
+const S3_EXIT_KNEE_ANGLE = 108
 
 export class RealtimeSquatAnalyzer {
   private repCount = 0
   private correctCount = 0
   private incorrectCount = 0
+  private unassessedCount = 0
   private kneeOverToeRepCount = 0
   private currentState: 's1' | 's2' | 's3' | null = null
   private lastRepResult: 'correct' | 'incorrect' | null = null
@@ -62,6 +78,11 @@ export class RealtimeSquatAnalyzer {
   private frameCount = 0
   private repPeakKneeOverToeRatio = 0
   private repKneeOverToeHardFrames = 0
+  private repValidFrameCount = 0
+  private repDurationTotalSec = 0
+  private repDurationCount = 0
+  private fastRepCount = 0
+  private slowRepCount = 0
 
   analyze(landmarks: NormalizedLandmark[]): RealtimeFeedback {
     const side = this.chooseSide(landmarks)
@@ -93,18 +114,19 @@ export class RealtimeSquatAnalyzer {
     const torsoAngle = this.angleFromVerticalDeg(midShoulder ?? shoulder, midHip ?? hip)
     const kneeVerticalAngle = this.lineToVerticalDeg(midHip ?? hip, midKnee ?? knee)
     const offsetAngle = this.offsetAngleDeg(nose, shoulder, otherShoulder)
-    const trackingQuality = this.avgVisibility(landmarks, [11, 12, 23, 24, 25, 26, 27, 28])
+    const trackingQuality = this.avgVisibility(landmarks, [idx.nose, idx.shoulder, idx.hip, idx.knee, idx.ankle, idx.footIndex])
 
     const warnings: string[] = []
     const issues: Array<{ message: string; joints: number[] }> = []
-    const isCountingPaused = trackingQuality < 0.45 || kneeVerticalAngle === null || torsoAngle === null
-    const nextState = isCountingPaused ? this.currentState : this.detectState(kneeAngle)
+    const isCountingPaused = trackingQuality < TRACKING_QUALITY_MIN || kneeVerticalAngle === null || torsoAngle === null
+    // Count state is based on motion phase transitions; quality gating is handled separately.
+    const nextState = this.detectState(kneeAngle)
     let kneeOverToeRatio: number | null = null
 
     if (offsetAngle !== null && offsetAngle > 55) {
       warnings.push('Try to stay in a clear side view for more stable tracking.')
     }
-    if (trackingQuality < 0.45) {
+    if (trackingQuality < TRACKING_QUALITY_MIN) {
       warnings.push('Low keypoint confidence. Stand centered and keep your full body in frame.')
     }
     if (torsoAngle !== null && torsoAngle < 20) {
@@ -150,12 +172,19 @@ export class RealtimeSquatAnalyzer {
         totalReps: this.repCount,
         correctReps: this.correctCount,
         incorrectReps: this.incorrectCount,
-        accuracyPct: this.repCount > 0 ? Math.round((this.correctCount / this.repCount) * 100) : 0,
+        accuracyPct:
+          this.correctCount + this.incorrectCount > 0
+            ? Math.round((this.correctCount / (this.correctCount + this.incorrectCount)) * 100)
+            : 0,
+        unassessedReps: this.unassessedCount,
         depthInsufficientCount: 0,
         kneeOverToeCount: this.kneeOverToeRepCount,
         forwardLeanCount: 0,
         backwardLeanCount: 0,
-        sideViewWarningCount: 0
+        sideViewWarningCount: 0,
+        avgRepDurationSec: this.repDurationCount > 0 ? Math.round((this.repDurationTotalSec / this.repDurationCount) * 100) / 100 : null,
+        fastRepCount: this.fastRepCount,
+        slowRepCount: this.slowRepCount
       }
     }
   }
@@ -164,6 +193,7 @@ export class RealtimeSquatAnalyzer {
     this.repCount = 0
     this.correctCount = 0
     this.incorrectCount = 0
+    this.unassessedCount = 0
     this.kneeOverToeRepCount = 0
     this.currentState = null
     this.lastRepResult = null
@@ -176,54 +206,106 @@ export class RealtimeSquatAnalyzer {
     this.frameCount = 0
     this.repPeakKneeOverToeRatio = 0
     this.repKneeOverToeHardFrames = 0
+    this.repValidFrameCount = 0
+    this.repDurationTotalSec = 0
+    this.repDurationCount = 0
+    this.fastRepCount = 0
+    this.slowRepCount = 0
   }
 
   private updateState(nextState: 's1' | 's2' | 's3' | null, kneeOverToeRatio: number | null, isCountingPaused: boolean) {
     if (nextState === null) return
     this.frameCount += 1
+    if (!isCountingPaused) this.repValidFrameCount += 1
     if (!isCountingPaused && typeof kneeOverToeRatio === 'number' && Number.isFinite(kneeOverToeRatio) && kneeOverToeRatio > 0) {
       this.repPeakKneeOverToeRatio = Math.max(this.repPeakKneeOverToeRatio, kneeOverToeRatio)
       if (kneeOverToeRatio >= KNEE_OVER_TOE_FAIL_RATIO) this.repKneeOverToeHardFrames += 1
     }
     if (nextState === 's3') this.enteredBottom = true
     if (this.currentState !== 's1' && nextState === 's1' && this.enteredBottom) {
-      this.repCount += 1
-      const kneeOverToeFailed =
-        this.repPeakKneeOverToeRatio >= KNEE_OVER_TOE_FAIL_RATIO && this.repKneeOverToeHardFrames >= KNEE_OVER_TOE_FAIL_MIN_FRAMES
+      const enoughForCounting = this.frameCount >= REP_COUNT_MIN_FRAMES
+      if (!enoughForCounting) {
+        this.lastRepResult = null
+        this.lastRepMessage = 'Rep ignored: movement was too short to count.'
+        this.lastRepReasonCodes = ['REP_TOO_SHORT']
+        this.lastRepReasonLabels = ['Movement was too short to count']
+        this.lastRepCorrections = ['Use a full range and finish the standing phase before the next rep.']
+        this.lastRepFrameCount = this.frameCount
+        this.frameCount = 0
+        this.enteredBottom = false
+        this.repPeakKneeOverToeRatio = 0
+        this.repKneeOverToeHardFrames = 0
+        this.repValidFrameCount = 0
+        this.currentState = nextState
+        return
+      }
 
-      if (kneeOverToeFailed) {
-        this.incorrectCount += 1
-        this.kneeOverToeRepCount += 1
-        this.lastRepResult = 'incorrect'
-        this.lastRepMessage = 'Rep failed: knees drifted too far past toes.'
-        this.lastRepReasonCodes = ['KNEE_OVER_TOE_EXCESSIVE']
-        this.lastRepReasonLabels = ['Knees drifted too far past toes']
-        this.lastRepCorrections = ['Push hips back first and keep shins more vertical.']
+      const validRatio = this.frameCount > 0 ? this.repValidFrameCount / this.frameCount : 0
+      const hasReliableTracking = this.repValidFrameCount >= REP_VALID_MIN_FRAMES && validRatio >= REP_VALID_RATIO_MIN
+      this.repCount += 1
+      const repDurationSec = Math.max(0.1, this.frameCount / ASSUMED_ANALYZER_FPS)
+      this.repDurationTotalSec += repDurationSec
+      this.repDurationCount += 1
+      if (repDurationSec < REP_FAST_SEC) this.fastRepCount += 1
+      if (repDurationSec > REP_SLOW_SEC) this.slowRepCount += 1
+      if (hasReliableTracking) {
+        const kneeOverToeFailed =
+          this.repPeakKneeOverToeRatio >= KNEE_OVER_TOE_FAIL_RATIO && this.repKneeOverToeHardFrames >= KNEE_OVER_TOE_FAIL_MIN_FRAMES
+
+        if (kneeOverToeFailed) {
+          this.incorrectCount += 1
+          this.kneeOverToeRepCount += 1
+          this.lastRepResult = 'incorrect'
+          this.lastRepMessage = 'Rep failed: knees drifted too far past toes.'
+          this.lastRepReasonCodes = ['KNEE_OVER_TOE_EXCESSIVE']
+          this.lastRepReasonLabels = ['Knees drifted too far past toes']
+          this.lastRepCorrections = ['Push hips back first and keep shins more vertical.']
+        } else {
+          this.correctCount += 1
+          this.lastRepResult = 'correct'
+          this.lastRepMessage = 'Rep completed. Keep the tempo steady.'
+          this.lastRepReasonCodes = []
+          this.lastRepReasonLabels = []
+          this.lastRepCorrections = []
+        }
       } else {
-        this.correctCount += 1
-        this.lastRepResult = 'correct'
-        this.lastRepMessage = 'Rep completed. Keep the tempo steady.'
-        this.lastRepReasonCodes = []
-        this.lastRepReasonLabels = []
-        this.lastRepCorrections = []
+        this.unassessedCount += 1
+        this.lastRepResult = null
+        this.lastRepMessage = 'Rep counted, but quality was not assessed due to incomplete keypoints.'
+        this.lastRepReasonCodes = ['KEYPOINTS_INCOMPLETE']
+        this.lastRepReasonLabels = ['Keypoints were incomplete']
+        this.lastRepCorrections = ['Improve lighting and keep your full body in frame before continuing.']
       }
       this.lastRepFrameCount = this.frameCount
       this.frameCount = 0
       this.enteredBottom = false
       this.repPeakKneeOverToeRatio = 0
       this.repKneeOverToeHardFrames = 0
+      this.repValidFrameCount = 0
     }
     if (this.currentState === 's1' && nextState === 's2') {
       this.repPeakKneeOverToeRatio = 0
       this.repKneeOverToeHardFrames = 0
+      this.repValidFrameCount = 0
     }
     this.currentState = nextState
   }
 
   private detectState(kneeAngle: number | null): 's1' | 's2' | 's3' | null {
     if (kneeAngle === null) return null
-    if (kneeAngle >= 155) return 's1'
-    if (kneeAngle >= 95) return 's2'
+    // Apply small hysteresis so state does not jitter near angle boundaries.
+    if (this.currentState === 's1') {
+      if (kneeAngle >= S1_EXIT_KNEE_ANGLE) return 's1'
+      if (kneeAngle > S3_ENTER_KNEE_ANGLE) return 's2'
+      return 's3'
+    }
+    if (this.currentState === 's3') {
+      if (kneeAngle <= S3_EXIT_KNEE_ANGLE) return 's3'
+      if (kneeAngle < S1_ENTER_KNEE_ANGLE) return 's2'
+      return 's1'
+    }
+    if (kneeAngle >= S1_ENTER_KNEE_ANGLE) return 's1'
+    if (kneeAngle > S3_ENTER_KNEE_ANGLE) return 's2'
     return 's3'
   }
 

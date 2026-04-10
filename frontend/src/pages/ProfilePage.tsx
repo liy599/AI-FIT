@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { API_BASE, apiFetch, apiUpload } from '../lib/api'
+import { getPoseExerciseByType } from '../lib/pose/exercises'
 import { listPoseTrainings, type PoseTrainingSession } from '../lib/poseApi'
+import { buildTrainingRecordName } from '../lib/pose/trainingName'
 import { useAuth } from '../state/auth-context'
 
 type Profile = {
@@ -773,11 +775,16 @@ export default function ProfilePage() {
                   const started = new Date(s.started_at)
                   const ended = s.ended_at ? new Date(s.ended_at) : null
                   const totalReps = s.sets.reduce((acc, item) => acc + (item.reps ?? 0), 0)
+                  const exerciseType = s.sets[0]?.exercise_type ?? 'squat'
+                  const recordName = s.note?.trim() || buildTrainingRecordName({
+                    startedAt: s.started_at,
+                    exerciseName: getPoseExerciseByType(exerciseType).displayName
+                  })
                   return (
                     <div key={s.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div>
-                          <div className="text-sm font-semibold">Session #{s.id}</div>
+                          <div className="text-sm font-semibold">{recordName}</div>
                           <div className="mt-1 text-xs text-slate-600">
                             {started.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             {ended ? ` - ${ended.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}

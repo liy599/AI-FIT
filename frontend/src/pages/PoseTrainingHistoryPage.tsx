@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { buildPoseGuidePath, buildPoseReportPath, buildPoseToolPath, getPoseExerciseBySlug, getPoseExerciseByType } from '../lib/pose/exercises'
+import { buildTrainingRecordName } from '../lib/pose/trainingName'
 import { listPoseTrainings, type PoseTrainingSession } from '../lib/poseApi'
 import { DEMO_POSE_TRAINING, DEMO_POSE_TRAINING_ID } from '../lib/poseTrainingMock'
 
@@ -108,10 +109,15 @@ export default function PoseTrainingHistoryPage() {
                           : 'No summary in report'
                       const sessionExerciseType = item.sets[0]?.exercise_type ?? 'squat'
                       const sessionExerciseSlug = getPoseExerciseByType(sessionExerciseType).slug
+                      const derivedName = buildTrainingRecordName({
+                        startedAt: item.started_at,
+                        exerciseName: getPoseExerciseByType(sessionExerciseType).displayName
+                      })
+                      const sessionName = item.id === DEMO_POSE_TRAINING_ID ? 'Demo Session' : (item.note?.trim() || derivedName)
                       return (
                         <Link key={item.id} to={buildPoseReportPath(sessionExerciseSlug, item.id)} className="pose-history-item">
                           <div className="pose-history-item-top">
-                            <strong>{item.id === DEMO_POSE_TRAINING_ID ? 'Demo Session' : `Session #${item.id}`}</strong>
+                            <strong>{sessionName}</strong>
                             <span>{formatDateTime(item.started_at)}</span>
                           </div>
                           <div className="pose-history-meta">

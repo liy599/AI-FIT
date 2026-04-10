@@ -75,7 +75,7 @@ export async function detectMoveNetLandmarks(
   video: HTMLVideoElement,
   config?: { flipHorizontal?: boolean }
 ): Promise<{ keypoints: MoveNetPoint[]; landmarks33: NormalizedLandmark[] }> {
-  const poses = await detector.estimatePoses(video, { flipHorizontal: config?.flipHorizontal ?? true })
+  const poses = await detector.estimatePoses(video, { flipHorizontal: config?.flipHorizontal ?? false })
   const pose = poses[0]
   const keypoints: MoveNetPoint[] = (pose?.keypoints ?? []).map((k) => ({
     x: k.x,

@@ -298,6 +298,14 @@ export async function getPoseTraining(sessionId: number) {
   return data.session
 }
 
+export async function updatePoseTrainingReport(sessionId: number, report: Record<string, unknown>) {
+  const data = await apiFetch<{ session: PoseTrainingSession }>(`/api/pose/trainings/${sessionId}/report`, {
+    method: 'PUT',
+    body: JSON.stringify({ report })
+  })
+  return data.session
+}
+
 export async function createPoseAiEnhancedReport(input: { report: Record<string, unknown>; language?: string; locale?: string; debug?: boolean }) {
   const data = await apiFetch<PoseAiEnhancedReportResponse>('/api/pose/reports/ai', {
     method: 'POST',

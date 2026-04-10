@@ -1,4 +1,4 @@
-export type PoseExerciseSlug = 'squat' | 'lateral-raise' | 'pushup'
+export type PoseExerciseSlug = 'squat' | 'lateral-raise' | 'pushup' | 'pullup' | 'bench-press'
 
 export type PoseExerciseDefinition = {
   slug: PoseExerciseSlug
@@ -61,6 +61,48 @@ const POSE_EXERCISES: Record<PoseExerciseSlug, PoseExerciseDefinition> = {
       { title: '3) Keep a straight line', content: 'Brace your core and avoid letting the hips sag during reps.' }
     ]
   },
+  pullup: {
+    slug: 'pullup',
+    id: 'pullup',
+    displayName: 'Pull-Up',
+    exerciseType: 'pullup',
+    liveSubtitle: 'Real-time pull-up coaching for range, control, and stability',
+    liveStageTip: 'Current pull-up phase recognized by the analyzer.',
+    completedRepsTip: 'Number of pull-up reps detected in this session.',
+    secondaryMetricLabel: 'Elbow Bend',
+    secondaryMetricTip: 'Estimated elbow flexion angle during the pull-up.',
+    rangeSectionTitle: 'Height Check',
+    rangeAlignmentLabel: 'Camera Side Alignment',
+    rangeAlignmentTip: 'Use a side-view so elbow bend and body stability can be tracked clearly.',
+    offlineInstructionPlaceholder: 'e.g. Focus on full range, no kipping, and controlled descent',
+    guideTitle: 'Pull-Up Camera Tips',
+    guideTips: [
+      { title: '1) Side view works best', content: 'Stand side-on so elbow bend and body line are easier to evaluate.' },
+      { title: '2) Keep full body in frame', content: 'Head, shoulders, hips, knees, and feet should stay visible.' },
+      { title: '3) Control the tempo', content: 'Pull up smoothly and lower down under control without swinging.' }
+    ]
+  },
+  'bench-press': {
+    slug: 'bench-press',
+    id: 'bench_press',
+    displayName: 'Bench Press',
+    exerciseType: 'bench_press',
+    liveSubtitle: 'Real-time bench press coaching for depth, control, and bar path stability',
+    liveStageTip: 'Current bench press phase recognized by the analyzer.',
+    completedRepsTip: 'Number of bench press reps detected in this session.',
+    secondaryMetricLabel: 'Elbow Bend',
+    secondaryMetricTip: 'Estimated elbow flexion angle during the press.',
+    rangeSectionTitle: 'Depth Check',
+    rangeAlignmentLabel: 'Camera Side Alignment',
+    rangeAlignmentTip: 'Use a side-view so elbow depth and torso stability can be tracked clearly.',
+    offlineInstructionPlaceholder: 'e.g. Focus on touchpoint consistency and controlled lockout',
+    guideTitle: 'Bench Press Camera Tips',
+    guideTips: [
+      { title: '1) Side view works best', content: 'Set the camera to your side so elbow depth is easier to evaluate.' },
+      { title: '2) Keep full body in frame', content: 'Shoulders, elbows, wrists, torso, and feet should remain visible.' },
+      { title: '3) Press under control', content: 'Lower steadily, then press smoothly with a consistent bar path.' }
+    ]
+  },
   'lateral-raise': {
     slug: 'lateral-raise',
     id: 'lateral_raise',
@@ -87,12 +129,16 @@ const POSE_EXERCISES: Record<PoseExerciseSlug, PoseExerciseDefinition> = {
 export function getPoseExerciseBySlug(slug: string | undefined): PoseExerciseDefinition {
   if (slug === 'lateral-raise') return POSE_EXERCISES['lateral-raise']
   if (slug === 'pushup') return POSE_EXERCISES.pushup
+  if (slug === 'pullup') return POSE_EXERCISES.pullup
+  if (slug === 'bench-press') return POSE_EXERCISES['bench-press']
   return POSE_EXERCISES.squat
 }
 
 export function getPoseExerciseByType(exerciseType: string | null | undefined): PoseExerciseDefinition {
   if (exerciseType === 'lateral_raise') return POSE_EXERCISES['lateral-raise']
   if (exerciseType === 'pushup') return POSE_EXERCISES.pushup
+  if (exerciseType === 'pullup' || exerciseType === 'pull_up') return POSE_EXERCISES.pullup
+  if (exerciseType === 'bench_press' || exerciseType === 'benchpress') return POSE_EXERCISES['bench-press']
   return POSE_EXERCISES.squat
 }
 

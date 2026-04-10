@@ -24,7 +24,7 @@ const POSE_CATEGORIES: PoseCategory[] = [
     subtitle: 'Push movements',
     exercises: [
       { id: 'pushup', name: 'Push-Up', secondary: 'Bodyweight', status: 'ready', href: '/tools/pose/pushup' },
-      { id: 'bench_press', name: 'Bench Press', secondary: 'Dumbbell', status: 'coming_soon', href: '/tools/pose/bench-press' }
+      { id: 'bench_press', name: 'Bench Press', secondary: 'Dumbbell', status: 'ready', href: '/tools/pose/bench-press' }
     ]
   },
   {
@@ -32,7 +32,7 @@ const POSE_CATEGORIES: PoseCategory[] = [
     title: 'Back',
     subtitle: 'Pull movements',
     exercises: [
-      { id: 'pullup', name: 'Pull-Up', secondary: 'Bodyweight', status: 'coming_soon', href: '/tools/pose/pullup' },
+      { id: 'pullup', name: 'Pull-Up', secondary: 'Bodyweight', status: 'ready', href: '/tools/pose/pullup' },
       { id: 'row', name: 'Standing Row', secondary: 'Dumbbell', status: 'coming_soon', href: '/tools/pose/row' }
     ]
   },
@@ -168,7 +168,7 @@ export default function PoseSelectPage() {
 
               <div className="cl_blog-widget mb-30">
                 <div className="pose-inline-note" style={{ marginTop: 0 }}>
-                  Deep Squat, Lateral Raise, and Push-Up real-time correction are available right now. More exercises are coming soon.
+                  Deep Squat, Pull-Up, Bench Press, Lateral Raise, and Push-Up real-time correction are available right now. More exercises are coming soon.
                 </div>
               </div>
             </div>

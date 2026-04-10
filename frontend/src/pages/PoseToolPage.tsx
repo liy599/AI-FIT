@@ -5,6 +5,7 @@ import { chooseMotionStandard } from '../lib/pose/analysisSelector'
 import { drawDistanceGuide, drawMidpointSkeleton } from '../lib/pose/draw'
 import { DistanceTracker, type DistanceState } from '../lib/pose/distanceTracker'
 import { buildPoseGuidePath, buildPoseHistoryPath, buildPoseReportPath, getPoseExerciseBySlug } from '../lib/pose/exercises'
+import { buildTrainingRecordName } from '../lib/pose/trainingName'
 import { analyzeGenericMotion } from '../lib/pose/genericMotion'
 import { createBestRealtimePoseProvider, type RealtimePoseProvider } from '../lib/pose/livePoseProvider'
 import { extractPose33FromVideoUrl, type PoseFrame } from '../lib/pose/mediapipePose'
@@ -15,6 +16,8 @@ import { buildGenericMotionReport, type PoseAnalysisReport } from '../lib/pose/r
 import { RealtimeSquatAnalyzer, type RealtimeFeedback } from '../lib/pose/realtimeSquat'
 import { RealtimeLateralRaiseAnalyzer } from '../lib/pose/realtimeLateralRaise'
 import { RealtimePushupAnalyzer } from '../lib/pose/realtimePushup'
+import { RealtimePullupAnalyzer } from '../lib/pose/realtimePullup'
+import { RealtimeBenchPressAnalyzer } from '../lib/pose/realtimeBenchPress'
 import {
   completePoseAnalysisTask,
   createPoseAnalysisTask,
@@ -44,6 +47,15 @@ type LiveSessionSummary = {
   sessionComment: string
   topIssues: string[]
 }
+type SquatTimelineRow = {
+  frame: number
+  tMs: number
+  phase: string
+  trackingQuality: number | null
+  kneeAngleDeg: number | null
+  hipAngleDeg: number | null
+  torsoFromVerticalDeg: number | null
+}
 
 type RealtimeAnalyzer = {
   analyze: (landmarks: Parameters<RealtimeSquatAnalyzer['analyze']>[0]) => RealtimeFeedback
@@ -67,12 +79,16 @@ export default function PoseToolPage() {
   const sessionStartedAtRef = useRef<string | null>(null)
   const sessionStartedPerfRef = useRef<number | null>(null)
   const previewUrlRef = useRef<string | null>(null)
-  const previewScaleRef = useRef(0.86)
+  const previewScaleRef = useRef(0.78)
   const previewMirrorRef = useRef(true)
   const offlineFileInputRef = useRef<HTMLInputElement | null>(null)
   const feedbackRef = useRef<RealtimeFeedback | null>(null)
   const liveProviderRef = useRef<RealtimePoseProvider | null>(null)
   const liveProviderPromiseRef = useRef<Promise<RealtimePoseProvider> | null>(null)
+  const liveIssueFreqRef = useRef<Map<string, number>>(new Map())
+  const liveTrackingQualitySamplesRef = useRef<number[]>([])
+  const liveTimelineRowsRef = useRef<SquatTimelineRow[]>([])
+  const liveAnalyzedFrameCountRef = useRef(0)
 
   const [running, setRunning] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -84,7 +100,8 @@ export default function PoseToolPage() {
   const [effectiveFps, setEffectiveFps] = useState<number | null>(null)
   const [savingTraining, setSavingTraining] = useState(false)
   const [saveTrainingMsg, setSaveTrainingMsg] = useState<string | null>(null)
-  const [previewScale, setPreviewScale] = useState(0.86)
+  const [savedLiveSessionId, setSavedLiveSessionId] = useState<number | null>(null)
+  const [previewScale, setPreviewScale] = useState(0.78)
   const [previewMirror, setPreviewMirror] = useState(true)
   const [liveSessionStatus, setLiveSessionStatus] = useState<LiveSessionStatus>('idle')
   const [liveSessionEndReason, setLiveSessionEndReason] = useState<LiveSessionEndReason>(null)
@@ -136,6 +153,7 @@ export default function PoseToolPage() {
     setFeedback(null)
     setError(null)
     setSaveTrainingMsg(null)
+    setSavedLiveSessionId(null)
     setLiveSessionSummary(null)
     setLiveSessionStatus('idle')
     setLiveSessionEndReason(null)
@@ -149,6 +167,10 @@ export default function PoseToolPage() {
     setOfflineError(null)
     setOfflineStatusMsg(null)
     setOfflineViewAngle(exercise.slug === 'lateral-raise' ? 'front' : 'side')
+    liveIssueFreqRef.current = new Map()
+    liveTrackingQualitySamplesRef.current = []
+    liveTimelineRowsRef.current = []
+    liveAnalyzedFrameCountRef.current = 0
   }, [exercise.slug])
 
   useEffect(() => {
@@ -210,6 +232,10 @@ export default function PoseToolPage() {
         ? 'Move both arms together, keep shoulders down, and avoid torso swing.'
         : exercise.slug === 'pushup'
           ? 'Brace your core, keep your body line straight, and lower under control.'
+          : exercise.slug === 'pullup'
+            ? 'Pull smoothly, avoid swinging, and lower under control.'
+            : exercise.slug === 'bench-press'
+              ? 'Lower under control, keep wrists stacked, and press in a smooth path.'
         : 'Keep a steady tempo and align your knees with your toes.')
     )
   }, [exercise.slug, feedback])
@@ -225,7 +251,30 @@ export default function PoseToolPage() {
     return 'Distance OK'
   }, [distance])
 
+  function resetLiveSquatSessionStats() {
+    liveIssueFreqRef.current = new Map()
+    liveTrackingQualitySamplesRef.current = []
+    liveTimelineRowsRef.current = []
+    liveAnalyzedFrameCountRef.current = 0
+  }
+
   const liveReport = useMemo(() => {
+    if (exercise.slug === 'squat') {
+      return buildSquatAlignedReport({
+        source: 'live',
+        taskId: sessionStartedAtRef.current ? `live-${sessionStartedAtRef.current}` : 'live-session',
+        viewAngle: 'unknown',
+        exercise: { id: exercise.slug, name: exercise.displayName },
+        video: null,
+        fps: effectiveFps ?? LIVE_TARGET_FPS,
+        lastFeedback: feedback,
+        messageFreq: liveIssueFreqRef.current,
+        analyzedFrameCount: liveAnalyzedFrameCountRef.current,
+        trackingQualitySamples: liveTrackingQualitySamplesRef.current,
+        timelineRows: liveTimelineRowsRef.current
+      })
+    }
+
     const summary = feedback
       ? `Live training: total ${feedback.session.totalReps}, correct ${feedback.session.correctReps}, accuracy ${feedback.session.accuracyPct}%`
       : 'No live training data yet'
@@ -263,7 +312,7 @@ export default function PoseToolPage() {
       })),
       suggestions
     })
-  }, [currentSuggestion, effectiveFps, exercise.slug, feedback])
+  }, [currentSuggestion, effectiveFps, exercise.displayName, exercise.slug, feedback])
 
   async function getLiveProvider() {
     if (liveProviderRef.current) return liveProviderRef.current
@@ -286,16 +335,18 @@ export default function PoseToolPage() {
     setLoading(true)
     setLoadingMsg('Initializing model and camera...')
     setSaveTrainingMsg(null)
+    setSavedLiveSessionId(null)
     setLiveSessionStatus('idle')
     setLiveSessionEndReason(null)
     setLiveSessionElapsedMs(0)
     setLiveSessionSummary(null)
     sessionStartedPerfRef.current = null
+    resetLiveSquatSessionStats()
 
     try {
       if (!analyzerRef.current) analyzerRef.current = createAnalyzer(exercise.slug)
       if (!stabilizerRef.current) stabilizerRef.current = new MoveNetStabilizer(2500)
-      if (!distanceTrackerRef.current) distanceTrackerRef.current = new DistanceTracker(3000)
+      if (!distanceTrackerRef.current) distanceTrackerRef.current = new DistanceTracker(5000)
 
       const provider = await getLiveProvider()
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -314,8 +365,15 @@ export default function PoseToolPage() {
 
       video.srcObject = stream
       await video.play()
-      canvas.width = video.videoWidth || 720
-      canvas.height = video.videoHeight || 1280
+      if (!video.videoWidth || !video.videoHeight) {
+        await new Promise<void>((resolve) => {
+          const done = () => resolve()
+          video.addEventListener('loadedmetadata', done, { once: true })
+          window.setTimeout(done, 400)
+        })
+      }
+      canvas.width = video.videoWidth || 1280
+      canvas.height = video.videoHeight || 720
 
       sessionStartedAtRef.current = new Date().toISOString()
       sessionStartedPerfRef.current = performance.now()
@@ -353,6 +411,28 @@ export default function PoseToolPage() {
           if (landmarks && analyzerRef.current && stabilizerRef.current && distanceTrackerRef.current) {
             const nextFeedback = analyzerRef.current.analyze(landmarks)
             setFeedback(nextFeedback)
+            if (exercise.slug === 'squat') {
+              liveAnalyzedFrameCountRef.current += 1
+              if (Number.isFinite(nextFeedback.trackingQuality)) {
+                liveTrackingQualitySamplesRef.current.push(nextFeedback.trackingQuality)
+              }
+              for (const message of collectLiveIssueMessages(nextFeedback)) {
+                const text = message.trim()
+                if (!text) continue
+                liveIssueFreqRef.current.set(text, (liveIssueFreqRef.current.get(text) ?? 0) + 1)
+              }
+              const startedPerf = sessionStartedPerfRef.current
+              const tMs = startedPerf ? Math.max(0, Math.round(frameTs - startedPerf)) : Math.round(liveTimelineRowsRef.current.length * LIVE_TARGET_FRAME_MS)
+              liveTimelineRowsRef.current.push({
+                frame: liveTimelineRowsRef.current.length,
+                tMs,
+                phase: nextFeedback.phase,
+                trackingQuality: nextFeedback.trackingQuality,
+                kneeAngleDeg: nextFeedback.kneeAngle,
+                hipAngleDeg: nextFeedback.hipAngle,
+                torsoFromVerticalDeg: nextFeedback.torsoAngle
+              })
+            }
 
             const trackingState = stabilizerRef.current.ingest(mediapipeToMoveNetFrame(landmarks, frameTs))
             setTracking(trackingState)
@@ -449,9 +529,11 @@ export default function PoseToolPage() {
 
   function resetLiveSession() {
     analyzerRef.current?.resetSession()
+    resetLiveSquatSessionStats()
     setFeedback(null)
     setError(null)
     setSaveTrainingMsg(null)
+    setSavedLiveSessionId(null)
     sessionStartedAtRef.current = running ? new Date().toISOString() : sessionStartedAtRef.current
     if (running) {
       sessionStartedPerfRef.current = performance.now()
@@ -465,6 +547,12 @@ export default function PoseToolPage() {
       setLiveSessionEndReason(null)
     }
     setLiveSessionSummary(null)
+  }
+
+  function recalibrateDistance() {
+    if (!distanceTrackerRef.current) return
+    distanceTrackerRef.current.recalibrate(performance.now())
+    setDistance(null)
   }
 
   async function saveTrainingRecord() {
@@ -481,15 +569,17 @@ export default function PoseToolPage() {
     setSavingTraining(true)
     setSaveTrainingMsg(null)
     try {
+      const startedAt = sessionStartedAtRef.current ?? new Date().toISOString()
       const session = await createPoseTraining({
-        started_at: sessionStartedAtRef.current ?? new Date().toISOString(),
+        started_at: startedAt,
         ended_at: new Date().toISOString(),
         exercise_type: exercise.exerciseType,
-        note: 'Saved from live pose coaching',
+        note: buildTrainingRecordName({ startedAt, exerciseName: exercise.displayName }),
         sets: [{ reps, note: currentSuggestion }],
         report: liveReport as Record<string, unknown>
       })
       setSaveTrainingMsg(`Saved training record #${session.id}`)
+      setSavedLiveSessionId(session.id)
     } catch (e: unknown) {
       setSaveTrainingMsg(e instanceof Error ? e.message : 'Failed to save training record')
     } finally {
@@ -554,7 +644,8 @@ export default function PoseToolPage() {
       setOfflineStatusMsg('Video uploaded. Creating an analysis task...')
       setOfflineProgress({ stage: 'Creating task', processed: 1, total: 1 })
 
-      const effectiveViewAngle: 'unknown' | 'front' | 'side' | 'back' = exercise.slug === 'squat' ? 'side' : offlineViewAngle
+      const effectiveViewAngle: 'unknown' | 'front' | 'side' | 'back' =
+        exercise.slug === 'squat' || exercise.slug === 'pullup' || exercise.slug === 'bench-press' ? 'side' : offlineViewAngle
       const task = await createPoseAnalysisTask({
         video_asset_id: video.id,
         exercise_type: exercise.exerciseType,
@@ -649,11 +740,12 @@ export default function PoseToolPage() {
       try {
         setOfflineArchiveStatus('saving')
         const reps = getRepsFromReport(report)
+        const startedAt = new Date(Date.now() - Math.max(1000, Math.round((extracted.frames.length / Math.max(1, extracted.fps)) * 1000))).toISOString()
         const session = await createPoseTraining({
-          started_at: new Date(Date.now() - Math.max(1000, Math.round((extracted.frames.length / Math.max(1, extracted.fps)) * 1000))).toISOString(),
+          started_at: startedAt,
           ended_at: new Date().toISOString(),
           exercise_type: exercise.exerciseType,
-          note: `Saved from video analysis task #${task.id}`,
+          note: buildTrainingRecordName({ startedAt, exerciseName: exercise.displayName }),
           sets: [{ reps, note: 'Auto-saved from video analysis report' }],
           report: report as Record<string, unknown>
         })
@@ -683,7 +775,7 @@ export default function PoseToolPage() {
     }
   }
 
-  const currentViewAngle = exercise.slug === 'squat' ? 'side' : offlineViewAngle
+  const currentViewAngle = exercise.slug === 'squat' || exercise.slug === 'pullup' || exercise.slug === 'bench-press' ? 'side' : offlineViewAngle
   const taskStatusText = offlineBusy
     ? 'Analyzing video...'
     : offlineTask?.status === 'succeeded'
@@ -844,13 +936,22 @@ export default function PoseToolPage() {
                       >
                         {previewMirror ? 'On' : 'Off'}
                       </button>
+                      <button
+                        className="pose-tool-ghost-btn pose-tool-light-btn pose-mini-btn"
+                        onClick={recalibrateDistance}
+                        type="button"
+                        disabled={!running}
+                        title="Recalibrate distance target without stopping the current live session."
+                      >
+                        Recalibrate Distance
+                      </button>
                     </div>
                     <label className="pose-slider-control">
                       <span>Zoom</span>
                       <input
                         type="range"
-                        min="0.7"
-                        max="1.15"
+                        min="0.55"
+                        max="1.05"
                         step="0.01"
                         value={previewScale}
                         onChange={(e) => setPreviewScale(Number(e.target.value))}
@@ -919,6 +1020,11 @@ export default function PoseToolPage() {
                       <button className="pose-tool-ghost-btn pose-tool-light-btn" disabled={savingTraining} onClick={() => void saveTrainingRecord()} type="button">
                         {savingTraining ? 'Saving...' : 'Save Training'}
                       </button>
+                      {savedLiveSessionId ? (
+                        <Link to={buildPoseReportPath(exercise.slug, savedLiveSessionId)} className="cl_theme-btn">
+                          Open Report
+                        </Link>
+                      ) : null}
                     </div>
                     {saveTrainingMsg ? <div className="pose-inline-note">{saveTrainingMsg}</div> : null}
                   </div>
@@ -995,7 +1101,7 @@ export default function PoseToolPage() {
                 <div className="cl_blog-widget mb-30">
                   <div className="pose-tool-head">
                     <div>
-                      <h4 className="cl_blog-widget-title mb-15">{selectedActionName} · Video Analysis</h4>
+                      <h4 className="cl_blog-widget-title mb-15">{exercise.displayName} · Video Analysis</h4>
                       <p className="pose-tool-subtitle pose-tool-subtitle-dark">Upload a fixed video, extract pose keypoints frame by frame, replay the real-time analyzer logic, and archive the same-style report.</p>
                     </div>
                   </div>
@@ -1024,7 +1130,7 @@ export default function PoseToolPage() {
 
                     <label className="pose-form-field">
                       <span>View Angle</span>
-                      {exercise.slug === 'squat' ? (
+                      {exercise.slug === 'squat' || exercise.slug === 'pullup' || exercise.slug === 'bench-press' ? (
                         <input value="Side (required)" readOnly />
                       ) : (
                         <select value={offlineViewAngle} onChange={(e) => setOfflineViewAngle(e.target.value as 'unknown' | 'front' | 'side' | 'back')}>
@@ -1134,8 +1240,9 @@ function drawCameraFrame(
   const sourceHeight = video.videoHeight
   if (!sourceWidth || !sourceHeight) return null
 
-  const safeScale = Math.min(1.15, Math.max(0.7, previewScale))
-  const fitScale = Math.max(canvasWidth / sourceWidth, canvasHeight / sourceHeight) * safeScale
+  // Use contain-fit (not cover-fit) so the live preview keeps the full camera frame.
+  const safeScale = Math.min(1.05, Math.max(0.55, previewScale))
+  const fitScale = Math.min(canvasWidth / sourceWidth, canvasHeight / sourceHeight) * safeScale
   const drawWidth = sourceWidth * fitScale
   const drawHeight = sourceHeight * fitScale
   const offsetX = (canvasWidth - drawWidth) / 2
@@ -1156,6 +1263,154 @@ function drawCameraFrame(
   return { x: offsetX, y: offsetY, w: drawWidth, h: drawHeight }
 }
 
+function buildSquatAlignedReport(input: {
+  source: 'live' | 'video'
+  taskId: string
+  viewAngle: string
+  exercise: { id: string; name: string } | null
+  video: { id: string; originalName: string; mimeType: string; sizeBytes: number } | null
+  fps: number
+  lastFeedback: RealtimeFeedback | null
+  messageFreq: Map<string, number>
+  analyzedFrameCount: number
+  trackingQualitySamples: number[]
+  timelineRows: SquatTimelineRow[]
+}): PoseAnalysisReport {
+  const sortedIssues = Array.from(input.messageFreq.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+  const avgTrackingQuality =
+    input.trackingQualitySamples.length > 0
+      ? input.trackingQualitySamples.reduce((acc, value) => acc + value, 0) / input.trackingQualitySamples.length
+      : 0
+  const fallbackSuggestion = 'Keep a steady tempo and align your knees with your toes.'
+  const currentSuggestion = input.lastFeedback
+    ? input.lastFeedback.warnings[0] ?? input.lastFeedback.issues[0]?.message ?? input.lastFeedback.lastRepMessage ?? fallbackSuggestion
+    : input.source === 'video'
+      ? 'No valid pose frames were detected. Keep your full body in frame and try another video.'
+      : 'No valid pose frames were detected in the live session.'
+  const issueMessages = sortedIssues
+    .filter(([message, count]) => {
+      const ratio = input.analyzedFrameCount > 0 ? count / input.analyzedFrameCount : 0
+      const text = message.toLowerCase()
+      const isSideViewWarn = text.includes('side view')
+      const isLowConfidenceWarn = text.includes('low keypoint confidence')
+      if (text.includes('try to stay in a clear side view for more stable tracking')) return false
+
+      if ((isSideViewWarn || isLowConfidenceWarn) && avgTrackingQuality >= 0.62) {
+        return ratio >= 0.35
+      }
+      return true
+    })
+    .map(([message]) => message)
+
+  const tempoCheck = analyzeSquatTempoFromTimeline(input.timelineRows)
+  const sessionFastRepCount = input.lastFeedback?.session.fastRepCount ?? 0
+  const phaseFastRepCount = Math.max(tempoCheck.fastDescentCount, tempoCheck.fastAscentCount)
+  const unifiedFastRepCount = Math.max(sessionFastRepCount, phaseFastRepCount)
+  const issues =
+    issueMessages.length > 0
+      ? issueMessages.map((message) => {
+          const count = input.messageFreq.get(message) ?? 0
+          const ratio = input.analyzedFrameCount > 0 ? count / input.analyzedFrameCount : 0
+          const severity: 'info' | 'warning' | 'error' = ratio >= 0.35 ? 'error' : ratio >= 0.12 ? 'warning' : 'info'
+          return {
+            code: toIssueCode(message),
+            severity,
+            message,
+            atFrame: null
+          }
+        })
+      : [
+          {
+            code: 'NO_OBVIOUS_ISSUES',
+            severity: 'info' as const,
+            message: input.source === 'video' ? 'No obvious issues detected during analyzer replay.' : 'No obvious issues detected during live analysis.',
+            atFrame: null
+          }
+        ]
+  if (tempoCheck.fastDescentCount > 0) {
+    issues.push({
+      code: 'DESCENT_TOO_FAST',
+      severity: tempoCheck.fastDescentCount >= 2 ? 'warning' : 'info',
+      message: `Descent too fast detected (${tempoCheck.fastDescentCount} rep${tempoCheck.fastDescentCount > 1 ? 's' : ''}).`,
+      atFrame: null
+    })
+  }
+  if (tempoCheck.fastAscentCount > 0) {
+    issues.push({
+      code: 'ASCENT_TOO_FAST',
+      severity: tempoCheck.fastAscentCount >= 2 ? 'warning' : 'info',
+      message: `Ascent too fast detected (${tempoCheck.fastAscentCount} rep${tempoCheck.fastAscentCount > 1 ? 's' : ''}).`,
+      atFrame: null
+    })
+  }
+
+  const summaryPrefix = input.source === 'video' ? 'Video replay analysis' : 'Live analysis'
+  const summary = input.lastFeedback
+    ? `${summaryPrefix}: total ${input.lastFeedback.session.totalReps}, correct ${input.lastFeedback.session.correctReps}, accuracy ${input.lastFeedback.session.accuracyPct}%, avg rep ${input.lastFeedback.session.avgRepDurationSec ?? '-'}s.`
+    : `${summaryPrefix}: no stable pose frames were detected.`
+  const suggestions = buildSquatReplaySuggestions(input.lastFeedback, sortedIssues, fallbackSuggestion)
+  const keyMetrics = {
+    totalReps: input.lastFeedback?.session.totalReps ?? 0,
+    correctReps: input.lastFeedback?.session.correctReps ?? 0,
+    incorrectReps: input.lastFeedback?.session.incorrectReps ?? 0,
+    formAccuracyPct: input.lastFeedback?.session.accuracyPct ?? 0,
+    avgRepDurationSec: input.lastFeedback?.session.avgRepDurationSec ?? null,
+    fastRepCount: unifiedFastRepCount,
+    slowRepCount: input.lastFeedback?.session.slowRepCount ?? 0,
+    effectiveFps: input.fps
+  }
+  const generatedAt = new Date().toISOString()
+  const timelineSampled = sampleTimelineRows(input.timelineRows, 180)
+
+  return normalizeReportForArchive({
+    version: 3,
+    generatedAt,
+    status: 'ok',
+    task: { id: input.taskId, viewAngle: input.viewAngle, instruction: null },
+    exercise: input.exercise,
+    video: input.video,
+    summary,
+    keyMetrics,
+    issues,
+    suggestions,
+    details: {
+      type: input.source === 'video' ? 'video_live_replay_squat' : 'live_realtime_squat',
+      modelName: input.source === 'video' ? 'MoveNet Lightning (offline replay)' : 'MoveNet Lightning (realtime)',
+      analyzer: 'RealtimeSquatAnalyzer',
+      effectiveFps: input.fps,
+      repCount: input.lastFeedback?.repCount ?? 0,
+      correctCount: input.lastFeedback?.correctCount ?? 0,
+      incorrectCount: input.lastFeedback?.incorrectCount ?? 0,
+      kneeAngle: input.lastFeedback?.kneeAngle ?? null,
+      hipAngle: input.lastFeedback?.hipAngle ?? null,
+      torsoAngle: input.lastFeedback?.torsoAngle ?? null,
+      offsetAngle: input.lastFeedback?.offsetAngle ?? null,
+      trackingQuality: input.lastFeedback?.trackingQuality ?? null,
+      avgTrackingQuality: Math.round(avgTrackingQuality * 100) / 100,
+      currentSuggestion,
+      warnings: input.lastFeedback?.warnings ?? [],
+      tempo: tempoCheck,
+      timelineSampled
+    },
+    sections: {
+      overview: {
+        generatedAt,
+        status: 'ok',
+        taskId: input.taskId,
+        viewAngle: input.viewAngle,
+        exerciseName: input.exercise?.name ?? null,
+        summary
+      },
+      metrics: keyMetrics,
+      errorStats: computeReportErrorStats(issues),
+      suggestions,
+      timelineSampled
+    }
+  })
+}
+
 function buildSquatVideoLiveStyleReport(input: {
   taskId: string
   viewAngle: string
@@ -1170,15 +1425,7 @@ function buildSquatVideoLiveStyleReport(input: {
   let analyzedFrameCount = 0
   const messageFreq = new Map<string, number>()
   const trackingQualitySamples: number[] = []
-  const timelineRows: Array<{
-    frame: number
-    tMs: number
-    phase: string
-    trackingQuality: number | null
-    kneeAngleDeg: number | null
-    hipAngleDeg: number | null
-    torsoFromVerticalDeg: number | null
-  }> = []
+  const timelineRows: SquatTimelineRow[] = []
   const total = input.frames.length
 
   for (let i = 0; i < input.frames.length; i++) {
@@ -1207,111 +1454,18 @@ function buildSquatVideoLiveStyleReport(input: {
       input.onProgress(i + 1, total)
     }
   }
-
-  const sortedIssues = Array.from(messageFreq.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 6)
-  const avgTrackingQuality =
-    trackingQualitySamples.length > 0
-      ? trackingQualitySamples.reduce((acc, value) => acc + value, 0) / trackingQualitySamples.length
-      : 0
-  const fallbackSuggestion = 'Keep a steady tempo and align your knees with your toes.'
-  const currentSuggestion = lastFeedback
-    ? lastFeedback.warnings[0] ?? lastFeedback.issues[0]?.message ?? lastFeedback.lastRepMessage ?? fallbackSuggestion
-    : 'No valid pose frames were detected. Keep your full body in frame and try another video.'
-  const issueMessages = sortedIssues
-    .filter(([message, count]) => {
-      const ratio = analyzedFrameCount > 0 ? count / analyzedFrameCount : 0
-      const text = message.toLowerCase()
-      const isSideViewWarn = text.includes('side view')
-      const isLowConfidenceWarn = text.includes('low keypoint confidence')
-
-      // Reduce false positives on generally stable clips: only keep these warnings when persistent.
-      if ((isSideViewWarn || isLowConfidenceWarn) && avgTrackingQuality >= 0.62) {
-        return ratio >= 0.35
-      }
-      return true
-    })
-    .map(([message]) => message)
-  const issues =
-    issueMessages.length > 0
-      ? issueMessages.map((message) => {
-          const count = messageFreq.get(message) ?? 0
-          const ratio = analyzedFrameCount > 0 ? count / analyzedFrameCount : 0
-          const severity: 'info' | 'warning' | 'error' = ratio >= 0.35 ? 'error' : ratio >= 0.12 ? 'warning' : 'info'
-          return {
-            code: toIssueCode(message),
-            severity,
-            message,
-            atFrame: null
-          }
-        })
-      : [
-          {
-            code: 'NO_OBVIOUS_ISSUES',
-            severity: 'info' as const,
-            message: 'No obvious issues detected during analyzer replay.',
-            atFrame: null
-          }
-        ]
-
-  const summary = lastFeedback
-    ? `Video replay analysis: total ${lastFeedback.session.totalReps}, correct ${lastFeedback.session.correctReps}, accuracy ${lastFeedback.session.accuracyPct}%.`
-    : 'Video replay analysis: no stable pose frames were detected.'
-  const suggestions = buildSquatReplaySuggestions(lastFeedback, sortedIssues, fallbackSuggestion)
-  const keyMetrics = {
-    totalReps: lastFeedback?.session.totalReps ?? 0,
-    correctReps: lastFeedback?.session.correctReps ?? 0,
-    incorrectReps: lastFeedback?.session.incorrectReps ?? 0,
-    formAccuracyPct: lastFeedback?.session.accuracyPct ?? 0,
-    effectiveFps: input.fps
-  }
-  const generatedAt = new Date().toISOString()
-  const timelineSampled = sampleTimelineRows(timelineRows, 180)
-
-  return normalizeReportForArchive({
-    version: 3,
-    generatedAt,
-    status: 'ok',
-    task: { id: input.taskId, viewAngle: input.viewAngle, instruction: null },
+  return buildSquatAlignedReport({
+    source: 'video',
+    taskId: input.taskId,
+    viewAngle: input.viewAngle,
     exercise: input.exercise,
     video: input.video,
-    summary,
-    keyMetrics,
-    issues,
-    suggestions,
-    details: {
-      type: 'video_live_replay_squat',
-      modelName: 'MoveNet Lightning (offline replay)',
-      analyzer: 'RealtimeSquatAnalyzer',
-      effectiveFps: input.fps,
-      repCount: lastFeedback?.repCount ?? 0,
-      correctCount: lastFeedback?.correctCount ?? 0,
-      incorrectCount: lastFeedback?.incorrectCount ?? 0,
-      kneeAngle: lastFeedback?.kneeAngle ?? null,
-      hipAngle: lastFeedback?.hipAngle ?? null,
-      torsoAngle: lastFeedback?.torsoAngle ?? null,
-      offsetAngle: lastFeedback?.offsetAngle ?? null,
-      trackingQuality: lastFeedback?.trackingQuality ?? null,
-      avgTrackingQuality: Math.round(avgTrackingQuality * 100) / 100,
-      currentSuggestion,
-      warnings: lastFeedback?.warnings ?? [],
-      timelineSampled
-    },
-    sections: {
-      overview: {
-        generatedAt,
-        status: 'ok',
-        taskId: input.taskId,
-        viewAngle: input.viewAngle,
-        exerciseName: input.exercise?.name ?? null,
-        summary
-      },
-      metrics: keyMetrics,
-      errorStats: computeReportErrorStats(issues),
-      suggestions,
-      timelineSampled
-    }
+    fps: input.fps,
+    lastFeedback,
+    messageFreq,
+    analyzedFrameCount,
+    trackingQualitySamples,
+    timelineRows
   })
 }
 
@@ -1368,7 +1522,7 @@ function computeReportErrorStats(issues: Array<{ code: string; severity: 'info' 
   }
 }
 
-function evaluateRangeCheck(feedback: RealtimeFeedback | null, exerciseSlug: 'squat' | 'lateral-raise' | 'pushup') {
+function evaluateRangeCheck(feedback: RealtimeFeedback | null, exerciseSlug: 'squat' | 'lateral-raise' | 'pushup' | 'pullup' | 'bench-press') {
   if (!feedback) return { ok: false, reason: 'Waiting for stable tracking' }
   if (feedback.lastRepReasonLabels.length > 0) {
     return { ok: false, reason: feedback.lastRepReasonLabels[0] ?? 'Form needs correction' }
@@ -1384,6 +1538,12 @@ function evaluateRangeCheck(feedback: RealtimeFeedback | null, exerciseSlug: 'sq
   }
   if (exerciseSlug === 'pushup' && typeof feedback.kneeAngle === 'number' && feedback.kneeAngle <= 95) {
     return { ok: true, reason: 'Push-up depth reached' }
+  }
+  if (exerciseSlug === 'pullup' && typeof feedback.kneeAngle === 'number' && feedback.kneeAngle <= 95) {
+    return { ok: true, reason: 'Top position reached' }
+  }
+  if (exerciseSlug === 'bench-press' && typeof feedback.kneeAngle === 'number' && feedback.kneeAngle <= 95) {
+    return { ok: true, reason: 'Bench depth reached' }
   }
   if (exerciseSlug === 'squat' && typeof feedback.kneeAngle === 'number' && feedback.kneeAngle < 85) {
     return { ok: true, reason: 'Depth reached' }
@@ -1550,6 +1710,9 @@ function prettyMetricName(key: string) {
     mobilityScore: 'Mobility',
     rhythmScore: 'Rhythm',
     symmetryScore: 'Symmetry',
+    avgRepDurationSec: 'Avg Rep Duration',
+    fastRepCount: 'Fast Reps',
+    slowRepCount: 'Slow Reps',
     kneeAngleDeg: 'Knee Angle',
     hipAngleDeg: 'Hip Angle',
     torsoFromVerticalDeg: 'Torso Angle',
@@ -1573,12 +1736,16 @@ function formatDuration(ms: number) {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
-function getSessionComment(accuracyPct: number, reps: number, exerciseSlug: 'squat' | 'lateral-raise' | 'pushup') {
+function getSessionComment(accuracyPct: number, reps: number, exerciseSlug: 'squat' | 'lateral-raise' | 'pushup' | 'pullup' | 'bench-press') {
   if (reps <= 0) {
     return exerciseSlug === 'lateral-raise'
       ? 'No completed reps were detected. Raise both arms to shoulder level with a steady tempo.'
       : exerciseSlug === 'pushup'
         ? 'No completed reps were detected. Lower until elbows bend deeper, then press up in one line.'
+        : exerciseSlug === 'pullup'
+          ? 'No completed reps were detected. Pull with full range and lower under control.'
+          : exerciseSlug === 'bench-press'
+            ? 'No completed reps were detected. Lower to stable depth and press with a controlled path.'
       : 'No completed reps were detected. Try a full-depth squat with a steady tempo.'
   }
   if (accuracyPct >= 90) return 'Excellent consistency. Keep the same depth and tempo in your next set.'
@@ -1654,13 +1821,112 @@ function buildSquatReplaySuggestions(
     if ((feedback.trackingQuality ?? 0) < 0.5) {
       suggestions.add('Place the camera at hip height, keep your full body visible, and improve front lighting.')
     }
+    const avgRepDurationSec = feedback.session.avgRepDurationSec ?? null
+    const fastRepCount = feedback.session.fastRepCount ?? 0
+    const slowRepCount = feedback.session.slowRepCount ?? 0
+    if (avgRepDurationSec !== null) {
+      if (fastRepCount >= 1 || avgRepDurationSec < 1.15) {
+        suggestions.add('Your squat tempo is a bit fast. Aim for about 2s down, brief pause, and controlled rise.')
+      } else if (slowRepCount >= 1 || avgRepDurationSec > 3.8) {
+        suggestions.add('Your squat tempo is quite slow. Keep tension, but try a smoother continuous rhythm per rep.')
+      } else {
+        suggestions.add('Tempo looks stable. Keep this rhythm to maintain depth control and consistent form.')
+      }
+    }
   }
 
   if (suggestions.size === 0) suggestions.add(fallbackSuggestion.trim())
   return Array.from(suggestions).slice(0, 5)
 }
 
-function buildLiveSuggestions(feedback: RealtimeFeedback | null, fallbackSuggestion: string, exerciseSlug: 'squat' | 'lateral-raise' | 'pushup') {
+function analyzeSquatTempoFromTimeline(
+  timelineRows: Array<{
+    frame: number
+    tMs: number
+    phase: string
+    trackingQuality: number | null
+    kneeAngleDeg: number | null
+    hipAngleDeg: number | null
+    torsoFromVerticalDeg: number | null
+  }>
+) {
+  const DESCENT_FAST_SEC = 0.7
+  const ASCENT_FAST_SEC = 0.65
+  const MIN_PHASE_SEC = 0.2
+  const DIRECTION_SWITCH_MIN_FRAMES = 2
+  let fastDescentCount = 0
+  let fastAscentCount = 0
+
+  let prevKnee: number | null = null
+  let phaseMode: 'idle' | 'descent' | 'ascent' = 'idle'
+  let phaseStartMs: number | null = null
+  let descentStreak = 0
+  let ascentStreak = 0
+
+  function resetDirectionStreak() {
+    descentStreak = 0
+    ascentStreak = 0
+  }
+
+  function maybeCountFast(phase: 'descent' | 'ascent', sec: number) {
+    if (sec < MIN_PHASE_SEC) return
+    if (phase === 'descent' && sec < DESCENT_FAST_SEC) fastDescentCount += 1
+    if (phase === 'ascent' && sec < ASCENT_FAST_SEC) fastAscentCount += 1
+  }
+
+  for (const row of timelineRows) {
+    const knee = typeof row.kneeAngleDeg === 'number' ? row.kneeAngleDeg : null
+    if (row.phase === 'bottom') {
+      if (phaseMode === 'descent' && phaseStartMs !== null) {
+        const sec = (row.tMs - phaseStartMs) / 1000
+        maybeCountFast('descent', sec)
+      }
+      phaseMode = 'idle'
+      phaseStartMs = null
+      resetDirectionStreak()
+      prevKnee = knee
+      continue
+    }
+    if (row.phase === 'up') {
+      if (phaseMode === 'ascent' && phaseStartMs !== null) {
+        const sec = (row.tMs - phaseStartMs) / 1000
+        maybeCountFast('ascent', sec)
+      }
+      phaseMode = 'idle'
+      phaseStartMs = null
+      resetDirectionStreak()
+      prevKnee = knee
+      continue
+    }
+
+    if (row.phase !== 'bottom' && knee !== null && prevKnee !== null) {
+      const diff = knee - prevKnee
+      if (diff <= -1.2) {
+        descentStreak += 1
+        ascentStreak = 0
+        if (descentStreak >= DIRECTION_SWITCH_MIN_FRAMES && phaseMode !== 'descent') {
+          phaseMode = 'descent'
+          phaseStartMs = row.tMs
+        }
+      } else if (diff >= 1.2) {
+        ascentStreak += 1
+        descentStreak = 0
+        if (ascentStreak >= DIRECTION_SWITCH_MIN_FRAMES && phaseMode !== 'ascent') {
+          phaseMode = 'ascent'
+          phaseStartMs = row.tMs
+        }
+      } else {
+        resetDirectionStreak()
+      }
+    }
+
+    prevKnee = knee
+  }
+
+  return { fastDescentCount, fastAscentCount }
+}
+
+function buildLiveSuggestions(feedback: RealtimeFeedback | null, fallbackSuggestion: string, exerciseSlug: 'squat' | 'lateral-raise' | 'pushup' | 'pullup' | 'bench-press') {
   const suggestions = new Set<string>()
   const messages = collectLiveIssueMessages(feedback)
   for (const message of messages) {
@@ -1676,13 +1942,17 @@ function buildLiveSuggestions(feedback: RealtimeFeedback | null, fallbackSuggest
         ? 'Keep your movement controlled and face the camera for balanced left-right tracking.'
         : exerciseSlug === 'pushup'
           ? 'Keep your core tight and move through a full push-up range with controlled tempo.'
+          : exerciseSlug === 'pullup'
+            ? 'Use a steady pull-up tempo and avoid body swing during both ascent and descent.'
+            : exerciseSlug === 'bench-press'
+              ? 'Keep your setup stable and press with controlled tempo through full range.'
         : 'Keep your movement controlled and maintain a stable side-view camera angle.'
     )
   }
   return Array.from(suggestions).slice(0, 4)
 }
 
-function mapSuggestionFromIssue(issue: string, exerciseSlug: 'squat' | 'lateral-raise' | 'pushup') {
+function mapSuggestionFromIssue(issue: string, exerciseSlug: 'squat' | 'lateral-raise' | 'pushup' | 'pullup' | 'bench-press') {
   const text = issue.toLowerCase()
   if (exerciseSlug === 'lateral-raise') {
     if (text.includes('torso sway')) return 'Lower the load, brace your core, and avoid swinging the torso.'
@@ -1695,6 +1965,16 @@ function mapSuggestionFromIssue(issue: string, exerciseSlug: 'squat' | 'lateral-
     if (text.includes('side-view') || text.includes('side view')) return 'Rotate to a clearer side-view to improve depth and body-line checks.'
     if (text.includes('confidence') || text.includes('frame')) return 'Improve lighting and keep your full body visible throughout each rep.'
   }
+  if (exerciseSlug === 'pullup') {
+    if (text.includes('kipping') || text.includes('sway') || text.includes('swing')) return 'Reduce swing, brace your core, and keep the pull path controlled.'
+    if (text.includes('side-view') || text.includes('side view')) return 'Rotate to a clearer side-view to improve pull-up range and alignment checks.'
+    if (text.includes('confidence') || text.includes('frame')) return 'Improve lighting and keep your full body visible throughout each rep.'
+  }
+  if (exerciseSlug === 'bench-press') {
+    if (text.includes('torso') || text.includes('bridge')) return 'Keep your torso braced and avoid excessive arch changes between reps.'
+    if (text.includes('side-view') || text.includes('side view')) return 'Rotate to a clearer side-view to improve bench depth and elbow tracking.'
+    if (text.includes('confidence') || text.includes('frame')) return 'Improve lighting and keep shoulders, elbows, wrists, and torso visible.'
+  }
   if (text.includes('torso lean')) return 'Brace your core and keep your chest up during the descent.'
   if (text.includes('knee') && text.includes('toes')) {
     return 'Your knees are drifting past toes: push hips back first, keep shins more vertical, and drive through mid-foot/heel.'
@@ -1704,9 +1984,11 @@ function mapSuggestionFromIssue(issue: string, exerciseSlug: 'squat' | 'lateral-
   return ''
 }
 
-function createAnalyzer(exerciseSlug: 'squat' | 'lateral-raise' | 'pushup'): RealtimeAnalyzer {
+function createAnalyzer(exerciseSlug: 'squat' | 'lateral-raise' | 'pushup' | 'pullup' | 'bench-press'): RealtimeAnalyzer {
   if (exerciseSlug === 'lateral-raise') return new RealtimeLateralRaiseAnalyzer()
   if (exerciseSlug === 'pushup') return new RealtimePushupAnalyzer()
+  if (exerciseSlug === 'pullup') return new RealtimePullupAnalyzer()
+  if (exerciseSlug === 'bench-press') return new RealtimeBenchPressAnalyzer()
   return new RealtimeSquatAnalyzer()
 }
 
@@ -1717,3 +1999,4 @@ function toIssueCode(message: string) {
     .replace(/^_+|_+$/g, '')
     .slice(0, 64)
 }
+

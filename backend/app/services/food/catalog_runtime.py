@@ -1,71 +1,13 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from ...extensions import db
 from ...models import FoodItem
 from .matching import FoodForMatch
 
-SEED_FOODS = [
-    {
-        "name": "rice",
-        "display_name": "Steamed Rice",
-        "calories": 116,
-        "protein": 2.6,
-        "fat": 0.3,
-        "carbs": 25.9,
-        "category": "Staples",
-        "aliases": "steamed rice,white rice",
-    },
-    {
-        "name": "banana",
-        "display_name": "Banana",
-        "calories": 89,
-        "protein": 1.1,
-        "fat": 0.3,
-        "carbs": 22.8,
-        "category": "Fruits & Vegetables",
-        "aliases": "",
-    },
-    {
-        "name": "egg",
-        "display_name": "Egg",
-        "calories": 143,
-        "protein": 13.0,
-        "fat": 9.5,
-        "carbs": 0.7,
-        "category": "Protein & Dairy",
-        "aliases": "boiled egg",
-    },
-    {
-        "name": "chicken breast",
-        "display_name": "Chicken Breast",
-        "calories": 165,
-        "protein": 31.0,
-        "fat": 3.6,
-        "carbs": 0.0,
-        "category": "Protein & Dairy",
-        "aliases": "chicken",
-    },
-    {
-        "name": "broccoli",
-        "display_name": "Broccoli",
-        "calories": 34,
-        "protein": 2.8,
-        "fat": 0.4,
-        "carbs": 6.6,
-        "category": "Fruits & Vegetables",
-        "aliases": "",
-    },
-    {
-        "name": "pizza",
-        "display_name": "Pizza",
-        "calories": 266,
-        "protein": 11.0,
-        "fat": 10.0,
-        "carbs": 33.0,
-        "category": "Western Dishes",
-        "aliases": "beef pizza,hawaiian pizza",
-    },
-]
+SEED_FOODS_JSON_PATH = Path(__file__).with_name("seed_foods.json")
 
 BROKEN_TEXT_MAP = {
     "\u7eeb\u62bd\u30ad": "Steamed Rice",
@@ -90,13 +32,83 @@ def normalize_food_text(value: str | None) -> str:
     return BROKEN_TEXT_MAP.get(value, value)
 
 
-def ensure_food_seed_data() -> None:
-    if FoodItem.query.count() > 0:
-        return
+def _load_seed_foods() -> list[dict]:
+    if not SEED_FOODS_JSON_PATH.exists():
+        raise RuntimeError(f"seed foods json not found: {SEED_FOODS_JSON_PATH}")
 
-    for payload in SEED_FOODS:
+    try:
+        raw = json.loads(SEED_FOODS_JSON_PATH.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise RuntimeError("seed foods json invalid") from exc
+
+    raw_items = raw.get("foods") if isinstance(raw, dict) else raw
+    if not isinstance(raw_items, list):
+        raise RuntimeError("seed foods json must be a list or {foods: []}")
+
+    normalized: list[dict] = []
+    for item in raw_items:
+        if not isinstance(item, dict):
+            continue
+        display_name = str(item.get("name") or "").strip()
+        category = str(item.get("category") or "").strip()
+        aliases_value = item.get("aliases") or ""
+        try:
+            calories = float(item.get("calories"))
+            protein = float(item.get("protein", 0))
+            fat = float(item.get("fat", 0))
+            carbs = float(item.get("carbs", 0))
+        except (TypeError, ValueError):
+            continue
+
+        if not display_name or not category:
+            continue
+
+        aliases: str
+        if isinstance(aliases_value, list):
+            aliases = ",".join(str(value).strip() for value in aliases_value if str(value).strip())
+        else:
+            aliases = str(aliases_value).strip()
+
+        canonical_name = " ".join(display_name.lower().split())
+        normalized.append(
+            {
+                "name": canonical_name[:100],
+                "display_name": display_name,
+                "calories": calories,
+                "protein": protein,
+                "fat": fat,
+                "carbs": carbs,
+                "category": category,
+                "aliases": aliases,
+            }
+        )
+
+    if not normalized:
+        raise RuntimeError("seed foods json contains no valid items")
+    return normalized
+
+
+def ensure_food_seed_data() -> None:
+    seeds = _load_seed_foods()
+    existing = {
+        value.lower().strip()
+        for (value,) in db.session.query(FoodItem.name).all()
+        if isinstance(value, str) and value.strip()
+    }
+    added = 0
+    for payload in seeds:
+        name = (payload.get("name") or "").strip()
+        if not name:
+            continue
+        key = name.lower().strip()
+        if key in existing:
+            continue
         db.session.add(FoodItem(**payload))
-    db.session.commit()
+        existing.add(key)
+        added += 1
+
+    if added:
+        db.session.commit()
 
 
 def serialize_food(food: FoodItem) -> dict:

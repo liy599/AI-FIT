@@ -1169,6 +1169,7 @@ function buildSquatVideoLiveStyleReport(input: {
   let lastFeedback: RealtimeFeedback | null = null
   let analyzedFrameCount = 0
   const messageFreq = new Map<string, number>()
+  const trackingQualitySamples: number[] = []
   const timelineRows: Array<{
     frame: number
     tMs: number
@@ -1186,6 +1187,7 @@ function buildSquatVideoLiveStyleReport(input: {
       const feedback = analyzer.analyze(frame.landmarks)
       lastFeedback = feedback
       analyzedFrameCount += 1
+      if (Number.isFinite(feedback.trackingQuality)) trackingQualitySamples.push(feedback.trackingQuality)
       for (const message of collectLiveIssueMessages(feedback)) {
         const text = message.trim()
         if (!text) continue
@@ -1209,11 +1211,28 @@ function buildSquatVideoLiveStyleReport(input: {
   const sortedIssues = Array.from(messageFreq.entries())
     .sort((a, b) => b[1] - a[1])
     .slice(0, 6)
+  const avgTrackingQuality =
+    trackingQualitySamples.length > 0
+      ? trackingQualitySamples.reduce((acc, value) => acc + value, 0) / trackingQualitySamples.length
+      : 0
   const fallbackSuggestion = 'Keep a steady tempo and align your knees with your toes.'
   const currentSuggestion = lastFeedback
     ? lastFeedback.warnings[0] ?? lastFeedback.issues[0]?.message ?? lastFeedback.lastRepMessage ?? fallbackSuggestion
     : 'No valid pose frames were detected. Keep your full body in frame and try another video.'
-  const issueMessages = sortedIssues.map(([message]) => message)
+  const issueMessages = sortedIssues
+    .filter(([message, count]) => {
+      const ratio = analyzedFrameCount > 0 ? count / analyzedFrameCount : 0
+      const text = message.toLowerCase()
+      const isSideViewWarn = text.includes('side view')
+      const isLowConfidenceWarn = text.includes('low keypoint confidence')
+
+      // Reduce false positives on generally stable clips: only keep these warnings when persistent.
+      if ((isSideViewWarn || isLowConfidenceWarn) && avgTrackingQuality >= 0.62) {
+        return ratio >= 0.35
+      }
+      return true
+    })
+    .map(([message]) => message)
   const issues =
     issueMessages.length > 0
       ? issueMessages.map((message) => {
@@ -1274,6 +1293,7 @@ function buildSquatVideoLiveStyleReport(input: {
       torsoAngle: lastFeedback?.torsoAngle ?? null,
       offsetAngle: lastFeedback?.offsetAngle ?? null,
       trackingQuality: lastFeedback?.trackingQuality ?? null,
+      avgTrackingQuality: Math.round(avgTrackingQuality * 100) / 100,
       currentSuggestion,
       warnings: lastFeedback?.warnings ?? [],
       timelineSampled
@@ -1611,8 +1631,14 @@ function buildSquatReplaySuggestions(
   fallbackSuggestion: string
 ) {
   const suggestions = new Set<string>()
+  const prioritizedIssues = [...sortedIssues].sort((a, b) => {
+    const aKnee = a[0].toLowerCase().includes('knee is noticeably past the toes') ? 1 : 0
+    const bKnee = b[0].toLowerCase().includes('knee is noticeably past the toes') ? 1 : 0
+    if (aKnee !== bKnee) return bKnee - aKnee
+    return b[1] - a[1]
+  })
 
-  for (const [message] of sortedIssues) {
+  for (const [message] of prioritizedIssues) {
     const mapped = mapSuggestionFromIssue(message, 'squat')
     if (mapped) suggestions.add(mapped)
     if (suggestions.size >= 4) break
@@ -1670,7 +1696,9 @@ function mapSuggestionFromIssue(issue: string, exerciseSlug: 'squat' | 'lateral-
     if (text.includes('confidence') || text.includes('frame')) return 'Improve lighting and keep your full body visible throughout each rep.'
   }
   if (text.includes('torso lean')) return 'Brace your core and keep your chest up during the descent.'
-  if (text.includes('knee') && text.includes('toes')) return 'Push hips back first, keep shins more vertical, and drive through mid-foot/heel.'
+  if (text.includes('knee') && text.includes('toes')) {
+    return 'Your knees are drifting past toes: push hips back first, keep shins more vertical, and drive through mid-foot/heel.'
+  }
   if (text.includes('side view')) return 'Set the camera exactly side-on at hip height, 2-3 meters away, with your full body always in frame.'
   if (text.includes('confidence') || text.includes('frame')) return 'Use brighter front lighting and step back so ankles, knees, hips, and shoulders stay visible.'
   return ''

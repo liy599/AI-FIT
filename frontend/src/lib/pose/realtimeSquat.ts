@@ -42,16 +42,26 @@ const LM = {
   right: { shoulder: 12, hip: 24, knee: 26, ankle: 28, heel: 30, footIndex: 32, nose: 0, rShoulder: 11 }
 }
 
+const KNEE_OVER_TOE_WARN_RATIO = 0.06
+const KNEE_OVER_TOE_FAIL_RATIO = 0.11
+const KNEE_OVER_TOE_FAIL_MIN_FRAMES = 3
+
 export class RealtimeSquatAnalyzer {
   private repCount = 0
   private correctCount = 0
   private incorrectCount = 0
+  private kneeOverToeRepCount = 0
   private currentState: 's1' | 's2' | 's3' | null = null
   private lastRepResult: 'correct' | 'incorrect' | null = null
   private lastRepMessage: string | null = null
+  private lastRepReasonCodes: string[] = []
+  private lastRepReasonLabels: string[] = []
+  private lastRepCorrections: string[] = []
   private lastRepFrameCount: number | null = null
   private enteredBottom = false
   private frameCount = 0
+  private repPeakKneeOverToeRatio = 0
+  private repKneeOverToeHardFrames = 0
 
   analyze(landmarks: NormalizedLandmark[]): RealtimeFeedback {
     const side = this.chooseSide(landmarks)
@@ -89,6 +99,7 @@ export class RealtimeSquatAnalyzer {
     const issues: Array<{ message: string; joints: number[] }> = []
     const isCountingPaused = trackingQuality < 0.45 || kneeVerticalAngle === null || torsoAngle === null
     const nextState = isCountingPaused ? this.currentState : this.detectState(kneeAngle)
+    let kneeOverToeRatio: number | null = null
 
     if (offsetAngle !== null && offsetAngle > 55) {
       warnings.push('Try to stay in a clear side view for more stable tracking.')
@@ -101,11 +112,13 @@ export class RealtimeSquatAnalyzer {
     }
     if (knee !== undefined && footIndex !== undefined && hip !== undefined && ankle !== undefined) {
       const dir = Math.sign((ankle.x - hip.x) || 1)
-      const kneeOverToeRatio = (knee.x - footIndex.x) * dir
-      if (kneeOverToeRatio > 0.06) issues.push({ message: 'Knee is noticeably past the toes', joints: [idx.knee, idx.footIndex] })
+      kneeOverToeRatio = (knee.x - footIndex.x) * dir
+      if (kneeOverToeRatio > KNEE_OVER_TOE_WARN_RATIO) {
+        issues.push({ message: 'Knee is noticeably past the toes', joints: [idx.knee, idx.footIndex] })
+      }
     }
 
-    this.updateState(nextState)
+    this.updateState(nextState, kneeOverToeRatio, isCountingPaused)
     const primaryIssue = issues[0]?.message ?? null
     const primaryWarn = warnings[0] ?? null
 
@@ -125,9 +138,9 @@ export class RealtimeSquatAnalyzer {
       stateSequence: [],
       lastRepResult: this.lastRepResult,
       lastRepMessage: this.lastRepMessage ?? primaryIssue ?? primaryWarn,
-      lastRepReasonCodes: [],
-      lastRepReasonLabels: [],
-      lastRepCorrections: [],
+      lastRepReasonCodes: this.lastRepReasonCodes,
+      lastRepReasonLabels: this.lastRepReasonLabels,
+      lastRepCorrections: this.lastRepCorrections,
       correctCount: this.correctCount,
       incorrectCount: this.incorrectCount,
       repCount: this.repCount,
@@ -139,7 +152,7 @@ export class RealtimeSquatAnalyzer {
         incorrectReps: this.incorrectCount,
         accuracyPct: this.repCount > 0 ? Math.round((this.correctCount / this.repCount) * 100) : 0,
         depthInsufficientCount: 0,
-        kneeOverToeCount: 0,
+        kneeOverToeCount: this.kneeOverToeRepCount,
         forwardLeanCount: 0,
         backwardLeanCount: 0,
         sideViewWarningCount: 0
@@ -151,26 +164,58 @@ export class RealtimeSquatAnalyzer {
     this.repCount = 0
     this.correctCount = 0
     this.incorrectCount = 0
+    this.kneeOverToeRepCount = 0
     this.currentState = null
     this.lastRepResult = null
     this.lastRepMessage = null
+    this.lastRepReasonCodes = []
+    this.lastRepReasonLabels = []
+    this.lastRepCorrections = []
     this.lastRepFrameCount = null
     this.enteredBottom = false
     this.frameCount = 0
+    this.repPeakKneeOverToeRatio = 0
+    this.repKneeOverToeHardFrames = 0
   }
 
-  private updateState(nextState: 's1' | 's2' | 's3' | null) {
+  private updateState(nextState: 's1' | 's2' | 's3' | null, kneeOverToeRatio: number | null, isCountingPaused: boolean) {
     if (nextState === null) return
     this.frameCount += 1
+    if (!isCountingPaused && typeof kneeOverToeRatio === 'number' && Number.isFinite(kneeOverToeRatio) && kneeOverToeRatio > 0) {
+      this.repPeakKneeOverToeRatio = Math.max(this.repPeakKneeOverToeRatio, kneeOverToeRatio)
+      if (kneeOverToeRatio >= KNEE_OVER_TOE_FAIL_RATIO) this.repKneeOverToeHardFrames += 1
+    }
     if (nextState === 's3') this.enteredBottom = true
     if (this.currentState !== 's1' && nextState === 's1' && this.enteredBottom) {
       this.repCount += 1
-      this.correctCount += 1
-      this.lastRepResult = 'correct'
-      this.lastRepMessage = 'Rep completed. Keep the tempo steady.'
+      const kneeOverToeFailed =
+        this.repPeakKneeOverToeRatio >= KNEE_OVER_TOE_FAIL_RATIO && this.repKneeOverToeHardFrames >= KNEE_OVER_TOE_FAIL_MIN_FRAMES
+
+      if (kneeOverToeFailed) {
+        this.incorrectCount += 1
+        this.kneeOverToeRepCount += 1
+        this.lastRepResult = 'incorrect'
+        this.lastRepMessage = 'Rep failed: knees drifted too far past toes.'
+        this.lastRepReasonCodes = ['KNEE_OVER_TOE_EXCESSIVE']
+        this.lastRepReasonLabels = ['Knees drifted too far past toes']
+        this.lastRepCorrections = ['Push hips back first and keep shins more vertical.']
+      } else {
+        this.correctCount += 1
+        this.lastRepResult = 'correct'
+        this.lastRepMessage = 'Rep completed. Keep the tempo steady.'
+        this.lastRepReasonCodes = []
+        this.lastRepReasonLabels = []
+        this.lastRepCorrections = []
+      }
       this.lastRepFrameCount = this.frameCount
       this.frameCount = 0
       this.enteredBottom = false
+      this.repPeakKneeOverToeRatio = 0
+      this.repKneeOverToeHardFrames = 0
+    }
+    if (this.currentState === 's1' && nextState === 's2') {
+      this.repPeakKneeOverToeRatio = 0
+      this.repKneeOverToeHardFrames = 0
     }
     this.currentState = nextState
   }

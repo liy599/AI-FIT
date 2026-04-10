@@ -4,11 +4,12 @@ import { useAuth } from '../state/auth-context'
 import { chooseMotionStandard } from '../lib/pose/analysisSelector'
 import { drawDistanceGuide, drawMidpointSkeleton } from '../lib/pose/draw'
 import { DistanceTracker, type DistanceState } from '../lib/pose/distanceTracker'
-import { buildPoseGuidePath, buildPoseHistoryPath, getPoseExerciseBySlug } from '../lib/pose/exercises'
+import { buildPoseGuidePath, buildPoseHistoryPath, buildPoseReportPath, getPoseExerciseBySlug } from '../lib/pose/exercises'
 import { analyzeGenericMotion } from '../lib/pose/genericMotion'
 import { createBestRealtimePoseProvider, type RealtimePoseProvider } from '../lib/pose/livePoseProvider'
-import { extractPose33FromVideoUrl } from '../lib/pose/mediapipePose'
+import { extractPose33FromVideoUrl, type PoseFrame } from '../lib/pose/mediapipePose'
 import { buildMotionStandardCompareReport } from '../lib/pose/motionStandardCompareReport'
+import { extractPose33FromVideoUrlWithMoveNet } from '../lib/pose/movenetPose'
 import { mediapipeToMoveNetFrame, MoveNetStabilizer, type TrackingState } from '../lib/pose/movenetTracker'
 import { buildGenericMotionReport, type PoseAnalysisReport } from '../lib/pose/report'
 import { RealtimeSquatAnalyzer, type RealtimeFeedback } from '../lib/pose/realtimeSquat'
@@ -68,6 +69,7 @@ export default function PoseToolPage() {
   const previewUrlRef = useRef<string | null>(null)
   const previewScaleRef = useRef(0.86)
   const previewMirrorRef = useRef(true)
+  const offlineFileInputRef = useRef<HTMLInputElement | null>(null)
   const feedbackRef = useRef<RealtimeFeedback | null>(null)
   const liveProviderRef = useRef<RealtimePoseProvider | null>(null)
   const liveProviderPromiseRef = useRef<Promise<RealtimePoseProvider> | null>(null)
@@ -94,13 +96,16 @@ export default function PoseToolPage() {
   const [offlineViewAngle, setOfflineViewAngle] = useState<'unknown' | 'front' | 'side' | 'back'>(
     exercise.slug === 'lateral-raise' ? 'front' : 'side'
   )
-  const [offlineInstruction, setOfflineInstruction] = useState('')
   const [offlineTask, setOfflineTask] = useState<PoseAnalysisTask | null>(null)
   const [offlineProgress, setOfflineProgress] = useState<OfflineProgress>(null)
   const [offlineBusy, setOfflineBusy] = useState(false)
   const [offlineError, setOfflineError] = useState<string | null>(null)
   const [offlineReport, setOfflineReport] = useState<PoseAnalysisReport | null>(null)
   const [offlineStatusMsg, setOfflineStatusMsg] = useState<string | null>(null)
+  const [offlineReportSessionId, setOfflineReportSessionId] = useState<number | null>(null)
+  const [offlineArchiveStatus, setOfflineArchiveStatus] = useState<'idle' | 'saving' | 'done' | 'failed'>('idle')
+  const [offlineRunStarted, setOfflineRunStarted] = useState(false)
+  const [offlineCompletedStep, setOfflineCompletedStep] = useState(0)
 
   useEffect(() => {
     previewScaleRef.current = previewScale
@@ -137,9 +142,12 @@ export default function PoseToolPage() {
     setLiveSessionElapsedMs(0)
     setOfflineTask(null)
     setOfflineReport(null)
+    setOfflineReportSessionId(null)
+    setOfflineArchiveStatus('idle')
+    setOfflineRunStarted(false)
+    setOfflineCompletedStep(0)
     setOfflineError(null)
     setOfflineStatusMsg(null)
-    setOfflineInstruction('')
     setOfflineViewAngle(exercise.slug === 'lateral-raise' ? 'front' : 'side')
   }, [exercise.slug])
 
@@ -493,6 +501,10 @@ export default function PoseToolPage() {
     setOfflineFile(file)
     setOfflineTask(null)
     setOfflineReport(null)
+    setOfflineReportSessionId(null)
+    setOfflineArchiveStatus('idle')
+    setOfflineRunStarted(false)
+    setOfflineCompletedStep(0)
     setOfflineError(null)
     setOfflineStatusMsg(null)
     setOfflineProgress(null)
@@ -524,8 +536,12 @@ export default function PoseToolPage() {
     }
 
     setOfflineBusy(true)
+    setOfflineRunStarted(true)
+    setOfflineCompletedStep(0)
     setOfflineError(null)
     setOfflineReport(null)
+    setOfflineReportSessionId(null)
+    setOfflineArchiveStatus('idle')
     setOfflineStatusMsg(null)
     setOfflineProgress({ stage: 'Uploading video', processed: 0, total: 1 })
 
@@ -534,70 +550,123 @@ export default function PoseToolPage() {
 
     try {
       const video = await uploadPoseVideo(offlineFile)
+      setOfflineCompletedStep(1)
       setOfflineStatusMsg('Video uploaded. Creating an analysis task...')
       setOfflineProgress({ stage: 'Creating task', processed: 1, total: 1 })
 
+      const effectiveViewAngle: 'unknown' | 'front' | 'side' | 'back' = exercise.slug === 'squat' ? 'side' : offlineViewAngle
       const task = await createPoseAnalysisTask({
         video_asset_id: video.id,
         exercise_type: exercise.exerciseType,
-        view_angle: offlineViewAngle,
-        instruction: offlineInstruction.trim() || undefined
+        view_angle: effectiveViewAngle
       })
       taskId = task.id
       setOfflineTask(task)
+      setOfflineCompletedStep(2)
 
       serverObjectUrl = await createPoseVideoObjectUrl(video)
-      const extracted = await extractPose33FromVideoUrl(serverObjectUrl, {
-        onProgress: (p) => {
-          setOfflineProgress({
-            stage: p.stage === 'loading' ? 'Loading MediaPipe model' : 'Extracting pose keypoints',
-            processed: p.processed,
-            total: p.total
-          })
-        }
-      })
+      const extracted =
+        exercise.slug === 'squat'
+          ? await extractPose33FromVideoUrlWithMoveNet(serverObjectUrl, {
+              onProgress: (p) => {
+                setOfflineProgress({
+                  stage: p.stage === 'loading' ? 'Loading MoveNet model' : 'Extracting pose keypoints',
+                  processed: p.processed,
+                  total: p.total
+                })
+              }
+            })
+          : await extractPose33FromVideoUrl(serverObjectUrl, {
+              onProgress: (p) => {
+                setOfflineProgress({
+                  stage: p.stage === 'loading' ? 'Loading MediaPipe model' : 'Extracting pose keypoints',
+                  processed: p.processed,
+                  total: p.total
+                })
+              }
+            })
+      setOfflineCompletedStep(3)
 
-      const standard = chooseMotionStandard({ viewAngle: offlineViewAngle, exerciseName: exercise.exerciseType })
-      setOfflineProgress({ stage: standard ? 'Comparing with motion standard' : 'Generic motion analysis', processed: 1, total: 1 })
-
-      const report = standard
-        ? buildMotionStandardCompareReport({
-            taskId: String(task.id),
-            viewAngle: offlineViewAngle,
-            instruction: offlineInstruction.trim() || null,
-            exercise: { id: exercise.id, name: exercise.exerciseType },
-            video: {
-              id: String(video.id),
-              originalName: video.original_name,
-              mimeType: video.mime_type,
-              sizeBytes: video.size_bytes
-            },
-            fps: extracted.fps,
-            frames: extracted.frames,
-            standard
-          })
-        : buildGenericMotionReport({
-            taskId: String(task.id),
-            viewAngle: offlineViewAngle,
-            instruction: offlineInstruction.trim() || null,
-            exercise: { id: exercise.id, name: exercise.exerciseType },
-            video: {
-              id: String(video.id),
-              originalName: video.original_name,
-              mimeType: video.mime_type,
-              sizeBytes: video.size_bytes
-            },
-            fps: extracted.fps,
-            analysis: analyzeGenericMotion(extracted.frames)
-          })
+      const report =
+        exercise.slug === 'squat'
+          ? buildSquatVideoLiveStyleReport({
+              taskId: String(task.id),
+              viewAngle: effectiveViewAngle,
+              exercise: { id: exercise.id, name: exercise.exerciseType },
+              video: {
+                id: String(video.id),
+                originalName: video.original_name,
+                mimeType: video.mime_type,
+                sizeBytes: video.size_bytes
+              },
+              fps: extracted.fps,
+              frames: extracted.frames,
+              onProgress: (processed, total) => {
+                setOfflineProgress({ stage: 'Replaying real-time squat analyzer', processed, total })
+              }
+            })
+          : (() => {
+              const standard = chooseMotionStandard({ viewAngle: effectiveViewAngle, exerciseName: exercise.exerciseType })
+              setOfflineProgress({ stage: standard ? 'Comparing with motion standard' : 'Generic motion analysis', processed: 1, total: 1 })
+              return standard
+                ? buildMotionStandardCompareReport({
+                    taskId: String(task.id),
+                    viewAngle: effectiveViewAngle,
+                    instruction: null,
+                    exercise: { id: exercise.id, name: exercise.exerciseType },
+                    video: {
+                      id: String(video.id),
+                      originalName: video.original_name,
+                      mimeType: video.mime_type,
+                      sizeBytes: video.size_bytes
+                    },
+                    fps: extracted.fps,
+                    frames: extracted.frames,
+                    standard
+                  })
+                : buildGenericMotionReport({
+                    taskId: String(task.id),
+                    viewAngle: effectiveViewAngle,
+                    instruction: null,
+                    exercise: { id: exercise.id, name: exercise.exerciseType },
+                    video: {
+                      id: String(video.id),
+                      originalName: video.original_name,
+                      mimeType: video.mime_type,
+                      sizeBytes: video.size_bytes
+                    },
+                    fps: extracted.fps,
+                    analysis: analyzeGenericMotion(extracted.frames)
+                  })
+            })()
+      setOfflineCompletedStep(4)
 
       setOfflineProgress({ stage: 'Writing back results', processed: 1, total: 1 })
       const completed = await completePoseAnalysisTask(task.id, report as unknown as Record<string, unknown>)
       setOfflineTask(completed)
       setOfflineReport(report)
-      setOfflineStatusMsg('Offline analysis completed. Results have been saved to the backend.')
+      setOfflineCompletedStep(5)
+      try {
+        setOfflineArchiveStatus('saving')
+        const reps = getRepsFromReport(report)
+        const session = await createPoseTraining({
+          started_at: new Date(Date.now() - Math.max(1000, Math.round((extracted.frames.length / Math.max(1, extracted.fps)) * 1000))).toISOString(),
+          ended_at: new Date().toISOString(),
+          exercise_type: exercise.exerciseType,
+          note: `Saved from video analysis task #${task.id}`,
+          sets: [{ reps, note: 'Auto-saved from video analysis report' }],
+          report: report as Record<string, unknown>
+        })
+        setOfflineReportSessionId(session.id)
+        setOfflineArchiveStatus('done')
+        setOfflineCompletedStep(6)
+        setOfflineStatusMsg('Video analysis completed and archived. You can open the detailed report or training history.')
+      } catch {
+        setOfflineArchiveStatus('failed')
+        setOfflineStatusMsg('Video analysis completed. Report is ready; training archive save failed this time.')
+      }
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Offline analysis failed'
+      const message = e instanceof Error ? e.message : 'Video analysis failed'
       setOfflineError(message)
       if (taskId !== null) {
         try {
@@ -614,6 +683,50 @@ export default function PoseToolPage() {
     }
   }
 
+  const currentViewAngle = exercise.slug === 'squat' ? 'side' : offlineViewAngle
+  const taskStatusText = offlineBusy
+    ? 'Analyzing video...'
+    : offlineTask?.status === 'succeeded'
+      ? 'Completed'
+      : offlineTask?.status === 'failed'
+        ? 'Failed'
+        : offlineTask?.status === 'running'
+          ? 'Processing'
+          : offlineTask?.status === 'uploaded'
+            ? 'Uploaded, waiting for analysis'
+            : 'Ready to analyze'
+  const taskStatusToneClass = offlineBusy
+    ? 'pose-status-pill-info'
+    : offlineTask?.status === 'succeeded'
+      ? 'pose-status-pill-success'
+      : offlineTask?.status === 'failed'
+        ? 'pose-status-pill-danger'
+        : offlineTask?.status === 'running'
+          ? 'pose-status-pill-info'
+          : 'pose-status-pill-muted'
+  const analysisStarted = offlineRunStarted || offlineCompletedStep > 0 || offlineBusy || !!offlineTask || !!offlineReport
+  const progressStage = (offlineProgress?.stage ?? '').toLowerCase()
+  const progressStep =
+    progressStage.includes('upload')
+      ? 1
+      : progressStage.includes('creating task')
+        ? 2
+        : progressStage.includes('loading movenet') || progressStage.includes('loading mediapipe') || progressStage.includes('extracting pose keypoints')
+          ? 3
+          : progressStage.includes('replaying') || progressStage.includes('comparing') || progressStage.includes('generic motion')
+            ? 4
+            : progressStage.includes('writing back')
+              ? 5
+              : 0
+  const checklist = [
+    { label: 'Upload video', done: offlineCompletedStep >= 1 || progressStep >= 2 },
+    { label: 'Create analysis task', done: offlineCompletedStep >= 2 || progressStep >= 3 },
+    { label: 'Extract pose keypoints', done: offlineCompletedStep >= 3 || progressStep >= 4 },
+    { label: 'Run motion analysis', done: offlineCompletedStep >= 4 || progressStep >= 5 },
+    { label: 'Save analysis report', done: offlineCompletedStep >= 5 || !!offlineReport },
+    { label: 'Archive to training history', done: offlineArchiveStatus === 'done', failed: offlineArchiveStatus === 'failed', saving: offlineArchiveStatus === 'saving' }
+  ]
+
   return (
     <>
       <section className="cl_breadcrumb-area">
@@ -627,7 +740,7 @@ export default function PoseToolPage() {
                     <Link to="/">Home</Link>
                     <span><Link to="/tools/pose">Pose</Link></span>
                     <span><Link to={buildPoseGuidePath(exercise.slug)}>{exercise.displayName}</Link></span>
-                    <span>{mode === 'live' ? 'Live Coaching' : 'Offline Video Analysis'}</span>
+                    <span>{mode === 'live' ? 'Live Coaching' : 'Video Analysis'}</span>
                   </div>
                 </div>
               </div>
@@ -643,7 +756,7 @@ export default function PoseToolPage() {
               Live Coaching
             </button>
             <button className={mode === 'offline' ? 'cl_theme-btn' : 'pose-tool-ghost-btn pose-tool-light-btn'} onClick={() => setMode('offline')} type="button">
-              Offline Video Analysis
+              Video Analysis
             </button>
             <Link to={buildPoseHistoryPath(exercise.slug)} className="pose-tool-ghost-btn pose-tool-light-btn">
               Training History
@@ -878,12 +991,12 @@ export default function PoseToolPage() {
             </div>
           ) : (
             <div className="row">
-              <div className="col-xl-7 col-lg-7">
+              <div className="col-12">
                 <div className="cl_blog-widget mb-30">
                   <div className="pose-tool-head">
                     <div>
-                      <h4 className="cl_blog-widget-title mb-15">Offline Video Analysis</h4>
-                      <p className="pose-tool-subtitle pose-tool-subtitle-dark">Upload a video and extract keypoints with MediaPipe in the browser, then save the report to the backend.</p>
+                      <h4 className="cl_blog-widget-title mb-15">Video Analysis</h4>
+                      <p className="pose-tool-subtitle pose-tool-subtitle-dark">Upload a fixed video, extract pose keypoints frame by frame, replay the real-time analyzer logic, and archive the same-style report.</p>
                     </div>
                   </div>
 
@@ -891,32 +1004,38 @@ export default function PoseToolPage() {
                     <label className="pose-form-field">
                       <span>Video File</span>
                       <input
+                        ref={offlineFileInputRef}
                         accept="video/mp4,video/quicktime,video/webm,video/x-matroska"
                         onChange={(e) => handleOfflineFileChange(e.target.files?.[0] ?? null)}
                         type="file"
+                        className="pose-file-input-hidden"
                       />
+                      <div className="pose-file-picker">
+                        <button
+                          type="button"
+                          className="pose-tool-ghost-btn pose-tool-light-btn"
+                          onClick={() => offlineFileInputRef.current?.click()}
+                        >
+                          Choose Video
+                        </button>
+                        <span className="pose-file-picker__name">{offlineFile ? offlineFile.name : 'No file selected'}</span>
+                      </div>
                     </label>
 
                     <label className="pose-form-field">
                       <span>View Angle</span>
-                      <select value={offlineViewAngle} onChange={(e) => setOfflineViewAngle(e.target.value as 'unknown' | 'front' | 'side' | 'back')}>
-                        <option value="side">Side</option>
-                        <option value="front">Front</option>
-                        <option value="back">Back</option>
-                        <option value="unknown">Unknown</option>
-                      </select>
+                      {exercise.slug === 'squat' ? (
+                        <input value="Side (required)" readOnly />
+                      ) : (
+                        <select value={offlineViewAngle} onChange={(e) => setOfflineViewAngle(e.target.value as 'unknown' | 'front' | 'side' | 'back')}>
+                          <option value="side">Side</option>
+                          <option value="front">Front</option>
+                          <option value="back">Back</option>
+                          <option value="unknown">Unknown</option>
+                        </select>
+                      )}
                     </label>
                   </div>
-
-                  <label className="pose-form-field">
-                    <span>Instruction</span>
-                    <textarea
-                      placeholder={exercise.offlineInstructionPlaceholder}
-                      rows={4}
-                      value={offlineInstruction}
-                      onChange={(e) => setOfflineInstruction(e.target.value)}
-                    />
-                  </label>
 
                   <div className="pose-export-row">
                     <button className="cl_theme-btn" disabled={offlineBusy} onClick={() => void runOfflineAnalysis()} type="button">
@@ -944,21 +1063,55 @@ export default function PoseToolPage() {
                 </div>
               </div>
 
-              <div className="col-xl-5 col-lg-5">
-                <div className="cl_blog-widget mb-30">
-                  <h4 className="cl_blog-widget-title mb-30">Task Snapshot</h4>
-                  <ul className="pose-detail-list pose-detail-list-light">
-                    <li>Account: {user ? `Signed in as ${user.username}` : 'Not signed in'}</li>
-                    <li>Exercise: {exercise.exerciseType}</li>
-                    <li>Task Status: {offlineTask?.status ?? '-'}</li>
-                    <li>View Angle: {offlineTask?.view_angle ?? offlineViewAngle}</li>
-                    <li>File: {offlineFile ? `${offlineFile.name} (${Math.round(offlineFile.size / 1024 / 1024)} MB)` : '-'}</li>
-                  </ul>
-                </div>
-
+              <div className="col-12">
                 <div className="cl_blog-widget mb-30">
                   <h4 className="cl_blog-widget-title mb-30">Analysis Report</h4>
-                  {offlineReport ? <ReportVisualization report={offlineReport} /> : <p className="pose-muted-copy">No offline analysis report yet.</p>}
+                  <div className="pose-report-overview">
+                    <span className={`pose-status-pill ${taskStatusToneClass}`}>{taskStatusText}</span>
+                    <span className="pose-status-pill pose-status-pill-muted">View: {offlineTask?.view_angle ?? currentViewAngle}</span>
+                    <span className="pose-status-pill pose-status-pill-muted">Video: {offlineFile ? `${Math.round(offlineFile.size / 1024 / 1024)} MB` : 'Not selected'}</span>
+                  </div>
+                  {analysisStarted ? (
+                    <div className="pose-task-checklist">
+                      {checklist.map((item) => (
+                        <div
+                          key={item.label}
+                          className={`pose-task-checklist__item${item.done ? ' is-done' : ''}${item.failed ? ' is-failed' : ''}`}
+                        >
+                          <span className="pose-task-checklist__icon">{item.done ? '✓' : item.failed ? '!' : item.saving ? '…' : '○'}</span>
+                          <span>{item.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                  {offlineReport ? (
+                    <>
+                      <div className="pose-export-row" style={{ justifyContent: 'flex-start', flexWrap: 'wrap' }}>
+                        <Link
+                          to={offlineReportSessionId ? buildPoseReportPath(exercise.slug, offlineReportSessionId) : '#'}
+                          className="cl_theme-btn"
+                          aria-disabled={offlineReportSessionId ? undefined : true}
+                          style={offlineReportSessionId ? undefined : { opacity: 0.5, pointerEvents: 'none' }}
+                          onClick={(e) => {
+                            if (!offlineReportSessionId) e.preventDefault()
+                          }}
+                        >
+                          Open Detailed Report
+                        </Link>
+                        <Link to={buildPoseHistoryPath(exercise.slug)} className="pose-tool-ghost-btn pose-tool-light-btn">
+                          Go To Training History
+                        </Link>
+                      </div>
+                      <div style={{ marginTop: 14 }}>
+                        <ReportVisualization report={offlineReport} />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="pose-report-empty">
+                      <strong>No report yet</strong>
+                      <p>{offlineFile ? 'Click "Upload & Analyze" to generate the report.' : 'Select a video file first, then click "Upload & Analyze".'}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1001,6 +1154,198 @@ function drawCameraFrame(
   ctx.restore()
 
   return { x: offsetX, y: offsetY, w: drawWidth, h: drawHeight }
+}
+
+function buildSquatVideoLiveStyleReport(input: {
+  taskId: string
+  viewAngle: string
+  exercise: { id: string; name: string } | null
+  video: { id: string; originalName: string; mimeType: string; sizeBytes: number } | null
+  fps: number
+  frames: PoseFrame[]
+  onProgress?: (processed: number, total: number) => void
+}): PoseAnalysisReport {
+  const analyzer = new RealtimeSquatAnalyzer()
+  let lastFeedback: RealtimeFeedback | null = null
+  let analyzedFrameCount = 0
+  const messageFreq = new Map<string, number>()
+  const timelineRows: Array<{
+    frame: number
+    tMs: number
+    phase: string
+    trackingQuality: number | null
+    kneeAngleDeg: number | null
+    hipAngleDeg: number | null
+    torsoFromVerticalDeg: number | null
+  }> = []
+  const total = input.frames.length
+
+  for (let i = 0; i < input.frames.length; i++) {
+    const frame = input.frames[i]!
+    if (frame.landmarks) {
+      const feedback = analyzer.analyze(frame.landmarks)
+      lastFeedback = feedback
+      analyzedFrameCount += 1
+      for (const message of collectLiveIssueMessages(feedback)) {
+        const text = message.trim()
+        if (!text) continue
+        messageFreq.set(text, (messageFreq.get(text) ?? 0) + 1)
+      }
+      timelineRows.push({
+        frame: i,
+        tMs: frame.tMs,
+        phase: feedback.phase,
+        trackingQuality: feedback.trackingQuality,
+        kneeAngleDeg: feedback.kneeAngle,
+        hipAngleDeg: feedback.hipAngle,
+        torsoFromVerticalDeg: feedback.torsoAngle
+      })
+    }
+    if (input.onProgress && ((i + 1) % 20 === 0 || i === input.frames.length - 1)) {
+      input.onProgress(i + 1, total)
+    }
+  }
+
+  const sortedIssues = Array.from(messageFreq.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+  const fallbackSuggestion = 'Keep a steady tempo and align your knees with your toes.'
+  const currentSuggestion = lastFeedback
+    ? lastFeedback.warnings[0] ?? lastFeedback.issues[0]?.message ?? lastFeedback.lastRepMessage ?? fallbackSuggestion
+    : 'No valid pose frames were detected. Keep your full body in frame and try another video.'
+  const issueMessages = sortedIssues.map(([message]) => message)
+  const issues =
+    issueMessages.length > 0
+      ? issueMessages.map((message) => {
+          const count = messageFreq.get(message) ?? 0
+          const ratio = analyzedFrameCount > 0 ? count / analyzedFrameCount : 0
+          const severity: 'info' | 'warning' | 'error' = ratio >= 0.35 ? 'error' : ratio >= 0.12 ? 'warning' : 'info'
+          return {
+            code: toIssueCode(message),
+            severity,
+            message,
+            atFrame: null
+          }
+        })
+      : [
+          {
+            code: 'NO_OBVIOUS_ISSUES',
+            severity: 'info' as const,
+            message: 'No obvious issues detected during analyzer replay.',
+            atFrame: null
+          }
+        ]
+
+  const summary = lastFeedback
+    ? `Video replay analysis: total ${lastFeedback.session.totalReps}, correct ${lastFeedback.session.correctReps}, accuracy ${lastFeedback.session.accuracyPct}%.`
+    : 'Video replay analysis: no stable pose frames were detected.'
+  const suggestions = buildSquatReplaySuggestions(lastFeedback, sortedIssues, fallbackSuggestion)
+  const keyMetrics = {
+    totalReps: lastFeedback?.session.totalReps ?? 0,
+    correctReps: lastFeedback?.session.correctReps ?? 0,
+    incorrectReps: lastFeedback?.session.incorrectReps ?? 0,
+    formAccuracyPct: lastFeedback?.session.accuracyPct ?? 0,
+    effectiveFps: input.fps
+  }
+  const generatedAt = new Date().toISOString()
+  const timelineSampled = sampleTimelineRows(timelineRows, 180)
+
+  return normalizeReportForArchive({
+    version: 3,
+    generatedAt,
+    status: 'ok',
+    task: { id: input.taskId, viewAngle: input.viewAngle, instruction: null },
+    exercise: input.exercise,
+    video: input.video,
+    summary,
+    keyMetrics,
+    issues,
+    suggestions,
+    details: {
+      type: 'video_live_replay_squat',
+      modelName: 'MoveNet Lightning (offline replay)',
+      analyzer: 'RealtimeSquatAnalyzer',
+      effectiveFps: input.fps,
+      repCount: lastFeedback?.repCount ?? 0,
+      correctCount: lastFeedback?.correctCount ?? 0,
+      incorrectCount: lastFeedback?.incorrectCount ?? 0,
+      kneeAngle: lastFeedback?.kneeAngle ?? null,
+      hipAngle: lastFeedback?.hipAngle ?? null,
+      torsoAngle: lastFeedback?.torsoAngle ?? null,
+      offsetAngle: lastFeedback?.offsetAngle ?? null,
+      trackingQuality: lastFeedback?.trackingQuality ?? null,
+      currentSuggestion,
+      warnings: lastFeedback?.warnings ?? [],
+      timelineSampled
+    },
+    sections: {
+      overview: {
+        generatedAt,
+        status: 'ok',
+        taskId: input.taskId,
+        viewAngle: input.viewAngle,
+        exerciseName: input.exercise?.name ?? null,
+        summary
+      },
+      metrics: keyMetrics,
+      errorStats: computeReportErrorStats(issues),
+      suggestions,
+      timelineSampled
+    }
+  })
+}
+
+function getRepsFromReport(report: PoseAnalysisReport) {
+  const keyMetrics = (report as unknown as Record<string, unknown>).keyMetrics
+  if (keyMetrics && typeof keyMetrics === 'object' && !Array.isArray(keyMetrics)) {
+    const totalReps = (keyMetrics as Record<string, unknown>).totalReps
+    if (typeof totalReps === 'number' && Number.isFinite(totalReps) && totalReps >= 0) return Math.max(0, Math.round(totalReps))
+  }
+  const repCount = (report as unknown as Record<string, unknown>).repCount
+  if (typeof repCount === 'number' && Number.isFinite(repCount) && repCount >= 0) return Math.max(0, Math.round(repCount))
+  return 0
+}
+
+function sampleTimelineRows<
+  T
+>(items: T[], max: number) {
+  if (items.length <= max) return items
+  if (max <= 0) return []
+  const step = Math.max(1, Math.ceil(items.length / max))
+  const out: T[] = []
+  for (let i = 0; i < items.length; i += step) out.push(items[i]!)
+  return out.slice(0, max)
+}
+
+function computeReportErrorStats(issues: Array<{ code: string; severity: 'info' | 'warning' | 'error' }>) {
+  const bySeverity = { info: 0, warning: 0, error: 0 }
+  const byCode = new Map<string, { count: number; maxSeverity: 'info' | 'warning' | 'error' }>()
+
+  function rank(value: 'info' | 'warning' | 'error') {
+    if (value === 'error') return 3
+    if (value === 'warning') return 2
+    return 1
+  }
+
+  for (const issue of issues) {
+    bySeverity[issue.severity] += 1
+    const prev = byCode.get(issue.code)
+    if (!prev) {
+      byCode.set(issue.code, { count: 1, maxSeverity: issue.severity })
+      continue
+    }
+    prev.count += 1
+    if (rank(issue.severity) > rank(prev.maxSeverity)) prev.maxSeverity = issue.severity
+  }
+
+  return {
+    total: issues.length,
+    bySeverity,
+    byCode: Array.from(byCode.entries())
+      .map(([code, value]) => ({ code, count: value.count, maxSeverity: value.maxSeverity }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 12)
+  }
 }
 
 function evaluateRangeCheck(feedback: RealtimeFeedback | null, exerciseSlug: 'squat' | 'lateral-raise' | 'pushup') {
@@ -1260,6 +1605,35 @@ function collectLiveIssueMessages(feedback: RealtimeFeedback | null) {
   return deduped
 }
 
+function buildSquatReplaySuggestions(
+  feedback: RealtimeFeedback | null,
+  sortedIssues: Array<[string, number]>,
+  fallbackSuggestion: string
+) {
+  const suggestions = new Set<string>()
+
+  for (const [message] of sortedIssues) {
+    const mapped = mapSuggestionFromIssue(message, 'squat')
+    if (mapped) suggestions.add(mapped)
+    if (suggestions.size >= 4) break
+  }
+
+  if (feedback) {
+    if ((feedback.session.totalReps ?? 0) <= 0) {
+      suggestions.add('Start fully upright, descend until thighs are near parallel, then stand tall to complete each rep.')
+    }
+    if ((feedback.session.accuracyPct ?? 0) < 70) {
+      suggestions.add('Slow down each rep: 2 seconds down, brief pause, then drive up with controlled tempo.')
+    }
+    if ((feedback.trackingQuality ?? 0) < 0.5) {
+      suggestions.add('Place the camera at hip height, keep your full body visible, and improve front lighting.')
+    }
+  }
+
+  if (suggestions.size === 0) suggestions.add(fallbackSuggestion.trim())
+  return Array.from(suggestions).slice(0, 5)
+}
+
 function buildLiveSuggestions(feedback: RealtimeFeedback | null, fallbackSuggestion: string, exerciseSlug: 'squat' | 'lateral-raise' | 'pushup') {
   const suggestions = new Set<string>()
   const messages = collectLiveIssueMessages(feedback)
@@ -1296,9 +1670,9 @@ function mapSuggestionFromIssue(issue: string, exerciseSlug: 'squat' | 'lateral-
     if (text.includes('confidence') || text.includes('frame')) return 'Improve lighting and keep your full body visible throughout each rep.'
   }
   if (text.includes('torso lean')) return 'Brace your core and keep your chest up during the descent.'
-  if (text.includes('knee') && text.includes('toes')) return 'Control knee travel and keep pressure through mid-foot and heel.'
-  if (text.includes('side view')) return 'Rotate to a clearer side-view and keep your full body in frame.'
-  if (text.includes('confidence') || text.includes('frame')) return 'Improve lighting and move slightly back so joints stay visible.'
+  if (text.includes('knee') && text.includes('toes')) return 'Push hips back first, keep shins more vertical, and drive through mid-foot/heel.'
+  if (text.includes('side view')) return 'Set the camera exactly side-on at hip height, 2-3 meters away, with your full body always in frame.'
+  if (text.includes('confidence') || text.includes('frame')) return 'Use brighter front lighting and step back so ankles, knees, hips, and shoulders stay visible.'
   return ''
 }
 
@@ -1315,4 +1689,3 @@ function toIssueCode(message: string) {
     .replace(/^_+|_+$/g, '')
     .slice(0, 64)
 }
-

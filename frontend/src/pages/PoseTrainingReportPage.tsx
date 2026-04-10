@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { buildPoseGuidePath, buildPoseHistoryPath, buildPoseToolPath, getPoseExerciseBySlug } from '../lib/pose/exercises'
 import { getPoseTraining, type PoseTrainingSession } from '../lib/poseApi'
 import { DEMO_POSE_TRAINING, DEMO_POSE_TRAINING_ID } from '../lib/poseTrainingMock'
 
 export default function PoseTrainingReportPage() {
-  const params = useParams<{ sessionId: string }>()
+  const params = useParams<{ exerciseSlug: string; sessionId: string }>()
+  const exercise = getPoseExerciseBySlug(params.exerciseSlug)
   const sessionId = Number(params.sessionId)
   const [session, setSession] = useState<PoseTrainingSession | null>(null)
   const [loading, setLoading] = useState(true)
@@ -63,7 +65,10 @@ export default function PoseTrainingReportPage() {
                   <h2 className="cl_breadcrumb-content-title">Training Report</h2>
                   <div className="cl_breadcrumb-content-list">
                     <Link to="/">Home</Link>
-                    <Link to="/tools/pose/squat/tool/history">History</Link>
+                    <span><Link to="/tools/pose">Pose</Link></span>
+                    <span><Link to={buildPoseGuidePath(exercise.slug)}>{exercise.displayName}</Link></span>
+                    <span><Link to={buildPoseToolPath(exercise.slug)}>Tool</Link></span>
+                    <span><Link to={buildPoseHistoryPath(exercise.slug)}>History</Link></span>
                     <span>Session</span>
                   </div>
                 </div>
@@ -79,8 +84,8 @@ export default function PoseTrainingReportPage() {
             <div className="col-xl-10 col-lg-11">
               <div className="cl_blog-widget mb-30">
                 <div className="pose-history-head">
-                  <h4 className="cl_blog-widget-title mb-0">Session Report {session ? `#${session.id}` : ''}</h4>
-                  <Link to="/tools/pose/squat/tool/history" className="pose-tool-ghost-btn pose-tool-light-btn">
+                  <h4 className="cl_blog-widget-title mb-0">{exercise.displayName} Session Report {session ? `#${session.id}` : ''}</h4>
+                  <Link to={buildPoseHistoryPath(exercise.slug)} className="pose-tool-ghost-btn pose-tool-light-btn">
                     Back to History
                   </Link>
                 </div>

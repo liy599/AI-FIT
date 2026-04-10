@@ -23,8 +23,8 @@ const POSE_CATEGORIES: PoseCategory[] = [
     title: 'Chest',
     subtitle: 'Push movements',
     exercises: [
-      { id: 'pushup', name: 'Push-Up', secondary: 'Bodyweight', status: 'coming_soon', href: '/tools/pose/pushup' },
-      { id: 'bench_press', name: 'Bench Press', secondary: 'Barbell', status: 'coming_soon', href: '/tools/pose/bench-press' }
+      { id: 'pushup', name: 'Push-Up', secondary: 'Bodyweight', status: 'ready', href: '/tools/pose/pushup' },
+      { id: 'bench_press', name: 'Bench Press', secondary: 'Dumbbell', status: 'coming_soon', href: '/tools/pose/bench-press' }
     ]
   },
   {
@@ -33,7 +33,7 @@ const POSE_CATEGORIES: PoseCategory[] = [
     subtitle: 'Pull movements',
     exercises: [
       { id: 'pullup', name: 'Pull-Up', secondary: 'Bodyweight', status: 'coming_soon', href: '/tools/pose/pullup' },
-      { id: 'row', name: 'Bent-Over Row', secondary: 'Barbell', status: 'coming_soon', href: '/tools/pose/row' }
+      { id: 'row', name: 'Standing Row', secondary: 'Dumbbell', status: 'coming_soon', href: '/tools/pose/row' }
     ]
   },
   {
@@ -41,17 +41,17 @@ const POSE_CATEGORIES: PoseCategory[] = [
     title: 'Shoulders',
     subtitle: 'Pressing & stability',
     exercises: [
-      { id: 'ohp', name: 'Overhead Press', secondary: 'Barbell', status: 'coming_soon', href: '/tools/pose/ohp' },
-      { id: 'lateral_raise', name: 'Lateral Raise', secondary: 'Dumbbell', status: 'coming_soon', href: '/tools/pose/lateral-raise' }
+      { id: 'ohp', name: 'Front Raise', secondary: 'Dumbbell', status: 'coming_soon', href: '/tools/pose/ohp' },
+      { id: 'lateral_raise', name: 'Lateral Raise', secondary: 'Dumbbell', status: 'ready', href: '/tools/pose/lateral-raise' }
     ]
   },
   {
     id: 'legs',
-    title: 'Legs',
+    title: 'Glutes & Legs',
     subtitle: 'Lower body & hip-dominant',
     exercises: [
       { id: 'squat', name: 'Deep Squat', secondary: 'Bodyweight', status: 'ready', href: '/tools/pose/squat' },
-      { id: 'lunge', name: 'Forward Lunge', secondary: 'Bodyweight', status: 'coming_soon', href: '/tools/pose/lunge' }
+      { id: 'lunge', name: 'Deadlift', secondary: 'Dumbbell', status: 'coming_soon', href: '/tools/pose/lunge' }
     ]
   }
 ]
@@ -168,7 +168,7 @@ export default function PoseSelectPage() {
 
               <div className="cl_blog-widget mb-30">
                 <div className="pose-inline-note" style={{ marginTop: 0 }}>
-                  Only Squat real-time correction is available right now. More exercises are coming soon.
+                  Deep Squat, Lateral Raise, and Push-Up real-time correction are available right now. More exercises are coming soon.
                 </div>
               </div>
             </div>

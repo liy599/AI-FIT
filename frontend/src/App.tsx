@@ -35,10 +35,10 @@ export default function App() {
           <Route path="/food" element={<FoodModulePage />} />
           <Route path="/food/meal/:mealType" element={<FoodMealPage />} />
           <Route path="/tools/pose" element={<PoseSelectPage />} />
-          <Route path="/tools/pose/squat" element={<PoseGuidePage />} />
-          <Route path="/tools/pose/squat/tool" element={<PoseToolPage />} />
-          <Route path="/tools/pose/squat/tool/history" element={<RequireAuth children={<PoseTrainingHistoryPage />} />} />
-          <Route path="/tools/pose/squat/tool/history/:sessionId" element={<RequireAuth children={<PoseTrainingReportPage />} />} />
+          <Route path="/tools/pose/:exerciseSlug" element={<PoseGuidePage />} />
+          <Route path="/tools/pose/:exerciseSlug/tool" element={<PoseToolPage />} />
+          <Route path="/tools/pose/:exerciseSlug/tool/history" element={<RequireAuth children={<PoseTrainingHistoryPage />} />} />
+          <Route path="/tools/pose/:exerciseSlug/tool/history/:sessionId" element={<RequireAuth children={<PoseTrainingReportPage />} />} />
           <Route path="/tools/food" element={<Navigate to="/food" replace />} />
           <Route path="/blogs" element={<BlogListPage />} />
           <Route path="/blogs/:id" element={<BlogDetailPage />} />

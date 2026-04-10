@@ -1,6 +1,11 @@
 import { Link } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
+import { buildPoseToolPath, getPoseExerciseBySlug } from '../lib/pose/exercises'
 
 export default function PoseGuidePage() {
+  const params = useParams<{ exerciseSlug: string }>()
+  const exercise = getPoseExerciseBySlug(params.exerciseSlug)
+
   return (
     <>
       <section className="cl_breadcrumb-area">
@@ -12,7 +17,8 @@ export default function PoseGuidePage() {
                   <h2 className="cl_breadcrumb-content-title">Pose Guidance</h2>
                   <div className="cl_breadcrumb-content-list">
                     <Link to="/">Home</Link>
-                    <span>Pose</span>
+                    <span><Link to="/tools/pose">Pose</Link></span>
+                    <span>{exercise.displayName}</span>
                   </div>
                 </div>
               </div>
@@ -26,18 +32,20 @@ export default function PoseGuidePage() {
           <div className="row justify-content-center">
             <div className="col-xl-8 col-lg-10">
               <div className="cl_blog-widget mb-30">
-                <h3 className="cl_blog-widget-title mb-30">Squat Camera Tips</h3>
+                <h3 className="cl_blog-widget-title mb-30">{exercise.guideTitle}</h3>
                 
                 <div className="pose-tip-card pose-tip-card-light mb-30" style={{ padding: '30px' }}>
                   <ul className="pose-detail-list pose-detail-list-light" style={{ fontSize: '16px', lineHeight: '2' }}>
-                    <li><strong style={{ color: '#0f766e' }}>1) Full body in frame:</strong> Make sure your entire body is visible in the camera view.</li>
-                    <li><strong style={{ color: '#0f766e' }}>2) Clear side view:</strong> Stand sideways to the camera so joints are easier to track.</li>
-                    <li><strong style={{ color: '#0f766e' }}>3) Privacy:</strong> Pose detection runs locally in your browser. We do not upload your video.</li>
+                    {exercise.guideTips.map((tip) => (
+                      <li key={tip.title}>
+                        <strong style={{ color: '#0f766e' }}>{tip.title}:</strong> {tip.content}
+                      </li>
+                    ))}
                   </ul>
                 </div>
 
                 <div className="text-center mt-40" style={{ textAlign: 'center' }}>
-                  <Link to="/tools/pose/squat/tool" className="cl_theme-btn">
+                  <Link to={buildPoseToolPath(exercise.slug)} className="cl_theme-btn">
                     Got it, continue
                   </Link>
                 </div>

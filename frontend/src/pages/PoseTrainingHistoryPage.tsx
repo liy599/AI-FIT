@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
+import { buildPoseGuidePath, buildPoseReportPath, buildPoseToolPath, getPoseExerciseBySlug, getPoseExerciseByType } from '../lib/pose/exercises'
 import { listPoseTrainings, type PoseTrainingSession } from '../lib/poseApi'
 import { DEMO_POSE_TRAINING, DEMO_POSE_TRAINING_ID } from '../lib/poseTrainingMock'
 
 export default function PoseTrainingHistoryPage() {
+  const params = useParams<{ exerciseSlug: string }>()
+  const exercise = getPoseExerciseBySlug(params.exerciseSlug)
   const [items, setItems] = useState<PoseTrainingSession[]>([])
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -11,7 +14,8 @@ export default function PoseTrainingHistoryPage() {
   const [error, setError] = useState<string | null>(null)
 
   const query = useMemo(() => ({ date_from: dateFrom || undefined, date_to: dateTo || undefined }), [dateFrom, dateTo])
-  const displayItems = items.length > 0 ? items : [DEMO_POSE_TRAINING]
+  const showDemo = items.length === 0
+  const displayItems = showDemo ? [DEMO_POSE_TRAINING] : items
 
   useEffect(() => {
     let active = true
@@ -46,7 +50,9 @@ export default function PoseTrainingHistoryPage() {
                   <h2 className="cl_breadcrumb-content-title">Training History</h2>
                   <div className="cl_breadcrumb-content-list">
                     <Link to="/">Home</Link>
-                    <Link to="/tools/pose/squat/tool">Pose Tool</Link>
+                    <span><Link to="/tools/pose">Pose</Link></span>
+                    <span><Link to={buildPoseGuidePath(exercise.slug)}>{exercise.displayName}</Link></span>
+                    <span><Link to={buildPoseToolPath(exercise.slug)}>Tool</Link></span>
                     <span>History</span>
                   </div>
                 </div>
@@ -63,7 +69,7 @@ export default function PoseTrainingHistoryPage() {
               <div className="cl_blog-widget mb-30">
                 <div className="pose-history-head">
                   <h4 className="cl_blog-widget-title mb-0">Saved Training Records</h4>
-                  <Link to="/tools/pose/squat/tool" className="pose-tool-ghost-btn pose-tool-light-btn">
+                  <Link to={buildPoseToolPath(exercise.slug)} className="pose-tool-ghost-btn pose-tool-light-btn">
                     Back to Tool
                   </Link>
                 </div>
@@ -88,7 +94,9 @@ export default function PoseTrainingHistoryPage() {
 
                 {loading ? <p className="pose-muted-copy">Loading history...</p> : null}
                 {error ? <div className="pose-error-box pose-error-box-light">{error}</div> : null}
-                {!loading && !error && items.length === 0 ? <p className="pose-muted-copy">No saved records in this date range. Showing demo entry below.</p> : null}
+                {!loading && !error && showDemo ? (
+                  <p className="pose-muted-copy">No saved records in this date range. Showing demo entry below.</p>
+                ) : null}
 
                 {!loading && !error ? (
                   <div className="pose-history-list">
@@ -98,8 +106,10 @@ export default function PoseTrainingHistoryPage() {
                         item.report && typeof item.report.summary === 'string' && item.report.summary.trim()
                           ? item.report.summary
                           : 'No summary in report'
+                      const sessionExerciseType = item.sets[0]?.exercise_type ?? 'squat'
+                      const sessionExerciseSlug = getPoseExerciseByType(sessionExerciseType).slug
                       return (
-                        <Link key={item.id} to={`/tools/pose/squat/tool/history/${item.id}`} className="pose-history-item">
+                        <Link key={item.id} to={buildPoseReportPath(sessionExerciseSlug, item.id)} className="pose-history-item">
                           <div className="pose-history-item-top">
                             <strong>{item.id === DEMO_POSE_TRAINING_ID ? 'Demo Session' : `Session #${item.id}`}</strong>
                             <span>{formatDateTime(item.started_at)}</span>

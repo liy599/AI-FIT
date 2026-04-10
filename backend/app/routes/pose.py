@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import uuid
 from datetime import datetime, time
@@ -10,6 +11,7 @@ from werkzeug.utils import secure_filename
 
 from ..extensions import db
 from ..models import AnalysisResult, AnalysisTask, TrainingSession, TrainingSet, VideoAsset
+from ..services.pose.ai_report import build_fallback_ai_enhanced_report_v1, generate_ai_enhanced_report_v1
 from ..utils.pagination import parse_pagination
 
 bp = Blueprint("pose", __name__)
@@ -357,3 +359,85 @@ def get_training_session(session_id: int):
     if session is None:
         return jsonify({"error": "not found"}), 404
     return jsonify({"session": _training_session_public(session)})
+
+
+@bp.post("/reports/ai")
+@jwt_required()
+def create_ai_report():
+    _ = int(get_jwt_identity())
+    raw_body = request.get_data(cache=False, as_text=True) or ""
+    try:
+        data = json.loads(raw_body) if raw_body.strip() else {}
+    except Exception:
+        return jsonify({"error": "invalid_json"}), 400
+
+    if not isinstance(data, dict):
+        return jsonify({"error": "invalid_payload"}), 400
+
+    base_report = data.get("report")
+    if not isinstance(base_report, dict):
+        return jsonify({"error": "report required"}), 400
+
+    language = (data.get("language") or data.get("locale") or "en-US")
+    if isinstance(language, str):
+        language = language.strip() or "en-US"
+    else:
+        language = "en-US"
+
+    def truthy(value) -> bool:
+        if value is True:
+            return True
+        if value is False or value is None:
+            return False
+        if isinstance(value, int):
+            return value != 0
+        if isinstance(value, str):
+            return value.strip().lower() not in {"", "0", "false", "no", "off"}
+        return False
+
+    debug = truthy(data.get("debug")) or request.args.get("debug") == "1"
+
+    enabled = truthy(current_app.config.get("POSE_REPORT_AI_ENABLED"))
+    api_url = (current_app.config.get("AI_REPORT_API_URL") or "").strip() or (current_app.config.get("STEPFUN_API_URL") or "").strip()
+    api_key = (current_app.config.get("AI_REPORT_API_KEY") or "").strip() or (current_app.config.get("STEPFUN_API_KEY") or "").strip()
+    model = (
+        (current_app.config.get("POSE_REPORT_AI_MODEL") or "").strip()
+        or (current_app.config.get("AI_REPORT_MODEL") or "").strip()
+        or (current_app.config.get("STEPFUN_MODEL") or "").strip()
+        or "step-1v-8k"
+    )
+    timeout_seconds = int(current_app.config.get("AI_REPORT_TIMEOUT_SECONDS") or current_app.config.get("POSE_REPORT_AI_TIMEOUT_SECONDS") or 20)
+    max_input_chars = int(current_app.config.get("POSE_REPORT_AI_MAX_INPUT_CHARS") or 12000)
+
+    ai_meta: dict = {
+        "used": False,
+        "ok": False,
+        "provider": "stepfun",
+        "model": model,
+        "error": None,
+    }
+
+    if enabled and api_url and api_key:
+        ai_meta["used"] = True
+        result = generate_ai_enhanced_report_v1(
+            api_url=api_url,
+            api_key=api_key,
+            model=model,
+            base_report=base_report,
+            language=language,
+            timeout_seconds=timeout_seconds,
+            max_input_chars=max_input_chars,
+        )
+        ai_meta["ok"] = bool(result.ok)
+        ai_meta["error"] = result.error
+        if result.ok and isinstance(result.report, dict):
+            payload = {"report": result.report, "meta": {"degraded": False, "ai": ai_meta}}
+            if debug:
+                payload["meta"]["rawText"] = result.raw_text
+            return jsonify(payload)
+        if debug:
+            ai_meta["rawText"] = result.raw_text
+
+    fallback = build_fallback_ai_enhanced_report_v1(base_report, language=language)
+    payload = {"report": fallback, "meta": {"degraded": True, "ai": ai_meta}}
+    return jsonify(payload)

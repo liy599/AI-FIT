@@ -332,7 +332,7 @@ function TopViewedStack({ blogs, loading }: { blogs: BlogCard[]; loading: boolea
   const count = visible.length
 
   return (
-    <div className="relative mx-auto h-[380px] w-full max-w-[520px] sm:h-[420px]">
+    <div className="relative mx-auto h-[285px] w-full max-w-[520px] sm:h-[315px]">
       {loading && blogs.length === 0 ? (
         <div className="absolute inset-0 flex items-end justify-center pb-2 text-sm text-neutral-500">Loading…</div>
       ) : null}
@@ -515,14 +515,14 @@ export default function BlogListPage() {
         .reveal-stagger.visible > *:nth-child(11) { transition-delay: 1000ms; }
         .reveal-stagger.visible > *:nth-child(12) { transition-delay: 1100ms; }
       `}</style>
-      <section className="relative overflow-hidden bg-neutral-50 px-4 pb-20 pt-14 md:pb-32 md:pt-20">
+      <section className="relative overflow-hidden bg-neutral-50 px-4 pb-16 pt-10 md:pb-24 md:pt-16">
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[55%]">
           <OrganicFluidBackground className="absolute inset-0 h-full w-full overflow-hidden rounded-none" />
           <div className="absolute inset-0 bg-gradient-to-b from-neutral-50 via-neutral-50/70 to-transparent" />
         </div>
         <div className="relative mx-auto grid max-w-[1200px] grid-cols-1 gap-10 lg:grid-cols-12 lg:items-center">
           <div className="lg:col-span-6">
-            <div className="flex min-h-[220px] items-center lg:min-h-[420px]">
+            <div className="flex min-h-[165px] items-center lg:min-h-[315px]">
               <h1 className="text-[44px] font-semibold leading-[1.02] tracking-tight text-neutral-900 sm:text-[56px] md:text-[64px]">
                 Fitness / Nutrition
                 <br />

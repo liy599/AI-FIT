@@ -72,7 +72,7 @@ def forgot_password():
 
     user = User.query.filter_by(email=email).first()
     if user is None:
-        return jsonify({"ok": True})
+        return jsonify({"error": "email not found"}), 404
 
     token = _serializer().dumps({"user_id": user.id, "email": user.email})
     reset_link = f'{current_app.config["FRONTEND_BASE_URL"].rstrip("/")}/reset-password?token={token}'

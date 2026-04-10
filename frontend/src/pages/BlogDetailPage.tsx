@@ -8,7 +8,7 @@ type BlogDetail = {
   title: string
   cover_image_url: string | null
   content: string
-  author: { id: number; username: string }
+  author: { id: number; username: string; avatar_url: string | null }
   view_count: number
   like_count: number
   liked_by_me: boolean
@@ -421,7 +421,11 @@ export default function BlogDetailPage() {
                 {blog ? (
                   <div className="cl_blog-widget mb-30">
                     <div className="cl_blog-widget-author">
-                      <img src="/assets/images/blog/blog_widget-1.png" alt={`${blog.author.username} profile`} />
+                      <img
+                        className="cl_blog-widget-author-avatar"
+                        src={resolveMediaUrl(blog.author.avatar_url) ?? '/assets/images/blog/blog_widget-1.png'}
+                        alt={`${blog.author.username} avatar`}
+                      />
                       <h4 className="cl_blog-widget-author-title">{blog.author.username}</h4>
                       <p>Views: {blog.view_count} · Likes: {blog.like_count}</p>
                       <div className="cl_blog-widget-author-social">

@@ -6,6 +6,7 @@ type Member = {
   role: string
   bio: string
   details: string
+  image?: string
 }
 
 export default function AboutPage() {
@@ -15,37 +16,43 @@ export default function AboutPage() {
         name: 'Member A',
         role: 'Full-stack / Architecture',
         bio: 'Owns system architecture, APIs, and deployment.',
-        details: 'Responsible for backend API design, database modeling, deployment, and overall technical delivery.'
+        details: 'Responsible for backend API design, database modeling, deployment, and overall technical delivery.',
+        image: '/assets/images/team/lyk.jpg'
       },
       {
         name: 'Member B',
         role: 'Frontend / UX',
         bio: 'Owns UI and interactions.',
-        details: 'Responsible for navigation, animations, shared components, and usability.'
+        details: 'Responsible for navigation, animations, shared components, and usability.',
+        image: '/assets/images/team/xjl.png'
       },
       {
         name: 'Member C',
         role: 'AI / Vision',
         bio: 'Explores pose and food recognition.',
-        details: 'Evaluates TF.js models and browser-side inference approaches (MoveNet/YOLOv8).'
+        details: 'Evaluates TF.js models and browser-side inference approaches (MoveNet/YOLOv8).',
+        image: '/assets/images/team/zzx.png'
       },
       {
         name: 'Member D',
         role: 'Data / QA',
         bio: 'Owns testing and data visualization.',
-        details: 'Responsible for reporting logic, API verification, and improving test coverage.'
+        details: 'Responsible for reporting logic, API verification, and improving test coverage.',
+        image: '/assets/images/team/chy.png'
       },
       {
         name: 'Member E',
         role: 'Content / Community',
         bio: 'Owns blog content and tagging.',
-        details: 'Responsible for tag strategy, content templates, and community interaction experience.'
+        details: 'Responsible for tag strategy, content templates, and community interaction experience.',
+        image: '/assets/images/team/dhz.jpg'
       },
       {
         name: 'Member F',
         role: 'Product',
         bio: 'Owns requirements and acceptance.',
-        details: 'Responsible for requirement breakdown, acceptance criteria, and optimizing user flows.'
+        details: 'Responsible for requirement breakdown, acceptance criteria, and optimizing user flows.',
+        image: '/assets/images/team/zjl.jpg'
       }
     ],
     []
@@ -194,7 +201,20 @@ export default function AboutPage() {
                 <div className="col-xl-4 col-lg-4 col-md-4 col-sm-6" key={m.name}>
                     <div className="cl_team-item" style={{ marginBottom: 30 }}>
                       <div className="cl_team-item-img">
-                        <img src={`/assets/images/team/h1_${(idx % 4) + 1}.png`} alt={`${m.name} portrait`} />
+                        <img 
+                          src={m.image || `/assets/images/team/h1_${(idx % 4) + 1}.png`} 
+                          alt={`${m.name} portrait`} 
+                          style={{ aspectRatio: '302 / 350', objectFit: 'cover', objectPosition: '50% 12%' }} 
+                          onError={(e) => {
+                            const img = e.currentTarget
+                            if (img.dataset.fallbackTried) return
+                            img.dataset.fallbackTried = '1'
+                            const src = img.getAttribute('src') || ''
+                            if (src.toLowerCase().endsWith('.jpg')) img.src = src.replace(/\.jpg$/i, '.png')
+                            else if (src.toLowerCase().endsWith('.png')) img.src = src.replace(/\.png$/i, '.jpg')
+                            else if (src.toLowerCase().endsWith('.jpeg')) img.src = src.replace(/\.jpeg$/i, '.png')
+                          }}
+                        />
                       </div>
                     <div className="cl_team-item-content">
                       <h4>

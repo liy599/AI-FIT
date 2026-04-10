@@ -14,6 +14,15 @@ export default function ResetPasswordPage() {
 
   async function submit() {
     setError(null)
+    if (busy) return
+    if (!token.trim()) {
+      setError('Token is required.')
+      return
+    }
+    if (!newPassword.trim()) {
+      setError('New password is required.')
+      return
+    }
     setBusy(true)
     try {
       await apiFetch('/api/auth/reset-password', {
@@ -56,9 +65,9 @@ export default function ResetPasswordPage() {
             <div className="col-xl-6 col-lg-8">
               <div className="cl_blog_details-reply">
                 <h3 className="cl_blog_details-reply-title">Set a new password</h3>
-                <p>This page requires a token parameter from the reset link.</p>
                 <form
                   action="#"
+                  noValidate
                   onSubmit={(e) => {
                     e.preventDefault()
                     submit().catch(() => {})
@@ -81,23 +90,25 @@ export default function ResetPasswordPage() {
                     </div>
                     {error ? (
                       <div className="col-12">
-                        <div className="cl_blog-widget mb-30">{error}</div>
+                        <div className="cl_blog-widget cl_auth-alert cl_auth-alert--error mb-30">{error}</div>
                       </div>
                     ) : null}
                     {ok ? (
                       <div className="col-12">
-                        <div className="cl_blog-widget mb-30">Password updated. Redirecting to login…</div>
+                        <div className="cl_blog-widget cl_auth-alert cl_auth-alert--notice mb-30">
+                          Password updated. Redirecting to login…
+                        </div>
                       </div>
                     ) : null}
                     <div className="col-12">
                       <div className="cl_blog_details-reply-item">
-                        <button type="submit" disabled={busy || !token || !newPassword}>
+                        <button type="submit">
                           Confirm
                         </button>
                       </div>
                     </div>
                     <div className="col-12">
-                      <div className="cl_blog-widget">
+                      <div className="cl_blog-widget cl_auth-switch">
                         <Link to="/login">Back to login</Link>
                       </div>
                     </div>

@@ -20,7 +20,7 @@ def _blog_card(b: Blog):
         "title": b.title,
         "cover_image_url": b.cover_image_url,
         "excerpt": (b.content or "")[:160],
-        "author": {"id": b.author.id, "username": b.author.username},
+        "author": {"id": b.author.id, "username": b.author.username, "avatar_url": b.author.avatar_url},
         "view_count": b.view_count,
         "like_count": b.like_count,
         "is_published": b.is_published,

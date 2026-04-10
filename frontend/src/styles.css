@@ -1143,3 +1143,116 @@ body {
   color: #fff;
 }
 
+.cl_blog-widget.cl_auth-switch {
+  margin-top: 10px;
+  border-radius: 16px;
+  border: 0;
+  background: var(--clr-common-lightWhite);
+  box-shadow: none;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: rgba(14, 56, 41, 0.86);
+  font-weight: 600;
+}
+
+.cl_blog-widget.cl_auth-switch a {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 9999px;
+  background: rgba(53, 204, 149, 0.12);
+  border: 1px solid rgba(53, 204, 149, 0.28);
+  color: var(--clr-body-heading);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.cl_blog-widget.cl_auth-switch a:hover {
+  background: rgba(53, 204, 149, 0.18);
+  border-color: rgba(53, 204, 149, 0.4);
+  color: var(--clr-body-heading);
+}
+
+.cl_blog-widget.cl_auth-alert {
+  border-radius: 14px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 12px 14px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.cl_blog-widget.cl_auth-alert--error {
+  background: rgba(220, 38, 38, 0.12);
+  color: #991b1b;
+}
+
+.cl_blog-widget.cl_auth-alert--notice {
+  background: rgba(53, 204, 149, 0.12);
+  color: rgba(14, 56, 41, 0.92);
+}
+
+.cl_blog_details-reply-item {
+  text-align: center;
+}
+
+.cl_blog_details-reply-item button {
+  width: 240px;
+  max-width: 100%;
+  border-radius: 12px;
+  height: 55px;
+  padding: 0 24px;
+  font-weight: 700;
+  letter-spacing: normal;
+  text-transform: none;
+  transition: none;
+  background-color: var(--clr-theme-primary);
+  color: #fff;
+  border: none;
+  display: inline-block;
+  cursor: pointer;
+}
+
+.cl_blog_details-reply-item button:hover,
+.cl_blog_details-reply-item button:active,
+.cl_blog_details-reply-item button:focus {
+  background-color: var(--clr-theme-primary);
+  color: #fff;
+}
+
+.cl_blog-widget-author-avatar {
+  width: 84px;
+  height: 84px;
+  border-radius: 9999px;
+  object-fit: cover;
+  display: block;
+  margin: 0 auto 30px;
+  transform: translateX(10px);
+}
+
+.cl_footer-top {
+  padding: 14px 0 12px;
+}
+
+.cl_footer-bottom {
+  padding-top: 26px;
+  padding-bottom: 17px;
+}
+
+.cl_footer-copyright {
+  padding: 7px 0;
+}
+
+@media (max-width: 767px) {
+  .cl_footer-top {
+    padding: 11px 0 10px;
+  }
+  .cl_footer-bottom {
+    padding-top: 22px;
+    padding-bottom: 15px;
+  }
+}

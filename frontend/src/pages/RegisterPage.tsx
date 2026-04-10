@@ -15,6 +15,19 @@ export default function RegisterPage() {
 
   async function submit() {
     setError(null)
+    if (busy) return
+    if (!email.trim()) {
+      setError('Email is required.')
+      return
+    }
+    if (!username.trim()) {
+      setError('Username is required.')
+      return
+    }
+    if (!password.trim()) {
+      setError('Password is required.')
+      return
+    }
     setBusy(true)
     try {
       const r = await apiFetch<{
@@ -62,6 +75,7 @@ export default function RegisterPage() {
                 <p>After registration, you will be signed in and redirected to your profile.</p>
                 <form
                   action="#"
+                  noValidate
                   onSubmit={(e) => {
                     e.preventDefault()
                     submit().catch(() => {})
@@ -94,18 +108,18 @@ export default function RegisterPage() {
                     </div>
                     {error ? (
                       <div className="col-12">
-                        <div className="cl_blog-widget mb-30">{error}</div>
+                        <div className="cl_blog-widget cl_auth-alert cl_auth-alert--error mb-30">{error}</div>
                       </div>
                     ) : null}
                     <div className="col-12">
                       <div className="cl_blog_details-reply-item">
-                        <button type="submit" disabled={busy || !email || !username || !password}>
+                        <button type="submit">
                           Register
                         </button>
                       </div>
                     </div>
                     <div className="col-12">
-                      <div className="cl_blog-widget">
+                      <div className="cl_blog-widget cl_auth-switch">
                         Already have an account? <Link to="/login">Sign in</Link>
                       </div>
                     </div>

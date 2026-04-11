@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { API_BASE, apiFetch } from '../lib/api'
+import { apiFetch, resolveBackendUrl } from '../lib/api'
 import OrganicFluidBackground from '../components/OrganicFluidBackground'
 
 type Tag = { id: number; name: string }
@@ -16,9 +16,7 @@ type BlogCard = {
 
 function resolveMediaUrl(url: string | null | undefined) {
   if (!url) return null
-  if (url.startsWith('http://') || url.startsWith('https://')) return url
-  if (url.startsWith('/')) return `${API_BASE}${url}`
-  return url
+  return resolveBackendUrl(url)
 }
 
 function formatLongDate(value: string) {

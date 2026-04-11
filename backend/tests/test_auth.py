@@ -41,5 +41,8 @@ def test_forgot_password_requires_email(client):
 
 def test_forgot_password_email_not_found(client):
     r = client.post("/api/auth/forgot-password", json={"email": "noone@example.com"})
-    assert r.status_code == 404
+    assert r.status_code == 200
+    payload = r.get_json()
+    assert payload["ok"] is True
+    assert "reset_link" not in payload
 

@@ -2,13 +2,76 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: aifitguard
-      POSTGRES_PASSWORD: aifitguard
-      POSTGRES_DB: aifitguard
+      POSTGRES_USER: ${POSTGRES_USER:-aifitguard}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aifitguard}
+      POSTGRES_DB: ${POSTGRES_DB:-aifitguard}
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     volumes:
       - aifitguard_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-jwt-secret-change-me}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://aifitguard:aifitguard@db:5432/aifitguard}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:-}
+      STEPFUN_API_URL: ${STEPFUN_API_URL:-}
+      STEPFUN_API_KEY: ${STEPFUN_API_KEY:-}
+      STEPFUN_MODEL: ${STEPFUN_MODEL:-step-1v-8k}
+      AI_REPORT_API_URL: ${AI_REPORT_API_URL:-}
+      AI_REPORT_API_KEY: ${AI_REPORT_API_KEY:-}
+      AI_REPORT_MODEL: ${AI_REPORT_MODEL:-}
+      AI_REPORT_TIMEOUT_SECONDS: ${AI_REPORT_TIMEOUT_SECONDS:-20}
+      POSE_REPORT_AI_ENABLED: ${POSE_REPORT_AI_ENABLED:-1}
+      POSE_REPORT_AI_MODEL: ${POSE_REPORT_AI_MODEL:-}
+      POSE_REPORT_AI_TIMEOUT_SECONDS: ${POSE_REPORT_AI_TIMEOUT_SECONDS:-20}
+      POSE_REPORT_AI_MAX_INPUT_CHARS: ${POSE_REPORT_AI_MAX_INPUT_CHARS:-12000}
+      PASSWORD_RESET_TOKEN_TTL_SECONDS: ${PASSWORD_RESET_TOKEN_TTL_SECONDS:-3600}
+      PASSWORD_RESET_DEBUG_RETURN_LINK: ${PASSWORD_RESET_DEBUG_RETURN_LINK:-0}
+      UPLOAD_PUBLIC_PREFIXES: ${UPLOAD_PUBLIC_PREFIXES:-avatars,blog_covers}
+      UPLOAD_SIGNED_URL_TTL_SECONDS: ${UPLOAD_SIGNED_URL_TTL_SECONDS:-300}
+      RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-1}
+      AUTH_LOGIN_RATE_LIMIT_PER_IP: ${AUTH_LOGIN_RATE_LIMIT_PER_IP:-20}
+      AUTH_LOGIN_RATE_LIMIT_IP_WINDOW_SECONDS: ${AUTH_LOGIN_RATE_LIMIT_IP_WINDOW_SECONDS:-300}
+      AUTH_LOGIN_RATE_LIMIT_PER_ACCOUNT: ${AUTH_LOGIN_RATE_LIMIT_PER_ACCOUNT:-8}
+      AUTH_LOGIN_RATE_LIMIT_ACCOUNT_WINDOW_SECONDS: ${AUTH_LOGIN_RATE_LIMIT_ACCOUNT_WINDOW_SECONDS:-900}
+      AUTH_FORGOT_RATE_LIMIT_PER_IP: ${AUTH_FORGOT_RATE_LIMIT_PER_IP:-10}
+      AUTH_FORGOT_RATE_LIMIT_IP_WINDOW_SECONDS: ${AUTH_FORGOT_RATE_LIMIT_IP_WINDOW_SECONDS:-900}
+      AUTH_FORGOT_RATE_LIMIT_PER_ACCOUNT: ${AUTH_FORGOT_RATE_LIMIT_PER_ACCOUNT:-5}
+      AUTH_FORGOT_RATE_LIMIT_ACCOUNT_WINDOW_SECONDS: ${AUTH_FORGOT_RATE_LIMIT_ACCOUNT_WINDOW_SECONDS:-1800}
+      FEEDBACK_RATE_LIMIT_PER_IP: ${FEEDBACK_RATE_LIMIT_PER_IP:-20}
+      FEEDBACK_RATE_LIMIT_IP_WINDOW_SECONDS: ${FEEDBACK_RATE_LIMIT_IP_WINDOW_SECONDS:-600}
+      FEEDBACK_RATE_LIMIT_PER_SUBJECT: ${FEEDBACK_RATE_LIMIT_PER_SUBJECT:-10}
+      FEEDBACK_RATE_LIMIT_SUBJECT_WINDOW_SECONDS: ${FEEDBACK_RATE_LIMIT_SUBJECT_WINDOW_SECONDS:-600}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - aifitguard_uploads:/app/instance/uploads
+    expose:
+      - "5000"
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE: ${VITE_API_BASE:-/api}
+    depends_on:
+      - backend
+    ports:
+      - "${WEB_PORT:-80}:80"
 
 volumes:
   aifitguard_postgres_data:
+  aifitguard_uploads:

@@ -40,6 +40,13 @@ def test_pose_video_upload_list_and_file_access(client):
     assert response.data == b"fake mp4 bytes"
     assert response.mimetype == "video/mp4"
 
+    signed = client.get(f"/api/pose/videos/{video['id']}/signed-url", headers=auth_header(token))
+    assert signed.status_code == 200
+    signed_url = signed.get_json()["url"]
+    public_fetch = client.get(signed_url)
+    assert public_fetch.status_code == 200
+    assert public_fetch.data == b"fake mp4 bytes"
+
 
 def test_pose_analysis_task_complete_flow(client):
     token = register_and_token(client)

@@ -13,6 +13,7 @@ import { type PoseAnalysisReport } from '../lib/pose/report'
 import { type RealtimeFeedback } from '../lib/pose/realtimeSquat'
 import { createPoseTraining } from '../lib/poseApi'
 import { normalizeReportForArchive } from '../lib/report/unified'
+import { requestCameraStream } from '../lib/media'
 import {
   buildLiveSuggestions,
   buildPushupAlignedReport,
@@ -354,7 +355,7 @@ export default function PoseToolPage() {
       if (!distanceTrackerRef.current) distanceTrackerRef.current = new DistanceTracker(5000)
 
       const provider = await getLiveProvider()
-      const stream = await navigator.mediaDevices.getUserMedia({
+      const stream = await requestCameraStream({
         video: {
           width: { ideal: 1280 },
           height: { ideal: 720 },

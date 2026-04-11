@@ -13,6 +13,8 @@ from ..extensions import db
 from ..models import AnalysisResult, AnalysisTask, TrainingSession, TrainingSet, VideoAsset
 from ..services.pose.ai_report import build_fallback_ai_enhanced_report_v1, generate_ai_enhanced_report_v1
 from ..utils.pagination import parse_pagination
+from ..utils.privacy import decrypt_text, encrypt_text, protect_json_payload, reveal_json_payload
+from ..utils.upload_access import build_upload_access_token
 
 bp = Blueprint("pose", __name__)
 
@@ -54,7 +56,7 @@ def _task_public(task: AnalysisTask, result: AnalysisResult | None = None):
         "result": (
             {
                 "id": result.id,
-                "report": result.report_json,
+                "report": reveal_json_payload(result.report_json),
                 "created_at": result.created_at.isoformat(),
             }
             if result
@@ -65,6 +67,29 @@ def _task_public(task: AnalysisTask, result: AnalysisResult | None = None):
 
 def _pose_video_dir(user_id: int):
     return os.path.join(current_app.config["UPLOAD_FOLDER"], "pose", "videos", str(user_id))
+
+
+def _resolve_video_path(stored_path: str) -> str | None:
+    decoded = decrypt_text(stored_path) or stored_path
+    upload_root = os.path.realpath(current_app.config["UPLOAD_FOLDER"])
+    if os.path.isabs(decoded):
+        candidate = os.path.realpath(decoded)
+    else:
+        candidate = os.path.realpath(os.path.join(upload_root, decoded))
+    if not candidate.startswith(upload_root):
+        return None
+    return candidate
+
+
+def _video_relative_path(stored_path: str) -> str | None:
+    resolved = _resolve_video_path(stored_path)
+    if not resolved:
+        return None
+    upload_root = os.path.realpath(current_app.config["UPLOAD_FOLDER"])
+    rel = os.path.relpath(resolved, upload_root).replace("\\", "/")
+    if rel.startswith(".."):
+        return None
+    return rel
 
 
 def _parse_dt(value: str | None):
@@ -98,7 +123,7 @@ def _training_session_public(session: TrainingSession):
         "started_at": session.started_at.isoformat(),
         "ended_at": session.ended_at.isoformat() if session.ended_at else None,
         "note": session.note,
-        "report": session.report_json,
+        "report": reveal_json_payload(session.report_json),
         "created_at": session.created_at.isoformat(),
         "updated_at": session.updated_at.isoformat(),
         "sets": [
@@ -159,12 +184,13 @@ def create_video():
     f.save(path)
     size_bytes = os.path.getsize(path)
 
+    relative_path = os.path.relpath(path, current_app.config["UPLOAD_FOLDER"]).replace("\\", "/")
     video = VideoAsset(
         user_id=user_id,
         original_name=original_name,
         mime_type=mime_type,
         size_bytes=size_bytes,
-        storage_path=path,
+        storage_path=encrypt_text(relative_path) or relative_path,
     )
     db.session.add(video)
     db.session.commit()
@@ -178,9 +204,27 @@ def get_video_file(video_id: int):
     video = VideoAsset.query.filter_by(id=video_id, user_id=user_id).first()
     if video is None:
         return jsonify({"error": "not found"}), 404
-    if not os.path.isfile(video.storage_path):
+    resolved_path = _resolve_video_path(video.storage_path)
+    if not resolved_path or not os.path.isfile(resolved_path):
         return jsonify({"error": "file missing"}), 404
-    return send_file(video.storage_path, mimetype=video.mime_type, conditional=True)
+    return send_file(resolved_path, mimetype=video.mime_type, conditional=True)
+
+
+@bp.get("/videos/<int:video_id>/signed-url")
+@jwt_required()
+def get_video_signed_url(video_id: int):
+    user_id = int(get_jwt_identity())
+    video = VideoAsset.query.filter_by(id=video_id, user_id=user_id).first()
+    if video is None:
+        return jsonify({"error": "not found"}), 404
+
+    rel = _video_relative_path(video.storage_path)
+    if not rel:
+        return jsonify({"error": "file missing"}), 404
+
+    token = build_upload_access_token(rel)
+    expires_in = int(current_app.config.get("UPLOAD_SIGNED_URL_TTL_SECONDS", 300))
+    return jsonify({"url": f"/uploads/{rel}?token={token}", "expires_in": expires_in})
 
 
 @bp.post("/analysis/tasks")
@@ -242,7 +286,7 @@ def complete_analysis_task(task_id: int):
     if not isinstance(report, dict):
         return jsonify({"error": "report required"}), 400
 
-    result = AnalysisResult(task_id=task.id, report_json=report)
+    result = AnalysisResult(task_id=task.id, report_json=protect_json_payload(report) or {})
     task.status = "succeeded"
     if task.started_at is None:
         task.started_at = datetime.utcnow()
@@ -291,7 +335,7 @@ def create_training_session():
         started_at=_parse_dt(data.get("started_at")) or datetime.utcnow(),
         ended_at=_parse_dt(data.get("ended_at")),
         note=(data.get("note") or "").strip() or None,
-        report_json=data.get("report") if isinstance(data.get("report"), dict) else None,
+        report_json=protect_json_payload(data.get("report")) if isinstance(data.get("report"), dict) else None,
     )
     db.session.add(session)
     db.session.flush()
@@ -374,7 +418,7 @@ def update_training_session_report(session_id: int):
     if not isinstance(report, dict):
         return jsonify({"error": "report required"}), 400
 
-    session.report_json = report
+    session.report_json = protect_json_payload(report) or {}
     db.session.commit()
     return jsonify({"session": _training_session_public(session)})
 

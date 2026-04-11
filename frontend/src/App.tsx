@@ -2,6 +2,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import Layout from './components/Layout'
 import { AuthProvider, useAuth } from './state/auth-context'
 import AboutPage from './pages/AboutPage'
+import AdminDataLifecyclePage from './pages/AdminDataLifecyclePage'
 import BlogDetailPage from './pages/BlogDetailPage'
 import BlogListPage from './pages/BlogListPage'
 import FoodMealPage from './pages/FoodMealPage'
@@ -17,6 +18,7 @@ import PoseToolPage from './pages/PoseToolPage'
 import ProfilePage from './pages/ProfilePage'
 import RegisterPage from './pages/RegisterPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
+import UserPrivacyPage from './pages/UserPrivacyPage'
 
 function RequireAuth(props: { children: React.ReactNode }) {
   const auth = useAuth()
@@ -43,6 +45,8 @@ export default function App() {
           <Route path="/blogs" element={<BlogListPage />} />
           <Route path="/blogs/:id" element={<BlogDetailPage />} />
           <Route path="/profile" element={<RequireAuth children={<ProfilePage />} />} />
+          <Route path="/profile/privacy" element={<RequireAuth children={<UserPrivacyPage />} />} />
+          <Route path="/admin/data-lifecycle" element={<RequireAuth children={<AdminDataLifecyclePage />} />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />

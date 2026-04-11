@@ -1,4 +1,4 @@
-import { API_BASE, apiFetch, apiFetchBlob, apiUpload } from './api'
+import { apiFetch, apiFetchBlob, apiUpload, resolveBackendUrl } from './api'
 
 export type PoseVideo = {
   id: number
@@ -328,5 +328,5 @@ export async function createPoseVideoObjectUrl(video: Pick<PoseVideo, 'id'>) {
 }
 
 export function resolvePoseVideoApiUrl(path: string) {
-  return `${API_BASE}${path}`
+  return resolveBackendUrl(path)
 }

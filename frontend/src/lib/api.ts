@@ -2,7 +2,44 @@ import { getToken } from './auth'
 
 export const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://127.0.0.1:5000'
 
+function stripApiSuffix(base: string) {
+  return base.endsWith('/api') ? base.slice(0, -4) : base
+}
+
 export type ApiError = { error?: string; msg?: string; message?: string }
+
+function buildUrl(path: string) {
+  const base = API_BASE.replace(/\/+$/, '')
+  const p0 = path.startsWith('/') ? path : `/${path}`
+  const p =
+    base.endsWith('/api') && (p0 === '/api' || p0.startsWith('/api/'))
+      ? p0 === '/api'
+        ? ''
+        : p0.slice(4)
+      : p0
+  return `${base}${p}`
+}
+
+export function resolveBackendUrl(path: string) {
+  if (!path) return path
+  if (
+    path.startsWith('http://') ||
+    path.startsWith('https://') ||
+    path.startsWith('data:') ||
+    path.startsWith('blob:')
+  ) {
+    return path
+  }
+
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  const base = API_BASE.replace(/\/+$/, '')
+
+  if (normalizedPath === '/api' || normalizedPath.startsWith('/api/')) {
+    return buildUrl(normalizedPath)
+  }
+
+  return `${stripApiSuffix(base)}${normalizedPath}`
+}
 
 function buildHeaders(options?: RequestInit & { auth?: boolean }) {
   const headers: Record<string, string> = {
@@ -62,7 +99,7 @@ export async function apiFetch<T>(
 
   let res: Response
   try {
-    res = await fetch(`${API_BASE}${path}`, { ...options, headers })
+    res = await fetch(buildUrl(path), { ...options, headers })
   } catch {
     throw new Error('Network request failed. Check API server and CORS configuration.')
   }
@@ -86,7 +123,7 @@ export async function apiUpload<T>(
 
   let res: Response
   try {
-    res = await fetch(`${API_BASE}${path}`, { ...options, method: options?.method ?? 'POST', body, headers })
+    res = await fetch(buildUrl(path), { ...options, method: options?.method ?? 'POST', body, headers })
   } catch {
     throw new Error('Upload failed. Check API server availability and file size limits.')
   }
@@ -104,7 +141,7 @@ export async function apiFetchBlob(
   path: string,
   options?: RequestInit & { auth?: boolean }
 ): Promise<Blob> {
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers: buildHeaders(options) })
+  const res = await fetch(buildUrl(path), { ...options, headers: buildHeaders(options) })
   await throwIfNotOk(res)
   return res.blob()
 }

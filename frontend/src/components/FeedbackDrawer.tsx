@@ -76,7 +76,13 @@ export default function FeedbackDrawer() {
       })
       .catch((e: unknown) => {
         if (cancelled) return
-        setError(e instanceof Error ? e.message : 'Failed to load')
+        const message = e instanceof Error ? e.message : 'Failed to load'
+        const permissionErrors = ['forbidden', 'admin email not configured', 'missing authorization header']
+        if (permissionErrors.some((keyword) => message.toLowerCase().includes(keyword))) {
+          setItems([])
+          return
+        }
+        setError(message)
       })
       .finally(() => {
         if (cancelled) return

@@ -1,8 +1,7 @@
 import type { NormalizedLandmark } from './mediapipePose'
-import type { CoachMode, RealtimeFeedback } from './realtimeSquat'
+import type { RealtimeFeedback } from './realtimeSquat'
 
 export class RealtimePushupAnalyzer {
-  private mode: CoachMode = 'beginner'
   private repCount = 0
   private correctCount = 0
   private incorrectCount = 0
@@ -12,14 +11,6 @@ export class RealtimePushupAnalyzer {
   private lastRepFrameCount: number | null = null
   private enteredBottom = false
   private frameCount = 0
-
-  setMode(mode: CoachMode) {
-    this.mode = mode
-  }
-
-  analyzeFrame(input: { landmarks: NormalizedLandmark[]; gatePaused: boolean }): RealtimeFeedback {
-    return this.analyze(input.landmarks)
-  }
 
   analyze(landmarks: NormalizedLandmark[]): RealtimeFeedback {
     const side = this.chooseSide(landmarks)
@@ -63,7 +54,7 @@ export class RealtimePushupAnalyzer {
     return {
       phase: this.stateToPhase(nextState),
       state: nextState,
-      mode: this.mode,
+      mode: 'beginner',
       kneeAngle: elbowAngle ? Math.round(elbowAngle) : null,
       hipAngle: bodyLineAngle ? Math.round(bodyLineAngle) : null,
       torsoAngle: torsoAngle ? Math.round(torsoAngle) : null,
@@ -73,7 +64,6 @@ export class RealtimePushupAnalyzer {
       isCountingPaused,
       warnings,
       issues,
-      coreCorrections: [],
       stateSequence: [],
       lastRepResult: this.lastRepResult,
       lastRepMessage: this.lastRepMessage ?? primaryIssue ?? primaryWarn,
@@ -92,11 +82,8 @@ export class RealtimePushupAnalyzer {
         accuracyPct: this.repCount > 0 ? Math.round((this.correctCount / this.repCount) * 100) : 0,
         depthInsufficientCount: 0,
         kneeOverToeCount: 0,
-        kneeValgusCount: 0,
-        heelLiftCount: 0,
         forwardLeanCount: 0,
         backwardLeanCount: 0,
-        torsoLeanCount: 0,
         sideViewWarningCount: 0
       }
     }
@@ -192,3 +179,4 @@ export class RealtimePushupAnalyzer {
     return Math.max(0, Math.min(1, v))
   }
 }
+

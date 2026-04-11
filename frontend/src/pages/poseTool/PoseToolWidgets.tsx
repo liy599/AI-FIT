@@ -57,9 +57,6 @@ export function ReportVisualization(props: { report: PoseAnalysisReport }) {
         ))}
       </div>
 
-      {details ? <ScoreCard details={details} /> : null}
-      {details ? <CoreCorrectionsCard details={details} /> : null}
-
       {timeline.length > 0 ? <TimelinePreview timeline={timeline} /> : null}
 
       <div className="pose-report-columns">
@@ -88,67 +85,6 @@ export function ReportVisualization(props: { report: PoseAnalysisReport }) {
             ))}
           </ol>
         </div>
-      </div>
-    </div>
-  )
-}
-
-function ScoreCard(props: { details: Record<string, unknown> }) {
-  const score = asRecord(props.details.score)
-  if (!score) return null
-  const value = typeof score.value === 'number' && Number.isFinite(score.value) ? score.value : null
-  const reason = typeof score.reason === 'string' ? score.reason : null
-  const breakdown = Array.isArray(score.breakdown) ? score.breakdown.filter((x): x is Record<string, unknown> => typeof x === 'object' && x !== null) : []
-
-  return (
-    <div className="pose-report-card">
-      <div className="pose-report-title">Form Score</div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <strong style={{ fontSize: 22 }}>{value === null ? 'N/A' : value}</strong>
-        {value === null && reason ? <span className="pose-muted-copy">{reason}</span> : null}
-      </div>
-      {breakdown.length > 0 ? (
-        <div className="pose-report-issue-list" style={{ marginTop: 10 }}>
-          {breakdown.map((item, idx) => (
-            <div key={idx} className="pose-report-issue">
-              <strong>{String(item.label ?? item.type ?? 'Item')}</strong>
-              <span>{typeof item.penalty === 'number' ? `penalty ${item.penalty}` : ''}</span>
-            </div>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  )
-}
-
-function CoreCorrectionsCard(props: { details: Record<string, unknown> }) {
-  const items = Array.isArray(props.details.coreCorrections)
-    ? props.details.coreCorrections.filter((x): x is Record<string, unknown> => typeof x === 'object' && x !== null)
-    : []
-  if (items.length === 0) return null
-
-  function formatEvidence(evidence: unknown) {
-    const rec = asRecord(evidence)
-    if (!rec) return ''
-    const parts = Object.entries(rec)
-      .filter(([, v]) => v !== null && v !== '' && typeof v !== 'object')
-      .slice(0, 6)
-      .map(([k, v]) => `${k}: ${String(v)}`)
-    return parts.join(' · ')
-  }
-
-  return (
-    <div className="pose-report-card">
-      <div className="pose-report-title">Core Corrections</div>
-      <div className="pose-report-issue-list">
-        {items.map((item, idx) => (
-          <div key={idx} className="pose-report-issue">
-            <strong>{String(item.title ?? item.type ?? 'Correction')}</strong>
-            <span>{String(item.level ?? '-')}</span>
-            {formatEvidence(item.evidence) ? <span>{formatEvidence(item.evidence)}</span> : null}
-            {typeof item.suggestion === 'string' && item.suggestion.trim() ? <span>{item.suggestion}</span> : null}
-          </div>
-        ))}
       </div>
     </div>
   )
@@ -227,8 +163,6 @@ function prettyMetricName(key: string) {
     avgRepDurationSec: 'Avg Rep Duration',
     fastRepCount: 'Fast Reps',
     slowRepCount: 'Slow Reps',
-    formScore: 'Form Score',
-    scoreEligibility: 'Score Eligibility',
     kneeAngleDeg: 'Knee Angle',
     hipAngleDeg: 'Hip Angle',
     torsoFromVerticalDeg: 'Torso Angle',

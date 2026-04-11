@@ -23,7 +23,6 @@ htmlcov/
 
 backend/instance/*.db
 backend/instance/uploads/
-certs/
 
 frontend/node_modules/
 node_modules/

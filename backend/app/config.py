@@ -34,10 +34,9 @@ class Config:
     STEPFUN_API_KEY = os.environ.get("STEPFUN_API_KEY", "")
     STEPFUN_MODEL = os.environ.get("STEPFUN_MODEL", "step-1v-8k")
 
-    # Reuse STEPFUN credentials for AI reports by default.
-    AI_REPORT_API_URL = os.environ.get("AI_REPORT_API_URL", STEPFUN_API_URL)
-    AI_REPORT_API_KEY = os.environ.get("AI_REPORT_API_KEY", STEPFUN_API_KEY)
-    AI_REPORT_MODEL = os.environ.get("AI_REPORT_MODEL", STEPFUN_MODEL)
+    AI_REPORT_API_URL = os.environ.get("AI_REPORT_API_URL", "")
+    AI_REPORT_API_KEY = os.environ.get("AI_REPORT_API_KEY", "")
+    AI_REPORT_MODEL = os.environ.get("AI_REPORT_MODEL", "")
     AI_REPORT_TIMEOUT_SECONDS = _env_int("AI_REPORT_TIMEOUT_SECONDS", 20)
 
     POSE_REPORT_AI_ENABLED = os.environ.get("POSE_REPORT_AI_ENABLED", "1")

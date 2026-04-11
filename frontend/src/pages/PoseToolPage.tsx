@@ -13,7 +13,7 @@ import { type PoseAnalysisReport } from '../lib/pose/report'
 import { type RealtimeFeedback } from '../lib/pose/realtimeSquat'
 import { createPoseTraining } from '../lib/poseApi'
 import { normalizeReportForArchive } from '../lib/report/unified'
-import { canUseCameraOnCurrentOrigin, getCameraSecureContextRequirementMessage, requestCameraStream } from '../lib/media'
+import { requestCameraStream } from '../lib/media'
 import {
   buildLiveSuggestions,
   buildPushupAlignedReport,
@@ -57,7 +57,7 @@ export default function PoseToolPage() {
   const params = useParams<{ exerciseSlug: string }>()
   const exercise = getPoseExerciseBySlug(params.exerciseSlug)
   const { user } = useAuth()
-  const [mode, setMode] = useState<Mode>(() => (canUseCameraOnCurrentOrigin() ? 'live' : 'offline'))
+  const [mode, setMode] = useState<Mode>('live')
 
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -114,13 +114,6 @@ export default function PoseToolPage() {
   const [offlineLocalStatus, setOfflineLocalStatus] = useState<'idle' | 'running' | 'succeeded' | 'failed'>('idle')
   const [offlineRunStarted, setOfflineRunStarted] = useState(false)
   const [offlineCompletedStep, setOfflineCompletedStep] = useState(0)
-  const cameraSecureContextRequirement = getCameraSecureContextRequirementMessage()
-
-  useEffect(() => {
-    if (cameraSecureContextRequirement && mode === 'live' && !running) {
-      setMode('offline')
-    }
-  }, [cameraSecureContextRequirement, mode, running])
 
   useEffect(() => {
     previewScaleRef.current = previewScale
@@ -344,16 +337,6 @@ export default function PoseToolPage() {
   }
 
   async function startLive() {
-    const secureContextRequirement = getCameraSecureContextRequirementMessage()
-    if (secureContextRequirement) {
-      setMode('offline')
-      setLoading(false)
-      setLoadingMsg(null)
-      setRunning(false)
-      setError(`${secureContextRequirement} Switched to Video Analysis mode.`)
-      return
-    }
-
     setError(null)
     setLoading(true)
     setLoadingMsg('Initializing model and camera...')
@@ -837,13 +820,7 @@ export default function PoseToolPage() {
       <section className="pt-100 pb-100 pose-tool-page">
         <div className="container">
           <div className="pose-mode-switch mb-30">
-            <button
-              className={mode === 'live' ? 'cl_theme-btn' : 'pose-tool-ghost-btn pose-tool-light-btn'}
-              onClick={() => setMode('live')}
-              type="button"
-              disabled={Boolean(cameraSecureContextRequirement)}
-              title={cameraSecureContextRequirement ?? undefined}
-            >
+            <button className={mode === 'live' ? 'cl_theme-btn' : 'pose-tool-ghost-btn pose-tool-light-btn'} onClick={() => setMode('live')} type="button">
               Live Coaching
             </button>
             <button className={mode === 'offline' ? 'cl_theme-btn' : 'pose-tool-ghost-btn pose-tool-light-btn'} onClick={() => setMode('offline')} type="button">
@@ -853,12 +830,6 @@ export default function PoseToolPage() {
               Training History
             </Link>
           </div>
-
-          {cameraSecureContextRequirement ? (
-            <div className="pose-inline-note" style={{ marginBottom: 18 }}>
-              Live camera mode is unavailable on this HTTP origin. Continue with Video Analysis, or open this site on HTTPS.
-            </div>
-          ) : null}
 
           {mode === 'live' ? (
             <div className="row pose-live-layout pose-live-shell">

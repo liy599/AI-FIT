@@ -11,25 +11,9 @@ bp = Blueprint("recognize", __name__)
 
 @bp.post("")
 def recognize_foods():
-    stepfun_api_url = (current_app.config.get("STEPFUN_API_URL") or "").strip()
-    stepfun_api_key = (current_app.config.get("STEPFUN_API_KEY") or "").strip()
-    stepfun_model = (current_app.config.get("STEPFUN_MODEL") or "").strip()
-    ai_report_api_url = (current_app.config.get("AI_REPORT_API_URL") or "").strip()
-    ai_report_api_key = (current_app.config.get("AI_REPORT_API_KEY") or "").strip()
-    ai_report_model = (current_app.config.get("AI_REPORT_MODEL") or "").strip()
-
-    if stepfun_api_url and stepfun_api_key:
-        api_url = stepfun_api_url
-        api_key = stepfun_api_key
-        model = stepfun_model or ai_report_model or "step-1v-8k"
-    elif ai_report_api_url and ai_report_api_key:
-        api_url = ai_report_api_url
-        api_key = ai_report_api_key
-        model = ai_report_model or stepfun_model or "step-1v-8k"
-    else:
-        api_url = ""
-        api_key = ""
-        model = stepfun_model or ai_report_model or "step-1v-8k"
+    api_url = (current_app.config.get("STEPFUN_API_URL") or "").strip()
+    api_key = (current_app.config.get("STEPFUN_API_KEY") or "").strip()
+    model = (current_app.config.get("STEPFUN_MODEL") or "").strip() or "step-1v-8k"
 
     if not api_url or not api_key:
         return jsonify({"error": "stepfun not configured"}), 503

@@ -12,6 +12,7 @@ from werkzeug.utils import secure_filename
 from ..extensions import db
 from ..models import AnalysisResult, AnalysisTask, TrainingSession, TrainingSet, VideoAsset
 from ..services.pose.ai_report import build_fallback_ai_enhanced_report_v1, generate_ai_enhanced_report_v1
+from ..services.pose.report_archive import build_stub_training_report, prepare_training_report_for_storage
 from ..utils.pagination import parse_pagination
 from ..utils.privacy import decrypt_text, encrypt_text, protect_json_payload, reveal_json_payload
 from ..utils.upload_access import build_upload_access_token
@@ -330,12 +331,24 @@ def create_training_session():
     if not isinstance(sets_data, list) or len(sets_data) == 0:
         return jsonify({"error": "sets required"}), 400
 
+    warnings: list[str] = []
+    report_raw = data.get("report")
+    max_bytes = int(current_app.config.get("POSE_TRAINING_REPORT_MAX_BYTES") or 0)
+    stored_report = None
+    if isinstance(report_raw, dict):
+        stored_report, report_warnings, report_err = prepare_training_report_for_storage(report_raw, max_bytes=max_bytes)
+        warnings.extend(report_warnings)
+        if stored_report is None:
+            warnings.append("report_dropped")
+            if report_err:
+                warnings.append(f"report_error:{report_err}")
+
     session = TrainingSession(
         user_id=user_id,
         started_at=_parse_dt(data.get("started_at")) or datetime.utcnow(),
         ended_at=_parse_dt(data.get("ended_at")),
         note=(data.get("note") or "").strip() or None,
-        report_json=protect_json_payload(data.get("report")) if isinstance(data.get("report"), dict) else None,
+        report_json=protect_json_payload(stored_report) if isinstance(stored_report, dict) else None,
     )
     db.session.add(session)
     db.session.flush()
@@ -359,7 +372,10 @@ def create_training_session():
         db.session.add(item)
 
     db.session.commit()
-    return jsonify({"session": _training_session_public(session)}), 201
+    payload: dict = {"session": _training_session_public(session)}
+    if warnings:
+        payload["warnings"] = warnings
+    return jsonify(payload), 201
 
 
 @bp.get("/trainings")
@@ -418,9 +434,79 @@ def update_training_session_report(session_id: int):
     if not isinstance(report, dict):
         return jsonify({"error": "report required"}), 400
 
-    session.report_json = protect_json_payload(report) or {}
+    warnings: list[str] = []
+    max_bytes = int(current_app.config.get("POSE_TRAINING_REPORT_MAX_BYTES") or 0)
+    stored_report, warnings, report_err = prepare_training_report_for_storage(report, max_bytes=max_bytes)
+    if stored_report is None:
+        payload = {"error": "invalid_report", "detail": report_err or "invalid"}
+        return jsonify(payload), 400
+
+    session.report_json = protect_json_payload(stored_report) or {}
     db.session.commit()
-    return jsonify({"session": _training_session_public(session)})
+    payload: dict = {"session": _training_session_public(session)}
+    if warnings:
+        payload["warnings"] = warnings
+    return jsonify(payload)
+
+
+@bp.post("/internal/trainings/<int:session_id>/recompute-report")
+@jwt_required()
+def recompute_training_session_report(session_id: int):
+    user_id = int(get_jwt_identity())
+    session = TrainingSession.query.filter_by(id=session_id, user_id=user_id).first()
+    if session is None:
+        return jsonify({"error": "not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    mode = (data.get("mode") or "auto").strip().lower()
+    dry_run = bool(data.get("dry_run"))
+
+    max_bytes = int(current_app.config.get("POSE_TRAINING_REPORT_MAX_BYTES") or 0)
+    warnings: list[str] = []
+    current_report = reveal_json_payload(session.report_json)
+
+    next_report = None
+    if mode in {"compact", "compact_only"}:
+        if not isinstance(current_report, dict):
+            return jsonify({"error": "no_report"}), 409
+        next_report, w, err = prepare_training_report_for_storage(current_report, max_bytes=max_bytes)
+        warnings.extend(w)
+        if next_report is None:
+            return jsonify({"error": "invalid_report", "detail": err or "invalid"}), 400
+    elif mode in {"stub", "stub_only"}:
+        total_reps = sum(int(s.reps or 0) for s in (session.sets or []))
+        next_report = build_stub_training_report(total_reps=total_reps, exercise_type=None, note=session.note)
+        next_report, w, err = prepare_training_report_for_storage(next_report, max_bytes=max_bytes)
+        warnings.extend(["report_recomputed_stub"] + w)
+        if next_report is None:
+            return jsonify({"error": "recompute_failed", "detail": err or "invalid"}), 500
+    else:
+        if isinstance(current_report, dict):
+            next_report, w, err = prepare_training_report_for_storage(current_report, max_bytes=max_bytes)
+            warnings.extend(["report_recomputed_compact"] + w)
+            if next_report is None:
+                total_reps = sum(int(s.reps or 0) for s in (session.sets or []))
+                next_report = build_stub_training_report(total_reps=total_reps, exercise_type=None, note=session.note)
+                next_report, w2, err2 = prepare_training_report_for_storage(next_report, max_bytes=max_bytes)
+                warnings.extend(["report_recomputed_stub_fallback"] + w2)
+                if next_report is None:
+                    return jsonify({"error": "recompute_failed", "detail": err2 or "invalid"}), 500
+        else:
+            total_reps = sum(int(s.reps or 0) for s in (session.sets or []))
+            next_report = build_stub_training_report(total_reps=total_reps, exercise_type=None, note=session.note)
+            next_report, w, err = prepare_training_report_for_storage(next_report, max_bytes=max_bytes)
+            warnings.extend(["report_recomputed_stub"] + w)
+            if next_report is None:
+                return jsonify({"error": "recompute_failed", "detail": err or "invalid"}), 500
+
+    if not dry_run:
+        session.report_json = protect_json_payload(next_report) or {}
+        db.session.commit()
+
+    payload: dict = {"session": _training_session_public(session), "dry_run": dry_run}
+    if warnings:
+        payload["warnings"] = warnings
+    return jsonify(payload)
 
 
 @bp.post("/reports/ai")

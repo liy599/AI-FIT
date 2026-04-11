@@ -2,6 +2,10 @@ import { getToken } from './auth'
 
 export const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://127.0.0.1:5000'
 
+function stripApiSuffix(base: string) {
+  return base.endsWith('/api') ? base.slice(0, -4) : base
+}
+
 export type ApiError = { error?: string; msg?: string; message?: string }
 
 function buildUrl(path: string) {
@@ -14,6 +18,27 @@ function buildUrl(path: string) {
         : p0.slice(4)
       : p0
   return `${base}${p}`
+}
+
+export function resolveBackendUrl(path: string) {
+  if (!path) return path
+  if (
+    path.startsWith('http://') ||
+    path.startsWith('https://') ||
+    path.startsWith('data:') ||
+    path.startsWith('blob:')
+  ) {
+    return path
+  }
+
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  const base = API_BASE.replace(/\/+$/, '')
+
+  if (normalizedPath === '/api' || normalizedPath.startsWith('/api/')) {
+    return buildUrl(normalizedPath)
+  }
+
+  return `${stripApiSuffix(base)}${normalizedPath}`
 }
 
 function buildHeaders(options?: RequestInit & { auth?: boolean }) {

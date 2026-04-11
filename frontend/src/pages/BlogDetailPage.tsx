@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { API_BASE, apiFetch } from '../lib/api'
+import { apiFetch, resolveBackendUrl } from '../lib/api'
 import { useAuth } from '../state/auth-context'
 
 type BlogDetail = {
@@ -31,9 +31,7 @@ type CommentNode = {
 
 function resolveMediaUrl(url: string | null | undefined) {
   if (!url) return null
-  if (url.startsWith('http://') || url.startsWith('https://')) return url
-  if (url.startsWith('/')) return `${API_BASE}${url}`
-  return url
+  return resolveBackendUrl(url)
 }
 
 function CommentItem(props: {

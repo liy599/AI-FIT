@@ -89,6 +89,7 @@ def create_app(config_object=Config):
         return jsonify({"ok": True})
 
     @app.get("/uploads/<path:filename>")
+    @app.get("/api/uploads/<path:filename>")
     def uploads(filename: str):
         normalized = normalize_upload_path(filename)
         prefixes_raw = app.config.get("UPLOAD_PUBLIC_PREFIXES", "")

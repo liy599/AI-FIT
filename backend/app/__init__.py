@@ -1,12 +1,32 @@
 import os
 
 from flask import Flask, jsonify, request, send_from_directory
+from sqlalchemy import text
 from werkzeug.exceptions import RequestEntityTooLarge
 
 from .config import Config
 from .extensions import cors, db, jwt
 from .services.food.catalog_runtime import ensure_food_seed_data
 from .utils.upload_access import normalize_upload_path, verify_upload_access_token
+
+DB_INIT_ADVISORY_LOCK_KEY = 42042420
+
+
+def _initialize_database() -> None:
+    """Run app startup DB initialization safely under multi-worker startup."""
+    engine = db.engine
+    if engine.dialect.name != "postgresql":
+        db.create_all()
+        ensure_food_seed_data()
+        return
+
+    with engine.connect() as conn:
+        conn.execute(text("SELECT pg_advisory_lock(:key)"), {"key": DB_INIT_ADVISORY_LOCK_KEY})
+        try:
+            db.create_all()
+            ensure_food_seed_data()
+        finally:
+            conn.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": DB_INIT_ADVISORY_LOCK_KEY})
 
 
 def create_app(config_object=Config):
@@ -91,7 +111,6 @@ def create_app(config_object=Config):
         return jsonify({"error": "file too large (max 80MB)"}), 413
 
     with app.app_context():
-        db.create_all()
-        ensure_food_seed_data()
+        _initialize_database()
 
     return app

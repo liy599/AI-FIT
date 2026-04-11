@@ -7,11 +7,7 @@
     "dev": "vite",
     "build": "tsc -p tsconfig.json && vite build",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.node.json",
-    "preview": "vite preview",
-    "tools:build": "tsc -p tsconfig.tools.json",
-    "pose:replay": "tsx tools/pose-offline-runner.ts",
-    "pose:snapshot": "tsx tools/pose-snapshot-regress.ts",
-    "pose:kpi": "tsx tools/pose-kpi-eval.ts"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^0.10.18",
@@ -35,7 +31,6 @@
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.41",
     "tailwindcss": "^3.4.10",
-    "tsx": "^4.19.2",
     "typescript": "^5.6.2",
     "vite": "^5.4.2"
   }

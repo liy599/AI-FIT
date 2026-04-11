@@ -7,7 +7,7 @@ import { mediapipeToMoveNetFrame, MoveNetStabilizer, type TrackingState } from '
 import { RealtimeSquatAnalyzer, type RealtimeFeedback } from '../lib/pose/realtimeSquat'
 import { openPdfPrint } from '../lib/report/print'
 import { normalizeReportForArchive, renderReportPdfBodyHtml } from '../lib/report/unified'
-import { requestCameraStream } from '../lib/media'
+import { getCameraSecureContextRequirementMessage, requestCameraStream } from '../lib/media'
 
 const LIVE_TARGET_FPS = 24
 const LIVE_TARGET_FRAME_MS = 1000 / LIVE_TARGET_FPS
@@ -79,6 +79,14 @@ export default function PoseRealtimePage() {
   }, [currentSuggestion, effectiveFps, feedback])
 
   async function start() {
+    const secureContextRequirement = getCameraSecureContextRequirementMessage()
+    if (secureContextRequirement) {
+      setError(secureContextRequirement)
+      setLoading(false)
+      setLoadingMsg(null)
+      return
+    }
+
     setError(null)
     setLoading(true)
     setLoadingMsg('Initializing model and camera...')

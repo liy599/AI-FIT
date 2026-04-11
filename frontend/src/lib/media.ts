@@ -2,9 +2,9 @@ function isLocalhostLikeHost(hostname: string) {
   return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
 }
 
-function buildCameraUnavailableMessage() {
+export function getCameraSecureContextRequirementMessage() {
   if (typeof window === 'undefined') {
-    return 'Camera API is unavailable in this runtime.'
+    return null
   }
 
   const protocol = window.location.protocol
@@ -13,6 +13,23 @@ function buildCameraUnavailableMessage() {
 
   if (!secure && protocol === 'http:' && !isLocalhostLikeHost(host)) {
     return 'Camera access requires HTTPS on this domain. Please open the site with https:// and try again.'
+  }
+
+  return null
+}
+
+export function canUseCameraOnCurrentOrigin() {
+  return !getCameraSecureContextRequirementMessage()
+}
+
+function buildCameraUnavailableMessage() {
+  const secureContextRequirement = getCameraSecureContextRequirementMessage()
+  if (secureContextRequirement) {
+    return secureContextRequirement
+  }
+
+  if (typeof window === 'undefined') {
+    return 'Camera API is unavailable in this runtime.'
   }
 
   return 'Camera API is unavailable in this browser/context. Use a modern browser, enable camera permissions, and retry.'
@@ -58,4 +75,3 @@ export async function requestCameraStream(constraints: MediaStreamConstraints) {
     throw new Error(mapGetUserMediaError(error))
   }
 }
-

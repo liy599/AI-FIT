@@ -167,7 +167,7 @@ function PoseSavedReport(props: { report: Record<string, unknown> | null }) {
         {Object.entries(keyMetrics).map(([key, value]) => (
           <div key={key} className="pose-report-card">
             <div className="pose-report-label">{key}</div>
-            <div className="pose-report-value pose-report-value-small">{formatMetricValue(value)}</div>
+            <div className="pose-report-value pose-report-value-small">{formatMetricValue(key, value)}</div>
           </div>
         ))}
       </div>
@@ -209,9 +209,17 @@ function asRecord(v: unknown): Record<string, unknown> | null {
   return typeof v === 'object' && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : null
 }
 
-function formatMetricValue(v: unknown) {
+function formatMetricValue(key: string, v: unknown) {
   if (typeof v !== 'number') return String(v ?? '-')
-  if (v >= 0 && v <= 1) return `${Math.round(v * 100)}%`
+  const percentLike01Keys = new Set([
+    'coverage',
+    'badFramePct',
+    'accuracy',
+    'accuracyPct',
+    'formAccuracyPct',
+    'score'
+  ])
+  if (percentLike01Keys.has(key) && v >= 0 && v <= 1) return `${Math.round(v * 100)}%`
   return Number.isInteger(v) ? String(v) : v.toFixed(2)
 }
 

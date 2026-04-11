@@ -41,7 +41,7 @@ export default function PoseRealtimePage() {
 
   const currentSuggestion = useMemo(() => {
     if (!feedback) return 'Start the camera to receive live form coaching.'
-    return feedback.warnings[0] ?? feedback.issues[0]?.message ?? feedback.lastRepMessage ?? 'Keep a steady tempo and align your knees with your toes.'
+    return feedback.issues[0]?.message ?? feedback.warnings[0] ?? feedback.lastRepMessage ?? 'Keep a steady tempo and align your knees with your toes.'
   }, [feedback])
 
   const rangeStatus = useMemo(() => {

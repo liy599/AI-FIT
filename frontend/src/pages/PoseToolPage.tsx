@@ -225,8 +225,8 @@ export default function PoseToolPage() {
   const currentSuggestion = useMemo(() => {
     if (!feedback) return 'Start the camera to receive live form coaching.'
     return (
-      feedback.warnings[0] ??
       feedback.issues[0]?.message ??
+      feedback.warnings[0] ??
       feedback.lastRepMessage ??
       (exercise.slug === 'lateral-raise'
         ? 'Move both arms together, keep shoulders down, and avoid torso swing.'
@@ -416,7 +416,7 @@ export default function PoseToolPage() {
               if (Number.isFinite(nextFeedback.trackingQuality)) {
                 liveTrackingQualitySamplesRef.current.push(nextFeedback.trackingQuality)
               }
-              for (const message of collectLiveIssueMessages(nextFeedback)) {
+              for (const message of collectLiveFrameIssueMessages(nextFeedback)) {
                 const text = message.trim()
                 if (!text) continue
                 liveIssueFreqRef.current.set(text, (liveIssueFreqRef.current.get(text) ?? 0) + 1)
@@ -1285,7 +1285,7 @@ function buildSquatAlignedReport(input: {
       : 0
   const fallbackSuggestion = 'Keep a steady tempo and align your knees with your toes.'
   const currentSuggestion = input.lastFeedback
-    ? input.lastFeedback.warnings[0] ?? input.lastFeedback.issues[0]?.message ?? input.lastFeedback.lastRepMessage ?? fallbackSuggestion
+    ? input.lastFeedback.issues[0]?.message ?? input.lastFeedback.warnings[0] ?? input.lastFeedback.lastRepMessage ?? fallbackSuggestion
     : input.source === 'video'
       ? 'No valid pose frames were detected. Keep your full body in frame and try another video.'
       : 'No valid pose frames were detected in the live session.'
@@ -1435,7 +1435,7 @@ function buildSquatVideoLiveStyleReport(input: {
       lastFeedback = feedback
       analyzedFrameCount += 1
       if (Number.isFinite(feedback.trackingQuality)) trackingQualitySamples.push(feedback.trackingQuality)
-      for (const message of collectLiveIssueMessages(feedback)) {
+      for (const message of collectLiveFrameIssueMessages(feedback)) {
         const text = message.trim()
         if (!text) continue
         messageFreq.set(text, (messageFreq.get(text) ?? 0) + 1)
@@ -1530,7 +1530,7 @@ function evaluateRangeCheck(feedback: RealtimeFeedback | null, exerciseSlug: 'sq
   if (feedback.issues.length > 0) {
     return { ok: false, reason: feedback.issues[0]?.message ?? 'Form needs correction' }
   }
-  if (exerciseSlug === 'squat' && typeof feedback.torsoAngle === 'number' && feedback.torsoAngle < 20) {
+  if (exerciseSlug === 'squat' && typeof feedback.torsoAngle === 'number' && feedback.torsoAngle > 35) {
     return { ok: false, reason: 'Excessive forward lean' }
   }
   if (exerciseSlug === 'lateral-raise' && typeof feedback.kneeAngle === 'number' && feedback.kneeAngle >= 60) {
@@ -1602,7 +1602,7 @@ function ReportVisualization(props: { report: PoseAnalysisReport }) {
         {Object.entries(keyMetrics).map(([key, value]) => (
           <div key={key} className="pose-report-card">
             <div className="pose-report-label">{prettyMetricName(key)}</div>
-            <div className="pose-report-value">{formatMetricValue(value)}</div>
+            <div className="pose-report-value">{formatMetricValue(key, value)}</div>
           </div>
         ))}
       </div>
@@ -1722,9 +1722,10 @@ function prettyMetricName(key: string) {
   return map[key] ?? key
 }
 
-function formatMetricValue(v: unknown) {
+function formatMetricValue(key: string, v: unknown) {
   if (typeof v !== 'number') return String(v ?? '-')
-  if (v >= 0 && v <= 1) return `${Math.round(v * 100)}%`
+  const percentLike01Keys = new Set(['coverage', 'badFramePct'])
+  if (percentLike01Keys.has(key) && v >= 0 && v <= 1) return `${Math.round(v * 100)}%`
   return Number.isInteger(v) ? String(v) : v.toFixed(2)
 }
 
@@ -1781,6 +1782,20 @@ function collectLiveIssueMessages(feedback: RealtimeFeedback | null) {
     ...(feedback.lastRepReasonLabels ?? []),
     ...(feedback.warnings ?? [])
   ]
+  const seen = new Set<string>()
+  const deduped: string[] = []
+  for (const item of raw) {
+    const text = item.trim()
+    if (!text || seen.has(text)) continue
+    seen.add(text)
+    deduped.push(text)
+  }
+  return deduped
+}
+
+function collectLiveFrameIssueMessages(feedback: RealtimeFeedback | null) {
+  if (!feedback) return []
+  const raw = [...(feedback.issues?.map((x) => x.message) ?? []), ...(feedback.warnings ?? [])]
   const seen = new Set<string>()
   const deduped: string[] = []
   for (const item of raw) {
@@ -1850,8 +1865,8 @@ function analyzeSquatTempoFromTimeline(
     torsoFromVerticalDeg: number | null
   }>
 ) {
-  const DESCENT_FAST_SEC = 0.7
-  const ASCENT_FAST_SEC = 0.65
+  const DESCENT_FAST_SEC = 0.62
+  const ASCENT_FAST_SEC = 0.58
   const MIN_PHASE_SEC = 0.2
   const DIRECTION_SWITCH_MIN_FRAMES = 2
   let fastDescentCount = 0

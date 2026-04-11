@@ -109,7 +109,7 @@ function classifyDistanceWithHysteresis(rel: number, prev: DistanceLabel): Dista
 function centerBox(box: BoxNorm): BoxNorm {
   // Keep target guide centered but avoid becoming a too-thin vertical strip.
   const w = Math.min(0.92, Math.max(box.w, 0.28))
-  const h = Math.min(0.96, Math.max(box.h, 0.58))
+  const h = Math.min(0.96, Math.max(box.h, 0.64))
   const x = clamp01(0.5 - w / 2)
   const y = clamp01(0.5 - h / 2)
   const maxX = Math.max(0, 1 - w)

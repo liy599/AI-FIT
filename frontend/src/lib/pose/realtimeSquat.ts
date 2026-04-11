@@ -47,19 +47,22 @@ const LM = {
 }
 
 const KNEE_OVER_TOE_WARN_RATIO = 0.07
-const KNEE_OVER_TOE_FAIL_RATIO = 0.14
-const KNEE_OVER_TOE_FAIL_MIN_FRAMES = 5
+const KNEE_OVER_TOE_FAIL_RATIO = 0.1
+const KNEE_OVER_TOE_FAIL_MIN_FRAMES = 3
+const FORWARD_LEAN_FAIL_ANGLE_FROM_VERTICAL = 49
+const FORWARD_LEAN_FAIL_MIN_FRAMES = 5
 const ASSUMED_ANALYZER_FPS = 24
-const REP_FAST_SEC = 1.1
+const REP_FAST_SEC = 0.95
 const REP_SLOW_SEC = 3.6
-const REP_COUNT_MIN_FRAMES = 8
+const REP_COUNT_MIN_FRAMES = 5
 const REP_VALID_MIN_FRAMES = 8
 const REP_VALID_RATIO_MIN = 0.45
 const TRACKING_QUALITY_MIN = 0.28
 const S1_ENTER_KNEE_ANGLE = 150
 const S1_EXIT_KNEE_ANGLE = 145
-const S3_ENTER_KNEE_ANGLE = 100
-const S3_EXIT_KNEE_ANGLE = 108
+const S3_ENTER_KNEE_ANGLE = 103
+const S3_EXIT_KNEE_ANGLE = 111
+const FORWARD_LEAN_WARN_ANGLE_FROM_VERTICAL = 35
 
 export class RealtimeSquatAnalyzer {
   private repCount = 0
@@ -67,6 +70,7 @@ export class RealtimeSquatAnalyzer {
   private incorrectCount = 0
   private unassessedCount = 0
   private kneeOverToeRepCount = 0
+  private forwardLeanRepCount = 0
   private currentState: 's1' | 's2' | 's3' | null = null
   private lastRepResult: 'correct' | 'incorrect' | null = null
   private lastRepMessage: string | null = null
@@ -78,6 +82,8 @@ export class RealtimeSquatAnalyzer {
   private frameCount = 0
   private repPeakKneeOverToeRatio = 0
   private repKneeOverToeHardFrames = 0
+  private repPeakTorsoLeanAngle = 0
+  private repForwardLeanHardFrames = 0
   private repValidFrameCount = 0
   private repDurationTotalSec = 0
   private repDurationCount = 0
@@ -126,21 +132,21 @@ export class RealtimeSquatAnalyzer {
     if (offsetAngle !== null && offsetAngle > 55) {
       warnings.push('Try to stay in a clear side view for more stable tracking.')
     }
-    if (trackingQuality < TRACKING_QUALITY_MIN) {
-      warnings.push('Low keypoint confidence. Stand centered and keep your full body in frame.')
-    }
-    if (torsoAngle !== null && torsoAngle < 20) {
+    if (torsoAngle !== null && torsoAngle > FORWARD_LEAN_WARN_ANGLE_FROM_VERTICAL) {
       issues.push({ message: 'Excessive forward torso lean', joints: [11, 12, 23, 24] })
     }
     if (knee !== undefined && footIndex !== undefined && hip !== undefined && ankle !== undefined) {
       const dir = Math.sign((ankle.x - hip.x) || 1)
       kneeOverToeRatio = (knee.x - footIndex.x) * dir
       if (kneeOverToeRatio > KNEE_OVER_TOE_WARN_RATIO) {
+        warnings.push('Knee is moving past toes. Push hips back first and keep shins more vertical.')
+      }
+      if (kneeOverToeRatio >= KNEE_OVER_TOE_FAIL_RATIO) {
         issues.push({ message: 'Knee is noticeably past the toes', joints: [idx.knee, idx.footIndex] })
       }
     }
 
-    this.updateState(nextState, kneeOverToeRatio, isCountingPaused)
+    this.updateState(nextState, kneeOverToeRatio, torsoAngle, isCountingPaused)
     const primaryIssue = issues[0]?.message ?? null
     const primaryWarn = warnings[0] ?? null
 
@@ -148,11 +154,11 @@ export class RealtimeSquatAnalyzer {
       phase: this.stateToPhase(nextState),
       state: nextState,
       mode: 'beginner',
-      kneeAngle: kneeAngle ? Math.round(kneeAngle) : null,
-      hipAngle: hipAngle ? Math.round(hipAngle) : null,
-      torsoAngle: torsoAngle ? Math.round(torsoAngle) : null,
-      kneeVerticalAngle: kneeVerticalAngle ? Math.round(kneeVerticalAngle) : null,
-      offsetAngle: offsetAngle ? Math.round(offsetAngle) : null,
+      kneeAngle: kneeAngle !== null ? Math.round(kneeAngle) : null,
+      hipAngle: hipAngle !== null ? Math.round(hipAngle) : null,
+      torsoAngle: torsoAngle !== null ? Math.round(torsoAngle) : null,
+      kneeVerticalAngle: kneeVerticalAngle !== null ? Math.round(kneeVerticalAngle) : null,
+      offsetAngle: offsetAngle !== null ? Math.round(offsetAngle) : null,
       trackingQuality: Math.round(trackingQuality * 100) / 100,
       isCountingPaused,
       warnings,
@@ -179,7 +185,7 @@ export class RealtimeSquatAnalyzer {
         unassessedReps: this.unassessedCount,
         depthInsufficientCount: 0,
         kneeOverToeCount: this.kneeOverToeRepCount,
-        forwardLeanCount: 0,
+        forwardLeanCount: this.forwardLeanRepCount,
         backwardLeanCount: 0,
         sideViewWarningCount: 0,
         avgRepDurationSec: this.repDurationCount > 0 ? Math.round((this.repDurationTotalSec / this.repDurationCount) * 100) / 100 : null,
@@ -195,6 +201,7 @@ export class RealtimeSquatAnalyzer {
     this.incorrectCount = 0
     this.unassessedCount = 0
     this.kneeOverToeRepCount = 0
+    this.forwardLeanRepCount = 0
     this.currentState = null
     this.lastRepResult = null
     this.lastRepMessage = null
@@ -206,6 +213,8 @@ export class RealtimeSquatAnalyzer {
     this.frameCount = 0
     this.repPeakKneeOverToeRatio = 0
     this.repKneeOverToeHardFrames = 0
+    this.repPeakTorsoLeanAngle = 0
+    this.repForwardLeanHardFrames = 0
     this.repValidFrameCount = 0
     this.repDurationTotalSec = 0
     this.repDurationCount = 0
@@ -213,13 +222,27 @@ export class RealtimeSquatAnalyzer {
     this.slowRepCount = 0
   }
 
-  private updateState(nextState: 's1' | 's2' | 's3' | null, kneeOverToeRatio: number | null, isCountingPaused: boolean) {
+  private updateState(nextState: 's1' | 's2' | 's3' | null, kneeOverToeRatio: number | null, torsoAngle: number | null, isCountingPaused: boolean) {
     if (nextState === null) return
+    const startedRep = this.currentState === 's1' && nextState === 's2'
+    if (startedRep) {
+      // Start a fresh per-rep window when descent begins from standing.
+      this.frameCount = 0
+      this.repPeakKneeOverToeRatio = 0
+      this.repKneeOverToeHardFrames = 0
+      this.repPeakTorsoLeanAngle = 0
+      this.repForwardLeanHardFrames = 0
+      this.repValidFrameCount = 0
+    }
     this.frameCount += 1
     if (!isCountingPaused) this.repValidFrameCount += 1
     if (!isCountingPaused && typeof kneeOverToeRatio === 'number' && Number.isFinite(kneeOverToeRatio) && kneeOverToeRatio > 0) {
       this.repPeakKneeOverToeRatio = Math.max(this.repPeakKneeOverToeRatio, kneeOverToeRatio)
       if (kneeOverToeRatio >= KNEE_OVER_TOE_FAIL_RATIO) this.repKneeOverToeHardFrames += 1
+    }
+    if (!isCountingPaused && typeof torsoAngle === 'number' && Number.isFinite(torsoAngle) && torsoAngle > 0) {
+      this.repPeakTorsoLeanAngle = Math.max(this.repPeakTorsoLeanAngle, torsoAngle)
+      if (torsoAngle >= FORWARD_LEAN_FAIL_ANGLE_FROM_VERTICAL) this.repForwardLeanHardFrames += 1
     }
     if (nextState === 's3') this.enteredBottom = true
     if (this.currentState !== 's1' && nextState === 's1' && this.enteredBottom) {
@@ -235,6 +258,8 @@ export class RealtimeSquatAnalyzer {
         this.enteredBottom = false
         this.repPeakKneeOverToeRatio = 0
         this.repKneeOverToeHardFrames = 0
+        this.repPeakTorsoLeanAngle = 0
+        this.repForwardLeanHardFrames = 0
         this.repValidFrameCount = 0
         this.currentState = nextState
         return
@@ -251,15 +276,37 @@ export class RealtimeSquatAnalyzer {
       if (hasReliableTracking) {
         const kneeOverToeFailed =
           this.repPeakKneeOverToeRatio >= KNEE_OVER_TOE_FAIL_RATIO && this.repKneeOverToeHardFrames >= KNEE_OVER_TOE_FAIL_MIN_FRAMES
+        const forwardLeanFailed =
+          this.repPeakTorsoLeanAngle >= FORWARD_LEAN_FAIL_ANGLE_FROM_VERTICAL &&
+          this.repForwardLeanHardFrames >= FORWARD_LEAN_FAIL_MIN_FRAMES
 
-        if (kneeOverToeFailed) {
+        if (kneeOverToeFailed || forwardLeanFailed) {
           this.incorrectCount += 1
-          this.kneeOverToeRepCount += 1
           this.lastRepResult = 'incorrect'
-          this.lastRepMessage = 'Rep failed: knees drifted too far past toes.'
-          this.lastRepReasonCodes = ['KNEE_OVER_TOE_EXCESSIVE']
-          this.lastRepReasonLabels = ['Knees drifted too far past toes']
-          this.lastRepCorrections = ['Push hips back first and keep shins more vertical.']
+          const reasonCodes: string[] = []
+          const reasonLabels: string[] = []
+          const corrections: string[] = []
+          if (kneeOverToeFailed) {
+            this.kneeOverToeRepCount += 1
+            reasonCodes.push('KNEE_OVER_TOE_EXCESSIVE')
+            reasonLabels.push('Knees drifted too far past toes')
+            corrections.push('Push hips back first and keep shins more vertical.')
+          }
+          if (forwardLeanFailed) {
+            this.forwardLeanRepCount += 1
+            reasonCodes.push('FORWARD_LEAN_EXCESSIVE')
+            reasonLabels.push('Torso leaned too far forward')
+            corrections.push('Keep chest up and brace your core as you descend.')
+          }
+          this.lastRepReasonCodes = reasonCodes
+          this.lastRepReasonLabels = reasonLabels
+          this.lastRepCorrections = corrections
+          this.lastRepMessage =
+            reasonLabels.length > 1
+              ? 'Rep failed: knees drifted forward and torso leaned too far.'
+              : reasonLabels[0] === 'Torso leaned too far forward'
+                ? 'Rep failed: torso leaned too far forward.'
+                : 'Rep failed: knees drifted too far past toes.'
         } else {
           this.correctCount += 1
           this.lastRepResult = 'correct'
@@ -281,11 +328,8 @@ export class RealtimeSquatAnalyzer {
       this.enteredBottom = false
       this.repPeakKneeOverToeRatio = 0
       this.repKneeOverToeHardFrames = 0
-      this.repValidFrameCount = 0
-    }
-    if (this.currentState === 's1' && nextState === 's2') {
-      this.repPeakKneeOverToeRatio = 0
-      this.repKneeOverToeHardFrames = 0
+      this.repPeakTorsoLeanAngle = 0
+      this.repForwardLeanHardFrames = 0
       this.repValidFrameCount = 0
     }
     this.currentState = nextState
@@ -350,8 +394,8 @@ export class RealtimeSquatAnalyzer {
 
   private angleFromVerticalDeg(top?: NormalizedLandmark | null, bottom?: NormalizedLandmark | null): number | null {
     if (!top || !bottom) return null
-    const dx = top.x - bottom.x
-    const dy = top.y - bottom.y
+    const dx = bottom.x - top.x
+    const dy = bottom.y - top.y
     const mag = Math.hypot(dx, dy)
     if (!mag) return null
     const cos = Math.min(1, Math.max(-1, dy / mag))

@@ -8,14 +8,7 @@ This project now supports HTTPS directly in the `web` container:
 
 ## 1) Environment
 
-Use separate env files:
-
-- Local template: `.env.local.example`
-- Server template: `.env.prod.example`
-
-For the server with IP `137.43.49.50`, copy `.env.prod.example` to `.env.prod`.
-
-Core fields:
+Copy `.env.docker.example` to `.env` and set:
 
 - `WEB_PORT=80`
 - `WEB_HTTPS_PORT=443`
@@ -41,20 +34,12 @@ If missing, startup auto-generates a self-signed certificate.
 ## 3) Start
 
 ```powershell
-docker compose --env-file .env.prod up -d --build
+docker compose up -d --build
 ```
 
 Then open:
 
 - `https://<your-domain-or-ip>`
-
-For local docker test:
-
-```powershell
-docker compose --env-file .env.local up -d --build
-```
-
-`scripts/dev.ps1` is unchanged and still used for the existing local development flow.
 
 ## 4) Camera Access Note
 

@@ -1,7 +1,8 @@
 import type { NormalizedLandmark } from './mediapipePose'
-import type { RealtimeFeedback } from './realtimeSquat'
+import type { CoachMode, RealtimeFeedback } from './realtimeSquat'
 
 export class RealtimeLateralRaiseAnalyzer {
+  private mode: CoachMode = 'beginner'
   private repCount = 0
   private correctCount = 0
   private incorrectCount = 0
@@ -11,6 +12,14 @@ export class RealtimeLateralRaiseAnalyzer {
   private lastRepFrameCount: number | null = null
   private enteredTop = false
   private frameCount = 0
+
+  setMode(mode: CoachMode) {
+    this.mode = mode
+  }
+
+  analyzeFrame(input: { landmarks: NormalizedLandmark[]; gatePaused: boolean }): RealtimeFeedback {
+    return this.analyze(input.landmarks)
+  }
 
   analyze(landmarks: NormalizedLandmark[]): RealtimeFeedback {
     const lShoulder = landmarks[11]
@@ -66,7 +75,7 @@ export class RealtimeLateralRaiseAnalyzer {
     return {
       phase: this.stateToPhase(nextState),
       state: nextState,
-      mode: 'beginner',
+      mode: this.mode,
       kneeAngle: armRaise ? Math.round(armRaise) : null,
       hipAngle: elbowAngle ? Math.round(elbowAngle) : null,
       torsoAngle: torsoAngle ? Math.round(torsoAngle) : null,
@@ -76,6 +85,7 @@ export class RealtimeLateralRaiseAnalyzer {
       isCountingPaused,
       warnings,
       issues,
+      coreCorrections: [],
       stateSequence: [],
       lastRepResult: this.lastRepResult,
       lastRepMessage: this.lastRepMessage ?? primaryIssue ?? primaryWarn,
@@ -94,14 +104,18 @@ export class RealtimeLateralRaiseAnalyzer {
         accuracyPct: this.repCount > 0 ? Math.round((this.correctCount / this.repCount) * 100) : 0,
         depthInsufficientCount: 0,
         kneeOverToeCount: 0,
+        kneeValgusCount: 0,
+        heelLiftCount: 0,
         forwardLeanCount: 0,
         backwardLeanCount: 0,
+        torsoLeanCount: 0,
         sideViewWarningCount: 0
       }
     }
   }
 
   resetSession() {
+    this.mode = 'beginner'
     this.repCount = 0
     this.correctCount = 0
     this.incorrectCount = 0
@@ -217,4 +231,3 @@ export class RealtimeLateralRaiseAnalyzer {
     return valid.reduce((sum, v) => sum + v, 0) / valid.length
   }
 }
-

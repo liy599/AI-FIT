@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "name": "pose-baseline-examples",
+  "tolerance": {
+    "numberAbs": 0.000001
+  },
+  "ignorePaths": ["generatedAt", "sections.overview.generatedAt"],
+  "cases": [
+    {
+      "id": "squat_no_rep_minimal",
+      "caseFile": "./cases/squat_no_rep_minimal.json",
+      "snapshotFile": "./snapshots/squat_no_rep_minimal.snapshot.json"
+    }
+  ]
+}
+

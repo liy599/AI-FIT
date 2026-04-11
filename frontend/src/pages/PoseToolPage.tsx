@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '../state/auth-context'
-import { drawDistanceGuide, drawMidpointSkeleton } from '../lib/pose/draw'
+import { drawDistanceGuide, drawIssueHighlights, drawMidpointSkeleton } from '../lib/pose/draw'
 import { DistanceTracker, type DistanceState } from '../lib/pose/distanceTracker'
 import { buildPoseGuidePath, buildPoseHistoryPath, buildPoseReportPath, getPoseExerciseBySlug } from '../lib/pose/exercises'
 import { buildTrainingRecordName } from '../lib/pose/trainingName'
 import { createBestRealtimePoseProvider, type RealtimePoseProvider } from '../lib/pose/livePoseProvider'
-import { extractPose33FromVideoUrl } from '../lib/pose/mediapipePose'
+import { extractPose33FromVideoUrl, type NormalizedLandmark } from '../lib/pose/mediapipePose'
 import { extractPose33FromVideoUrlWithMoveNet } from '../lib/pose/movenetPose'
 import { mediapipeToMoveNetFrame, MoveNetStabilizer, type TrackingState } from '../lib/pose/movenetTracker'
 import { type PoseAnalysisReport } from '../lib/pose/report'
-import { type RealtimeFeedback } from '../lib/pose/realtimeSquat'
+import { type CoachMode, type RealtimeFeedback } from '../lib/pose/realtimeSquat'
 import { createPoseTraining } from '../lib/poseApi'
 import { normalizeReportForArchive } from '../lib/report/unified'
 import {
@@ -20,15 +20,17 @@ import {
   collectLiveFrameIssueMessages,
   collectLiveIssueMessages,
   createAnalyzer,
+  evaluateQualityGate,
   evaluateRangeCheck,
   formatDuration,
   getRepsFromReport,
   getSessionComment,
   getTopIssues,
   toIssueCode,
+  type QualityGateStatus,
   type RealtimeAnalyzer,
   type SquatTimelineRow
-} from './poseTool/poseToolHelpers'
+} from '../lib/pose/analyzer'
 import { LabelWithTip, MetricCard, MetricCardPlaceholder, ReportVisualization } from './poseTool/PoseToolWidgets'
 
 const LIVE_TARGET_FPS = 24
@@ -50,11 +52,24 @@ type LiveSessionSummary = {
   sessionComment: string
   topIssues: string[]
 }
+
+type SquatGuideStage = 'positioning' | 'flashing' | 'ready_notice' | 'active'
+type SquatGuideUi = {
+  stage: SquatGuideStage
+  message: string | null
+  frameTone: 'red' | 'green' | 'none'
+}
+
+const SQUAT_FLASH_CYCLE_MS = 260
+const SQUAT_FLASH_TOTAL_TOGGLES = 6
+const SQUAT_READY_NOTICE_MS = 2000
+const SQUAT_OUT_OF_FRAME_HOLD_MS = 900
 export default function PoseToolPage() {
   const params = useParams<{ exerciseSlug: string }>()
   const exercise = getPoseExerciseBySlug(params.exerciseSlug)
   const { user } = useAuth()
   const [mode, setMode] = useState<Mode>('live')
+  const [coachMode, setCoachMode] = useState<CoachMode>('beginner')
 
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -69,6 +84,7 @@ export default function PoseToolPage() {
   const previewUrlRef = useRef<string | null>(null)
   const previewScaleRef = useRef(0.78)
   const previewMirrorRef = useRef(true)
+  const coachModeRef = useRef<CoachMode>('beginner')
   const offlineFileInputRef = useRef<HTMLInputElement | null>(null)
   const feedbackRef = useRef<RealtimeFeedback | null>(null)
   const liveProviderRef = useRef<RealtimePoseProvider | null>(null)
@@ -77,6 +93,16 @@ export default function PoseToolPage() {
   const liveTrackingQualitySamplesRef = useRef<number[]>([])
   const liveTimelineRowsRef = useRef<SquatTimelineRow[]>([])
   const liveAnalyzedFrameCountRef = useRef(0)
+  const liveFrameTickCountRef = useRef(0)
+  const liveGatedFrameCountRef = useRef(0)
+  const liveGateFreqRef = useRef<Map<string, number>>(new Map())
+  const liveLastGateRef = useRef<QualityGateStatus | null>(null)
+  const squatGuideRef = useRef<{ stage: SquatGuideStage; stageStartedMs: number; readyNoticeUntilMs: number; outOfFrameSinceMs: number | null }>({
+    stage: 'positioning',
+    stageStartedMs: 0,
+    readyNoticeUntilMs: 0,
+    outOfFrameSinceMs: null
+  })
 
   const [running, setRunning] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -95,6 +121,12 @@ export default function PoseToolPage() {
   const [liveSessionEndReason, setLiveSessionEndReason] = useState<LiveSessionEndReason>(null)
   const [liveSessionElapsedMs, setLiveSessionElapsedMs] = useState(0)
   const [liveSessionSummary, setLiveSessionSummary] = useState<LiveSessionSummary | null>(null)
+  const [qualityGate, setQualityGate] = useState<QualityGateStatus | null>(null)
+  const [squatGuideUi, setSquatGuideUi] = useState<SquatGuideUi>({
+    stage: 'positioning',
+    message: 'Please stand fully inside the frame before starting.',
+    frameTone: 'red'
+  })
 
   const [offlineFile, setOfflineFile] = useState<File | null>(null)
   const [offlinePreviewUrl, setOfflinePreviewUrl] = useState<string | null>(null)
@@ -121,6 +153,10 @@ export default function PoseToolPage() {
   }, [previewMirror])
 
   useEffect(() => {
+    coachModeRef.current = coachMode
+  }, [coachMode])
+
+  useEffect(() => {
     feedbackRef.current = feedback
   }, [feedback])
 
@@ -138,6 +174,7 @@ export default function PoseToolPage() {
     setDistance(null)
 
     analyzerRef.current = createAnalyzer(exercise.slug)
+    setCoachMode('beginner')
     setFeedback(null)
     setError(null)
     setSaveTrainingMsg(null)
@@ -159,6 +196,17 @@ export default function PoseToolPage() {
     liveTrackingQualitySamplesRef.current = []
     liveTimelineRowsRef.current = []
     liveAnalyzedFrameCountRef.current = 0
+    liveFrameTickCountRef.current = 0
+    liveGatedFrameCountRef.current = 0
+    liveGateFreqRef.current = new Map()
+    liveLastGateRef.current = null
+    setQualityGate(null)
+    squatGuideRef.current = { stage: 'positioning', stageStartedMs: 0, readyNoticeUntilMs: 0, outOfFrameSinceMs: null }
+    setSquatGuideUi({
+      stage: 'positioning',
+      message: 'Please stand fully inside the frame before starting.',
+      frameTone: 'red'
+    })
   }, [exercise.slug])
 
   useEffect(() => {
@@ -212,6 +260,7 @@ export default function PoseToolPage() {
 
   const currentSuggestion = useMemo(() => {
     if (!feedback) return 'Start the camera to receive live form coaching.'
+    if (exercise.slug === 'squat' && qualityGate?.paused) return qualityGate.fix
     return (
       feedback.issues[0]?.message ??
       feedback.warnings[0] ??
@@ -226,7 +275,23 @@ export default function PoseToolPage() {
               ? 'Lower under control, keep wrists stacked, and press in a smooth path.'
         : 'Keep a steady tempo and align your knees with your toes.')
     )
-  }, [exercise.slug, feedback])
+  }, [exercise.slug, feedback, qualityGate])
+
+  const visibleCoreCorrections = useMemo(() => {
+    if (exercise.slug !== 'squat') return []
+    const items = feedback?.coreCorrections ?? []
+    if (coachMode === 'pro') return items
+    const actionable = items.filter((x) => x.levelScore !== null && x.levelScore >= 1)
+    return [...actionable].sort((a, b) => (b.levelScore ?? 0) - (a.levelScore ?? 0)).slice(0, 2)
+  }, [coachMode, exercise.slug, feedback])
+
+  function formatEvidence(evidence: Record<string, number | string | null>) {
+    const parts = Object.entries(evidence)
+      .filter(([, value]) => value !== null && value !== '')
+      .slice(0, 6)
+      .map(([key, value]) => `${key}: ${String(value)}`)
+    return parts.join(' · ')
+  }
 
   const rangeCheck = useMemo(() => evaluateRangeCheck(feedback, exercise.slug), [exercise.slug, feedback])
 
@@ -244,10 +309,22 @@ export default function PoseToolPage() {
     liveTrackingQualitySamplesRef.current = []
     liveTimelineRowsRef.current = []
     liveAnalyzedFrameCountRef.current = 0
+    liveFrameTickCountRef.current = 0
+    liveGatedFrameCountRef.current = 0
+    liveGateFreqRef.current = new Map()
+    liveLastGateRef.current = null
+    setQualityGate(null)
+    squatGuideRef.current = { stage: 'positioning', stageStartedMs: 0, readyNoticeUntilMs: 0, outOfFrameSinceMs: null }
+    setSquatGuideUi({
+      stage: 'positioning',
+      message: 'Please stand fully inside the frame before starting.',
+      frameTone: 'red'
+    })
   }
 
   const liveReport = useMemo(() => {
     if (exercise.slug === 'squat') {
+      const gateByCode = Array.from(liveGateFreqRef.current.entries()).map(([code, count]) => ({ code, count }))
       return buildSquatAlignedReport({
         source: 'live',
         taskId: sessionStartedAtRef.current ? `live-${sessionStartedAtRef.current}` : 'live-session',
@@ -259,7 +336,20 @@ export default function PoseToolPage() {
         messageFreq: liveIssueFreqRef.current,
         analyzedFrameCount: liveAnalyzedFrameCountRef.current,
         trackingQualitySamples: liveTrackingQualitySamplesRef.current,
-        timelineRows: liveTimelineRowsRef.current
+        timelineRows: liveTimelineRowsRef.current,
+        gating: {
+          totalFrames: liveFrameTickCountRef.current,
+          gatedFrames: liveGatedFrameCountRef.current,
+          byCode: gateByCode,
+          last: liveLastGateRef.current
+            ? {
+                code: liveLastGateRef.current.code,
+                title: liveLastGateRef.current.title,
+                reason: liveLastGateRef.current.reason,
+                fix: liveLastGateRef.current.fix
+              }
+            : null
+        }
       })
     }
 
@@ -371,6 +461,12 @@ export default function PoseToolPage() {
       setLoading(false)
       setLoadingMsg(null)
       setLiveSessionStatus('running')
+      squatGuideRef.current = { stage: 'positioning', stageStartedMs: performance.now(), readyNoticeUntilMs: 0, outOfFrameSinceMs: null }
+      setSquatGuideUi({
+        stage: 'positioning',
+        message: 'Please stand fully inside the frame before starting.',
+        frameTone: 'red'
+      })
 
       let cancelled = false
       cleanupRef.current = () => {
@@ -385,6 +481,7 @@ export default function PoseToolPage() {
           return
         }
         lastProcessedTsRef.current = frameTs
+        liveFrameTickCountRef.current += 1
 
         const videoEl = videoRef.current
         const canvasEl = canvasRef.current
@@ -396,9 +493,86 @@ export default function PoseToolPage() {
         try {
           const detected = await provider.detect(videoEl, frameTs)
           const landmarks = detected.landmarks
-          if (landmarks && analyzerRef.current && stabilizerRef.current && distanceTrackerRef.current) {
-            const nextFeedback = analyzerRef.current.analyze(landmarks)
+
+          if (!landmarks || !analyzerRef.current || !stabilizerRef.current || !distanceTrackerRef.current) {
+            setTracking(null)
+            setDistance(null)
+            if (exercise.slug === 'squat') {
+              const guide = updateSquatGuideState(frameTs, null, squatGuideRef.current)
+              setSquatGuideUi((prev) => (sameSquatGuideUi(prev, guide.ui) ? prev : guide.ui))
+              drawSquatGuideFrame(ctx, canvasEl.width, canvasEl.height, guide.ui.frameTone, viewport)
+            }
+            if (exercise.slug === 'squat') {
+              const gate = evaluateQualityGate({
+                exerciseSlug: exercise.slug,
+                deviceError: null,
+                hasLandmarks: false,
+                tracking: null,
+                distance: null,
+                feedback: null
+              })
+              setQualityGate((prev) => (prev?.code === gate.code ? prev : gate))
+              liveGatedFrameCountRef.current += 1
+              liveGateFreqRef.current.set(gate.code, (liveGateFreqRef.current.get(gate.code) ?? 0) + 1)
+              liveLastGateRef.current = gate
+            }
+          } else {
+            const trackingState = stabilizerRef.current.ingest(mediapipeToMoveNetFrame(landmarks, frameTs))
+            setTracking(trackingState)
+
+            const distanceState = distanceTrackerRef.current.ingest({
+              tMs: frameTs,
+              landmarks,
+              worldLandmarks: detected.worldLandmarks
+            })
+            setDistance(distanceState)
+
+            let gatePaused = false
+            let guidePaused = false
+            let guideFrameTone: SquatGuideUi['frameTone'] = 'none'
+            if (exercise.slug === 'squat') {
+              const guide = updateSquatGuideState(frameTs, landmarks, squatGuideRef.current)
+              setSquatGuideUi((prev) => (sameSquatGuideUi(prev, guide.ui) ? prev : guide.ui))
+              guidePaused = guide.paused
+              guideFrameTone = guide.ui.frameTone
+              const preGate = evaluateQualityGate({
+                exerciseSlug: exercise.slug,
+                deviceError: null,
+                hasLandmarks: true,
+                tracking: trackingState,
+                distance: distanceState,
+                feedback: null
+              })
+              gatePaused = preGate.paused || guidePaused
+            }
+
+            const analyzer = analyzerRef.current
+            analyzer.setMode?.(coachModeRef.current)
+            const nextFeedback = analyzer.analyzeFrame({ landmarks, gatePaused: exercise.slug === 'squat' ? gatePaused : false })
+
             setFeedback(nextFeedback)
+
+            let gateCode: string | undefined
+            let gatePausedFinal: boolean | undefined
+            if (exercise.slug === 'squat') {
+              const gateFinal = evaluateQualityGate({
+                exerciseSlug: exercise.slug,
+                deviceError: null,
+                hasLandmarks: true,
+                tracking: trackingState,
+                distance: distanceState,
+                feedback: nextFeedback
+              })
+              setQualityGate((prev) => (prev?.code === gateFinal.code ? prev : gateFinal))
+              gateCode = gateFinal.code
+              gatePausedFinal = gateFinal.paused
+              if (gateFinal.paused) {
+                liveGatedFrameCountRef.current += 1
+                liveGateFreqRef.current.set(gateFinal.code, (liveGateFreqRef.current.get(gateFinal.code) ?? 0) + 1)
+                liveLastGateRef.current = gateFinal
+              }
+            }
+
             if (exercise.slug === 'squat') {
               liveAnalyzedFrameCountRef.current += 1
               if (Number.isFinite(nextFeedback.trackingQuality)) {
@@ -410,11 +584,15 @@ export default function PoseToolPage() {
                 liveIssueFreqRef.current.set(text, (liveIssueFreqRef.current.get(text) ?? 0) + 1)
               }
               const startedPerf = sessionStartedPerfRef.current
-              const tMs = startedPerf ? Math.max(0, Math.round(frameTs - startedPerf)) : Math.round(liveTimelineRowsRef.current.length * LIVE_TARGET_FRAME_MS)
+              const tMs = startedPerf
+                ? Math.max(0, Math.round(frameTs - startedPerf))
+                : Math.round(liveTimelineRowsRef.current.length * LIVE_TARGET_FRAME_MS)
               liveTimelineRowsRef.current.push({
                 frame: liveTimelineRowsRef.current.length,
                 tMs,
                 phase: nextFeedback.phase,
+                gateCode,
+                gatePaused: gatePausedFinal,
                 trackingQuality: nextFeedback.trackingQuality,
                 kneeAngleDeg: nextFeedback.kneeAngle,
                 hipAngleDeg: nextFeedback.hipAngle,
@@ -422,43 +600,76 @@ export default function PoseToolPage() {
               })
             }
 
-            const trackingState = stabilizerRef.current.ingest(mediapipeToMoveNetFrame(landmarks, frameTs))
-            setTracking(trackingState)
-
-            const distanceState = distanceTrackerRef.current.ingest({
-              tMs: frameTs,
-              landmarks,
-              worldLandmarks: detected.worldLandmarks
-            })
-            setDistance(distanceState)
-
             if (trackingState.joints2d.length > 0) {
-              drawMidpointSkeleton(
+              if (exercise.slug === 'squat') {
+                const poseTone: 'ok' | 'bad' = nextFeedback.hipKneeMatch === true ? 'ok' : 'bad'
+                drawSquatCenterPoints(ctx, landmarks, canvasEl.width, canvasEl.height, previewMirrorRef.current, viewport, poseTone)
+              } else {
+                drawMidpointSkeleton(
+                  ctx,
+                  trackingState.joints2d,
+                  canvasEl.width,
+                  canvasEl.height,
+                  nextFeedback.issues.length > 0 ? 'bad' : 'ok',
+                  viewport ? { viewport, mirror: previewMirrorRef.current } : { mirror: previewMirrorRef.current }
+                )
+              }
+            }
+            if (exercise.slug === 'squat') {
+              drawSquatGuideFrame(ctx, canvasEl.width, canvasEl.height, guideFrameTone, viewport)
+            } else {
+              drawDistanceGuide(
                 ctx,
-                trackingState.joints2d,
+                distanceState,
                 canvasEl.width,
                 canvasEl.height,
-                nextFeedback.issues.length > 0 ? 'bad' : 'ok',
-                viewport
-                  ? { viewport, mirror: previewMirrorRef.current }
-                  : { mirror: previewMirrorRef.current }
+                viewport ? { viewport, mirror: previewMirrorRef.current } : { mirror: previewMirrorRef.current }
               )
             }
-            drawDistanceGuide(
-              ctx,
-              distanceState,
-              canvasEl.width,
-              canvasEl.height,
-              viewport
-                ? { viewport, mirror: previewMirrorRef.current }
-                : { mirror: previewMirrorRef.current }
-            )
-          } else {
-            setTracking(null)
-            setDistance(null)
+
+            const rawHighlightGroups = [
+              ...nextFeedback.issues.map((issue) => ({ joints: issue.joints, tone: 'issue' as const })),
+              ...nextFeedback.coreCorrections
+                .filter((corr) => corr.level === 'moderate' || corr.level === 'severe')
+                .map((corr) => ({ joints: corr.joints, tone: corr.level as 'moderate' | 'severe' }))
+            ]
+            const highlightGroups =
+              coachModeRef.current === 'pro'
+                ? rawHighlightGroups
+                : [...rawHighlightGroups]
+                    .filter((item) => Array.isArray(item.joints) && item.joints.length > 0)
+                    .sort((a, b) => {
+                      const p = (tone: 'issue' | 'moderate' | 'severe') => (tone === 'issue' ? 3 : tone === 'severe' ? 2 : 1)
+                      return p(b.tone) - p(a.tone)
+                    })
+                    .slice(0, 2)
+            if (exercise.slug !== 'squat') {
+              drawIssueHighlights(
+                ctx,
+                landmarks,
+                highlightGroups,
+                canvasEl.width,
+                canvasEl.height,
+                viewport ? { viewport, mirror: previewMirrorRef.current } : { mirror: previewMirrorRef.current }
+              )
+            }
           }
         } catch (e: unknown) {
           setError(e instanceof Error ? e.message : 'Live detection failed')
+          if (exercise.slug === 'squat') {
+            const gate = evaluateQualityGate({
+              exerciseSlug: exercise.slug,
+              deviceError: e instanceof Error ? e.message : 'Live detection failed',
+              hasLandmarks: false,
+              tracking: null,
+              distance: null,
+              feedback: null
+            })
+            setQualityGate((prev) => (prev?.code === gate.code ? prev : gate))
+            liveGatedFrameCountRef.current += 1
+            liveGateFreqRef.current.set(gate.code, (liveGateFreqRef.current.get(gate.code) ?? 0) + 1)
+            liveLastGateRef.current = gate
+          }
         }
 
         const bucket = fpsRef.current
@@ -558,13 +769,43 @@ export default function PoseToolPage() {
     setSaveTrainingMsg(null)
     try {
       const startedAt = sessionStartedAtRef.current ?? new Date().toISOString()
+      const gateByCode = Array.from(liveGateFreqRef.current.entries()).map(([code, count]) => ({ code, count }))
+      const report =
+        exercise.slug === 'squat'
+          ? buildSquatAlignedReport({
+              source: 'live',
+              taskId: startedAt ? `live-${startedAt}` : 'live-session',
+              viewAngle: 'unknown',
+              exercise: { id: exercise.slug, name: exercise.displayName },
+              video: null,
+              fps: effectiveFps ?? LIVE_TARGET_FPS,
+              lastFeedback: feedbackRef.current,
+              messageFreq: liveIssueFreqRef.current,
+              analyzedFrameCount: liveAnalyzedFrameCountRef.current,
+              trackingQualitySamples: liveTrackingQualitySamplesRef.current,
+              timelineRows: liveTimelineRowsRef.current,
+              gating: {
+                totalFrames: liveFrameTickCountRef.current,
+                gatedFrames: liveGatedFrameCountRef.current,
+                byCode: gateByCode,
+                last: liveLastGateRef.current
+                  ? {
+                      code: liveLastGateRef.current.code,
+                      title: liveLastGateRef.current.title,
+                      reason: liveLastGateRef.current.reason,
+                      fix: liveLastGateRef.current.fix
+                    }
+                  : null
+              }
+            })
+          : (liveReport as PoseAnalysisReport)
       const session = await createPoseTraining({
         started_at: startedAt,
         ended_at: new Date().toISOString(),
         exercise_type: exercise.exerciseType,
         note: buildTrainingRecordName({ startedAt, exerciseName: exercise.displayName }),
         sets: [{ reps, note: currentSuggestion }],
-        report: liveReport as Record<string, unknown>
+        report: report as Record<string, unknown>
       })
       setSaveTrainingMsg(`Saved training record #${session.id}`)
       setSavedLiveSessionId(session.id)
@@ -857,12 +1098,16 @@ export default function PoseToolPage() {
                     </div>
                   </div>
 
-                  <div
-                    className="pose-stage pose-stage-landscape"
-                  >
+                  <div className={`pose-stage ${exercise.slug === 'squat' ? 'pose-stage-portrait' : 'pose-stage-landscape'}`}>
                     <video ref={videoRef} autoPlay playsInline muted className="pose-stage-media pose-stage-video-hidden" />
                     <canvas ref={canvasRef} className="pose-stage-media pose-stage-canvas" />
                     {!running ? <div className="pose-stage-overlay">{loadingMsg ?? 'Click Start to begin real-time pose detection'}</div> : null}
+                    {running && exercise.slug === 'squat' && squatGuideUi.message ? (
+                      <div className="pose-stage-guide-toast" role="status" aria-live="assertive">
+                        <strong>实时引导</strong>
+                        <p>{squatGuideUi.message}</p>
+                      </div>
+                    ) : null}
                   </div>
 
                   <div className="pose-camera-toolbar pose-camera-toolbar-compact">
@@ -973,13 +1218,30 @@ export default function PoseToolPage() {
                       <span className="pose-panel-kicker">In Session</span>
                       <h4 className="pose-panel-title">Live Feedback</h4>
                       <p className="pose-panel-subtitle">Real-time form diagnostics and coaching cues</p>
+                      {exercise.slug === 'squat' ? (
+                        <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            className={coachMode === 'beginner' ? 'cl_theme-btn' : 'pose-tool-ghost-btn pose-tool-light-btn'}
+                            onClick={() => setCoachMode('beginner')}
+                          >
+                            Beginner
+                          </button>
+                          <button
+                            type="button"
+                            className={coachMode === 'pro' ? 'cl_theme-btn' : 'pose-tool-ghost-btn pose-tool-light-btn'}
+                            onClick={() => setCoachMode('pro')}
+                          >
+                            Advanced
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
                     <div className="pose-kpi-grid pose-kpi-grid-light">
                       <MetricCard label={<LabelWithTip label="Completed Reps" tip={exercise.completedRepsTip} />} value={feedback?.repCount ?? 0} />
                       <MetricCard label={<LabelWithTip label="Form Accuracy" tip="Percentage of reps judged as good form." />} value={feedback?.session.accuracyPct ?? 0} unit="%" />
                       <MetricCard label={<LabelWithTip label={exercise.secondaryMetricLabel} tip={exercise.secondaryMetricTip} />} value={feedback?.kneeAngle ?? '-'} unit={feedback?.kneeAngle ? '°' : ''} />
                       <MetricCard label={<LabelWithTip label="Hip Bend" tip="Estimated hip joint angle during your movement." />} value={feedback?.hipAngle ?? '-'} unit={feedback?.hipAngle ? '°' : ''} />
-                      <MetricCard label={<LabelWithTip label="Torso Lean" tip="Estimated torso angle relative to upright posture." />} value={feedback?.torsoAngle ?? '-'} unit={feedback?.torsoAngle ? '°' : ''} />
                       <MetricCardPlaceholder />
                     </div>
 
@@ -987,6 +1249,55 @@ export default function PoseToolPage() {
                       <h6 className="sub-title mb-15 pose-section-title">Coaching Tip</h6>
                       <p className="pose-live-coaching-copy">{currentSuggestion}</p>
                     </div>
+
+                    {exercise.slug === 'squat' && feedback ? (
+                      <div className="pose-tip-card pose-tip-card-light pose-live-section">
+                        <h6 className="sub-title mb-15 pose-section-title">Core Corrections</h6>
+                        {visibleCoreCorrections.length === 0 ? (
+                          <p className="pose-muted-copy" style={{ marginBottom: 0 }}>
+                            No actionable corrections right now.
+                          </p>
+                        ) : (
+                          <ul className="pose-detail-list pose-detail-list-light">
+                            {visibleCoreCorrections.map((item) => (
+                              <li key={item.type}>
+                                <strong>{item.title}</strong>
+                                {coachMode === 'pro' ? (
+                                  <div className="pose-muted-copy" style={{ marginTop: 6 }}>
+                                    {formatEvidence(item.evidence)}
+                                  </div>
+                                ) : null}
+                                {item.level !== 'ok' && item.level !== 'unknown' ? (
+                                  <div className="pose-muted-copy" style={{ marginTop: 6 }}>
+                                    {item.suggestion}
+                                  </div>
+                                ) : null}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ) : null}
+
+                    {exercise.slug === 'squat' && qualityGate ? (
+                      <div className="pose-tip-card pose-tip-card-light pose-live-section">
+                        <h6 className="sub-title mb-15 pose-section-title">Quality Gate</h6>
+                        <p style={{ marginBottom: 8 }}>
+                          <strong>{qualityGate.paused ? 'PAUSED' : 'OK'}</strong>
+                          {qualityGate.paused ? ` · ${qualityGate.title}` : ''}
+                        </p>
+                        {qualityGate.paused ? (
+                          <>
+                            <p style={{ marginBottom: 8 }}>{qualityGate.reason}</p>
+                            <p style={{ marginBottom: 0 }}>
+                              <strong>Fix:</strong> {qualityGate.fix}
+                            </p>
+                          </>
+                        ) : (
+                          <p style={{ marginBottom: 0 }}>{qualityGate.reason}</p>
+                        )}
+                      </div>
+                    ) : null}
 
                     <div className="pose-tip-card pose-tip-card-light pose-live-section">
                       <h6 className="sub-title mb-15 pose-section-title">Status</h6>
@@ -1167,6 +1478,201 @@ export default function PoseToolPage() {
   )
 }
 
+function sameSquatGuideUi(a: SquatGuideUi, b: SquatGuideUi) {
+  return a.stage === b.stage && a.message === b.message && a.frameTone === b.frameTone
+}
+
+function updateSquatGuideState(
+  nowMs: number,
+  landmarks: NormalizedLandmark[] | null,
+  machine: { stage: SquatGuideStage; stageStartedMs: number; readyNoticeUntilMs: number; outOfFrameSinceMs: number | null }
+): { paused: boolean; ui: SquatGuideUi } {
+  const fullBodyReady = !!landmarks && isSquatBodyFullyInFrame(landmarks)
+  if (!fullBodyReady) {
+    if (machine.stage === 'active') {
+      if (machine.outOfFrameSinceMs === null) machine.outOfFrameSinceMs = nowMs
+      const outDuration = nowMs - machine.outOfFrameSinceMs
+      if (outDuration < SQUAT_OUT_OF_FRAME_HOLD_MS) {
+        return {
+          paused: false,
+          ui: { stage: 'active', message: null, frameTone: 'none' }
+        }
+      }
+    }
+    const wasActive = machine.stage === 'active'
+    machine.stage = 'positioning'
+    machine.stageStartedMs = nowMs
+    machine.readyNoticeUntilMs = 0
+    machine.outOfFrameSinceMs = nowMs
+    return {
+      paused: true,
+      ui: {
+        stage: 'positioning',
+        message: wasActive ? '检测到身体超出画面，已自动暂停计数，请重新完整入镜。' : '请调整站位，让全身完整进入画面。',
+        frameTone: 'red'
+      }
+    }
+  }
+
+  machine.outOfFrameSinceMs = null
+
+  if (machine.stage === 'positioning') {
+    machine.stage = 'flashing'
+    machine.stageStartedMs = nowMs
+    machine.readyNoticeUntilMs = 0
+  }
+
+  if (machine.stage === 'flashing') {
+    const elapsed = Math.max(0, nowMs - machine.stageStartedMs)
+    const toggle = Math.floor(elapsed / SQUAT_FLASH_CYCLE_MS)
+    if (toggle >= SQUAT_FLASH_TOTAL_TOGGLES) {
+      machine.stage = 'ready_notice'
+      machine.stageStartedMs = nowMs
+      machine.readyNoticeUntilMs = nowMs + SQUAT_READY_NOTICE_MS
+      return {
+        paused: true,
+        ui: { stage: 'ready_notice', message: '入框完成，可以开始训练。', frameTone: 'none' }
+      }
+    }
+    return {
+      paused: true,
+      ui: {
+        stage: 'flashing',
+        message: null,
+        frameTone: toggle % 2 === 0 ? 'green' : 'none'
+      }
+    }
+  }
+
+  if (machine.stage === 'ready_notice') {
+    if (nowMs >= machine.readyNoticeUntilMs) {
+      machine.stage = 'active'
+      machine.stageStartedMs = nowMs
+      machine.readyNoticeUntilMs = 0
+      machine.outOfFrameSinceMs = null
+      return {
+        paused: false,
+        ui: { stage: 'active', message: null, frameTone: 'none' }
+      }
+    }
+    return {
+      paused: true,
+      ui: { stage: 'ready_notice', message: '入框完成，可以开始训练。', frameTone: 'none' }
+    }
+  }
+
+  return {
+    paused: false,
+    ui: { stage: 'active', message: null, frameTone: 'none' }
+  }
+}
+
+function isSquatBodyFullyInFrame(landmarks: NormalizedLandmark[]) {
+  const required = [0, 11, 12, 23, 24, 25, 26, 27, 28]
+  const visMin = 0.22
+  const marginX = 0.025
+  const marginY = 0.02
+  for (const idx of required) {
+    const p = landmarks[idx]
+    if (!p) return false
+    const vis = typeof p.visibility === 'number' ? p.visibility : 0
+    if (!Number.isFinite(vis) || vis < visMin) return false
+    if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) return false
+    if (p.x < marginX || p.x > 1 - marginX || p.y < marginY || p.y > 1 - marginY) return false
+  }
+  return true
+}
+
+function drawSquatGuideFrame(
+  ctx: CanvasRenderingContext2D,
+  canvasWidth: number,
+  canvasHeight: number,
+  tone: 'red' | 'green' | 'none',
+  viewport: { x: number; y: number; w: number; h: number } | null
+) {
+  if (tone === 'none') return
+  const box = viewport ?? { x: 0, y: 0, w: canvasWidth, h: canvasHeight }
+  const color = tone === 'green' ? 'rgba(34, 197, 94, 0.95)' : 'rgba(239, 68, 68, 0.95)'
+  ctx.save()
+  ctx.strokeStyle = color
+  ctx.lineWidth = 5
+  ctx.setLineDash([])
+  ctx.strokeRect(box.x + 2, box.y + 2, Math.max(0, box.w - 4), Math.max(0, box.h - 4))
+  ctx.restore()
+}
+
+function drawSquatCenterPoints(
+  ctx: CanvasRenderingContext2D,
+  landmarks: NormalizedLandmark[],
+  canvasWidth: number,
+  canvasHeight: number,
+  mirror: boolean,
+  viewport: { x: number; y: number; w: number; h: number } | null,
+  tone: 'ok' | 'bad'
+) {
+  const box = viewport ?? { x: 0, y: 0, w: canvasWidth, h: canvasHeight }
+  const points = pickSquatCenterPoints(landmarks)
+  if (points.length === 0) return
+  const mainColor = tone === 'bad' ? 'rgba(239, 68, 68, 0.95)' : 'rgba(16, 185, 129, 0.95)'
+  const lineColor = tone === 'bad' ? 'rgba(239, 68, 68, 0.92)' : 'rgba(16, 185, 129, 0.92)'
+  ctx.save()
+  ctx.lineWidth = 5
+  ctx.lineJoin = 'round'
+  ctx.lineCap = 'round'
+  ctx.strokeStyle = lineColor
+  ctx.beginPath()
+  let started = false
+  for (const p of points) {
+    const x = box.x + (mirror ? 1 - p.x : p.x) * box.w
+    const y = box.y + p.y * box.h
+    if (!started) {
+      ctx.moveTo(x, y)
+      started = true
+    } else {
+      ctx.lineTo(x, y)
+    }
+  }
+  if (started) ctx.stroke()
+
+  for (const p of points) {
+    const x = box.x + (mirror ? 1 - p.x : p.x) * box.w
+    const y = box.y + p.y * box.h
+    ctx.beginPath()
+    ctx.fillStyle = mainColor
+    ctx.arc(x, y, 7, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.beginPath()
+    ctx.strokeStyle = 'rgba(255,255,255,0.95)'
+    ctx.lineWidth = 2
+    ctx.arc(x, y, 11, 0, Math.PI * 2)
+    ctx.stroke()
+  }
+  ctx.restore()
+}
+
+function pickSquatCenterPoints(landmarks: NormalizedLandmark[]) {
+  const pairs: Array<[number, number]> = [
+    [11, 12], // shoulders midpoint
+    [23, 24], // hips midpoint
+    [25, 26], // knees midpoint
+    [27, 28] // feet(ankles) midpoint
+  ]
+  const out: Array<{ x: number; y: number }> = []
+  for (const [lIdx, rIdx] of pairs) {
+    const l = landmarks[lIdx]
+    const r = landmarks[rIdx]
+    if (!isVisiblePoint(l, 0.25) || !isVisiblePoint(r, 0.25)) continue
+    out.push({ x: (l.x + r.x) / 2, y: (l.y + r.y) / 2 })
+  }
+  return out
+}
+
+function isVisiblePoint(p: NormalizedLandmark | undefined, minVis: number) {
+  if (!p) return false
+  const vis = typeof p.visibility === 'number' ? p.visibility : 0
+  return Number.isFinite(vis) && vis >= minVis && Number.isFinite(p.x) && Number.isFinite(p.y)
+}
+
 function drawCameraFrame(
   ctx: CanvasRenderingContext2D,
   video: HTMLVideoElement,
@@ -1201,5 +1707,3 @@ function drawCameraFrame(
 
   return { x: offsetX, y: offsetY, w: drawWidth, h: drawHeight }
 }
-
-

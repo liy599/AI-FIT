@@ -402,18 +402,26 @@ export default function ProfilePage() {
             <div className="text-lg font-semibold">Account</div>
             <div className="text-sm text-slate-600">{auth.user?.email}</div>
           </div>
-          <button
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-            onClick={() => {
-              loadProfile().catch(() => {})
-              loadWorkouts().catch(() => {})
-              loadMeals().catch(() => {})
-              loadMyBlogs().catch(() => {})
-              loadMyComments().catch(() => {})
-            }}
-          >
-            Refresh
-          </button>
+          <div className="flex items-center gap-2">
+            <Link to="/profile/privacy" className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+              Privacy
+            </Link>
+            <Link to="/admin/data-lifecycle" className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+              Admin Cleanup
+            </Link>
+            <button
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              onClick={() => {
+                loadProfile().catch(() => {})
+                loadWorkouts().catch(() => {})
+                loadMeals().catch(() => {})
+                loadMyBlogs().catch(() => {})
+                loadMyComments().catch(() => {})
+              }}
+            >
+              Refresh
+            </button>
+          </div>
         </div>
         {error ? <div className="mt-2 text-sm text-rose-700">{error}</div> : null}
         {notice ? <div className="mt-2 text-sm text-emerald-700">{notice}</div> : null}

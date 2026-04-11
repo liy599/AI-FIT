@@ -6,6 +6,7 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 from ..extensions import db
 from ..models import User
+from ..utils.rate_limit import consume_rate_limit, get_client_ip, subject_fingerprint
 from ..utils.security import hash_password, verify_password
 
 bp = Blueprint("auth", __name__)
@@ -49,6 +50,24 @@ def login():
     if not email or not password:
         return jsonify({"error": "email/password required"}), 400
 
+    if current_app.config.get("RATE_LIMIT_ENABLED", True):
+        ip = get_client_ip()
+        ip_result = consume_rate_limit(
+            f"auth:login:ip:{ip}",
+            limit=int(current_app.config.get("AUTH_LOGIN_RATE_LIMIT_PER_IP", 20)),
+            window_seconds=int(current_app.config.get("AUTH_LOGIN_RATE_LIMIT_IP_WINDOW_SECONDS", 300)),
+        )
+        if not ip_result.allowed:
+            return jsonify({"error": "too many requests", "retry_after": ip_result.retry_after_seconds}), 429
+
+        account_result = consume_rate_limit(
+            f"auth:login:acct:{subject_fingerprint(email)}",
+            limit=int(current_app.config.get("AUTH_LOGIN_RATE_LIMIT_PER_ACCOUNT", 8)),
+            window_seconds=int(current_app.config.get("AUTH_LOGIN_RATE_LIMIT_ACCOUNT_WINDOW_SECONDS", 900)),
+        )
+        if not account_result.allowed:
+            return jsonify({"error": "too many requests", "retry_after": account_result.retry_after_seconds}), 429
+
     user = User.query.filter_by(email=email).first()
     if user is None or not verify_password(password, user.password_hash):
         return jsonify({"error": "invalid credentials"}), 401
@@ -70,14 +89,34 @@ def forgot_password():
     if not email:
         return jsonify({"error": "email required"}), 400
 
+    if current_app.config.get("RATE_LIMIT_ENABLED", True):
+        ip = get_client_ip()
+        ip_result = consume_rate_limit(
+            f"auth:forgot:ip:{ip}",
+            limit=int(current_app.config.get("AUTH_FORGOT_RATE_LIMIT_PER_IP", 10)),
+            window_seconds=int(current_app.config.get("AUTH_FORGOT_RATE_LIMIT_IP_WINDOW_SECONDS", 900)),
+        )
+        if not ip_result.allowed:
+            return jsonify({"error": "too many requests", "retry_after": ip_result.retry_after_seconds}), 429
+
+        account_result = consume_rate_limit(
+            f"auth:forgot:acct:{subject_fingerprint(email)}",
+            limit=int(current_app.config.get("AUTH_FORGOT_RATE_LIMIT_PER_ACCOUNT", 5)),
+            window_seconds=int(current_app.config.get("AUTH_FORGOT_RATE_LIMIT_ACCOUNT_WINDOW_SECONDS", 1800)),
+        )
+        if not account_result.allowed:
+            return jsonify({"error": "too many requests", "retry_after": account_result.retry_after_seconds}), 429
+
     user = User.query.filter_by(email=email).first()
-    if user is None:
-        return jsonify({"error": "email not found"}), 404
+    reset_link = None
+    if user is not None:
+        token = _serializer().dumps({"user_id": user.id, "email": user.email})
+        reset_link = f'{current_app.config["FRONTEND_BASE_URL"].rstrip("/")}/reset-password?token={token}'
 
-    token = _serializer().dumps({"user_id": user.id, "email": user.email})
-    reset_link = f'{current_app.config["FRONTEND_BASE_URL"].rstrip("/")}/reset-password?token={token}'
-
-    return jsonify({"ok": True, "reset_link": reset_link})
+    response = {"ok": True, "message": "If the email exists, a reset link has been sent."}
+    if reset_link and current_app.config.get("PASSWORD_RESET_DEBUG_RETURN_LINK"):
+        response["reset_link"] = reset_link
+    return jsonify(response)
 
 
 @bp.post("/reset-password")
@@ -89,7 +128,7 @@ def reset_password():
         return jsonify({"error": "token/new_password required"}), 400
 
     try:
-        payload = _serializer().loads(token, max_age=60 * 60)
+        payload = _serializer().loads(token, max_age=current_app.config.get("PASSWORD_RESET_TOKEN_TTL_SECONDS", 60 * 60))
     except SignatureExpired:
         return jsonify({"error": "token expired"}), 400
     except BadSignature:

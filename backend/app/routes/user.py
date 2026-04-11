@@ -1,5 +1,6 @@
 import os
 import uuid
+from datetime import datetime, timedelta
 from typing import Optional
 
 from flask import Blueprint, current_app, jsonify, request
@@ -7,10 +8,12 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from werkzeug.utils import secure_filename
 
 from ..extensions import db
-from ..models import Blog, Comment, User
+from ..models import AnalysisTask, Blog, Comment, FoodMealRecord, TrainingSession, User, UserFeedback, VideoAsset, WorkoutRecord
 from ..utils.pagination import parse_pagination
+from ..utils.upload_access import resolve_upload_file_path
 
 bp = Blueprint("user", __name__)
+ALLOWED_DELETE_TARGETS = {"workouts", "meals", "trainings", "pose_media", "feedback", "blogs", "comments", "account", "all"}
 
 
 def _user_public(u: User):
@@ -26,6 +29,71 @@ def _user_public(u: User):
         "created_at": u.created_at.isoformat(),
         "updated_at": u.updated_at.isoformat(),
     }
+
+
+def _to_bool(value) -> bool:
+    if value is True:
+        return True
+    if value is False or value is None:
+        return False
+    if isinstance(value, int):
+        return value != 0
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return False
+
+
+def _to_targets(raw) -> set[str]:
+    if isinstance(raw, str):
+        raw_items = [raw]
+    elif isinstance(raw, list):
+        raw_items = raw
+    else:
+        raw_items = []
+    targets = {str(item).strip().lower() for item in raw_items if str(item).strip()}
+    targets = {t for t in targets if t in ALLOWED_DELETE_TARGETS}
+    if "all" in targets:
+        targets.discard("all")
+        targets.update({"workouts", "meals", "trainings", "pose_media", "feedback", "blogs", "comments"})
+    return targets
+
+
+def _parse_before_dt(data: dict) -> datetime | None:
+    raw_days = data.get("before_days")
+    if raw_days is None or raw_days == "":
+        return None
+    try:
+        days = int(raw_days)
+    except (TypeError, ValueError):
+        return None
+    if days <= 0:
+        return None
+    return datetime.utcnow() - timedelta(days=days)
+
+
+def _remove_video_files(videos: list[VideoAsset]) -> None:
+    for item in videos:
+        path = resolve_upload_file_path(item.storage_path)
+        if not path:
+            continue
+        if os.path.isfile(path):
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+
+
+def _remove_avatar_file(user: User) -> None:
+    avatar = (user.avatar_url or "").strip()
+    if not avatar.startswith("/uploads/avatars/"):
+        return
+    rel = avatar.removeprefix("/uploads/")
+    abs_path = resolve_upload_file_path(rel)
+    if abs_path and os.path.isfile(abs_path):
+        try:
+            os.remove(abs_path)
+        except OSError:
+            pass
 
 
 @bp.get("/profile")
@@ -198,6 +266,99 @@ def my_comments():
             "page": page,
             "page_size": page_size,
             "total": total,
+        }
+    )
+
+
+@bp.post("/data-lifecycle/delete")
+@jwt_required()
+def delete_my_data():
+    user_id = int(get_jwt_identity())
+    data = request.get_json(silent=True) or {}
+    targets = _to_targets(data.get("targets"))
+    if not targets:
+        return jsonify({"error": "targets required"}), 400
+
+    dry_run = _to_bool(data.get("dry_run", False))
+    before_dt = _parse_before_dt(data)
+    if "account" in targets and (data.get("confirm") or "") != "DELETE_MY_ACCOUNT":
+        return jsonify({"error": "confirmation phrase required"}), 400
+
+    counts: dict[str, int] = {}
+
+    def apply_time_filter(query, model):
+        if before_dt is None:
+            return query
+        if hasattr(model, "created_at"):
+            return query.filter(model.created_at < before_dt)
+        return query
+
+    if "workouts" in targets:
+        q = apply_time_filter(WorkoutRecord.query.filter_by(user_id=user_id), WorkoutRecord)
+        counts["workouts"] = q.count()
+        if not dry_run and counts["workouts"]:
+            q.delete(synchronize_session=False)
+
+    if "meals" in targets:
+        q = apply_time_filter(FoodMealRecord.query.filter_by(user_id=user_id), FoodMealRecord)
+        counts["meals"] = q.count()
+        if not dry_run and counts["meals"]:
+            q.delete(synchronize_session=False)
+
+    if "trainings" in targets:
+        q = apply_time_filter(TrainingSession.query.filter_by(user_id=user_id), TrainingSession)
+        counts["trainings"] = q.count()
+        if not dry_run and counts["trainings"]:
+            q.delete(synchronize_session=False)
+
+    if "feedback" in targets:
+        q = apply_time_filter(UserFeedback.query.filter_by(user_id=user_id), UserFeedback)
+        counts["feedback"] = q.count()
+        if not dry_run and counts["feedback"]:
+            q.delete(synchronize_session=False)
+
+    if "comments" in targets:
+        q = apply_time_filter(Comment.query.filter_by(user_id=user_id), Comment)
+        counts["comments"] = q.count()
+        if not dry_run and counts["comments"]:
+            q.delete(synchronize_session=False)
+
+    if "blogs" in targets:
+        q = apply_time_filter(Blog.query.filter_by(user_id=user_id), Blog)
+        counts["blogs"] = q.count()
+        if not dry_run and counts["blogs"]:
+            q.delete(synchronize_session=False)
+
+    if "pose_media" in targets or "account" in targets:
+        video_q = apply_time_filter(VideoAsset.query.filter_by(user_id=user_id), VideoAsset)
+        videos = video_q.all()
+        task_q = apply_time_filter(AnalysisTask.query.filter_by(user_id=user_id), AnalysisTask)
+        counts["pose_media_videos"] = len(videos)
+        counts["pose_media_tasks"] = task_q.count()
+        if not dry_run:
+            _remove_video_files(videos)
+            if counts["pose_media_tasks"]:
+                task_q.delete(synchronize_session=False)
+            if counts["pose_media_videos"]:
+                VideoAsset.query.filter(VideoAsset.id.in_([v.id for v in videos])).delete(synchronize_session=False)
+
+    if "account" in targets:
+        user = User.query.get(user_id)
+        counts["account"] = 1 if user is not None else 0
+        if not dry_run and user is not None:
+            _remove_avatar_file(user)
+            db.session.delete(user)
+
+    if not dry_run:
+        db.session.commit()
+
+    return jsonify(
+        {
+            "ok": True,
+            "dry_run": dry_run,
+            "before": before_dt.isoformat() if before_dt else None,
+            "targets": sorted(targets),
+            "counts": counts,
         }
     )
 

@@ -26,6 +26,90 @@ ALLOWED_VIDEO_MIME_TYPES = {
 }
 ALLOWED_VIEW_ANGLES = {"unknown", "front", "side", "back"}
 ALLOWED_STATUSES = {"uploaded", "running", "succeeded", "failed"}
+SQUAT17_TUNING_FILENAME = "squat17_tuning.json"
+SQUAT17_TUNING_DEFAULTS = {
+    "kneeForwardWarnRatio": 0.045,
+    "kneeForwardFailRatio": 0.058,
+    "kneeForwardFailMinFrames": 2,
+    "forwardLeanWarnDeg": 40,
+    "forwardLeanFailDeg": 55,
+    "forwardLeanFailMinFrames": 5,
+    "trackingQualityMin": 0.28,
+}
+SQUAT17_TUNING_BOUNDS = {
+    "kneeForwardWarnRatio": (0.01, 0.3),
+    "kneeForwardFailRatio": (0.01, 0.35),
+    "kneeForwardFailMinFrames": (1, 30),
+    "forwardLeanWarnDeg": (10, 80),
+    "forwardLeanFailDeg": (15, 90),
+    "forwardLeanFailMinFrames": (1, 60),
+    "trackingQualityMin": (0.05, 0.95),
+}
+
+
+def _admin_guard(user_id: int) -> bool:
+    from ..models import User
+
+    user = User.query.get(user_id)
+    if user is None:
+        return False
+    admin_email = (current_app.config.get("ADMIN_EMAIL") or "").strip().lower()
+    return bool(admin_email) and user.email.strip().lower() == admin_email
+
+
+def _pose_config_dir() -> str:
+    folder = os.path.join(current_app.instance_path, "pose")
+    os.makedirs(folder, exist_ok=True)
+    return folder
+
+
+def _squat17_tuning_path() -> str:
+    return os.path.join(_pose_config_dir(), SQUAT17_TUNING_FILENAME)
+
+
+def _normalize_squat17_tuning(raw: dict | None) -> dict:
+    merged = dict(SQUAT17_TUNING_DEFAULTS)
+    if isinstance(raw, dict):
+        merged.update(raw)
+    out: dict[str, float | int] = {}
+    for key, default_value in SQUAT17_TUNING_DEFAULTS.items():
+        value = merged.get(key, default_value)
+        lo, hi = SQUAT17_TUNING_BOUNDS[key]
+        is_int = isinstance(default_value, int)
+        try:
+            numeric = int(value) if is_int else float(value)
+        except (TypeError, ValueError):
+            numeric = default_value
+        numeric = max(lo, min(hi, numeric))
+        out[key] = int(numeric) if is_int else float(numeric)
+    if out["kneeForwardFailRatio"] < out["kneeForwardWarnRatio"]:
+        out["kneeForwardFailRatio"] = out["kneeForwardWarnRatio"]
+    if out["forwardLeanFailDeg"] < out["forwardLeanWarnDeg"]:
+        out["forwardLeanFailDeg"] = out["forwardLeanWarnDeg"]
+    return out
+
+
+def _load_squat17_tuning() -> tuple[dict, str]:
+    path = _squat17_tuning_path()
+    if not os.path.isfile(path):
+        return dict(SQUAT17_TUNING_DEFAULTS), "default"
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            payload = json.load(f)
+        if not isinstance(payload, dict):
+            raise ValueError("invalid payload")
+        normalized = _normalize_squat17_tuning(payload)
+        return normalized, "stored"
+    except Exception:
+        return dict(SQUAT17_TUNING_DEFAULTS), "default"
+
+
+def _save_squat17_tuning(tuning: dict) -> None:
+    path = _squat17_tuning_path()
+    tmp = f"{path}.tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(tuning, f, ensure_ascii=False, indent=2)
+    os.replace(tmp, path)
 
 
 def _video_public(video: VideoAsset):
@@ -138,6 +222,28 @@ def _training_session_public(session: TrainingSession):
             for item in ordered_sets
         ],
     }
+
+
+@bp.get("/config/squat17-tuning")
+def get_squat17_tuning():
+    tuning, source = _load_squat17_tuning()
+    return jsonify({"tuning": tuning, "source": source})
+
+
+@bp.put("/config/squat17-tuning")
+@jwt_required()
+def update_squat17_tuning():
+    user_id = int(get_jwt_identity())
+    if not _admin_guard(user_id):
+        return jsonify({"error": "forbidden"}), 403
+
+    data = request.get_json(silent=True) or {}
+    raw = data.get("tuning")
+    if not isinstance(raw, dict):
+        return jsonify({"error": "tuning object required"}), 400
+    normalized = _normalize_squat17_tuning(raw)
+    _save_squat17_tuning(normalized)
+    return jsonify({"ok": True, "tuning": normalized})
 
 
 @bp.get("/videos")

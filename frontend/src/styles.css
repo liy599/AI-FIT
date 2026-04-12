@@ -79,8 +79,10 @@ body {
 }
 
 .pose-live-layout .pose-tool-head {
-  gap: 10px;
-  align-items: center;
+  gap: 8px;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: flex-start;
   margin-bottom: 0;
 }
 
@@ -90,13 +92,20 @@ body {
 }
 
 .pose-live-layout .pose-tool-actions {
+  align-self: flex-start;
+  width: 100%;
   gap: 8px;
 }
 
 .pose-live-layout .pose-tool-actions .cl_theme-btn,
 .pose-live-layout .pose-tool-actions .pose-tool-ghost-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  flex: 1 1 0;
   padding: 10px 18px;
-  min-width: 86px;
+  min-width: 0;
 }
 
 .pose-live-layout .pose-live-session-card {
@@ -350,6 +359,38 @@ body {
   font-weight: 600;
   letter-spacing: 0;
   color: #0f172a !important;
+}
+
+.pose-live-layout .pose-live-section-grow {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.pose-live-layout .pose-live-section-grow .pose-live-coaching-copy-fill {
+  flex: 1;
+  min-height: 140px;
+  max-height: none;
+  overflow: auto;
+}
+
+.pose-live-layout .pose-live-section-split {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.pose-live-layout .pose-live-section-split .pose-live-coaching-copy {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
+
+.pose-live-layout .pose-sideview-copy {
+  font-size: clamp(16px, 1.1vw, 22px) !important;
+  line-height: 1.5;
 }
 
 .pose-live-layout .pose-status-kv-grid .pose-kv-item-wide {
@@ -1015,24 +1056,87 @@ body {
 
 .pose-report-title {
   font-weight: 700;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   color: #0f172a;
+  font-size: 17px;
+  line-height: 1.4;
+}
+
+.pose-report-abbrev {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.5;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.pose-summary-block {
+  display: grid;
+  gap: 10px;
+}
+
+.pose-summary-text {
+  color: #334155;
+  line-height: 1.5;
+}
+
+.pose-summary-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pose-summary-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #99f6e4;
+  color: #0f766e;
+  background: transparent;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.pose-report-abbrev-title {
+  font-weight: 700;
+  color: #334155;
+}
+
+.pose-abbrev-pill {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #99f6e4;
+  background: transparent;
+  color: #0f766e;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
 }
 
 .pose-report-label {
-  font-size: 12px;
+  font-size: 14px;
+  font-weight: 600;
   color: #64748b;
   margin-bottom: 6px;
+  line-height: 1.45;
 }
 
 .pose-report-value {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   color: #0f172a;
+  line-height: 1.35;
 }
 
 .pose-report-value-small {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   line-height: 1.45;
 }
@@ -1041,6 +1145,20 @@ body {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.pose-report-metric-fragment {
+  display: contents;
+}
+
+.pose-report-metric-group-title {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #0f766e;
+  margin-top: 4px;
 }
 
 .pose-report-metrics-3 {
@@ -1066,8 +1184,13 @@ body {
   background: #f8fafc;
 }
 
+.pose-report-issue strong {
+  font-size: 15px;
+  line-height: 1.45;
+}
+
 .pose-report-issue span {
-  font-size: 12px;
+  font-size: 13px;
   color: #64748b;
 }
 
@@ -1076,6 +1199,39 @@ body {
   padding-left: 18px;
   display: grid;
   gap: 6px;
+  color: #334155;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.pose-criteria-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0;
+}
+
+.pose-criteria-list li {
+  padding: 10px 2px;
+  display: grid;
+  gap: 4px;
+  border-bottom: 1px dashed #d6dee8;
+}
+
+.pose-criteria-list li:last-child {
+  border-bottom: none;
+}
+
+.pose-criteria-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.pose-criteria-text {
+  font-size: 14px;
+  line-height: 1.55;
   color: #334155;
 }
 

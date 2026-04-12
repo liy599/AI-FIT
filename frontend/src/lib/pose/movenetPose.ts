@@ -1,4 +1,6 @@
 import type { NormalizedLandmark, PoseFrame } from './mediapipePose'
+import type { MoveNetKeypoint, MoveNetName } from './movenetTracker'
+import { MOVENET_NAMES } from './movenetTracker'
 
 type MoveNetPoint = {
   x: number
@@ -101,11 +103,16 @@ export type MoveNetExtractOptions = {
   onProgress?: (p: { processed: number; total: number; stage: 'loading' | 'extracting' }) => void
 }
 
+export type MoveNetNativeFrame = {
+  tMs: number
+  keypoints: MoveNetKeypoint[]
+}
+
 export async function extractPose33FromVideoUrlWithMoveNet(
   videoUrl: string,
   opts: MoveNetExtractOptions = {}
-): Promise<{ fps: number; frames: PoseFrame[] }> {
-  const { maxFrames = 4000, targetFps = 24, minVisibility = 0.2, onProgress } = opts
+): Promise<{ fps: number; frames: PoseFrame[]; nativeFrames: MoveNetNativeFrame[] }> {
+  const { maxFrames = 4000, targetFps = 40, minVisibility = 0.2, onProgress } = opts
   if (typeof window === 'undefined') throw new Error('Browser only')
 
   onProgress?.({ processed: 0, total: 1, stage: 'loading' })
@@ -133,6 +140,8 @@ export async function extractPose33FromVideoUrlWithMoveNet(
   const fps = Math.max(1, Math.min(60, Math.round(targetFps)))
   const total = Math.min(maxFrames, Math.max(1, Math.floor(duration * fps)))
   const frames: PoseFrame[] = []
+  const nativeFrames: MoveNetNativeFrame[] = []
+  const knownNames = new Set<string>(MOVENET_NAMES as unknown as string[])
 
   try {
     for (let i = 0; i < total; i++) {
@@ -140,17 +149,26 @@ export async function extractPose33FromVideoUrlWithMoveNet(
       const timeSec = i / fps
       await seekVideo(video, timeSec)
       const out = await detectMoveNetLandmarks(detector, video, { flipHorizontal: false })
+      const nativeKeypoints: MoveNetKeypoint[] = out.keypoints
+        .filter((point) => knownNames.has(point.name))
+        .map((point) => ({
+          name: point.name as MoveNetName,
+          x: video.videoWidth > 0 ? point.x / video.videoWidth : 0,
+          y: video.videoHeight > 0 ? point.y / video.videoHeight : 0,
+          score: point.score
+        }))
       frames.push({
         tMs,
         landmarks: filterByVisibility(out.landmarks33, minVisibility)
       })
+      nativeFrames.push({ tMs, keypoints: nativeKeypoints })
       onProgress?.({ processed: i + 1, total, stage: 'extracting' })
     }
   } finally {
     detector.dispose?.()
   }
 
-  return { fps, frames }
+  return { fps, frames, nativeFrames }
 }
 
 function movenetToMediapipeLikeLandmarks(points: MoveNetPoint[]): NormalizedLandmark[] {

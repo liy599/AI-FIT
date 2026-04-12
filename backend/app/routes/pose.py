@@ -7,6 +7,7 @@ from datetime import datetime, time
 
 from flask import Blueprint, current_app, jsonify, request, send_file, url_for
 from flask_jwt_extended import get_jwt_identity, jwt_required
+from sqlalchemy import exists
 from werkzeug.utils import secure_filename
 
 from ..extensions import db
@@ -369,6 +370,7 @@ def list_training_sessions():
     page, page_size = parse_pagination(request.args, default_page_size=20)
     date_from = request.args.get("date_from")
     date_to = request.args.get("date_to")
+    exercise_type = (request.args.get("exercise_type") or "").strip().lower()
 
     try:
         from_dt = _parse_date_boundary(date_from, end_of_day=False)
@@ -381,6 +383,12 @@ def list_training_sessions():
         q = q.filter(TrainingSession.started_at >= from_dt)
     if to_dt:
         q = q.filter(TrainingSession.started_at <= to_dt)
+    if exercise_type:
+        q = q.filter(
+            exists()
+            .where(TrainingSet.training_id == TrainingSession.id)
+            .where(TrainingSet.exercise_type == exercise_type)
+        )
     q = q.order_by(TrainingSession.started_at.desc(), TrainingSession.id.desc())
 
     total = q.count()

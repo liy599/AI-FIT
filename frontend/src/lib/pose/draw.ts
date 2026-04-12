@@ -1,6 +1,83 @@
 import type { DistanceState } from './distanceTracker'
 import type { MoveNetName, StableJoint } from './movenetTracker'
 
+export function drawUpperLimbSkeleton(
+  ctx: CanvasRenderingContext2D,
+  joints: StableJoint[],
+  width: number,
+  height: number,
+  color: 'ok' | 'bad' = 'ok',
+  opts?: { viewport?: { x: number; y: number; w: number; h: number }; mirror?: boolean }
+) {
+  const viewport = opts?.viewport ?? { x: 0, y: 0, w: width, h: height }
+  const mirror = opts?.mirror ?? false
+
+  const byName = new Map<MoveNetName, StableJoint>()
+  for (const j of joints) byName.set(j.name, j)
+
+  const threshold = 0.2
+  const resolve = (name: MoveNetName) => {
+    const p = byName.get(name)
+    if (!p || p.score < threshold) return null
+    return { x: p.x, y: p.y }
+  }
+
+  const segments: Array<[MoveNetName, MoveNetName]> = [
+    ['left_shoulder', 'left_elbow'],
+    ['left_elbow', 'left_wrist'],
+    ['right_shoulder', 'right_elbow'],
+    ['right_elbow', 'right_wrist'],
+    ['left_shoulder', 'right_shoulder']
+  ]
+
+  const stroke = color === 'ok' ? 'rgba(34, 197, 94, 0.92)' : 'rgba(239, 68, 68, 0.92)'
+  const jointFill = 'rgba(255, 255, 255, 0.95)'
+
+  ctx.save()
+  ctx.lineWidth = 4
+  ctx.lineJoin = 'round'
+  ctx.lineCap = 'round'
+  ctx.strokeStyle = stroke
+
+  for (const [aName, bName] of segments) {
+    const a = resolve(aName)
+    const b = resolve(bName)
+    if (!a || !b) continue
+    const ax = viewport.x + (mirror ? 1 - a.x : a.x) * viewport.w
+    const ay = viewport.y + a.y * viewport.h
+    const bx = viewport.x + (mirror ? 1 - b.x : b.x) * viewport.w
+    const by = viewport.y + b.y * viewport.h
+    ctx.beginPath()
+    ctx.moveTo(ax, ay)
+    ctx.lineTo(bx, by)
+    ctx.stroke()
+  }
+
+  const jointNames: MoveNetName[] = [
+    'left_shoulder',
+    'right_shoulder',
+    'left_elbow',
+    'right_elbow',
+    'left_wrist',
+    'right_wrist'
+  ]
+  for (const name of jointNames) {
+    const p = resolve(name)
+    if (!p) continue
+    const x = viewport.x + (mirror ? 1 - p.x : p.x) * viewport.w
+    const y = viewport.y + p.y * viewport.h
+    ctx.beginPath()
+    ctx.fillStyle = jointFill
+    ctx.arc(x, y, 6, 0, 2 * Math.PI)
+    ctx.fill()
+    ctx.lineWidth = 2
+    ctx.strokeStyle = stroke
+    ctx.stroke()
+  }
+
+  ctx.restore()
+}
+
 export function drawMidpointSkeleton(
   ctx: CanvasRenderingContext2D,
   joints: StableJoint[],

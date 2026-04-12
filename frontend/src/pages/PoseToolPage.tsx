@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '../state/auth-context'
-import { drawDistanceGuide, drawMidpointSkeleton } from '../lib/pose/draw'
+import { drawDistanceGuide, drawMidpointSkeleton, drawUpperLimbSkeleton } from '../lib/pose/draw'
 import { DistanceTracker, type DistanceState } from '../lib/pose/distanceTracker'
 import { buildPoseGuidePath, buildPoseHistoryPath, buildPoseReportPath, getPoseExerciseBySlug } from '../lib/pose/exercises'
 import { buildTrainingRecordName } from '../lib/pose/trainingName'
@@ -15,6 +15,7 @@ import { createPoseTraining } from '../lib/poseApi'
 import { normalizeReportForArchive } from '../lib/report/unified'
 import {
   buildLiveSuggestions,
+  buildBenchPressVideoLiveStyleReport,
   buildSquatAlignedReport,
   buildSquatVideoLiveStyleReport,
   collectLiveFrameIssueMessages,
@@ -35,7 +36,7 @@ const LIVE_TARGET_FPS = 24
 const LIVE_TARGET_FRAME_MS = 1000 / LIVE_TARGET_FPS
 const MAX_VIDEO_BYTES = 80 * 1024 * 1024
 const LIVE_SESSION_LIMIT_MS = 2 * 60 * 1000
-const OFFLINE_DEDICATED_REPLAY_ACTIONS = new Set(['squat'])
+const OFFLINE_DEDICATED_REPLAY_ACTIONS = new Set(['squat', 'bench-press'])
 
 type Mode = 'live' | 'offline'
 type OfflineProgress = { stage: string; processed: number; total: number } | null
@@ -443,6 +444,18 @@ export default function PoseToolPage() {
                   ? { viewport, mirror: previewMirrorRef.current }
                   : { mirror: previewMirrorRef.current }
               )
+              if (exercise.slug === 'bench-press') {
+                drawUpperLimbSkeleton(
+                  ctx,
+                  trackingState.joints2d,
+                  canvasEl.width,
+                  canvasEl.height,
+                  nextFeedback.issues.length > 0 ? 'bad' : 'ok',
+                  viewport
+                    ? { viewport, mirror: previewMirrorRef.current }
+                    : { mirror: previewMirrorRef.current }
+                )
+              }
             }
             drawDistanceGuide(
               ctx,
@@ -666,17 +679,31 @@ export default function PoseToolPage() {
       localObjectUrl = null
       setOfflineCompletedStep(2)
 
-      const report = buildSquatVideoLiveStyleReport({
-        taskId: `local-${Date.now()}`,
-        viewAngle: effectiveViewAngle,
-        exercise: { id: exercise.id, name: exercise.exerciseType },
-        video: localVideoMeta,
-        fps: extracted.fps,
-        frames: extracted.frames,
-        onProgress: (processed, total) => {
-          setOfflineProgress({ stage: 'Replaying real-time squat analyzer', processed, total })
-        }
-      })
+      const taskId = `local-${Date.now()}`
+      const report =
+        exercise.slug === 'squat'
+          ? buildSquatVideoLiveStyleReport({
+              taskId,
+              viewAngle: effectiveViewAngle,
+              exercise: { id: exercise.id, name: exercise.displayName },
+              video: localVideoMeta,
+              fps: extracted.fps,
+              frames: extracted.frames,
+              onProgress: (processed, total) => {
+                setOfflineProgress({ stage: 'Replaying real-time squat analyzer', processed, total })
+              }
+            })
+          : buildBenchPressVideoLiveStyleReport({
+              taskId,
+              viewAngle: effectiveViewAngle,
+              exercise: { id: exercise.id, name: exercise.displayName },
+              video: localVideoMeta,
+              fps: extracted.fps,
+              frames: extracted.frames,
+              onProgress: (processed, total) => {
+                setOfflineProgress({ stage: 'Replaying real-time bench press analyzer', processed, total })
+              }
+            })
       setOfflineCompletedStep(3)
 
       setOfflineProgress({ stage: 'Finalizing local report', processed: 1, total: 1 })

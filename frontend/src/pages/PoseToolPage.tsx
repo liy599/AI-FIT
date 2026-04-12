@@ -369,22 +369,6 @@ export default function PoseToolPage() {
         messageFreq: liveIssueFreqRef.current,
         analyzedFrameCount: liveAnalyzedFrameCountRef.current,
         trackingQualitySamples: liveTrackingQualitySamplesRef.current,
-        timelineRows: liveTimelineRowsRef.current,
-        repFindings: liveRepFindingsRef.current
-      })
-    }
-    if (exercise.slug === 'pushup') {
-      return buildPushupAlignedReport({
-        source: 'live',
-        taskId: sessionStartedAtRef.current ? `live-${sessionStartedAtRef.current}` : 'live-session',
-        viewAngle: 'unknown',
-        exercise: { id: exercise.slug, name: exercise.displayName },
-        video: null,
-        fps: effectiveFps ?? LIVE_TARGET_FPS,
-        lastFeedback: feedback,
-        messageFreq: liveIssueFreqRef.current,
-        analyzedFrameCount: liveAnalyzedFrameCountRef.current,
-        trackingQualitySamples: liveTrackingQualitySamplesRef.current,
         timelineRows: liveTimelineRowsRef.current
       })
     }

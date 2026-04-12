@@ -16,6 +16,10 @@ import { normalizeReportForArchive } from '../lib/report/unified'
 import { requestCameraStream } from '../lib/media'
 import {
   buildLiveSuggestions,
+  buildLateralRaiseAlignedReport,
+  buildLateralRaiseVideoLiveStyleReport,
+  buildPullupAlignedReport,
+  buildPullupVideoLiveStyleReport,
   buildPushupAlignedReport,
   buildPushupVideoLiveStyleReport,
   buildBenchPressVideoLiveStyleReport,
@@ -42,7 +46,7 @@ const LIVE_TARGET_FPS = 40
 const LIVE_TARGET_FRAME_MS = 1000 / LIVE_TARGET_FPS
 const MAX_VIDEO_BYTES = 80 * 1024 * 1024
 const LIVE_SESSION_LIMIT_MS = 2 * 60 * 1000
-const OFFLINE_DEDICATED_REPLAY_ACTIONS = new Set(['squat', 'pushup', 'bench-press'])
+const OFFLINE_DEDICATED_REPLAY_ACTIONS = new Set(['squat'])
 
 type Mode = 'live' | 'offline'
 type OfflineProgress = { stage: string; processed: number; total: number } | null
@@ -124,7 +128,7 @@ export default function PoseToolPage() {
   const [offlineFile, setOfflineFile] = useState<File | null>(null)
   const [offlinePreviewUrl, setOfflinePreviewUrl] = useState<string | null>(null)
   const [offlineViewAngle, setOfflineViewAngle] = useState<'unknown' | 'front' | 'side' | 'back'>(
-    exercise.slug === 'lateral-raise' ? 'front' : 'side'
+    exercise.slug === 'lateral-raise' || exercise.slug === 'pullup' ? 'front' : 'side'
   )
   const [offlineProgress, setOfflineProgress] = useState<OfflineProgress>(null)
   const [offlineBusy, setOfflineBusy] = useState(false)
@@ -525,7 +529,7 @@ export default function PoseToolPage() {
               return
             }
             setFeedback(nextFeedback)
-            if (exercise.slug === 'squat' || exercise.slug === 'pushup') {
+            if (exercise.slug === 'squat') {
               liveAnalyzedFrameCountRef.current += 1
               if (Number.isFinite(nextFeedback.trackingQuality)) {
                 liveTrackingQualitySamplesRef.current.push(nextFeedback.trackingQuality)
@@ -804,9 +808,7 @@ export default function PoseToolPage() {
       setOfflineProgress({ stage: 'Preparing local video', processed: 1, total: 1 })
 
       const effectiveViewAngle: 'unknown' | 'front' | 'side' | 'back' =
-        exercise.slug === 'squat' || exercise.slug === 'pushup' || exercise.slug === 'pullup' || exercise.slug === 'bench-press'
-          ? 'side'
-          : offlineViewAngle
+        exercise.slug === 'squat' || exercise.slug === 'pullup' || exercise.slug === 'bench-press' ? 'side' : offlineViewAngle
       const localVideoMeta = {
         id: `local-${Date.now()}`,
         originalName: offlineFile.name,
@@ -912,10 +914,7 @@ export default function PoseToolPage() {
     }
   }
 
-  const currentViewAngle =
-    exercise.slug === 'squat' || exercise.slug === 'pushup' || exercise.slug === 'pullup' || exercise.slug === 'bench-press'
-      ? 'side'
-      : offlineViewAngle
+  const currentViewAngle = exercise.slug === 'squat' || exercise.slug === 'pullup' || exercise.slug === 'bench-press' ? 'side' : offlineViewAngle
   const taskStatusText = offlineBusy
     ? 'Analyzing video...'
     : offlineLocalStatus === 'succeeded'
@@ -1308,8 +1307,12 @@ export default function PoseToolPage() {
 
                     <label className="pose-form-field">
                       <span>View Angle</span>
-                      {exercise.slug === 'squat' || exercise.slug === 'pullup' || exercise.slug === 'bench-press' ? (
+                      {exercise.slug === 'squat' || exercise.slug === 'bench-press' ? (
                         <input value="Side (required)" readOnly />
+                      ) : exercise.slug === 'pullup' ? (
+                        <input value="Front (required)" readOnly />
+                      ) : exercise.slug === 'lateral-raise' ? (
+                        <input value="Front (required)" readOnly />
                       ) : (
                         <select value={offlineViewAngle} onChange={(e) => setOfflineViewAngle(e.target.value as 'unknown' | 'front' | 'side' | 'back')}>
                           <option value="side">Side</option>

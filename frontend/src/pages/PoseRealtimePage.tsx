@@ -7,6 +7,7 @@ import { mediapipeToMoveNetFrame, MoveNetStabilizer, type TrackingState } from '
 import { RealtimeSquatAnalyzer, type RealtimeFeedback } from '../lib/pose/realtimeSquat'
 import { openPdfPrint } from '../lib/report/print'
 import { normalizeReportForArchive, renderReportPdfBodyHtml } from '../lib/report/unified'
+import { requestCameraStream } from '../lib/media'
 
 const LIVE_TARGET_FPS = 24
 const LIVE_TARGET_FRAME_MS = 1000 / LIVE_TARGET_FPS
@@ -90,7 +91,7 @@ export default function PoseRealtimePage() {
 
       provider = await createBestRealtimePoseProvider()
 
-      const stream = await navigator.mediaDevices.getUserMedia({
+      const stream = await requestCameraStream({
         video: {
           width: { ideal: 720 },
           height: { ideal: 1280 },

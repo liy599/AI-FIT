@@ -1,7 +1,7 @@
 from io import BytesIO
 
 from app.services.food.matching import FoodForMatch, match_food_labels
-from app.services.food.stepfun import try_parse_string_array
+from app.services.food.stepfun import StepfunRecognizeResult, try_parse_string_array
 
 
 def test_parse_stepfun_string_array_variants():
@@ -28,3 +28,41 @@ def test_recognize_requires_stepfun_config(client):
     )
     assert response.status_code == 503
     assert response.get_json()["error"] == "stepfun not configured"
+
+
+def test_recognize_uses_ai_report_env_fallback(client, monkeypatch):
+    app = client.application
+    app.config["STEPFUN_API_URL"] = ""
+    app.config["STEPFUN_API_KEY"] = ""
+    app.config["STEPFUN_MODEL"] = ""
+    app.config["AI_REPORT_API_URL"] = "https://example.invalid/v1/chat/completions"
+    app.config["AI_REPORT_API_KEY"] = "dummy-ai-report-key"
+    app.config["AI_REPORT_MODEL"] = "dummy-ai-report-model"
+
+    captured: dict[str, str] = {}
+
+    def fake_recognize(*, api_url: str, api_key: str, model: str, image_data_url: str, timeout_seconds: int = 20):
+        captured["api_url"] = api_url
+        captured["api_key"] = api_key
+        captured["model"] = model
+        captured["image_data_url"] = image_data_url
+        return StepfunRecognizeResult(ok=True, labels=["banana"], raw_text='["banana"]')
+
+    monkeypatch.setattr("app.routes.recognize.recognize_foods_by_stepfun", fake_recognize)
+    monkeypatch.setattr("app.routes.recognize.match_food_labels", lambda labels, foods: ([1], []))
+
+    response = client.post(
+        "/api/recognize",
+        data={"image": (BytesIO(b"fake image"), "food.jpg", "image/jpeg")},
+        content_type="multipart/form-data",
+    )
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["names"] == ["banana"]
+    assert payload["foodIds"] == [1]
+    assert payload["unmatchedNames"] == []
+
+    assert captured["api_url"] == "https://example.invalid/v1/chat/completions"
+    assert captured["api_key"] == "dummy-ai-report-key"
+    assert captured["model"] == "dummy-ai-report-model"
+    assert captured["image_data_url"].startswith("data:image/jpeg;base64,")

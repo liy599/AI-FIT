@@ -80,6 +80,18 @@ function isAuthErrorMessage(message: string | null) {
   )
 }
 
+function mapRecognizeErrorMessage(error: unknown) {
+  const raw = error instanceof Error ? error.message : 'Recognize failed'
+  const normalized = raw.toLowerCase()
+  if (normalized.includes('stepfun not configured')) {
+    return 'Image recognition is not enabled on the server. Ask the admin to set STEPFUN_API_URL and STEPFUN_API_KEY (or AI_REPORT_API_URL and AI_REPORT_API_KEY), then restart backend.'
+  }
+  if (normalized.includes('stepfun_failed')) {
+    return 'Image recognition provider failed. Please retry later or check backend provider credentials.'
+  }
+  return raw
+}
+
 export default function FoodMealPage() {
   const params = useParams()
   const auth = useAuth()
@@ -246,7 +258,7 @@ export default function FoodMealPage() {
         setRecognizeHint(`Partially matched. Unmatched: ${result.unmatchedNames.join(', ')}`)
       }
     } catch (err: unknown) {
-      setRecognizeHint(err instanceof Error ? err.message : 'Recognize failed')
+      setRecognizeHint(mapRecognizeErrorMessage(err))
     } finally {
       setRecognizing(false)
     }

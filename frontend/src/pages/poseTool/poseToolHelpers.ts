@@ -241,6 +241,7 @@ export function buildSquatVideoLiveStyleReport(input: {
 }
 
 export function buildBenchPressAlignedReport(input: {
+export function buildPushupAlignedReport(input: {
   source: 'live' | 'video'
   taskId: string
   viewAngle: string
@@ -252,6 +253,7 @@ export function buildBenchPressAlignedReport(input: {
   analyzedFrameCount: number
   trackingQualitySamples: number[]
   timelineRows: BenchPressTimelineRow[]
+  timelineRows: SquatTimelineRow[]
 }): PoseAnalysisReport {
   const sortedIssues = Array.from(input.messageFreq.entries())
     .sort((a, b) => b[1] - a[1])
@@ -272,6 +274,12 @@ export function buildBenchPressAlignedReport(input: {
   const fallbackSuggestion = 'Lower under control, keep wrists stacked, and press in a smooth path.'
   const currentSuggestion = input.lastFeedback
     ? input.lastFeedback.issues[0]?.message ?? input.lastFeedback.warnings[0] ?? input.lastFeedback.lastRepMessage ?? fallbackSuggestion
+  const fallbackSuggestion = 'Brace your core, keep a straight body line, and lower under control.'
+  const currentSuggestion = input.lastFeedback
+    ? input.lastFeedback.issues[0]?.message ??
+      input.lastFeedback.warnings[0] ??
+      input.lastFeedback.lastRepMessage ??
+      fallbackSuggestion
     : input.source === 'video'
       ? 'No valid pose frames were detected. Keep your full body in frame and try another video.'
       : 'No valid pose frames were detected in the live session.'
@@ -281,6 +289,7 @@ export function buildBenchPressAlignedReport(input: {
       const ratio = input.analyzedFrameCount > 0 ? count / input.analyzedFrameCount : 0
       const text = message.toLowerCase()
       const isSideViewWarn = text.includes('side view')
+      const isSideViewWarn = text.includes('side-view') || text.includes('side view')
       const isLowConfidenceWarn = text.includes('low keypoint confidence')
       if ((isSideViewWarn || isLowConfidenceWarn) && avgTrackingQuality >= 0.62) {
         return ratio >= 0.35
@@ -289,6 +298,7 @@ export function buildBenchPressAlignedReport(input: {
     })
     .map(([message]) => message)
 
+  const tempoCheck = analyzePushupTempoFromTimeline(input.timelineRows)
   const issues =
     issueMessages.length > 0
       ? issueMessages.map((message) => {
@@ -317,6 +327,29 @@ export function buildBenchPressAlignedReport(input: {
     : `${summaryPrefix}: no stable pose frames were detected.`
 
   const suggestions = buildBenchPressReplaySuggestions(input.lastFeedback, sortedIssues, fallbackSuggestion)
+  if (tempoCheck.fastDescentCount > 0) {
+    issues.push({
+      code: 'DESCENT_TOO_FAST',
+      severity: tempoCheck.fastDescentCount >= 2 ? 'warning' : 'info',
+      message: `Descent too fast detected (${tempoCheck.fastDescentCount} rep${tempoCheck.fastDescentCount > 1 ? 's' : ''}).`,
+      atFrame: null
+    })
+  }
+  if (tempoCheck.fastAscentCount > 0) {
+    issues.push({
+      code: 'ASCENT_TOO_FAST',
+      severity: tempoCheck.fastAscentCount >= 2 ? 'warning' : 'info',
+      message: `Ascent too fast detected (${tempoCheck.fastAscentCount} rep${tempoCheck.fastAscentCount > 1 ? 's' : ''}).`,
+      atFrame: null
+    })
+  }
+
+  const summaryPrefix = input.source === 'video' ? 'Video replay analysis' : 'Live analysis'
+  const summary = input.lastFeedback
+    ? `${summaryPrefix}: total ${input.lastFeedback.session.totalReps}, correct ${input.lastFeedback.session.correctReps}, accuracy ${input.lastFeedback.session.accuracyPct}%, avg rep ${input.lastFeedback.session.avgRepDurationSec ?? '-'}s.`
+    : `${summaryPrefix}: no stable pose frames were detected.`
+
+  const suggestions = buildPushupReplaySuggestions(input.lastFeedback, sortedIssues, tempoCheck, fallbackSuggestion)
   const keyMetrics = {
     totalReps: input.lastFeedback?.session.totalReps ?? 0,
     correctReps: input.lastFeedback?.session.correctReps ?? 0,
@@ -327,6 +360,11 @@ export function buildBenchPressAlignedReport(input: {
     effectiveFps: input.fps
   }
 
+    avgRepDurationSec: input.lastFeedback?.session.avgRepDurationSec ?? null,
+    fastRepCount: Math.max(tempoCheck.fastDescentCount, tempoCheck.fastAscentCount),
+    slowRepCount: input.lastFeedback?.session.slowRepCount ?? 0,
+    effectiveFps: input.fps
+  }
   const generatedAt = new Date().toISOString()
   const timelineSampled = sampleTimelineRows(input.timelineRows, 180)
 
@@ -345,6 +383,9 @@ export function buildBenchPressAlignedReport(input: {
       type: input.source === 'video' ? 'video_live_replay_bench_press' : 'live_realtime_bench_press',
       modelName: input.source === 'video' ? 'MediaPipe Pose (offline replay)' : 'MoveNet Lightning (realtime)',
       analyzer: 'RealtimeBenchPressAnalyzer',
+      type: input.source === 'video' ? 'video_live_replay_pushup' : 'live_realtime_pushup',
+      modelName: input.source === 'video' ? 'MediaPipe Pose (offline replay)' : 'MoveNet Lightning (realtime)',
+      analyzer: 'RealtimePushupAnalyzer',
       effectiveFps: input.fps,
       repCount: input.lastFeedback?.repCount ?? 0,
       correctCount: input.lastFeedback?.correctCount ?? 0,
@@ -353,10 +394,15 @@ export function buildBenchPressAlignedReport(input: {
       bodyLineAngle: input.lastFeedback?.hipAngle ?? null,
       torsoAngle: input.lastFeedback?.torsoAngle ?? null,
       sideAlignment: input.lastFeedback?.offsetAngle ?? null,
+      kneeAngle: input.lastFeedback?.kneeAngle ?? null,
+      hipAngle: input.lastFeedback?.hipAngle ?? null,
+      torsoAngle: input.lastFeedback?.torsoAngle ?? null,
+      offsetAngle: input.lastFeedback?.offsetAngle ?? null,
       trackingQuality: input.lastFeedback?.trackingQuality ?? null,
       avgTrackingQuality: Math.round(avgTrackingQuality * 100) / 100,
       currentSuggestion,
       warnings: input.lastFeedback?.warnings ?? [],
+      tempo: tempoCheck,
       timelineSampled
     },
     sections: {
@@ -377,6 +423,7 @@ export function buildBenchPressAlignedReport(input: {
 }
 
 export function buildBenchPressVideoLiveStyleReport(input: {
+export function buildPushupVideoLiveStyleReport(input: {
   taskId: string
   viewAngle: string
   exercise: { id: string; name: string } | null
@@ -386,11 +433,13 @@ export function buildBenchPressVideoLiveStyleReport(input: {
   onProgress?: (processed: number, total: number) => void
 }): PoseAnalysisReport {
   const analyzer = new RealtimeBenchPressAnalyzer()
+  const analyzer = new RealtimePushupAnalyzer()
   let lastFeedback: RealtimeFeedback | null = null
   let analyzedFrameCount = 0
   const messageFreq = new Map<string, number>()
   const trackingQualitySamples: number[] = []
   const timelineRows: BenchPressTimelineRow[] = []
+  const timelineRows: SquatTimelineRow[] = []
   const total = input.frames.length
 
   for (let i = 0; i < input.frames.length; i++) {
@@ -413,6 +462,9 @@ export function buildBenchPressVideoLiveStyleReport(input: {
         elbowAngleDeg: feedback.kneeAngle,
         bodyLineAngleDeg: feedback.hipAngle,
         torsoFromHorizontalDeg: feedback.torsoAngle
+        kneeAngleDeg: feedback.kneeAngle,
+        hipAngleDeg: feedback.hipAngle,
+        torsoFromVerticalDeg: feedback.torsoAngle
       })
     }
     if (input.onProgress && ((i + 1) % 20 === 0 || i === input.frames.length - 1)) {
@@ -421,6 +473,7 @@ export function buildBenchPressVideoLiveStyleReport(input: {
   }
 
   return buildBenchPressAlignedReport({
+  return buildPushupAlignedReport({
     source: 'video',
     taskId: input.taskId,
     viewAngle: input.viewAngle,
@@ -657,6 +710,86 @@ function buildBenchPressReplaySuggestions(feedback: RealtimeFeedback | null, sor
   const suggestions = new Set<string>()
   for (const [message] of sortedIssues) {
     const mapped = mapSuggestionFromIssue(message, 'bench-press')
+function analyzePushupTempoFromTimeline(timelineRows: SquatTimelineRow[]) {
+  const DESCENT_FAST_SEC = 0.52
+  const ASCENT_FAST_SEC = 0.5
+  const MIN_PHASE_SEC = 0.2
+  const DIRECTION_SWITCH_MIN_FRAMES = 2
+  let fastDescentCount = 0
+  let fastAscentCount = 0
+
+  let prevAngle: number | null = null
+  let phaseMode: 'idle' | 'descent' | 'ascent' = 'idle'
+  let phaseStartMs: number | null = null
+  let descentStreak = 0
+  let ascentStreak = 0
+
+  function resetDirectionStreak() {
+    descentStreak = 0
+    ascentStreak = 0
+  }
+
+  function maybeCountFast(phase: 'descent' | 'ascent', sec: number) {
+    if (sec < MIN_PHASE_SEC) return
+    if (phase === 'descent' && sec < DESCENT_FAST_SEC) fastDescentCount += 1
+    if (phase === 'ascent' && sec < ASCENT_FAST_SEC) fastAscentCount += 1
+  }
+
+  for (const row of timelineRows) {
+    const angle = typeof row.kneeAngleDeg === 'number' ? row.kneeAngleDeg : null
+    if (row.phase === 'bottom') {
+      if (phaseMode === 'descent' && phaseStartMs !== null) maybeCountFast('descent', (row.tMs - phaseStartMs) / 1000)
+      phaseMode = 'idle'
+      phaseStartMs = null
+      resetDirectionStreak()
+      prevAngle = angle
+      continue
+    }
+    if (row.phase === 'up') {
+      if (phaseMode === 'ascent' && phaseStartMs !== null) maybeCountFast('ascent', (row.tMs - phaseStartMs) / 1000)
+      phaseMode = 'idle'
+      phaseStartMs = null
+      resetDirectionStreak()
+      prevAngle = angle
+      continue
+    }
+    if (row.phase !== 'bottom' && angle !== null && prevAngle !== null) {
+      const diff = angle - prevAngle
+      if (diff <= -1.4) {
+        descentStreak += 1
+        ascentStreak = 0
+        if (descentStreak >= DIRECTION_SWITCH_MIN_FRAMES && phaseMode !== 'descent') {
+          phaseMode = 'descent'
+          phaseStartMs = row.tMs
+        }
+      } else if (diff >= 1.4) {
+        ascentStreak += 1
+        descentStreak = 0
+        if (ascentStreak >= DIRECTION_SWITCH_MIN_FRAMES && phaseMode !== 'ascent') {
+          phaseMode = 'ascent'
+          phaseStartMs = row.tMs
+        }
+      } else {
+        resetDirectionStreak()
+      }
+    }
+    prevAngle = angle
+  }
+
+  return { fastDescentCount, fastAscentCount }
+}
+
+function buildPushupReplaySuggestions(
+  feedback: RealtimeFeedback | null,
+  sortedIssues: Array<[string, number]>,
+  tempoCheck: { fastDescentCount: number; fastAscentCount: number },
+  fallbackSuggestion: string
+) {
+  const suggestions = new Set<string>()
+  const prioritizedIssues = [...sortedIssues].sort((a, b) => b[1] - a[1])
+
+  for (const [message] of prioritizedIssues) {
+    const mapped = mapSuggestionFromIssue(message, 'pushup')
     if (mapped) suggestions.add(mapped)
     if (suggestions.size >= 4) break
   }
@@ -667,6 +800,19 @@ function buildBenchPressReplaySuggestions(feedback: RealtimeFeedback | null, sor
     }
     if ((feedback.trackingQuality ?? 0) < 0.5) {
       suggestions.add('Improve lighting and keep shoulders, elbows, wrists, and torso fully visible throughout the set.')
+  if (tempoCheck.fastDescentCount > 0 || tempoCheck.fastAscentCount > 0) {
+    suggestions.add('Slow down each rep: control the descent, brief pause, then press up smoothly.')
+  }
+
+  if (feedback) {
+    if ((feedback.session.totalReps ?? 0) <= 0) {
+      suggestions.add('Start in a stable plank, lower until elbows bend clearly, then press back to full lockout.')
+    }
+    if ((feedback.trackingQuality ?? 0) < 0.5) {
+      suggestions.add('Use better front lighting, keep your full body visible, and set a clean side-view camera angle.')
+    }
+    if ((feedback.session.accuracyPct ?? 0) < 70) {
+      suggestions.add('Keep shoulders, hips, and ankles aligned. Avoid letting hips drop during the descent.')
     }
   }
 
@@ -752,6 +898,12 @@ function mapSuggestionFromIssue(issue: string, exerciseSlug: ExerciseSlug) {
     if (text.includes('face the camera') || text.includes('front')) return 'Rotate to face the camera so both arms stay visible.'
   }
   if (exerciseSlug === 'pushup') {
+    if (text.includes('depth') || text.includes('deeper') || text.includes('elbow')) {
+      return 'Lower further until elbows bend clearly, then press back up under control.'
+    }
+    if (text.includes('hips too high') || text.includes('avoid raising hips')) {
+      return 'Lower hips slightly and keep a stable plank line from shoulders to ankles.'
+    }
     if (text.includes('torso') || text.includes('hips')) return 'Brace your core and keep shoulders, hips, and ankles in one line.'
     if (text.includes('side-view') || text.includes('side view')) return 'Rotate to a clearer side-view to improve depth and body-line checks.'
     if (text.includes('confidence') || text.includes('frame')) return 'Improve lighting and keep your full body visible throughout each rep.'

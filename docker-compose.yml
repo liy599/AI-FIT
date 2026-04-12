@@ -18,6 +18,8 @@ services:
   backend:
     build:
       context: ./backend
+    env_file:
+      - ./backend/.env
     environment:
       SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-jwt-secret-change-me}
@@ -26,12 +28,6 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:-}
-      STEPFUN_API_URL: ${STEPFUN_API_URL:-}
-      STEPFUN_API_KEY: ${STEPFUN_API_KEY:-}
-      STEPFUN_MODEL: ${STEPFUN_MODEL:-step-1v-8k}
-      AI_REPORT_API_URL: ${AI_REPORT_API_URL:-}
-      AI_REPORT_API_KEY: ${AI_REPORT_API_KEY:-}
-      AI_REPORT_MODEL: ${AI_REPORT_MODEL:-}
       AI_REPORT_TIMEOUT_SECONDS: ${AI_REPORT_TIMEOUT_SECONDS:-20}
       POSE_REPORT_AI_ENABLED: ${POSE_REPORT_AI_ENABLED:-1}
       POSE_REPORT_AI_MODEL: ${POSE_REPORT_AI_MODEL:-}

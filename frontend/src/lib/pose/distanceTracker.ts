@@ -45,7 +45,7 @@ export class DistanceTracker {
 
     const q = avgKeyJointVisibility(input.landmarks)
     const currentBox = bboxFromLandmarks(input.landmarks)
-    if (q < 0.2 || !currentBox) {
+    if (q < 0.18 || !currentBox) {
       this.lastLabel = 'unknown'
       return {
         status: 'lost',
@@ -94,10 +94,10 @@ export class DistanceTracker {
 
 function classifyDistanceWithHysteresis(rel: number, prev: DistanceLabel): DistanceLabel {
   // Enter thresholds are wider than recover thresholds to reduce red/orange flicker during reps.
-  const TOO_CLOSE_ENTER = 1.38
-  const TOO_CLOSE_EXIT = 1.24
-  const TOO_FAR_ENTER = 0.5
-  const TOO_FAR_EXIT = 0.62
+  const TOO_CLOSE_ENTER = 1.55
+  const TOO_CLOSE_EXIT = 1.4
+  const TOO_FAR_ENTER = 0.45
+  const TOO_FAR_EXIT = 0.55
 
   if (prev === 'too_close') return rel >= TOO_CLOSE_EXIT ? 'too_close' : 'ok'
   if (prev === 'too_far') return rel <= TOO_FAR_EXIT ? 'too_far' : 'ok'
@@ -134,7 +134,7 @@ function bboxFromLandmarks(lm: NormalizedLandmark[]): BoxNorm | null {
     const p = lm[i]
     if (!p) continue
     const v = typeof p.visibility === 'number' ? p.visibility : 1
-    if (!Number.isFinite(v) || v < 0.2) continue
+    if (!Number.isFinite(v) || v < 0.18) continue
     const x = clamp01(p.x)
     const y = clamp01(p.y)
     minX = Math.min(minX, x)
@@ -173,7 +173,7 @@ function chainScale(lm: NormalizedLandmark[], indices: [number, number, number, 
 function isVisible(p: NormalizedLandmark | undefined) {
   if (!p) return false
   const v = typeof p.visibility === 'number' ? p.visibility : 1
-  return Number.isFinite(v) && v >= 0.2
+  return Number.isFinite(v) && v >= 0.18
 }
 
 function dist2d(a: NormalizedLandmark, b: NormalizedLandmark) {

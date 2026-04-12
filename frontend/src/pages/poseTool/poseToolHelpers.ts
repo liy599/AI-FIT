@@ -17,6 +17,7 @@ export type SquatTimelineRow = {
   kneeAngleDeg: number | null
   hipAngleDeg: number | null
   torsoFromVerticalDeg: number | null
+  frontAlignmentDeg?: number | null
 }
 
 export type BenchPressTimelineRow = {
@@ -477,9 +478,7 @@ export function buildPushupAlignedReport(input: {
       const text = message.toLowerCase()
       const isSideViewWarn = text.includes('side-view') || text.includes('side view')
       const isLowConfidenceWarn = text.includes('low keypoint confidence')
-      if ((isSideViewWarn || isLowConfidenceWarn) && avgTrackingQuality >= 0.62) {
-        return ratio >= 0.35
-      }
+      if ((isSideViewWarn || isLowConfidenceWarn) && avgTrackingQuality >= 0.62) return ratio >= 0.35
       return true
     })
     .map(([message]) => message)
@@ -491,12 +490,7 @@ export function buildPushupAlignedReport(input: {
           const count = input.messageFreq.get(message) ?? 0
           const ratio = input.analyzedFrameCount > 0 ? count / input.analyzedFrameCount : 0
           const severity: 'info' | 'warning' | 'error' = ratio >= 0.35 ? 'error' : ratio >= 0.12 ? 'warning' : 'info'
-          return {
-            code: toIssueCode(message),
-            severity,
-            message,
-            atFrame: null
-          }
+          return { code: toIssueCode(message), severity, message, atFrame: null }
         })
       : [
           {
@@ -506,6 +500,7 @@ export function buildPushupAlignedReport(input: {
             atFrame: null
           }
         ]
+
   if (tempoCheck.fastDescentCount > 0) {
     issues.push({
       code: 'DESCENT_TOO_FAST',
@@ -521,6 +516,15 @@ export function buildPushupAlignedReport(input: {
       message: `Ascent too fast detected (${tempoCheck.fastAscentCount} rep${tempoCheck.fastAscentCount > 1 ? 's' : ''}).`,
       atFrame: null
     })
+  }
+
+  const repReasons = input.lastFeedback?.lastRepReasonLabels ?? []
+  for (const reason of repReasons) {
+    const text = reason.trim()
+    if (!text) continue
+    const code = toIssueCode(text)
+    if (issues.some((x) => x.code === code)) continue
+    issues.unshift({ code, severity: 'warning', message: text, atFrame: null })
   }
 
   const summaryPrefix = input.source === 'video' ? 'Video replay analysis' : 'Live analysis'
@@ -539,7 +543,6 @@ export function buildPushupAlignedReport(input: {
     fastRepCount: Math.max(tempoCheck.fastDescentCount, tempoCheck.fastAscentCount),
     effectiveFps: input.fps
   }
-
   const generatedAt = new Date().toISOString()
   const timelineSampled = sampleTimelineRows(input.timelineRows, 180)
 
@@ -574,14 +577,7 @@ export function buildPushupAlignedReport(input: {
       timelineSampled
     },
     sections: {
-      overview: {
-        generatedAt,
-        status: 'ok',
-        taskId: input.taskId,
-        viewAngle: input.viewAngle,
-        exerciseName: input.exercise?.name ?? null,
-        summary
-      },
+      overview: { generatedAt, status: 'ok', taskId: input.taskId, viewAngle: input.viewAngle, exerciseName: input.exercise?.name ?? null, summary },
       metrics: keyMetrics,
       errorStats: computeReportErrorStats(issues),
       suggestions,
@@ -629,12 +625,421 @@ export function buildPushupVideoLiveStyleReport(input: {
         torsoFromVerticalDeg: feedback.torsoAngle
       })
     }
+    if (input.onProgress && ((i + 1) % 20 === 0 || i === input.frames.length - 1)) input.onProgress(i + 1, total)
+  }
+
+  return buildPushupAlignedReport({
+    source: 'video',
+    taskId: input.taskId,
+    viewAngle: input.viewAngle,
+    exercise: input.exercise,
+    video: input.video,
+    fps: input.fps,
+    lastFeedback,
+    messageFreq,
+    analyzedFrameCount,
+    trackingQualitySamples,
+    timelineRows
+  })
+}
+
+export function buildPullupAlignedReport(input: {
+  source: 'live' | 'video'
+  taskId: string
+  viewAngle: string
+  exercise: { id: string; name: string } | null
+  video: { id: string; originalName: string; mimeType: string; sizeBytes: number } | null
+  fps: number
+  lastFeedback: RealtimeFeedback | null
+  messageFreq: Map<string, number>
+  analyzedFrameCount: number
+  trackingQualitySamples: number[]
+  timelineRows: SquatTimelineRow[]
+}): PoseAnalysisReport {
+  const sortedIssues = Array.from(input.messageFreq.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+  const avgTrackingQuality =
+    input.trackingQualitySamples.length > 0
+      ? input.trackingQualitySamples.reduce((acc, value) => acc + value, 0) / input.trackingQualitySamples.length
+      : 0
+
+  const fallbackSuggestion = 'Pull smoothly, avoid swinging, and lower under control.'
+  const currentSuggestion = input.lastFeedback
+    ? input.lastFeedback.issues[0]?.message ?? input.lastFeedback.warnings[0] ?? input.lastFeedback.lastRepMessage ?? fallbackSuggestion
+    : input.source === 'video'
+      ? 'No valid pose frames were detected. Keep your upper body and the bar area in frame and try another video.'
+      : 'No valid pose frames were detected in the live session.'
+
+  const issueMessages = sortedIssues
+    .filter(([message, count]) => {
+      const ratio = input.analyzedFrameCount > 0 ? count / input.analyzedFrameCount : 0
+      const text = message.toLowerCase()
+      const isLowConfidenceWarn = text.includes('low keypoint confidence')
+      if (isLowConfidenceWarn && avgTrackingQuality >= 0.62) return ratio >= 0.35
+      return true
+    })
+    .map(([message]) => message)
+
+  const issues =
+    issueMessages.length > 0
+      ? issueMessages.map((message) => {
+          const count = input.messageFreq.get(message) ?? 0
+          const ratio = input.analyzedFrameCount > 0 ? count / input.analyzedFrameCount : 0
+          const severity: 'info' | 'warning' | 'error' = ratio >= 0.35 ? 'error' : ratio >= 0.12 ? 'warning' : 'info'
+          return { code: toIssueCode(message), severity, message, atFrame: null }
+        })
+      : [
+          {
+            code: 'NO_OBVIOUS_ISSUES',
+            severity: 'info' as const,
+            message: input.source === 'video' ? 'No obvious issues detected during analyzer replay.' : 'No obvious issues detected during live analysis.',
+            atFrame: null
+          }
+        ]
+
+  const repReasons = input.lastFeedback?.lastRepReasonLabels ?? []
+  for (const reason of repReasons) {
+    const text = reason.trim()
+    if (!text) continue
+    const code = toIssueCode(text)
+    if (issues.some((x) => x.code === code)) continue
+    issues.unshift({ code, severity: 'warning', message: text, atFrame: null })
+  }
+  const fastRepCount = input.lastFeedback?.session.fastRepCount ?? 0
+  const slowRepCount = input.lastFeedback?.session.slowRepCount ?? 0
+  if (fastRepCount > 0) {
+    issues.push({
+      code: 'REP_TOO_FAST',
+      severity: fastRepCount >= 2 ? 'warning' : 'info',
+      message: `Tempo too fast detected (${fastRepCount} rep${fastRepCount > 1 ? 's' : ''}).`,
+      atFrame: null
+    })
+  }
+  if (slowRepCount > 0) {
+    issues.push({
+      code: 'REP_TOO_SLOW',
+      severity: slowRepCount >= 2 ? 'warning' : 'info',
+      message: `Tempo too slow detected (${slowRepCount} rep${slowRepCount > 1 ? 's' : ''}).`,
+      atFrame: null
+    })
+  }
+
+  const summaryPrefix = input.source === 'video' ? 'Video replay analysis' : 'Live analysis'
+  const summary = input.lastFeedback
+    ? `${summaryPrefix}: total ${input.lastFeedback.session.totalReps}, correct ${input.lastFeedback.session.correctReps}, accuracy ${input.lastFeedback.session.accuracyPct}%, avg rep ${input.lastFeedback.session.avgRepDurationSec ?? '-'}s.`
+    : `${summaryPrefix}: no stable pose frames were detected.`
+
+  const suggestions = buildPullupReplaySuggestions(input.lastFeedback, sortedIssues, fallbackSuggestion)
+  const keyMetrics = {
+    totalReps: input.lastFeedback?.session.totalReps ?? 0,
+    correctReps: input.lastFeedback?.session.correctReps ?? 0,
+    incorrectReps: input.lastFeedback?.session.incorrectReps ?? 0,
+    formAccuracyPct: input.lastFeedback?.session.accuracyPct ?? 0,
+    avgRepDurationSec: input.lastFeedback?.session.avgRepDurationSec ?? null,
+    fastRepCount: fastRepCount,
+    slowRepCount: slowRepCount,
+    avgTrackingQuality: Math.round(avgTrackingQuality * 100) / 100,
+    effectiveFps: input.fps
+  }
+  const generatedAt = new Date().toISOString()
+  const timelineSampled = sampleTimelineRows(input.timelineRows, 180)
+
+  return normalizeReportForArchive({
+    version: 3,
+    generatedAt,
+    status: 'ok',
+    task: { id: input.taskId, viewAngle: input.viewAngle, instruction: null },
+    exercise: input.exercise,
+    video: input.video,
+    summary,
+    keyMetrics,
+    issues,
+    suggestions,
+    details: {
+      type: input.source === 'video' ? 'video_live_replay_pullup' : 'live_realtime_pullup',
+      modelName: input.source === 'video' ? 'MoveNet Lightning (offline replay)' : 'MoveNet Lightning (realtime)',
+      analyzer: 'RealtimePullupAnalyzer',
+      effectiveFps: input.fps,
+      repCount: input.lastFeedback?.repCount ?? 0,
+      correctCount: input.lastFeedback?.correctCount ?? 0,
+      incorrectCount: input.lastFeedback?.incorrectCount ?? 0,
+      elbowAngle: input.lastFeedback?.kneeAngle ?? null,
+      torsoAngle: input.lastFeedback?.torsoAngle ?? null,
+      frontAlignment: input.lastFeedback?.offsetAngle ?? null,
+      trackingQuality: input.lastFeedback?.trackingQuality ?? null,
+      avgTrackingQuality: Math.round(avgTrackingQuality * 100) / 100,
+      currentSuggestion,
+      warnings: input.lastFeedback?.warnings ?? [],
+      timelineSampled
+    },
+    sections: {
+      overview: { generatedAt, status: 'ok', taskId: input.taskId, viewAngle: input.viewAngle, exerciseName: input.exercise?.name ?? null, summary },
+      metrics: keyMetrics,
+      errorStats: computeReportErrorStats(issues),
+      suggestions,
+      timelineSampled
+    }
+  })
+}
+
+export function buildPullupVideoLiveStyleReport(input: {
+  taskId: string
+  viewAngle: string
+  exercise: { id: string; name: string } | null
+  video: { id: string; originalName: string; mimeType: string; sizeBytes: number } | null
+  fps: number
+  frames: PoseFrame[]
+  onProgress?: (processed: number, total: number) => void
+}): PoseAnalysisReport {
+  const analyzer = new RealtimePullupAnalyzer()
+  let lastFeedback: RealtimeFeedback | null = null
+  let analyzedFrameCount = 0
+  const messageFreq = new Map<string, number>()
+  const trackingQualitySamples: number[] = []
+  const timelineRows: SquatTimelineRow[] = []
+  const total = input.frames.length
+
+  for (let i = 0; i < input.frames.length; i++) {
+    const frame = input.frames[i]!
+    if (frame.landmarks) {
+      const feedback = analyzer.analyze(frame.landmarks)
+      lastFeedback = feedback
+      analyzedFrameCount += 1
+      if (Number.isFinite(feedback.trackingQuality)) trackingQualitySamples.push(feedback.trackingQuality)
+      for (const message of collectLiveFrameIssueMessages(feedback)) {
+        const text = message.trim()
+        if (!text) continue
+        messageFreq.set(text, (messageFreq.get(text) ?? 0) + 1)
+      }
+      timelineRows.push({
+        frame: i,
+        tMs: frame.tMs,
+        phase: feedback.phase,
+        trackingQuality: feedback.trackingQuality,
+        kneeAngleDeg: feedback.kneeAngle,
+        hipAngleDeg: feedback.hipAngle,
+        torsoFromVerticalDeg: feedback.torsoAngle,
+        frontAlignmentDeg: feedback.offsetAngle
+      })
+    }
+    if (input.onProgress && ((i + 1) % 20 === 0 || i === input.frames.length - 1)) input.onProgress(i + 1, total)
+  }
+
+  return buildPullupAlignedReport({
+    source: 'video',
+    taskId: input.taskId,
+    viewAngle: input.viewAngle,
+    exercise: input.exercise,
+    video: input.video,
+    fps: input.fps,
+    lastFeedback,
+    messageFreq,
+    analyzedFrameCount,
+    trackingQualitySamples,
+    timelineRows
+  })
+}
+
+export function buildLateralRaiseAlignedReport(input: {
+  source: 'live' | 'video'
+  taskId: string
+  viewAngle: string
+  exercise: { id: string; name: string } | null
+  video: { id: string; originalName: string; mimeType: string; sizeBytes: number } | null
+  fps: number
+  lastFeedback: RealtimeFeedback | null
+  messageFreq: Map<string, number>
+  analyzedFrameCount: number
+  trackingQualitySamples: number[]
+  timelineRows: SquatTimelineRow[]
+}): PoseAnalysisReport {
+  const sortedIssues = Array.from(input.messageFreq.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+  const avgTrackingQuality =
+    input.trackingQualitySamples.length > 0
+      ? input.trackingQualitySamples.reduce((acc, value) => acc + value, 0) / input.trackingQualitySamples.length
+      : 0
+  const fallbackSuggestion = 'Raise both arms smoothly to shoulder height, keep your torso stable, and lower under control.'
+  const currentSuggestion = input.lastFeedback
+    ? input.lastFeedback.issues[0]?.message ?? input.lastFeedback.warnings[0] ?? input.lastFeedback.lastRepMessage ?? fallbackSuggestion
+    : input.source === 'video'
+      ? 'No valid pose frames were detected. Keep your upper body in frame and try another video.'
+      : 'No valid pose frames were detected in the live session.'
+
+  const issueMessages = sortedIssues
+    .filter(([message, count]) => {
+      const ratio = input.analyzedFrameCount > 0 ? count / input.analyzedFrameCount : 0
+      const text = message.toLowerCase()
+      const isLowConfidenceWarn = text.includes('low keypoint confidence')
+      if (isLowConfidenceWarn && avgTrackingQuality >= 0.62) {
+        return ratio >= 0.35
+      }
+      return true
+    })
+    .map(([message]) => message)
+
+  const issues =
+    issueMessages.length > 0
+      ? issueMessages.map((message) => {
+          const count = input.messageFreq.get(message) ?? 0
+          const ratio = input.analyzedFrameCount > 0 ? count / input.analyzedFrameCount : 0
+          const severity: 'info' | 'warning' | 'error' = ratio >= 0.4 ? 'error' : ratio >= 0.15 ? 'warning' : 'info'
+          return {
+            code: toIssueCode(message),
+            severity,
+            message,
+            atFrame: null
+          }
+        })
+      : [
+          {
+            code: 'NO_OBVIOUS_ISSUES',
+            severity: 'info' as const,
+            message: input.source === 'video' ? 'No obvious issues detected during analyzer replay.' : 'No obvious issues detected during live analysis.',
+            atFrame: null
+          }
+        ]
+  const repReasons = input.lastFeedback?.lastRepReasonLabels ?? []
+  for (const reason of repReasons) {
+    const text = reason.trim()
+    if (!text) continue
+    const code = toIssueCode(text)
+    if (issues.some((x) => x.code === code)) continue
+    issues.unshift({ code, severity: 'warning', message: text, atFrame: null })
+  }
+  const fastRepCount = input.lastFeedback?.session.fastRepCount ?? 0
+  const slowRepCount = input.lastFeedback?.session.slowRepCount ?? 0
+  if (fastRepCount > 0) {
+    issues.push({
+      code: 'REP_TOO_FAST',
+      severity: fastRepCount >= 2 ? 'warning' : 'info',
+      message: `Tempo too fast detected (${fastRepCount} rep${fastRepCount > 1 ? 's' : ''}).`,
+      atFrame: null
+    })
+  }
+  if (slowRepCount > 0) {
+    issues.push({
+      code: 'REP_TOO_SLOW',
+      severity: slowRepCount >= 2 ? 'warning' : 'info',
+      message: `Tempo too slow detected (${slowRepCount} rep${slowRepCount > 1 ? 's' : ''}).`,
+      atFrame: null
+    })
+  }
+
+  const summaryPrefix = input.source === 'video' ? 'Video replay analysis' : 'Live analysis'
+  const summary = input.lastFeedback
+    ? `${summaryPrefix}: total ${input.lastFeedback.session.totalReps}, correct ${input.lastFeedback.session.correctReps}, accuracy ${input.lastFeedback.session.accuracyPct}%.`
+    : `${summaryPrefix}: no stable pose frames were detected.`
+  const suggestions = buildLateralRaiseReplaySuggestions(input.lastFeedback, sortedIssues, fallbackSuggestion)
+  const keyMetrics = {
+    totalReps: input.lastFeedback?.session.totalReps ?? 0,
+    correctReps: input.lastFeedback?.session.correctReps ?? 0,
+    incorrectReps: input.lastFeedback?.session.incorrectReps ?? 0,
+    formAccuracyPct: input.lastFeedback?.session.accuracyPct ?? 0,
+    avgRepDurationSec: input.lastFeedback?.session.avgRepDurationSec ?? null,
+    fastRepCount: input.lastFeedback?.session.fastRepCount ?? 0,
+    slowRepCount: input.lastFeedback?.session.slowRepCount ?? 0,
+    avgTrackingQuality: Math.round(avgTrackingQuality * 100) / 100,
+    effectiveFps: input.fps
+  }
+  const generatedAt = new Date().toISOString()
+  const timelineSampled = sampleTimelineRows(input.timelineRows, 180)
+
+  return normalizeReportForArchive({
+    version: 3,
+    generatedAt,
+    status: 'ok',
+    task: { id: input.taskId, viewAngle: input.viewAngle, instruction: null },
+    exercise: input.exercise,
+    video: input.video,
+    summary,
+    keyMetrics,
+    issues,
+    suggestions,
+    details: {
+      type: input.source === 'video' ? 'video_live_replay_lateral_raise' : 'live_realtime_lateral_raise',
+      modelName: input.source === 'video' ? 'MoveNet Lightning (offline replay)' : 'MoveNet Lightning (realtime)',
+      analyzer: 'RealtimeLateralRaiseAnalyzer',
+      effectiveFps: input.fps,
+      repCount: input.lastFeedback?.repCount ?? 0,
+      correctCount: input.lastFeedback?.correctCount ?? 0,
+      incorrectCount: input.lastFeedback?.incorrectCount ?? 0,
+      raiseAngle: input.lastFeedback?.kneeAngle ?? null,
+      elbowAngle: input.lastFeedback?.hipAngle ?? null,
+      torsoAngle: input.lastFeedback?.torsoAngle ?? null,
+      symmetryGap: input.lastFeedback?.kneeVerticalAngle ?? null,
+      frontAlignment: input.lastFeedback?.offsetAngle ?? null,
+      trackingQuality: input.lastFeedback?.trackingQuality ?? null,
+      avgTrackingQuality: Math.round(avgTrackingQuality * 100) / 100,
+      currentSuggestion,
+      warnings: input.lastFeedback?.warnings ?? [],
+      timelineSampled
+    },
+    sections: {
+      overview: {
+        generatedAt,
+        status: 'ok',
+        taskId: input.taskId,
+        viewAngle: input.viewAngle,
+        exerciseName: input.exercise?.name ?? null,
+        summary
+      },
+      metrics: keyMetrics,
+      errorStats: computeReportErrorStats(issues),
+      suggestions,
+      timelineSampled
+    }
+  })
+}
+
+export function buildLateralRaiseVideoLiveStyleReport(input: {
+  taskId: string
+  viewAngle: string
+  exercise: { id: string; name: string } | null
+  video: { id: string; originalName: string; mimeType: string; sizeBytes: number } | null
+  fps: number
+  frames: PoseFrame[]
+  onProgress?: (processed: number, total: number) => void
+}): PoseAnalysisReport {
+  const analyzer = new RealtimeLateralRaiseAnalyzer()
+  let lastFeedback: RealtimeFeedback | null = null
+  let analyzedFrameCount = 0
+  const messageFreq = new Map<string, number>()
+  const trackingQualitySamples: number[] = []
+  const timelineRows: SquatTimelineRow[] = []
+  const total = input.frames.length
+
+  for (let i = 0; i < input.frames.length; i++) {
+    const frame = input.frames[i]!
+    if (frame.landmarks) {
+      const feedback = analyzer.analyze(frame.landmarks)
+      lastFeedback = feedback
+      analyzedFrameCount += 1
+      if (Number.isFinite(feedback.trackingQuality)) trackingQualitySamples.push(feedback.trackingQuality)
+      for (const message of collectLiveFrameIssueMessages(feedback)) {
+        const text = message.trim()
+        if (!text) continue
+        messageFreq.set(text, (messageFreq.get(text) ?? 0) + 1)
+      }
+      timelineRows.push({
+        frame: i,
+        tMs: frame.tMs,
+        phase: feedback.phase,
+        trackingQuality: feedback.trackingQuality,
+        kneeAngleDeg: feedback.kneeAngle,
+        hipAngleDeg: feedback.hipAngle,
+        torsoFromVerticalDeg: feedback.torsoAngle,
+        frontAlignmentDeg: feedback.offsetAngle
+      })
+    }
     if (input.onProgress && ((i + 1) % 20 === 0 || i === input.frames.length - 1)) {
       input.onProgress(i + 1, total)
     }
   }
 
-  return buildPushupAlignedReport({
+  return buildLateralRaiseAlignedReport({
     source: 'video',
     taskId: input.taskId,
     viewAngle: input.viewAngle,
@@ -992,6 +1397,81 @@ function buildPushupReplaySuggestions(
   return Array.from(suggestions).slice(0, 5)
 }
 
+function buildPullupReplaySuggestions(feedback: RealtimeFeedback | null, sortedIssues: Array<[string, number]>, fallbackSuggestion: string) {
+  const suggestions = new Set<string>()
+
+  const prioritizedIssues = [...sortedIssues].sort((a, b) => {
+    const aSwing = a[0].toLowerCase().includes('swing') || a[0].toLowerCase().includes('kipping') ? 1 : 0
+    const bSwing = b[0].toLowerCase().includes('swing') || b[0].toLowerCase().includes('kipping') ? 1 : 0
+    if (aSwing !== bSwing) return bSwing - aSwing
+    return b[1] - a[1]
+  })
+
+  for (const [message] of prioritizedIssues) {
+    const mapped = mapSuggestionFromIssue(message, 'pullup')
+    if (mapped) suggestions.add(mapped)
+    if (suggestions.size >= 4) break
+  }
+
+  if (feedback) {
+    if ((feedback.session.totalReps ?? 0) <= 0) {
+      suggestions.add('Start from a dead hang, pull smoothly until chin clears the bar, then return to full elbow extension.')
+    }
+    if ((feedback.trackingQuality ?? 0) < 0.5) {
+      suggestions.add('Improve lighting and keep both hands, head, shoulders, and hips visible throughout each rep.')
+    }
+    const avgRepDurationSec = feedback.session.avgRepDurationSec ?? null
+    const fastRepCount = feedback.session.fastRepCount ?? 0
+    const slowRepCount = feedback.session.slowRepCount ?? 0
+    if (avgRepDurationSec !== null) {
+      if (fastRepCount >= 1 || avgRepDurationSec < 1.0) {
+        suggestions.add('Your pull-up tempo is fast. Aim for a brief pause at the top and a controlled 2-second descent.')
+      } else if (slowRepCount >= 1 || avgRepDurationSec > 4.6) {
+        suggestions.add('Tempo is very slow. Keep control, but try a smoother continuous rhythm without long hangs between reps.')
+      } else {
+        suggestions.add('Tempo looks stable. Keep the same rhythm to maintain consistency across reps.')
+      }
+    }
+    if ((feedback.session.accuracyPct ?? 0) < 70) {
+      suggestions.add('Focus on one cue per set: reduce swing first, then improve top range, then keep both arms even.')
+    }
+  }
+
+  if (suggestions.size === 0) suggestions.add(fallbackSuggestion.trim())
+  return Array.from(suggestions).slice(0, 5)
+}
+
+function buildLateralRaiseReplaySuggestions(feedback: RealtimeFeedback | null, sortedIssues: Array<[string, number]>, fallbackSuggestion: string) {
+  const suggestions = new Set<string>()
+  const prioritizedIssues = [...sortedIssues].sort((a, b) => {
+    const aSym = a[0].toLowerCase().includes('symmetry') ? 1 : 0
+    const bSym = b[0].toLowerCase().includes('symmetry') ? 1 : 0
+    if (aSym !== bSym) return bSym - aSym
+    return b[1] - a[1]
+  })
+
+  for (const [message] of prioritizedIssues) {
+    const mapped = mapSuggestionFromIssue(message, 'lateral-raise')
+    if (mapped) suggestions.add(mapped)
+    if (suggestions.size >= 4) break
+  }
+
+  if (feedback) {
+    if ((feedback.session.totalReps ?? 0) <= 0) {
+      suggestions.add('Raise both arms to about shoulder height, pause briefly, then lower under control.')
+    }
+    if ((feedback.trackingQuality ?? 0) < 0.5) {
+      suggestions.add('Face the camera, improve lighting, and keep shoulders, elbows, wrists, and torso visible.')
+    }
+    if ((feedback.session.accuracyPct ?? 0) < 70) {
+      suggestions.add('Lower the load and focus on one cue: no torso sway, then improve symmetry, then keep elbows softly fixed.')
+    }
+  }
+
+  if (suggestions.size === 0) suggestions.add(fallbackSuggestion.trim())
+  return Array.from(suggestions).slice(0, 5)
+}
+
 function analyzeSquatTempoFromTimeline(timelineRows: SquatTimelineRow[]) {
   const DESCENT_FAST_SEC = 0.62
   const ASCENT_FAST_SEC = 0.58
@@ -1068,6 +1548,8 @@ function mapSuggestionFromIssue(issue: string, exerciseSlug: ExerciseSlug) {
     if (text.includes('symmetry')) return 'Lift both arms together and match left-right height at the top.'
     if (text.includes('elbow') || text.includes('curl')) return 'Keep a soft elbow bend and move from the shoulder joint.'
     if (text.includes('face the camera') || text.includes('front')) return 'Rotate to face the camera so both arms stay visible.'
+    if (text.includes('tempo too fast') || text.includes('too fast')) return 'Slow down: lift up under control, brief pause, then lower slowly.'
+    if (text.includes('tempo too slow') || text.includes('too slow')) return 'Keep control, but avoid long stalls; use a smoother continuous rhythm.'
   }
   if (exerciseSlug === 'pushup') {
     if (text.includes('depth') || text.includes('deeper') || text.includes('elbow')) {
@@ -1082,8 +1564,10 @@ function mapSuggestionFromIssue(issue: string, exerciseSlug: ExerciseSlug) {
   }
   if (exerciseSlug === 'pullup') {
     if (text.includes('kipping') || text.includes('sway') || text.includes('swing')) return 'Reduce swing, brace your core, and keep the pull path controlled.'
-    if (text.includes('side-view') || text.includes('side view')) return 'Rotate to a clearer side-view to improve pull-up range and alignment checks.'
+    if (text.includes('side-view') || text.includes('side view') || text.includes('face the camera')) return 'Face the camera so both arms stay visible and you can compare left-right control.'
     if (text.includes('confidence') || text.includes('frame')) return 'Improve lighting and keep your full body visible throughout each rep.'
+    if (text.includes('tempo too fast') || text.includes('too fast')) return 'Slow down: pause briefly at the top, then lower under control.'
+    if (text.includes('tempo too slow') || text.includes('too slow')) return 'Keep control, but avoid long stalls; use a smoother continuous rhythm.'
   }
   if (exerciseSlug === 'bench-press') {
     if (text.includes('torso') || text.includes('bridge')) return 'Keep your torso braced and avoid excessive arch changes between reps.'

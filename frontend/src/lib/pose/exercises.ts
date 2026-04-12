@@ -29,9 +29,9 @@ const POSE_EXERCISES: Record<PoseExerciseSlug, PoseExerciseDefinition> = {
     completedRepsTip: 'Number of squat reps detected in this session.',
     secondaryMetricLabel: 'Knee Bend',
     secondaryMetricTip: 'Estimated knee joint angle during your movement.',
-    rangeSectionTitle: 'Depth Check',
-    rangeAlignmentLabel: 'Camera Side Alignment',
-    rangeAlignmentTip: 'How close your camera is to a clean side-view angle. Smaller is usually better for squat checks.',
+    rangeSectionTitle: 'Rep Validity Check',
+    rangeAlignmentLabel: 'Side-View Angle',
+    rangeAlignmentTip: 'This is your view alignment angle in degrees. Lower is better for squat validity; keep your body profile to the camera.',
     offlineInstructionPlaceholder: 'e.g. Focus on squat bottom stability and torso lean',
     guideTitle: 'Squat Camera Tips',
     guideTips: [

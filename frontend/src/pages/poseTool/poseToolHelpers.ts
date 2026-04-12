@@ -1,11 +1,13 @@
 import { normalizeReportForArchive } from '../../lib/report/unified'
 import type { PoseAnalysisReport } from '../../lib/pose/report'
-import type { PoseFrame } from '../../lib/pose/mediapipePose'
-import { RealtimeSquatAnalyzer, type RealtimeFeedback } from '../../lib/pose/realtimeSquat'
+import type { NormalizedLandmark, PoseFrame } from '../../lib/pose/mediapipePose'
+import { type RealtimeFeedback } from '../../lib/pose/realtimeSquat'
 import { RealtimeLateralRaiseAnalyzer } from '../../lib/pose/realtimeLateralRaise'
 import { RealtimePushupAnalyzer } from '../../lib/pose/realtimePushup'
 import { RealtimePullupAnalyzer } from '../../lib/pose/realtimePullup'
 import { RealtimeBenchPressAnalyzer } from '../../lib/pose/realtimeBenchPress'
+import { RealtimeSquat17Analyzer, VIDEO_DEFAULT_SQUAT17_TEMPO, type Squat17Tempo, type Squat17Tuning } from '../../lib/pose/realtimeSquat17'
+import type { MoveNetKeypoint } from '../../lib/pose/movenetTracker'
 
 export type ExerciseSlug = 'squat' | 'lateral-raise' | 'pushup' | 'pullup' | 'bench-press'
 
@@ -20,6 +22,16 @@ export type SquatTimelineRow = {
   frontAlignmentDeg?: number | null
 }
 
+export type SquatRepFinding = {
+  repNumber: number
+  result: 'correct' | 'incorrect' | 'invalid'
+  primaryIssue: string
+  reasons: string[]
+
+  atFrame: number
+  tMs: number
+}
+
 export type BenchPressTimelineRow = {
   frame: number
   tMs: number
@@ -31,8 +43,23 @@ export type BenchPressTimelineRow = {
 }
 
 export type RealtimeAnalyzer = {
-  analyze: (landmarks: Parameters<RealtimeSquatAnalyzer['analyze']>[0]) => RealtimeFeedback
+  analyze: (landmarks: NormalizedLandmark[]) => RealtimeFeedback
+  analyzeNative?: (keypoints: MoveNetKeypoint[]) => RealtimeFeedback
+  setTuning?: (next: Partial<Squat17Tuning>) => void
+  setTempo?: (next: Partial<Squat17Tempo>) => void
+  setAnalyzerFps?: (fps: number) => void
   resetSession: () => void
+}
+
+// Video-analysis-only fallback tuning (aligned with backend defaults).
+export const VIDEO_DEFAULT_SQUAT17_TUNING: Squat17Tuning = {
+  kneeForwardWarnRatio: 0.050,
+  kneeForwardFailRatio: 0.065,
+  kneeForwardFailMinFrames: 2,
+  forwardLeanWarnDeg: 40,
+  forwardLeanFailDeg: 54,
+  forwardLeanFailMinFrames: 2,
+  trackingQualityMin: 0.28
 }
 
 export function buildSquatAlignedReport(input: {
@@ -47,94 +74,185 @@ export function buildSquatAlignedReport(input: {
   analyzedFrameCount: number
   trackingQualitySamples: number[]
   timelineRows: SquatTimelineRow[]
+  repFindings?: SquatRepFinding[]
 }): PoseAnalysisReport {
-  const sortedIssues = Array.from(input.messageFreq.entries())
+  const sortedFrameMessages = Array.from(input.messageFreq.entries())
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 6)
+    .slice(0, 8)
   const avgTrackingQuality =
     input.trackingQualitySamples.length > 0
       ? input.trackingQualitySamples.reduce((acc, value) => acc + value, 0) / input.trackingQualitySamples.length
       : 0
+  const totalReps = input.lastFeedback?.session.totalReps ?? 0
+  const correctReps = input.lastFeedback?.session.correctReps ?? 0
+  const incorrectReps = input.lastFeedback?.session.incorrectReps ?? 0
+  const effectiveReps = correctReps + incorrectReps
+  const unassessedReps = input.lastFeedback?.session.unassessedReps ?? Math.max(0, totalReps - effectiveReps)
+  const assessedRepPct = totalReps > 0 ? Math.round((effectiveReps / totalReps) * 100) : 0
+  const sideViewInvalidReps = input.lastFeedback?.session.sideViewWarningCount ?? 0
+  const kneeForwardCount = input.lastFeedback?.session.kneeOverToeCount ?? 0
+  const forwardLeanCount = input.lastFeedback?.session.forwardLeanCount ?? 0
+  const avgRepDurationSec = input.lastFeedback?.session.avgRepDurationSec ?? null
+  const sessionSlowRepCount = input.lastFeedback?.session.slowRepCount ?? 0
   const fallbackSuggestion = 'Keep a steady tempo and align your knees with your toes.'
   const currentSuggestion = input.lastFeedback
     ? input.lastFeedback.issues[0]?.message ?? input.lastFeedback.warnings[0] ?? input.lastFeedback.lastRepMessage ?? fallbackSuggestion
     : input.source === 'video'
       ? 'No valid pose frames were detected. Keep your full body in frame and try another video.'
       : 'No valid pose frames were detected in the live session.'
-  const issueMessages = sortedIssues
-    .filter(([message, count]) => {
-      const ratio = input.analyzedFrameCount > 0 ? count / input.analyzedFrameCount : 0
-      const text = message.toLowerCase()
-      const isSideViewWarn = text.includes('side view')
-      const isLowConfidenceWarn = text.includes('low keypoint confidence')
-      if (text.includes('try to stay in a clear side view for more stable tracking')) return false
-
-      if ((isSideViewWarn || isLowConfidenceWarn) && avgTrackingQuality >= 0.62) {
-        return ratio >= 0.35
-      }
-      return true
-    })
-    .map(([message]) => message)
-
   const tempoCheck = analyzeSquatTempoFromTimeline(input.timelineRows)
+  const highQualitySample =
+    (input.lastFeedback?.session.accuracyPct ?? 0) >= 95 &&
+    (input.lastFeedback?.session.incorrectReps ?? 0) === 0
   const sessionFastRepCount = input.lastFeedback?.session.fastRepCount ?? 0
   const phaseFastRepCount = Math.max(tempoCheck.fastDescentCount, tempoCheck.fastAscentCount)
-  const unifiedFastRepCount = Math.max(sessionFastRepCount, phaseFastRepCount)
-  const issues =
-    issueMessages.length > 0
-      ? issueMessages.map((message) => {
-          const count = input.messageFreq.get(message) ?? 0
-          const ratio = input.analyzedFrameCount > 0 ? count / input.analyzedFrameCount : 0
-          const severity: 'info' | 'warning' | 'error' = ratio >= 0.35 ? 'error' : ratio >= 0.12 ? 'warning' : 'info'
-          return {
-            code: toIssueCode(message),
-            severity,
-            message,
-            atFrame: null
-          }
-        })
-      : [
-          {
-            code: 'NO_OBVIOUS_ISSUES',
-            severity: 'info' as const,
-            message: input.source === 'video' ? 'No obvious issues detected during analyzer replay.' : 'No obvious issues detected during live analysis.',
-            atFrame: null
-          }
-        ]
-  if (tempoCheck.fastDescentCount > 0) {
+  const unifiedFastRepCount = highQualitySample ? sessionFastRepCount : Math.max(sessionFastRepCount, phaseFastRepCount)
+
+  const issues: Array<{ code: string; severity: 'info' | 'warning' | 'error'; message: string; atFrame: null }> = []
+  const assessedDenominator = Math.max(1, effectiveReps)
+
+  if (kneeForwardCount > 0) {
+    const ratio = kneeForwardCount / assessedDenominator
     issues.push({
-      code: 'DESCENT_TOO_FAST',
-      severity: tempoCheck.fastDescentCount >= 2 ? 'warning' : 'info',
-      message: `Descent too fast detected (${tempoCheck.fastDescentCount} rep${tempoCheck.fastDescentCount > 1 ? 's' : ''}).`,
+      code: 'KNEE_FORWARD_EXCESSIVE',
+      severity: ratio >= 0.45 ? 'error' : ratio >= 0.2 ? 'warning' : 'info',
+      message: `Knee forward drift detected in ${kneeForwardCount}/${effectiveReps} assessed reps (${Math.round(ratio * 100)}%).`,
       atFrame: null
     })
   }
-  if (tempoCheck.fastAscentCount > 0) {
+
+  if (forwardLeanCount > 0) {
+    const ratio = forwardLeanCount / assessedDenominator
     issues.push({
-      code: 'ASCENT_TOO_FAST',
-      severity: tempoCheck.fastAscentCount >= 2 ? 'warning' : 'info',
-      message: `Ascent too fast detected (${tempoCheck.fastAscentCount} rep${tempoCheck.fastAscentCount > 1 ? 's' : ''}).`,
+      code: 'FORWARD_LEAN_EXCESSIVE',
+      severity: ratio >= 0.45 ? 'error' : ratio >= 0.2 ? 'warning' : 'info',
+      message: `Excessive torso lean detected in ${forwardLeanCount}/${effectiveReps} assessed reps (${Math.round(ratio * 100)}%).`,
+      atFrame: null
+    })
+  }
+
+  if (sideViewInvalidReps > 0) {
+    const ratio = totalReps > 0 ? sideViewInvalidReps / totalReps : 1
+    issues.push({
+      code: 'SIDE_VIEW_UNSTABLE',
+      severity: ratio >= 0.4 ? 'warning' : 'info',
+      message: `Side-view alignment unstable in ${sideViewInvalidReps}/${totalReps} total reps (${Math.round(ratio * 100)}%).`,
+      atFrame: null
+    })
+  }
+
+  if (unassessedReps > 0) {
+    const ratio = totalReps > 0 ? unassessedReps / totalReps : 1
+    issues.push({
+      code: 'REPS_UNASSESSED',
+      severity: ratio >= 0.35 ? 'warning' : 'info',
+      message: `${unassessedReps}/${totalReps} reps could not be quality-assessed due to unstable or incomplete keypoints.`,
+      atFrame: null
+    })
+  }
+
+  for (const [message, count] of sortedFrameMessages) {
+    const ratio = input.analyzedFrameCount > 0 ? count / input.analyzedFrameCount : 0
+    const text = message.toLowerCase()
+    const isSideViewWarn = text.includes('side view')
+    const isLowConfidenceWarn = text.includes('low keypoint confidence') || text.includes('incomplete keypoints')
+    if (isSideViewWarn && sideViewInvalidReps > 0) continue
+    if (isSideViewWarn && (sideViewInvalidReps < 2 || totalReps <= 3)) continue
+    if (!isSideViewWarn && !isLowConfidenceWarn) continue
+    if (avgTrackingQuality >= 0.62 && ratio < 0.28) continue
+    if (ratio < 0.18) continue
+    const detailedMessage = isSideViewWarn
+      ? `Frequent side-view drift seen in ${Math.round(ratio * 100)}% of analyzed frames.`
+      : `Keypoint confidence instability seen in ${Math.round(ratio * 100)}% of analyzed frames.`
+    const code = isSideViewWarn ? 'SIDE_VIEW_DRIFT_FRAMES' : 'KEYPOINT_CONFIDENCE_LOW_FRAMES'
+    if (!issues.some((item) => item.code === code)) {
+      issues.push({
+        code,
+        severity: ratio >= 0.4 ? 'warning' : 'info',
+        message: detailedMessage,
+        atFrame: null
+      })
+    }
+  }
+
+  const fastRepRatio = effectiveReps > 0 ? unifiedFastRepCount / effectiveReps : 0
+  const slowRepRatio = effectiveReps > 0 ? sessionSlowRepCount / effectiveReps : 0
+  if (
+    !highQualitySample &&
+    effectiveReps >= 3 &&
+    unifiedFastRepCount >= 2 &&
+    fastRepRatio >= 0.45 &&
+    avgRepDurationSec !== null &&
+    avgRepDurationSec < 1.1
+  ) {
+    issues.push({
+      code: 'DESCENT_TOO_FAST',
+      severity: fastRepRatio >= 0.65 ? 'warning' : 'info',
+      message: `Tempo is fast in ${unifiedFastRepCount}/${effectiveReps} assessed reps (${Math.round(fastRepRatio * 100)}%).`,
+      atFrame: null
+    })
+  }
+  if (
+    !highQualitySample &&
+    effectiveReps >= 3 &&
+    sessionSlowRepCount >= 2 &&
+    slowRepRatio >= 0.45 &&
+    avgRepDurationSec !== null &&
+    avgRepDurationSec > 4.2
+  ) {
+    issues.push({
+      code: 'TEMPO_TOO_SLOW',
+      severity: slowRepRatio >= 0.65 ? 'warning' : 'info',
+      message: `Tempo is slow in ${sessionSlowRepCount}/${effectiveReps} assessed reps (${Math.round(slowRepRatio * 100)}%).`,
+      atFrame: null
+    })
+  }
+  if (
+    !highQualitySample &&
+    effectiveReps >= 3 &&
+    ((unifiedFastRepCount >= 1 && sessionSlowRepCount >= 1) ||
+      (tempoCheck.fastDescentCount >= 1 && tempoCheck.fastAscentCount === 0) ||
+      (tempoCheck.fastAscentCount >= 1 && tempoCheck.fastDescentCount === 0))
+  ) {
+    issues.push({
+      code: 'TEMPO_UNSTABLE',
+      severity: 'info',
+      message: 'Tempo stability is inconsistent across reps. Keep descent and ascent rhythm more uniform.',
+      atFrame: null
+    })
+  }
+
+  if (issues.length === 0) {
+    issues.push({
+      code: 'NO_OBVIOUS_ISSUES',
+      severity: 'info',
+      message: input.source === 'video' ? 'No obvious issues detected during analyzer replay.' : 'No obvious issues detected during live analysis.',
       atFrame: null
     })
   }
 
   const summaryPrefix = input.source === 'video' ? 'Video replay analysis' : 'Live analysis'
   const summary = input.lastFeedback
-    ? `${summaryPrefix}: total ${input.lastFeedback.session.totalReps}, correct ${input.lastFeedback.session.correctReps}, accuracy ${input.lastFeedback.session.accuracyPct}%, avg rep ${input.lastFeedback.session.avgRepDurationSec ?? '-'}s.`
+    ? `${summaryPrefix}: total ${totalReps}, effective ${effectiveReps}, unassessed ${unassessedReps}, correct ${correctReps}, incorrect ${incorrectReps}, accuracy ${input.lastFeedback.session.accuracyPct}%, avg rep ${input.lastFeedback.session.avgRepDurationSec ?? '-'}s.`
     : `${summaryPrefix}: no stable pose frames were detected.`
-  const suggestions = buildSquatReplaySuggestions(input.lastFeedback, sortedIssues, fallbackSuggestion)
+  const suggestions = buildSquatReplaySuggestions(input.lastFeedback, issues, fallbackSuggestion)
   const keyMetrics = {
-    totalReps: input.lastFeedback?.session.totalReps ?? 0,
-    correctReps: input.lastFeedback?.session.correctReps ?? 0,
-    incorrectReps: input.lastFeedback?.session.incorrectReps ?? 0,
+    totalReps,
+    effectiveReps,
+    unassessedReps,
+    correctReps,
+    incorrectReps,
     formAccuracyPct: input.lastFeedback?.session.accuracyPct ?? 0,
+    assessedRepPct,
     avgRepDurationSec: input.lastFeedback?.session.avgRepDurationSec ?? null,
     fastRepCount: unifiedFastRepCount,
     slowRepCount: input.lastFeedback?.session.slowRepCount ?? 0,
+    sideViewInvalidReps,
     effectiveFps: input.fps
   }
   const generatedAt = new Date().toISOString()
   const timelineSampled = sampleTimelineRows(input.timelineRows, 180)
+  const repFindings = input.repFindings ?? []
 
   return normalizeReportForArchive({
     version: 3,
@@ -150,11 +268,15 @@ export function buildSquatAlignedReport(input: {
     details: {
       type: input.source === 'video' ? 'video_live_replay_squat' : 'live_realtime_squat',
       modelName: input.source === 'video' ? 'MoveNet Lightning (offline replay)' : 'MoveNet Lightning (realtime)',
-      analyzer: 'RealtimeSquatAnalyzer',
+      analyzer: 'RealtimeSquat17Analyzer',
       effectiveFps: input.fps,
       repCount: input.lastFeedback?.repCount ?? 0,
+      effectiveRepCount: effectiveReps,
+      unassessedRepCount: unassessedReps,
       correctCount: input.lastFeedback?.correctCount ?? 0,
       incorrectCount: input.lastFeedback?.incorrectCount ?? 0,
+      assessedRepPct,
+      sideViewInvalidReps,
       kneeAngle: input.lastFeedback?.kneeAngle ?? null,
       hipAngle: input.lastFeedback?.hipAngle ?? null,
       torsoAngle: input.lastFeedback?.torsoAngle ?? null,
@@ -164,7 +286,8 @@ export function buildSquatAlignedReport(input: {
       currentSuggestion,
       warnings: input.lastFeedback?.warnings ?? [],
       tempo: tempoCheck,
-      timelineSampled
+      timelineSampled,
+      repFindings
     },
     sections: {
       overview: {
@@ -178,7 +301,8 @@ export function buildSquatAlignedReport(input: {
       metrics: keyMetrics,
       errorStats: computeReportErrorStats(issues),
       suggestions,
-      timelineSampled
+      timelineSampled,
+      repFindings
     }
   })
 }
@@ -190,20 +314,28 @@ export function buildSquatVideoLiveStyleReport(input: {
   video: { id: string; originalName: string; mimeType: string; sizeBytes: number } | null
   fps: number
   frames: PoseFrame[]
+  nativeFrames?: Array<{ tMs: number; keypoints: MoveNetKeypoint[] }>
+  tuning?: Partial<Squat17Tuning>
   onProgress?: (processed: number, total: number) => void
 }): PoseAnalysisReport {
-  const analyzer = new RealtimeSquatAnalyzer()
+  const analyzer = new RealtimeSquat17Analyzer()
+  analyzer.setTuning(input.tuning ?? VIDEO_DEFAULT_SQUAT17_TUNING)
+  analyzer.setTempo(VIDEO_DEFAULT_SQUAT17_TEMPO)
+  analyzer.setAnalyzerFps(input.fps)
   let lastFeedback: RealtimeFeedback | null = null
   let analyzedFrameCount = 0
   const messageFreq = new Map<string, number>()
   const trackingQualitySamples: number[] = []
   const timelineRows: SquatTimelineRow[] = []
+  const repFindings: SquatRepFinding[] = []
+  let lastRepCount = 0
   const total = input.frames.length
 
   for (let i = 0; i < input.frames.length; i++) {
     const frame = input.frames[i]!
-    if (frame.landmarks) {
-      const feedback = analyzer.analyze(frame.landmarks)
+    const nativeFrame = input.nativeFrames?.[i]
+    if (frame.landmarks && nativeFrame?.keypoints?.length) {
+      const feedback = analyzer.analyzeNative(nativeFrame.keypoints)
       lastFeedback = feedback
       analyzedFrameCount += 1
       if (Number.isFinite(feedback.trackingQuality)) trackingQualitySamples.push(feedback.trackingQuality)
@@ -221,6 +353,26 @@ export function buildSquatVideoLiveStyleReport(input: {
         hipAngleDeg: feedback.hipAngle,
         torsoFromVerticalDeg: feedback.torsoAngle
       })
+      if (feedback.repCount > lastRepCount) {
+        const result: SquatRepFinding['result'] =
+          feedback.lastRepResult === 'correct' ? 'correct' : feedback.lastRepResult === 'incorrect' ? 'incorrect' : 'invalid'
+        const reasons = feedback.lastRepReasonLabels.length > 0 ? [...feedback.lastRepReasonLabels] : []
+        const primaryIssue =
+          reasons[0] ??
+          feedback.lastRepMessage ??
+          (result === 'correct' ? 'Rep passed quality check.' : 'Rep was counted but not valid for quality scoring.')
+        for (let repNo = lastRepCount + 1; repNo <= feedback.repCount; repNo++) {
+          repFindings.push({
+            repNumber: repNo,
+            result,
+            primaryIssue,
+            reasons,
+            atFrame: i,
+            tMs: frame.tMs
+          })
+        }
+        lastRepCount = feedback.repCount
+      }
     }
     if (input.onProgress && ((i + 1) % 20 === 0 || i === input.frames.length - 1)) {
       input.onProgress(i + 1, total)
@@ -237,7 +389,8 @@ export function buildSquatVideoLiveStyleReport(input: {
     messageFreq,
     analyzedFrameCount,
     trackingQualitySamples,
-    timelineRows
+    timelineRows,
+    repFindings
   })
 }
 
@@ -1129,6 +1282,32 @@ export function getTopIssues(snapshot: RealtimeFeedback | null) {
   return deduped
 }
 
+export function getTopRepIssuesFromFindings(findings: SquatRepFinding[], limit = 2) {
+  if (!Array.isArray(findings) || findings.length === 0) return []
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const item of findings) {
+    if (item.result !== 'incorrect') continue
+    const candidates = item.reasons.length > 0 ? item.reasons : [item.primaryIssue]
+    for (const reason of candidates) {
+      const text = reason.trim()
+      if (!text || seen.has(text)) continue
+      seen.add(text)
+      out.push(text)
+      if (out.length >= Math.max(1, limit)) return out
+    }
+  }
+  return out
+}
+
+export function getTopIssuesFromMessageFreq(messageFreq: Map<string, number>, limit = 2) {
+  return Array.from(messageFreq.entries())
+    .filter(([message, count]) => !!message.trim() && count > 0)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, Math.max(1, limit))
+    .map(([message]) => message)
+}
+
 export function collectLiveIssueMessages(feedback: RealtimeFeedback | null) {
   if (!feedback) return []
   const raw = [...(feedback.issues?.map((x) => x.message) ?? []), ...(feedback.lastRepReasonLabels ?? []), ...(feedback.warnings ?? [])]
@@ -1182,11 +1361,12 @@ export function buildLiveSuggestions(feedback: RealtimeFeedback | null, fallback
 }
 
 export function createAnalyzer(exerciseSlug: ExerciseSlug): RealtimeAnalyzer {
+  if (exerciseSlug === 'squat') return new RealtimeSquat17Analyzer()
   if (exerciseSlug === 'lateral-raise') return new RealtimeLateralRaiseAnalyzer()
   if (exerciseSlug === 'pushup') return new RealtimePushupAnalyzer()
   if (exerciseSlug === 'pullup') return new RealtimePullupAnalyzer()
   if (exerciseSlug === 'bench-press') return new RealtimeBenchPressAnalyzer()
-  return new RealtimeSquatAnalyzer()
+  return new RealtimeSquat17Analyzer()
 }
 
 function sampleTimelineRows<T>(items: T[], max: number) {
@@ -1229,17 +1409,19 @@ function computeReportErrorStats(issues: Array<{ code: string; severity: 'info' 
   }
 }
 
-function buildSquatReplaySuggestions(feedback: RealtimeFeedback | null, sortedIssues: Array<[string, number]>, fallbackSuggestion: string) {
+function buildSquatReplaySuggestions(
+  feedback: RealtimeFeedback | null,
+  issues: Array<{ code: string; severity: 'info' | 'warning' | 'error'; message: string; atFrame: null }>,
+  fallbackSuggestion: string
+) {
   const suggestions = new Set<string>()
-  const prioritizedIssues = [...sortedIssues].sort((a, b) => {
-    const aKnee = a[0].toLowerCase().includes('knee is noticeably past the toes') ? 1 : 0
-    const bKnee = b[0].toLowerCase().includes('knee is noticeably past the toes') ? 1 : 0
-    if (aKnee !== bKnee) return bKnee - aKnee
-    return b[1] - a[1]
+  const prioritizedIssues = [...issues].sort((a, b) => {
+    const rank = (value: 'info' | 'warning' | 'error') => (value === 'error' ? 3 : value === 'warning' ? 2 : 1)
+    return rank(b.severity) - rank(a.severity)
   })
 
-  for (const [message] of prioritizedIssues) {
-    const mapped = mapSuggestionFromIssue(message, 'squat')
+  for (const issue of prioritizedIssues) {
+    const mapped = mapSuggestionFromIssue(issue.message, 'squat')
     if (mapped) suggestions.add(mapped)
     if (suggestions.size >= 4) break
   }
@@ -1248,17 +1430,30 @@ function buildSquatReplaySuggestions(feedback: RealtimeFeedback | null, sortedIs
     if ((feedback.session.totalReps ?? 0) <= 0) {
       suggestions.add('Start fully upright, descend until thighs are near parallel, then stand tall to complete each rep.')
     }
-    if ((feedback.session.accuracyPct ?? 0) < 70) {
+    const accuracy = feedback.session.accuracyPct ?? 0
+    if (accuracy < 70) {
       suggestions.add('Slow down each rep: 2 seconds down, brief pause, then drive up with controlled tempo.')
     }
     if ((feedback.trackingQuality ?? 0) < 0.5) {
       suggestions.add('Place the camera at hip height, keep your full body visible, and improve front lighting.')
     }
+    if ((feedback.session.kneeOverToeCount ?? 0) > 0) {
+      suggestions.add('Control knee travel: initiate each rep by sitting hips back, then keep shin angle stable over mid-foot.')
+    }
+    if ((feedback.session.forwardLeanCount ?? 0) > 0) {
+      suggestions.add('Reduce torso lean: keep chest proud, brace before descent, and maintain bar-path/center-of-mass over mid-foot.')
+    }
+    if ((feedback.session.sideViewWarningCount ?? 0) > 0) {
+      suggestions.add('Keep your body profile side-on for the full rep so form checks remain valid.')
+    }
+    if ((feedback.session.unassessedReps ?? 0) > 0) {
+      suggestions.add('Some reps were not assessable: step back slightly and keep shoulders, hips, knees, and ankles visible.')
+    }
     const avgRepDurationSec = feedback.session.avgRepDurationSec ?? null
     const fastRepCount = feedback.session.fastRepCount ?? 0
     const slowRepCount = feedback.session.slowRepCount ?? 0
     if (avgRepDurationSec !== null) {
-      if (fastRepCount >= 1 || avgRepDurationSec < 1.15) {
+      if (accuracy < 95 && (fastRepCount >= 1 || avgRepDurationSec < 1.1)) {
         suggestions.add('Your squat tempo is a bit fast. Aim for about 2s down, brief pause, and controlled rise.')
       } else if (slowRepCount >= 1 || avgRepDurationSec > 3.8) {
         suggestions.add('Your squat tempo is quite slow. Keep tension, but try a smoother continuous rhythm per rep.')
@@ -1473,10 +1668,10 @@ function buildLateralRaiseReplaySuggestions(feedback: RealtimeFeedback | null, s
 }
 
 function analyzeSquatTempoFromTimeline(timelineRows: SquatTimelineRow[]) {
-  const DESCENT_FAST_SEC = 0.62
-  const ASCENT_FAST_SEC = 0.58
-  const MIN_PHASE_SEC = 0.2
-  const DIRECTION_SWITCH_MIN_FRAMES = 2
+  const DESCENT_FAST_SEC = 0.4
+  const ASCENT_FAST_SEC = 0.4
+  const MIN_PHASE_SEC = 0.28
+  const DIRECTION_SWITCH_MIN_FRAMES = 3
   let fastDescentCount = 0
   let fastAscentCount = 0
 
@@ -1573,6 +1768,15 @@ function mapSuggestionFromIssue(issue: string, exerciseSlug: ExerciseSlug) {
     if (text.includes('torso') || text.includes('bridge')) return 'Keep your torso braced and avoid excessive arch changes between reps.'
     if (text.includes('side-view') || text.includes('side view')) return 'Rotate to a clearer side-view to improve bench depth and elbow tracking.'
     if (text.includes('confidence') || text.includes('frame')) return 'Improve lighting and keep shoulders, elbows, wrists, and torso visible.'
+  }
+  if (text.includes('tempo unstable') || text.includes('tempo stability')) {
+    return 'Tempo is uneven: keep a consistent cadence (about 2s down and controlled rise) across all reps.'
+  }
+  if (text.includes('tempo') && text.includes('fast')) {
+    return 'Slow down each rep and avoid dropping too quickly at the bottom.'
+  }
+  if (text.includes('tempo') && text.includes('slow')) {
+    return 'Keep tension but reduce long pauses to maintain a smoother continuous tempo.'
   }
   if (text.includes('torso lean')) return 'Brace your core and keep your chest up during the descent.'
   if (text.includes('knee') && text.includes('toes')) {

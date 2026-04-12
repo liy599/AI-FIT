@@ -1,4 +1,6 @@
-import { apiFetch, apiFetchBlob, apiUpload, resolveBackendUrl } from './api'
+import { API_BASE, apiFetch, apiFetchBlob, apiUpload, resolveBackendUrl } from './api'
+import type { Squat17Tuning } from './pose/realtimeSquat17'
+
 
 export type PoseVideo = {
   id: number
@@ -332,6 +334,22 @@ export async function createPoseAiEnhancedReportRaw(input: { report: Record<stri
 export async function createPoseVideoObjectUrl(video: Pick<PoseVideo, 'id'>) {
   const blob = await apiFetchBlob(`/api/pose/videos/${video.id}/file`)
   return URL.createObjectURL(blob)
+}
+
+export async function getSquat17TuningConfig() {
+  const data = await apiFetch<{ tuning: Partial<Squat17Tuning>; source: 'default' | 'stored' }>(
+    '/api/pose/config/squat17-tuning',
+    { auth: false }
+  )
+  return data
+}
+
+export async function updateSquat17TuningConfig(tuning: Partial<Squat17Tuning>) {
+  const data = await apiFetch<{ ok: boolean; tuning: Squat17Tuning }>('/api/pose/config/squat17-tuning', {
+    method: 'PUT',
+    body: JSON.stringify({ tuning })
+  })
+  return data
 }
 
 export function resolvePoseVideoApiUrl(path: string) {

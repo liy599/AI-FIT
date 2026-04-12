@@ -1,4 +1,6 @@
-import { apiFetch, apiFetchBlob, apiUpload, resolveBackendUrl } from './api'
+import { API_BASE, apiFetch, apiFetchBlob, apiUpload, resolveBackendUrl } from './api'
+import type { Squat17Tuning } from './pose/realtimeSquat17'
+
 
 export type PoseVideo = {
   id: number
@@ -280,12 +282,19 @@ export async function createPoseTraining(input: {
   return data.session
 }
 
-export async function listPoseTrainings(params?: { page?: number; page_size?: number; date_from?: string; date_to?: string }) {
+export async function listPoseTrainings(params?: {
+  page?: number
+  page_size?: number
+  date_from?: string
+  date_to?: string
+  exercise_type?: string
+}) {
   const query = new URLSearchParams()
   if (params?.page) query.set('page', String(params.page))
   if (params?.page_size) query.set('page_size', String(params.page_size))
   if (params?.date_from) query.set('date_from', params.date_from)
   if (params?.date_to) query.set('date_to', params.date_to)
+  if (params?.exercise_type) query.set('exercise_type', params.exercise_type)
   const suffix = query.toString()
   const data = await apiFetch<{ items: PoseTrainingSession[]; page: number; page_size: number; total: number }>(
     `/api/pose/trainings${suffix ? `?${suffix}` : ''}`
@@ -325,6 +334,22 @@ export async function createPoseAiEnhancedReportRaw(input: { report: Record<stri
 export async function createPoseVideoObjectUrl(video: Pick<PoseVideo, 'id'>) {
   const blob = await apiFetchBlob(`/api/pose/videos/${video.id}/file`)
   return URL.createObjectURL(blob)
+}
+
+export async function getSquat17TuningConfig() {
+  const data = await apiFetch<{ tuning: Partial<Squat17Tuning>; source: 'default' | 'stored' }>(
+    '/api/pose/config/squat17-tuning',
+    { auth: false }
+  )
+  return data
+}
+
+export async function updateSquat17TuningConfig(tuning: Partial<Squat17Tuning>) {
+  const data = await apiFetch<{ ok: boolean; tuning: Squat17Tuning }>('/api/pose/config/squat17-tuning', {
+    method: 'PUT',
+    body: JSON.stringify({ tuning })
+  })
+  return data
 }
 
 export function resolvePoseVideoApiUrl(path: string) {

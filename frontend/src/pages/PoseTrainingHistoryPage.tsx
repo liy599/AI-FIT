@@ -14,7 +14,10 @@ export default function PoseTrainingHistoryPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const query = useMemo(() => ({ date_from: dateFrom || undefined, date_to: dateTo || undefined }), [dateFrom, dateTo])
+  const query = useMemo(
+    () => ({ date_from: dateFrom || undefined, date_to: dateTo || undefined, exercise_type: exercise.exerciseType }),
+    [dateFrom, dateTo, exercise.exerciseType]
+  )
   const showDemo = items.length === 0
   const displayItems = showDemo ? [DEMO_POSE_TRAINING] : items
 

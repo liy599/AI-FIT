@@ -4,9 +4,11 @@ import type { RealtimeFeedback } from './realtimeSquat'
 const ASSUMED_ANALYZER_FPS = 24
 const REP_FAST_SEC = 0.85
 const REP_SLOW_SEC = 3.2
-const REP_COUNT_MIN_FRAMES = 5
-const REP_COUNT_MIN_BOTTOM_FRAMES = 2
-const REP_COUNT_MIN_ELBOW_ANGLE = 135
+const REP_ARM_MIN_TOP_FRAMES = 6
+const REP_COUNT_MIN_FRAMES = 7
+const REP_COUNT_MIN_ACTIVE_FRAMES = 5
+const REP_COUNT_MIN_BOTTOM_FRAMES = 3
+const REP_COUNT_MIN_ELBOW_ANGLE = 125
 const REP_VALID_MIN_FRAMES = 3
 const REP_VALID_RATIO_MIN = 0.25
 const TRACKING_QUALITY_MIN_FOR_COUNT = 0.22
@@ -50,6 +52,10 @@ export class RealtimePushupAnalyzer {
   private lastRepFrameCount: number | null = null
   private enteredBottom = false
   private frameCount = 0
+  private stableTopFrames = 0
+  private repArmed = false
+  private repActive = false
+  private repActiveFrames = 0
   private repMinElbowAngle: number | null = null
   private repDepthGoodFrames = 0
   private repReliableFrameCount = 0
@@ -90,20 +96,20 @@ export class RealtimePushupAnalyzer {
       warnings.push('Low keypoint confidence. Keep your full body in frame with better lighting.')
     }
     if (sideAlignment !== null && sideAlignment > SIDE_VIEW_WARN_DEG) {
-      warnings.push('Turn to a clearer side-view for more stable push-up tracking.')
+      warnings.push('Side view unstable. Rotate to a clearer side view for more stable push-up tracking.')
     }
-    if (bodyLineAngle !== null && bodyLineAngle < BODY_LINE_FAIL_ANGLE) {
-      issues.push({ message: 'Hips dropping detected. Keep shoulders, hips, and ankles aligned.', joints: [11, 12, 23, 24, 27, 28] })
+    const hipsSaggingNow = torsoTiltSigned !== null && torsoTiltSigned > HIP_SAG_HARD_DEG
+    const bodyLineBadNow = bodyLineAngle !== null && bodyLineAngle < BODY_LINE_FAIL_ANGLE
+    if (hipsSaggingNow || bodyLineBadNow) {
+      issues.push({ message: 'Hips sagging detected. Keep shoulders, hips, and ankles aligned in one line.', joints: [11, 12, 23, 24, 27, 28] })
     } else if (bodyLineAngle !== null && bodyLineAngle < 168) {
-      warnings.push('Try to maintain a straight line from shoulders to hips.')
+      warnings.push('Body line not stable. Keep shoulders, hips, and ankles aligned in one line.')
     }
-    if (torsoTiltSigned !== null && torsoTiltSigned > HIP_SAG_HARD_DEG) {
-      issues.push({ message: 'Keep your torso rigid and avoid dropping the hips.', joints: [11, 12, 23, 24] })
-    } else if (torsoTiltSigned !== null && torsoTiltSigned < -HIP_PIKE_HARD_DEG) {
-      warnings.push('Avoid raising hips too high. Keep a stable plank line during reps.')
+    if (torsoTiltSigned !== null && torsoTiltSigned < -HIP_PIKE_HARD_DEG) {
+      warnings.push('Hips too high detected. Lower hips slightly to keep a stable plank line during reps.')
     }
     if (nextState === 's3' && elbowAngle !== null && elbowAngle > DEPTH_REQUIRED_ELBOW_ANGLE) {
-      warnings.push('Go a bit deeper: bend elbows more at the bottom position.')
+      warnings.push('Depth insufficient. Bend elbows more at the bottom position.')
     }
 
     this.updateState({
@@ -178,6 +184,10 @@ export class RealtimePushupAnalyzer {
     this.lastRepFrameCount = null
     this.enteredBottom = false
     this.frameCount = 0
+    this.stableTopFrames = 0
+    this.repArmed = false
+    this.repActive = false
+    this.repActiveFrames = 0
     this.repMinElbowAngle = null
     this.repDepthGoodFrames = 0
     this.repReliableFrameCount = 0
@@ -204,21 +214,48 @@ export class RealtimePushupAnalyzer {
   }) {
     const nextState = input.nextState
     if (nextState === null) return
-    if (this.currentState === null) {
-      this.frameCount = 0
-      this.repMinElbowAngle = null
-      this.repDepthGoodFrames = 0
-      this.repReliableFrameCount = 0
-      this.repBottomFrames = 0
-      this.repSideViewHardFrames = 0
-      this.repBodyLineHardFrames = 0
-      this.repHipSagHardFrames = 0
-      this.repHipPikeHardFrames = 0
-      this.repLowConfidenceFrames = 0
+    const isTopStable =
+      !this.repActive &&
+      !input.isCountingPaused &&
+      nextState === 's1' &&
+      typeof input.elbowAngle === 'number' &&
+      Number.isFinite(input.elbowAngle) &&
+      input.elbowAngle >= S1_ENTER_ELBOW_ANGLE
+
+    if (isTopStable) {
+      this.stableTopFrames += 1
+    } else if (!this.repActive) {
+      this.stableTopFrames = 0
     }
+    if (!this.repActive && this.stableTopFrames >= REP_ARM_MIN_TOP_FRAMES) {
+      this.repArmed = true
+    }
+
+    if (!this.repActive) {
+      if (this.repArmed && this.currentState === 's1' && nextState !== 's1') {
+        this.repActive = true
+        this.frameCount = 0
+        this.repActiveFrames = 0
+        this.enteredBottom = false
+        this.repMinElbowAngle = null
+        this.repDepthGoodFrames = 0
+        this.repReliableFrameCount = 0
+        this.repBottomFrames = 0
+        this.repSideViewHardFrames = 0
+        this.repBodyLineHardFrames = 0
+        this.repHipSagHardFrames = 0
+        this.repHipPikeHardFrames = 0
+        this.repLowConfidenceFrames = 0
+      } else {
+        this.currentState = nextState
+        return
+      }
+    }
+
     this.frameCount += 1
 
     if (!input.isCountingPaused) {
+      if (nextState !== 's1') this.repActiveFrames += 1
       if (typeof input.elbowAngle === 'number' && Number.isFinite(input.elbowAngle)) {
         this.repMinElbowAngle = this.repMinElbowAngle === null ? input.elbowAngle : Math.min(this.repMinElbowAngle, input.elbowAngle)
         if (input.elbowAngle <= DEPTH_REQUIRED_ELBOW_ANGLE) this.repDepthGoodFrames += 1
@@ -239,7 +276,25 @@ export class RealtimePushupAnalyzer {
     } else {
       this.repBottomFrames = 0
     }
-    if (this.currentState !== 's1' && nextState === 's1' && this.enteredBottom) {
+    if (this.currentState !== 's1' && nextState === 's1') {
+      if (!this.enteredBottom) {
+        this.repActive = false
+        this.repArmed = false
+        this.stableTopFrames = 0
+        this.frameCount = 0
+        this.repActiveFrames = 0
+        this.repMinElbowAngle = null
+        this.repDepthGoodFrames = 0
+        this.repReliableFrameCount = 0
+        this.repBottomFrames = 0
+        this.repSideViewHardFrames = 0
+        this.repBodyLineHardFrames = 0
+        this.repHipSagHardFrames = 0
+        this.repHipPikeHardFrames = 0
+        this.repLowConfidenceFrames = 0
+        this.currentState = nextState
+        return
+      }
       const enoughForCounting = this.frameCount >= REP_COUNT_MIN_FRAMES
       if (!enoughForCounting) {
         this.lastRepResult = null
@@ -248,7 +303,37 @@ export class RealtimePushupAnalyzer {
         this.lastRepReasonLabels = ['Movement was too short to count']
         this.lastRepCorrections = ['Use a full range and finish the top position before the next rep.']
         this.lastRepFrameCount = this.frameCount
+        this.repActive = false
+        this.repArmed = false
+        this.stableTopFrames = 0
         this.frameCount = 0
+        this.repActiveFrames = 0
+        this.enteredBottom = false
+        this.repMinElbowAngle = null
+        this.repDepthGoodFrames = 0
+        this.repReliableFrameCount = 0
+        this.repBottomFrames = 0
+        this.repSideViewHardFrames = 0
+        this.repBodyLineHardFrames = 0
+        this.repHipSagHardFrames = 0
+        this.repHipPikeHardFrames = 0
+        this.repLowConfidenceFrames = 0
+        this.currentState = nextState
+        return
+      }
+
+      if (this.repActiveFrames < REP_COUNT_MIN_ACTIVE_FRAMES) {
+        this.lastRepResult = null
+        this.lastRepMessage = 'Rep ignored: movement was too small to count.'
+        this.lastRepReasonCodes = ['MOVE_TOO_SMALL']
+        this.lastRepReasonLabels = ['Movement was too small to count']
+        this.lastRepCorrections = ['Lower further and complete a full press to lockout before the next rep.']
+        this.lastRepFrameCount = this.frameCount
+        this.repActive = false
+        this.repArmed = false
+        this.stableTopFrames = 0
+        this.frameCount = 0
+        this.repActiveFrames = 0
         this.enteredBottom = false
         this.repMinElbowAngle = null
         this.repDepthGoodFrames = 0
@@ -272,7 +357,11 @@ export class RealtimePushupAnalyzer {
         this.lastRepReasonLabels = ['Range of motion was too small']
         this.lastRepCorrections = ['Lower further to bend elbows more, then press back up to complete the rep.']
         this.lastRepFrameCount = this.frameCount
+        this.repActive = false
+        this.repArmed = false
+        this.stableTopFrames = 0
         this.frameCount = 0
+        this.repActiveFrames = 0
         this.enteredBottom = false
         this.repMinElbowAngle = null
         this.repDepthGoodFrames = 0
@@ -369,7 +458,11 @@ export class RealtimePushupAnalyzer {
       }
 
       this.lastRepFrameCount = this.frameCount
+      this.repActive = false
+      this.repArmed = false
+      this.stableTopFrames = 0
       this.frameCount = 0
+      this.repActiveFrames = 0
       this.enteredBottom = false
       this.repMinElbowAngle = null
       this.repDepthGoodFrames = 0

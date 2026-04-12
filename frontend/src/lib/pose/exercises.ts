@@ -29,9 +29,9 @@ const POSE_EXERCISES: Record<PoseExerciseSlug, PoseExerciseDefinition> = {
     completedRepsTip: 'Number of squat reps detected in this session.',
     secondaryMetricLabel: 'Knee Bend',
     secondaryMetricTip: 'Estimated knee joint angle during your movement.',
-    rangeSectionTitle: 'Depth Check',
-    rangeAlignmentLabel: 'Camera Side Alignment',
-    rangeAlignmentTip: 'How close your camera is to a clean side-view angle. Smaller is usually better for squat checks.',
+    rangeSectionTitle: 'Rep Validity Check',
+    rangeAlignmentLabel: 'Side-View Angle',
+    rangeAlignmentTip: 'This is your view alignment angle in degrees. Lower is better for squat validity; keep your body profile to the camera.',
     offlineInstructionPlaceholder: 'e.g. Focus on squat bottom stability and torso lean',
     guideTitle: 'Squat Camera Tips',
     guideTips: [
@@ -72,13 +72,13 @@ const POSE_EXERCISES: Record<PoseExerciseSlug, PoseExerciseDefinition> = {
     secondaryMetricLabel: 'Elbow Bend',
     secondaryMetricTip: 'Estimated elbow flexion angle during the pull-up.',
     rangeSectionTitle: 'Height Check',
-    rangeAlignmentLabel: 'Camera Side Alignment',
-    rangeAlignmentTip: 'Use a side-view so elbow bend and body stability can be tracked clearly.',
+    rangeAlignmentLabel: 'Camera Front Alignment',
+    rangeAlignmentTip: 'Face the camera so both arms and shoulders remain visible and symmetry checks are stable.',
     offlineInstructionPlaceholder: 'e.g. Focus on full range, no kipping, and controlled descent',
     guideTitle: 'Pull-Up Camera Tips',
     guideTips: [
-      { title: '1) Side view works best', content: 'Stand side-on so elbow bend and body line are easier to evaluate.' },
-      { title: '2) Keep full body in frame', content: 'Head, shoulders, hips, knees, and feet should stay visible.' },
+      { title: '1) Face the camera', content: 'Stand facing the camera so both arms and shoulders stay visible during the pull.' },
+      { title: '2) Keep bar + head visible', content: 'Keep hands, head, shoulders, and hips in frame so top position can be detected reliably.' },
       { title: '3) Control the tempo', content: 'Pull up smoothly and lower down under control without swinging.' }
     ]
   },

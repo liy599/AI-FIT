@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { API_BASE, apiFetch, apiUpload } from '../lib/api'
+import { API_BASE, apiFetch, apiUpload, resolveBackendUrl } from '../lib/api'
 import { getPoseExerciseByType } from '../lib/pose/exercises'
 import { listPoseTrainings, type PoseTrainingSession } from '../lib/poseApi'
 import { buildTrainingRecordName } from '../lib/pose/trainingName'
@@ -217,9 +217,7 @@ export default function ProfilePage() {
 
   function resolveAvatarUrl(url: string | null | undefined) {
     if (!url) return null
-    if (url.startsWith('http://') || url.startsWith('https://')) return url
-    if (url.startsWith('/')) return `${API_BASE}${url}`
-    return url
+    return resolveBackendUrl(url)
   }
 
   async function onPickAvatar(file: File) {

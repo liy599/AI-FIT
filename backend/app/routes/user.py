@@ -58,7 +58,7 @@ def _to_targets(raw) -> set[str]:
     return targets
 
 
-def _parse_before_dt(data: dict) -> datetime | None:
+def _parse_before_dt(data: dict) -> Optional[datetime]:
     raw_days = data.get("before_days")
     if raw_days is None or raw_days == "":
         return None

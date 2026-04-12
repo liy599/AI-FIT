@@ -6,7 +6,8 @@ import { buildTrainingRecordName } from '../lib/pose/trainingName'
 import { DEMO_POSE_TRAINING, DEMO_POSE_TRAINING_ID } from '../lib/poseTrainingMock'
 
 export default function PoseTrainingReportPage() {
-  const params = useParams<{ sessionId: string }>()
+  const params = useParams<{ exerciseSlug: string; sessionId: string }>()
+  const historyPath = `/tools/pose/${params.exerciseSlug || 'squat'}/tool/history`
   const sessionId = Number(params.sessionId)
   const [session, setSession] = useState<PoseTrainingSession | null>(null)
   const [loading, setLoading] = useState(true)
@@ -74,7 +75,7 @@ export default function PoseTrainingReportPage() {
                   <h2 className="cl_breadcrumb-content-title">Training Report</h2>
                   <div className="cl_breadcrumb-content-list">
                     <Link to="/">Home</Link>
-                    <Link to="/tools/pose/squat/tool/history">History</Link>
+                    <Link to={historyPath}>History</Link>
                     <span>Session</span>
                   </div>
                 </div>
@@ -91,7 +92,7 @@ export default function PoseTrainingReportPage() {
               <div className="cl_blog-widget mb-30">
                 <div className="pose-history-head">
                   <h4 className="cl_blog-widget-title mb-0">{session ? sessionName : 'Session Report'}</h4>
-                  <Link to="/tools/pose/squat/tool/history" className="pose-tool-ghost-btn pose-tool-light-btn">
+                  <Link to={historyPath} className="pose-tool-ghost-btn pose-tool-light-btn">
                     Back to History
                   </Link>
                 </div>

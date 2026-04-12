@@ -1,2 +1,2 @@
-﻿export { default } from './PoseToolPage'
+export { default } from './PoseToolPage'
 

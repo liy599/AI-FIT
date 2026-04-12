@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '../state/auth-context'
-import { drawDistanceGuide, drawMidpointSkeleton, drawPoseJoints17 } from '../lib/pose/draw'
+import { drawDistanceGuide, drawMidpointSkeleton, drawPoseJoints17, drawUpperLimbSkeleton } from '../lib/pose/draw'
 import { DistanceTracker, type DistanceState } from '../lib/pose/distanceTracker'
 import { buildPoseGuidePath, buildPoseHistoryPath, buildPoseReportPath, getPoseExerciseBySlug } from '../lib/pose/exercises'
 import { buildTrainingRecordName } from '../lib/pose/trainingName'
@@ -13,8 +13,12 @@ import { type RealtimeFeedback } from '../lib/pose/realtimeSquat'
 import { REALTIME_DEFAULT_SQUAT17_TEMPO, REALTIME_DEFAULT_SQUAT17_TUNING, type Squat17Tuning } from '../lib/pose/realtimeSquat17'
 import { createPoseTraining, getSquat17TuningConfig, updateSquat17TuningConfig } from '../lib/poseApi'
 import { normalizeReportForArchive } from '../lib/report/unified'
+import { requestCameraStream } from '../lib/media'
 import {
   buildLiveSuggestions,
+  buildPushupAlignedReport,
+  buildPushupVideoLiveStyleReport,
+  buildBenchPressVideoLiveStyleReport,
   buildSquatAlignedReport,
   buildSquatVideoLiveStyleReport,
   VIDEO_DEFAULT_SQUAT17_TUNING,
@@ -38,7 +42,7 @@ const LIVE_TARGET_FPS = 40
 const LIVE_TARGET_FRAME_MS = 1000 / LIVE_TARGET_FPS
 const MAX_VIDEO_BYTES = 80 * 1024 * 1024
 const LIVE_SESSION_LIMIT_MS = 2 * 60 * 1000
-const OFFLINE_DEDICATED_REPLAY_ACTIONS = new Set(['squat'])
+const OFFLINE_DEDICATED_REPLAY_ACTIONS = new Set(['squat', 'pushup', 'bench-press'])
 
 type Mode = 'live' | 'offline'
 type OfflineProgress = { stage: string; processed: number; total: number } | null
@@ -326,7 +330,8 @@ export default function PoseToolPage() {
     }
   }, [exercise.slug, feedback?.offsetAngle])
 
-  function resetLiveSquatSessionStats() {
+
+  function resetLiveDedicatedSessionStats() {
     liveIssueFreqRef.current = new Map()
     liveTrackingQualitySamplesRef.current = []
     liveTimelineRowsRef.current = []
@@ -350,6 +355,37 @@ export default function PoseToolPage() {
         trackingQualitySamples: liveTrackingQualitySamplesRef.current,
         timelineRows: liveTimelineRowsRef.current,
         repFindings: liveRepFindingsRef.current
+      })
+    }
+    if (exercise.slug === 'pushup') {
+      return buildPushupAlignedReport({
+        source: 'live',
+        taskId: sessionStartedAtRef.current ? `live-${sessionStartedAtRef.current}` : 'live-session',
+        viewAngle: 'side',
+        exercise: { id: exercise.slug, name: exercise.displayName },
+        video: null,
+        fps: effectiveFps ?? LIVE_TARGET_FPS,
+        lastFeedback: feedback,
+        messageFreq: liveIssueFreqRef.current,
+        analyzedFrameCount: liveAnalyzedFrameCountRef.current,
+        trackingQualitySamples: liveTrackingQualitySamplesRef.current,
+        timelineRows: liveTimelineRowsRef.current,
+        repFindings: liveRepFindingsRef.current
+      })
+    }
+    if (exercise.slug === 'pushup') {
+      return buildPushupAlignedReport({
+        source: 'live',
+        taskId: sessionStartedAtRef.current ? `live-${sessionStartedAtRef.current}` : 'live-session',
+        viewAngle: 'unknown',
+        exercise: { id: exercise.slug, name: exercise.displayName },
+        video: null,
+        fps: effectiveFps ?? LIVE_TARGET_FPS,
+        lastFeedback: feedback,
+        messageFreq: liveIssueFreqRef.current,
+        analyzedFrameCount: liveAnalyzedFrameCountRef.current,
+        trackingQualitySamples: liveTrackingQualitySamplesRef.current,
+        timelineRows: liveTimelineRowsRef.current
       })
     }
 
@@ -419,7 +455,7 @@ export default function PoseToolPage() {
     setLiveSessionElapsedMs(0)
     setLiveSessionSummary(null)
     sessionStartedPerfRef.current = null
-    resetLiveSquatSessionStats()
+    resetLiveDedicatedSessionStats()
 
     try {
       if (!analyzerRef.current) analyzerRef.current = createAnalyzer(exercise.slug)
@@ -432,7 +468,7 @@ export default function PoseToolPage() {
       if (!distanceTrackerRef.current) distanceTrackerRef.current = new DistanceTracker(5000)
 
       const provider = await getLiveProvider()
-      const stream = await navigator.mediaDevices.getUserMedia({
+      const stream = await requestCameraStream({
         video: {
           width: { ideal: 1280 },
           height: { ideal: 720 },
@@ -503,7 +539,7 @@ export default function PoseToolPage() {
               return
             }
             setFeedback(nextFeedback)
-            if (exercise.slug === 'squat') {
+            if (exercise.slug === 'squat' || exercise.slug === 'pushup') {
               liveAnalyzedFrameCountRef.current += 1
               if (Number.isFinite(nextFeedback.trackingQuality)) {
                 liveTrackingQualitySamplesRef.current.push(nextFeedback.trackingQuality)
@@ -656,7 +692,7 @@ export default function PoseToolPage() {
 
   function resetLiveSession() {
     analyzerRef.current?.resetSession()
-    resetLiveSquatSessionStats()
+    resetLiveDedicatedSessionStats()
     setFeedback(null)
     setError(null)
     setSaveTrainingMsg(null)
@@ -782,7 +818,9 @@ export default function PoseToolPage() {
       setOfflineProgress({ stage: 'Preparing local video', processed: 1, total: 1 })
 
       const effectiveViewAngle: 'unknown' | 'front' | 'side' | 'back' =
-        exercise.slug === 'squat' || exercise.slug === 'pullup' || exercise.slug === 'bench-press' ? 'side' : offlineViewAngle
+        exercise.slug === 'squat' || exercise.slug === 'pushup' || exercise.slug === 'pullup' || exercise.slug === 'bench-press'
+          ? 'side'
+          : offlineViewAngle
       const localVideoMeta = {
         id: `local-${Date.now()}`,
         originalName: offlineFile.name,
@@ -811,13 +849,16 @@ export default function PoseToolPage() {
       localObjectUrl = null
       setOfflineCompletedStep(2)
 
-      const report = buildSquatVideoLiveStyleReport({
-        taskId: `local-${Date.now()}`,
-        viewAngle: effectiveViewAngle,
-        exercise: { id: exercise.id, name: exercise.exerciseType },
-        video: localVideoMeta,
-        fps: extractedFps,
-        frames: extractedFrames,
+      const taskId = `local-${Date.now()}`
+      const report =
+        exercise.slug === 'squat'
+          ? buildSquatVideoLiveStyleReport({
+              taskId,
+              viewAngle: effectiveViewAngle,
+              exercise: { id: exercise.id, name: exercise.exerciseType },
+              video: localVideoMeta,
+              fps: extractedFps,
+              frames: extractedFrames,
         nativeFrames: extractedNativeFrames,
         tuning:
           exercise.slug === 'squat'
@@ -828,10 +869,21 @@ export default function PoseToolPage() {
                 trackingQualityMin: liveSquatTuning.trackingQualityMin
               }
             : undefined,
-        onProgress: (processed, total) => {
-          setOfflineProgress({ stage: 'Replaying real-time squat analyzer', processed, total })
-        }
-      })
+              onProgress: (processed, total) => {
+                setOfflineProgress({ stage: 'Replaying real-time squat analyzer', processed, total })
+              }
+            })
+          : buildPushupVideoLiveStyleReport({
+              taskId,
+              viewAngle: effectiveViewAngle,
+              exercise: { id: exercise.id, name: exercise.exerciseType },
+              video: localVideoMeta,
+              fps: extracted.fps,
+              frames: extracted.frames,
+              onProgress: (processed, total) => {
+                setOfflineProgress({ stage: 'Replaying real-time push-up analyzer', processed, total })
+              }
+            })
       setOfflineCompletedStep(3)
 
       setOfflineProgress({ stage: 'Finalizing local report', processed: 1, total: 1 })
@@ -874,7 +926,10 @@ export default function PoseToolPage() {
     }
   }
 
-  const currentViewAngle = exercise.slug === 'squat' || exercise.slug === 'pullup' || exercise.slug === 'bench-press' ? 'side' : offlineViewAngle
+  const currentViewAngle =
+    exercise.slug === 'squat' || exercise.slug === 'pushup' || exercise.slug === 'pullup' || exercise.slug === 'bench-press'
+      ? 'side'
+      : offlineViewAngle
   const taskStatusText = offlineBusy
     ? 'Analyzing video...'
     : offlineLocalStatus === 'succeeded'

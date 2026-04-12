@@ -1,12 +1,10 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { API_BASE } from '../lib/api'
+import { resolveBackendUrl } from '../lib/api'
 import { useAuth } from '../state/auth-context'
 
 function resolveAvatarUrl(url: string | null | undefined) {
   if (!url) return null
-  if (url.startsWith('http://') || url.startsWith('https://')) return url
-  if (url.startsWith('/')) return `${API_BASE}${url}`
-  return url
+  return resolveBackendUrl(url)
 }
 
 type NavbarProps = {

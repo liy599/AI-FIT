@@ -50,7 +50,7 @@ export const VIDEO_DEFAULT_SQUAT17_TUNING: Squat17Tuning = {
   kneeForwardFailRatio: 0.065,
   kneeForwardFailMinFrames: 2,
   forwardLeanWarnDeg: 40,
-  forwardLeanFailDeg: 54,
+  forwardLeanFailDeg: 53,
   forwardLeanFailMinFrames: 2,
   trackingQualityMin: 0.28
 }

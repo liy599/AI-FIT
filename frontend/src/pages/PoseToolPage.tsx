@@ -282,9 +282,10 @@ export default function PoseToolPage() {
   const currentSuggestion = useMemo(() => {
     if (!feedback) return 'Start the camera to receive live form coaching.'
     return (
+      feedback.lastRepReasonLabels[0] ??
+      feedback.lastRepMessage ??
       feedback.issues[0]?.message ??
       feedback.warnings[0] ??
-      feedback.lastRepMessage ??
       (exercise.slug === 'lateral-raise'
         ? 'Move both arms together, keep shoulders down, and avoid torso swing.'
         : exercise.slug === 'pushup'
@@ -413,7 +414,8 @@ export default function PoseToolPage() {
         messageFreq: liveIssueFreqRef.current,
         analyzedFrameCount: liveAnalyzedFrameCountRef.current,
         trackingQualitySamples: liveTrackingQualitySamplesRef.current,
-        timelineRows: liveTimelineRowsRef.current
+        timelineRows: liveTimelineRowsRef.current,
+        repFindings: liveRepFindingsRef.current
       })
     }
 
@@ -883,7 +885,7 @@ export default function PoseToolPage() {
       let extractedFrames = extracted.frames
       const extractedNativeFrames = extracted.nativeFrames
       extractedFps = extracted.fps
-      if (!extractedNativeFrames.length) {
+      if (exercise.slug === 'squat' && !extractedNativeFrames.length) {
         throw new Error('No native MoveNet keypoints were extracted from this video. Please try another file.')
       }
       URL.revokeObjectURL(localObjectUrl)
@@ -945,8 +947,8 @@ export default function PoseToolPage() {
                   viewAngle: effectiveViewAngle,
                   exercise: { id: exercise.id, name: exercise.exerciseType },
                   video: localVideoMeta,
-                  fps: extracted.fps,
-                  frames: extracted.frames,
+                  fps: extractedFps,
+                  frames: extractedFrames,
                   onProgress: (processed, total) => {
                     setOfflineProgress({ stage: 'Replaying real-time push-up analyzer', processed, total })
                   }

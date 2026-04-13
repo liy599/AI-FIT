@@ -414,8 +414,7 @@ export default function PoseToolPage() {
         messageFreq: liveIssueFreqRef.current,
         analyzedFrameCount: liveAnalyzedFrameCountRef.current,
         trackingQualitySamples: liveTrackingQualitySamplesRef.current,
-        timelineRows: liveTimelineRowsRef.current,
-        repFindings: liveRepFindingsRef.current
+        timelineRows: liveTimelineRowsRef.current
       })
     }
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useLocation, useParams } from 'react-router-dom'
 import { useAuth } from '../state/auth-context'
 import { drawDistanceGuide, drawMidpointSkeleton, drawPoseJoints17, drawUpperLimbSkeleton } from '../lib/pose/draw'
 import { DistanceTracker, type DistanceState } from '../lib/pose/distanceTracker'
@@ -46,7 +46,7 @@ const LIVE_TARGET_FPS = 40
 const LIVE_TARGET_FRAME_MS = 1000 / LIVE_TARGET_FPS
 const MAX_VIDEO_BYTES = 80 * 1024 * 1024
 const LIVE_SESSION_LIMIT_MS = 2 * 60 * 1000
-const OFFLINE_DEDICATED_REPLAY_ACTIONS = new Set(['squat'])
+const OFFLINE_DEDICATED_REPLAY_ACTIONS = new Set(['squat', 'pushup', 'pullup', 'bench-press', 'lateral-raise'])
 
 type Mode = 'live' | 'offline'
 type OfflineProgress = { stage: string; processed: number; total: number } | null
@@ -77,7 +77,11 @@ export default function PoseToolPage() {
   const params = useParams<{ exerciseSlug: string }>()
   const exercise = getPoseExerciseBySlug(params.exerciseSlug)
   const { user } = useAuth()
-  const [mode, setMode] = useState<Mode>('live')
+  const location = useLocation()
+  const [mode, setMode] = useState<Mode>(() => {
+    const raw = new URLSearchParams(location.search).get('mode')
+    return raw === 'offline' ? 'offline' : 'live'
+  })
 
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -289,6 +293,43 @@ export default function PoseToolPage() {
         : 'Keep a steady tempo and align your knees with your toes.')
     )
   }, [exercise.slug, feedback])
+
+  const [displaySuggestion, setDisplaySuggestion] = useState(() => currentSuggestion)
+  const suggestionLastUpdatedRef = useRef(0)
+  const suggestionTimerRef = useRef<number | null>(null)
+  const suggestionPendingRef = useRef(currentSuggestion)
+
+  useEffect(() => {
+    suggestionPendingRef.current = currentSuggestion
+
+    const now = Date.now()
+    const elapsed = now - suggestionLastUpdatedRef.current
+
+    if (elapsed >= 1000) {
+      suggestionLastUpdatedRef.current = now
+      setDisplaySuggestion(currentSuggestion)
+      if (suggestionTimerRef.current !== null) {
+        window.clearTimeout(suggestionTimerRef.current)
+        suggestionTimerRef.current = null
+      }
+      return
+    }
+
+    if (suggestionTimerRef.current !== null) return
+    const waitMs = 1000 - elapsed
+    suggestionTimerRef.current = window.setTimeout(() => {
+      suggestionLastUpdatedRef.current = Date.now()
+      setDisplaySuggestion(suggestionPendingRef.current)
+      suggestionTimerRef.current = null
+    }, waitMs)
+
+    return () => {
+      if (suggestionTimerRef.current !== null) {
+        window.clearTimeout(suggestionTimerRef.current)
+        suggestionTimerRef.current = null
+      }
+    }
+  }, [currentSuggestion])
 
   const rangeStatusText = useMemo(() => {
     if (!distance) return 'Waiting for detection'
@@ -992,7 +1033,7 @@ export default function PoseToolPage() {
           {mode === 'live' ? (
             <div className="row pose-live-layout pose-live-shell">
               <div className="col-xl-3 col-lg-12 d-flex">
-                <div className="cl_blog-widget mb-30 pose-live-feedback h-100 w-100 pose-live-right-card">
+                <div className="cl_blog-widget mb-30 pose-live-feedback h-100 w-100 pose-live-right-card pose-live-guide-card">
                   <div className="pose-panel-head">
                     <span className="pose-panel-kicker">Guide</span>
                     <h4 className="pose-panel-title">{exercise.displayName} Quick Guide</h4>
@@ -1000,43 +1041,53 @@ export default function PoseToolPage() {
                   </div>
 
                   <div className="pose-tip-card pose-tip-card-light pose-live-section">
-                    <h6 className="sub-title mb-15 pose-section-title">Basic Operation</h6>
+                    <h6 className="sub-title mb-15 pose-section-title">1) Setup</h6>
                     <ul className="pose-detail-list pose-detail-list-light">
-                      <li>Click `Start`, keep your full body visible.</li>
-                      <li>Follow `Live Feedback` cues and finish full reps.</li>
-                      <li>Click `Stop`, then save if this set is valid.</li>
+                      <li>Place the camera steady and keep your full body in frame.</li>
+                      <li>Tap Start and move at a controlled tempo.</li>
+                      <li>Tap Stop to end the set, then save if it looks valid.</li>
                     </ul>
                   </div>
 
                   <div className="pose-tip-card pose-tip-card-light pose-live-section">
-                    <h6 className="sub-title mb-15 pose-section-title">Camera Overlay Meaning</h6>
+                    <h6 className="sub-title mb-15 pose-section-title">2) Read the Overlay</h6>
                     <ul className="pose-detail-list pose-detail-list-light">
-                      <li>Body box: `Green OK`, `Orange too close`, `Red too far`.</li>
-                      <li>Joint lines: `Green normal`, `Yellow warning`, `Red issue`.</li>
-                      <li>Keep `Side View` at `OK` for valid scoring.</li>
+                      <li>Body box: Green = OK, Orange = too close, Red = too far.</li>
+                      <li>Skeleton lines: Green = normal, Yellow = warning, Red = issue.</li>
+                      <li>Use Live Feedback to correct form between reps.</li>
                     </ul>
                   </div>
 
-                  {exercise.slug === 'squat' ? (
-                    <div className="pose-tip-card pose-tip-card-light pose-live-section">
-                      <h6 className="sub-title mb-15 pose-section-title">Deep Squat Focus</h6>
-                      <ul className="pose-detail-list pose-detail-list-light">
-                        <li>Use a clear side view; keep feet visible.</li>
-                        <li>Sit hips back; avoid knee-forward drift.</li>
-                        <li>Brace core and keep a controlled tempo.</li>
-                        <li>Tempo rule: a rep faster than `1.20s` is marked as `Too Fast`.</li>
-                      </ul>
-                    </div>
-                  ) : (
-                    <div className="pose-tip-card pose-tip-card-light pose-live-section">
-                      <h6 className="sub-title mb-15 pose-section-title">{exercise.guideTitle}</h6>
-                      <ul className="pose-detail-list pose-detail-list-light">
-                        {exercise.guideTips.map((tip) => (
-                          <li key={tip.title}>{tip.title} {tip.content}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+                  <div className="pose-tip-card pose-tip-card-light pose-live-section">
+                    <h6 className="sub-title mb-15 pose-section-title">3) Validity & Scoring</h6>
+                    <ul className="pose-detail-list pose-detail-list-light">
+                      <li>Keep camera distance at OK and avoid leaving the frame.</li>
+                      <li>Maintain the required view angle for your exercise.</li>
+                      <li>Unstable tracking can reduce assessed rep coverage.</li>
+                    </ul>
+                  </div>
+
+                  <div className="pose-tip-card pose-tip-card-light pose-live-section">
+                    <details className="pose-guide-details">
+                      <summary className="pose-guide-details__summary">Advanced tips</summary>
+                      {exercise.slug === 'squat' ? (
+                        <ul className="pose-detail-list pose-detail-list-light">
+                          <li>Use a clear side view and keep feet visible.</li>
+                          <li>Sit hips back and avoid knee-forward drift.</li>
+                          <li>Brace core and keep a controlled tempo.</li>
+                          <li>Tempo rule: a rep faster than 1.20s is marked as Too Fast.</li>
+                        </ul>
+                      ) : (
+                        <ul className="pose-detail-list pose-detail-list-light">
+                          {exercise.guideTips.map((tip) => (
+                            <li key={tip.title}>
+                              <strong style={{ color: '#0f766e' }}>{tip.title}:</strong> {tip.content}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </details>
+                  </div>
                 </div>
               </div>
 
@@ -1117,7 +1168,7 @@ export default function PoseToolPage() {
                         onClick={() => setDrawMode('full17')}
                         type="button"
                       >
-                        Full 17
+                        Full Point
                       </button>
                       <button
                         className={drawMode === 'midline' ? 'cl_theme-btn pose-mini-btn' : 'pose-tool-ghost-btn pose-tool-light-btn pose-mini-btn'}
@@ -1245,7 +1296,7 @@ export default function PoseToolPage() {
 
                     <div className="pose-tip-card pose-tip-card-light pose-live-section pose-live-section-split">
                       <h6 className="sub-title mb-15 pose-section-title">Coaching Tip</h6>
-                      <p className="pose-live-coaching-copy pose-live-coaching-copy-fill">{currentSuggestion}</p>
+                      <p className="pose-live-coaching-copy pose-live-coaching-copy-fill">{displaySuggestion}</p>
                     </div>
 
                     <div className="pose-tip-card pose-tip-card-light pose-live-section">

@@ -6,36 +6,40 @@ import { useAuth } from '../state/auth-context'
 import AppButton from '../components/ui/AppButton'
 import '../styles/food-module.css'
 
-const mealCards: Array<{ type: FoodMealType; label: string; note: string; accent: string }> = [
+const mealCards: Array<{ type: FoodMealType; label: string; note: string; accent: string; imageSrc: string }> = [
   {
     type: 'breakfast',
     label: 'Breakfast',
     note: 'Open the first meal quickly and keep the morning intake structured.',
-    accent: 'linear-gradient(135deg, #f59e0b 0%, #f97316 100%)'
+    accent: 'linear-gradient(135deg, #f59e0b 0%, #f97316 100%)',
+    imageSrc: '/assets/images/food/breakfast.jpg'
   },
   {
     type: 'lunch',
     label: 'Lunch',
     note: 'Track the midday meal with fast search, recognition, and save flow.',
-    accent: 'linear-gradient(135deg, #10b981 0%, #0f766e 100%)'
+    accent: 'linear-gradient(135deg, #10b981 0%, #0f766e 100%)',
+    imageSrc: '/assets/images/food/lunch.jpg'
   },
   {
     type: 'dinner',
     label: 'Dinner',
     note: 'Review the evening meal totals before committing the formal record.',
-    accent: 'linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%)'
+    accent: 'linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%)',
+    imageSrc: '/assets/images/food/dinner.jpg'
   },
   {
     type: 'snack',
     label: 'Snack',
     note: 'Keep add-on foods separate so the main meals stay clean.',
-    accent: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)'
+    accent: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)',
+    imageSrc: '/assets/images/food/snack.jpg'
   }
 ]
 
-function formatMetric(value: number | undefined, unit: string) {
-  if (value == null) return `-- ${unit}`
-  return `${value.toFixed(1)} ${unit}`
+function formatMetricParts(value: number | undefined, unit: string) {
+  if (value == null) return { numberText: '--', unitText: unit }
+  return { numberText: value.toFixed(1), unitText: unit }
 }
 
 function findMeal(summary: DaySummary | null, mealType: FoodMealType) {
@@ -101,6 +105,13 @@ export default function FoodModulePage() {
   )
 
   const completedMeals = useMemo(() => summary?.meals.length ?? 0, [summary])
+  const nextMeal = useMemo(() => {
+    if (!summary) return mealCards[1]
+    for (const meal of mealCards) {
+      if (!findMeal(summary, meal.type)) return meal
+    }
+    return mealCards[0]
+  }, [summary])
 
   return (
     <>
@@ -127,23 +138,31 @@ export default function FoodModulePage() {
           <div className="cl_blog-widget mb-30 food-module-hero">
             <div className="food-module-hero-grid">
               <div className="food-module-hero-copy">
-                <div className="food-module-hero-eyebrow">AI-FIT Food Tracker</div>
-                <h3 className="food-module-hero-title">Track meals and nutrition in one place.</h3>
+                <div className="food-module-hero-eyebrow">AI-FIT</div>
+                <h3 className="food-module-hero-title">AI-FIT Food Tracker</h3>
+                <div className="food-module-hero-subtitle">Track meals and nutrition in one place.</div>
                 <p className="food-module-hero-desc">
                   Build breakfast, lunch, dinner, and snacks inside AI-FIT. Keep daily nutrition totals visible, save each meal by time of day, and use image recognition when you want a faster entry flow.
                 </p>
               </div>
               <div className="food-module-hero-side">
-                <div className="food-module-hero-status">
-                  {auth.user ? `${completedMeals} meals saved today` : 'Login to load today summary'}
+                <div className="food-module-hero-status-badge">
+                  <div className="food-module-hero-status-icon">{auth.user ? '✅' : '🔒'}</div>
+                  <div className="food-module-hero-status-copy">
+                    <div className="food-module-hero-status-title">{auth.user ? 'Saved Today' : 'Login Required'}</div>
+                    <div className="food-module-hero-status-value">{auth.user ? `${completedMeals} meal${completedMeals === 1 ? '' : 's'}` : 'View today summary'}</div>
+                  </div>
                 </div>
                 <div className="food-module-hero-actions">
-                  <Link to="/food/meal/lunch" className="cl_theme-btn">
-                    Open Lunch
-                  </Link>
-                  <Link to="/food/meal/dinner" className="cl_theme-btn">
-                    Open Dinner
-                  </Link>
+                  {auth.user ? (
+                    <Link to={`/food/meal/${nextMeal.type}`} className="cl_theme-btn">
+                      Continue {nextMeal.label}
+                    </Link>
+                  ) : (
+                    <Link to="/login" className="cl_theme-btn">
+                      Go Login
+                    </Link>
+                  )}
                 </div>
               </div>
             </div>
@@ -160,9 +179,15 @@ export default function FoodModulePage() {
                     </p>
                   </div>
                   <div className="food-module-overview-actions">
-                    <Link to="/food/meal/lunch" className="cl_theme-btn">
-                      Open Lunch
-                    </Link>
+                    {auth.user ? (
+                      <Link to={`/food/meal/${nextMeal.type}`} className="cl_theme-btn">
+                        Continue {nextMeal.label}
+                      </Link>
+                    ) : (
+                      <Link to="/login" className="cl_theme-btn">
+                        Go Login
+                      </Link>
+                    )}
                   </div>
                 </div>
 
@@ -202,46 +227,73 @@ export default function FoodModulePage() {
                   <>
                     <div className="food-module-metrics">
                       <div className="food-module-metric food-module-metric--calories">
-                        <div className="food-module-metric-label">Calories</div>
-                        <div className="food-module-metric-value">{formatMetric(totals.kcal, 'kcal')}</div>
+                        <div className="food-module-metric-label">
+                          <span className="food-module-metric-icon">🔥</span> Calories
+                        </div>
+                        <div className="food-module-metric-value">
+                          <span className="food-module-metric-number">{formatMetricParts(totals.kcal, 'kcal').numberText}</span>
+                          <span className="food-module-metric-unit">{formatMetricParts(totals.kcal, 'kcal').unitText}</span>
+                        </div>
                       </div>
                       <div className="food-module-metric food-module-metric--protein">
-                        <div className="food-module-metric-label">Protein</div>
-                        <div className="food-module-metric-value">{formatMetric(totals.protein, 'g')}</div>
+                        <div className="food-module-metric-label">
+                          <span className="food-module-metric-icon">💪</span> Protein
+                        </div>
+                        <div className="food-module-metric-value">
+                          <span className="food-module-metric-number">{formatMetricParts(totals.protein, 'g').numberText}</span>
+                          <span className="food-module-metric-unit">{formatMetricParts(totals.protein, 'g').unitText}</span>
+                        </div>
                       </div>
                       <div className="food-module-metric food-module-metric--fat">
-                        <div className="food-module-metric-label">Fat</div>
-                        <div className="food-module-metric-value">{formatMetric(totals.fat, 'g')}</div>
+                        <div className="food-module-metric-label">
+                          <span className="food-module-metric-icon">🥑</span> Fat
+                        </div>
+                        <div className="food-module-metric-value">
+                          <span className="food-module-metric-number">{formatMetricParts(totals.fat, 'g').numberText}</span>
+                          <span className="food-module-metric-unit">{formatMetricParts(totals.fat, 'g').unitText}</span>
+                        </div>
                       </div>
                       <div className="food-module-metric food-module-metric--carbs">
-                        <div className="food-module-metric-label">Carbs</div>
-                        <div className="food-module-metric-value">{formatMetric(totals.carbs, 'g')}</div>
+                        <div className="food-module-metric-label">
+                          <span className="food-module-metric-icon">🍚</span> Carbs
+                        </div>
+                        <div className="food-module-metric-value">
+                          <span className="food-module-metric-number">{formatMetricParts(totals.carbs, 'g').numberText}</span>
+                          <span className="food-module-metric-unit">{formatMetricParts(totals.carbs, 'g').unitText}</span>
+                        </div>
                       </div>
                     </div>
 
                     <div className="food-module-meals">
                       {mealCards.map((meal) => {
                         const currentMeal = findMeal(summary, meal.type)
+                        const hasRecord = Boolean(currentMeal)
+                        const itemCount = currentMeal?.items.length ?? 0
                         return (
                           <div key={meal.type} className="food-module-meal-card">
                             <div className="food-module-meal-accent" style={{ background: meal.accent }} />
+                            <div className="food-module-meal-visual" aria-hidden="true">
+                              <img className="food-module-meal-image" src={meal.imageSrc} alt={meal.label} loading="lazy" />
+                            </div>
                             <div className="food-module-meal-head">
                               <div>
                                 <div className="food-module-meal-title">{meal.label}</div>
                                 <div className="food-module-meal-note">{meal.note}</div>
                               </div>
-                              <div className="food-module-meal-count">
-                                {currentMeal ? `${currentMeal.items.length} items` : 'No record'}
+                              <div className="food-module-meal-meta">
+                                {hasRecord ? (
+                                  <>
+                                    <span className="food-module-badge food-module-badge--success">✅ Saved</span>
+                                    <span className="food-module-badge">{itemCount} items</span>
+                                  </>
+                                ) : (
+                                  <span className="food-module-badge food-module-badge--muted">⏳ No record</span>
+                                )}
                               </div>
                             </div>
-                            <div className="food-module-meal-summary">
-                              {currentMeal
-                                ? `Current meal total: ${currentMeal.totals.kcal.toFixed(1)} kcal`
-                                : 'No saved meal yet. Open this slot to add foods and save the formal record.'}
-                            </div>
                             <div className="food-module-meal-actions">
-                              <Link to={`/food/meal/${meal.type}`} className="cl_theme-btn">
-                                Open {meal.label}
+                              <Link to={`/food/meal/${meal.type}`} className="cl_theme-btn food-module-btn-pill">
+                                {hasRecord ? `Continue ${meal.label}` : `Open ${meal.label}`}
                               </Link>
                             </div>
                           </div>

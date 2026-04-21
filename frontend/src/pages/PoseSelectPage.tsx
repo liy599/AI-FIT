@@ -56,7 +56,22 @@ const POSE_CATEGORIES: PoseCategory[] = [
   }
 ]
 
+const POSE_EXERCISE_IMAGES: Record<string, string> = {
+  pushup: '/assets/images/pose/Push-Up.jpg',
+  bench_press: '/assets/images/pose/Bench%20Press.jpg',
+  pullup: '/assets/images/pose/Pull-Up.jpg',
+  lateral_raise: '/assets/images/pose/Lateral%20Raise.jpg',
+  squat: '/assets/images/pose/Deep%20Squat.jpg'
+}
+
 export default function PoseSelectPage() {
+  const visibleCategories = POSE_CATEGORIES
+    .map((cat) => ({
+      ...cat,
+      exercises: cat.exercises.filter((ex) => ex.status === 'ready')
+    }))
+    .filter((cat) => cat.exercises.length > 0)
+
   return (
     <>
       <section className="cl_breadcrumb-area">
@@ -94,69 +109,32 @@ export default function PoseSelectPage() {
               </div>
 
               <div className="row">
-                {POSE_CATEGORIES.map((cat) => (
-                  <div key={cat.id} className="col-xl-6 col-lg-6 col-md-6">
+                {visibleCategories.map((cat) => (
+                  <div key={cat.id} className="col-12">
                     <div className="cl_blog-widget mb-30">
                       <h5 className="cl_blog-widget-title mb-15">
                         {cat.title}
                         <span style={{ fontSize: 12, color: '#94a3b8', marginLeft: 8 }}>{cat.subtitle}</span>
                       </h5>
-                      <div style={{ display: 'grid', gap: 10 }}>
+                      <div className="pose-select-exercise-grid">
                         {cat.exercises.map((ex) => {
-                          const disabled = ex.status !== 'ready'
+                          const imageSrc = POSE_EXERCISE_IMAGES[ex.id]
                           return (
-                            <div
-                              key={ex.id}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                gap: 12,
-                                border: '1px solid rgba(148,163,184,0.35)',
-                                borderRadius: 12,
-                                padding: '12px 14px',
-                                background: disabled ? 'rgba(15,23,42,0.03)' : '#fff'
-                              }}
-                            >
-                              <div style={{ display: 'grid' }}>
-                                <strong style={{ lineHeight: 1.2, color: '#0f172a' }}>{ex.name}</strong>
-                                {ex.secondary ? <span style={{ fontSize: 12, color: '#64748b' }}>{ex.secondary}</span> : null}
-                              </div>
-                              {disabled ? (
-                                <span
-                                  style={{
-                                    minWidth: 98,
-                                    height: 34,
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    fontSize: 12,
-                                    color: '#64748b',
-                                    border: '1px solid rgba(148,163,184,0.45)',
-                                    padding: '4px 8px',
-                                    borderRadius: 9999,
-                                    whiteSpace: 'nowrap'
-                                  }}
-                                >
-                                  Coming soon
-                                </span>
-                              ) : (
-                                <Link
-                                  to={ex.href}
-                                  className="cl_theme-btn"
-                                  style={{
-                                    minWidth: 98,
-                                    height: 34,
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    padding: '0 12px',
-                                    fontSize: 12
-                                  }}
-                                >
+                            <div key={ex.id} className="pose-select-exercise-card">
+                              {imageSrc ? (
+                                <div className="pose-select-exercise-media">
+                                  <img src={imageSrc} alt={ex.name} loading="lazy" />
+                                </div>
+                              ) : null}
+                              <div className="pose-select-exercise-body">
+                                <div className="pose-select-exercise-meta">
+                                  <strong>{ex.name}</strong>
+                                  {ex.secondary ? <span>{ex.secondary}</span> : null}
+                                </div>
+                                <Link to={ex.href} className="cl_theme-btn pose-select-exercise-btn">
                                   Select
                                 </Link>
-                              )}
+                              </div>
                             </div>
                           )
                         })}
@@ -164,12 +142,6 @@ export default function PoseSelectPage() {
                     </div>
                   </div>
                 ))}
-              </div>
-
-              <div className="cl_blog-widget mb-30">
-                <div className="pose-inline-note" style={{ marginTop: 0 }}>
-                  Deep Squat, Pull-Up, Bench Press, Lateral Raise, and Push-Up real-time correction are available right now. More exercises are coming soon.
-                </div>
               </div>
             </div>
           </div>

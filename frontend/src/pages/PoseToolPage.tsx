@@ -10,6 +10,8 @@ import { extractPose33FromVideoUrlWithMoveNet } from '../lib/pose/movenetPose'
 import { mediapipeToMoveNetFrame, MoveNetStabilizer, type TrackingState } from '../lib/pose/movenetTracker'
 import { type PoseAnalysisReport } from '../lib/pose/report'
 import { type RealtimeFeedback } from '../lib/pose/realtimeSquat'
+import { REALTIME_DEFAULT_LATERAL_RAISE17_TEMPO } from '../lib/pose/realtimeLateralRaise17'
+import { REALTIME_DEFAULT_PULLUP17_TEMPO } from '../lib/pose/realtimePullup17'
 import { REALTIME_DEFAULT_SQUAT17_TEMPO, REALTIME_DEFAULT_SQUAT17_TUNING, type Squat17Tuning } from '../lib/pose/realtimeSquat17'
 import { createPoseTraining, getSquat17TuningConfig, updateSquat17TuningConfig } from '../lib/poseApi'
 import { normalizeReportForArchive } from '../lib/report/unified'
@@ -199,6 +201,12 @@ export default function PoseToolPage() {
       analyzerRef.current.setTuning?.(liveSquatTuning)
       analyzerRef.current.setTempo?.(REALTIME_DEFAULT_SQUAT17_TEMPO)
       analyzerRef.current.setAnalyzerFps?.(LIVE_TARGET_FPS)
+    } else if (exercise.slug === 'pullup') {
+      analyzerRef.current.setTempo?.(REALTIME_DEFAULT_PULLUP17_TEMPO)
+      analyzerRef.current.setAnalyzerFps?.(LIVE_TARGET_FPS)
+    } else if (exercise.slug === 'lateral-raise') {
+      analyzerRef.current.setTempo?.(REALTIME_DEFAULT_LATERAL_RAISE17_TEMPO)
+      analyzerRef.current.setAnalyzerFps?.(LIVE_TARGET_FPS)
     }
     setFeedback(null)
     setError(null)
@@ -216,7 +224,7 @@ export default function PoseToolPage() {
     setOfflineCompletedStep(0)
     setOfflineError(null)
     setOfflineStatusMsg(null)
-    setOfflineViewAngle(exercise.slug === 'lateral-raise' ? 'front' : 'side')
+    setOfflineViewAngle(exercise.slug === 'lateral-raise' || exercise.slug === 'pullup' ? 'front' : 'side')
     setSquatTuningConfigMsg(null)
     liveIssueFreqRef.current = new Map()
     liveTrackingQualitySamplesRef.current = []
@@ -403,6 +411,38 @@ export default function PoseToolPage() {
         repFindings: liveRepFindingsRef.current
       })
     }
+    if (exercise.slug === 'pullup') {
+      return buildPullupAlignedReport({
+        source: 'live',
+        taskId: sessionStartedAtRef.current ? `live-${sessionStartedAtRef.current}` : 'live-session',
+        viewAngle: 'front',
+        exercise: { id: exercise.slug, name: exercise.displayName },
+        video: null,
+        fps: effectiveFps ?? LIVE_TARGET_FPS,
+        lastFeedback: feedback,
+        messageFreq: liveIssueFreqRef.current,
+        analyzedFrameCount: liveAnalyzedFrameCountRef.current,
+        trackingQualitySamples: liveTrackingQualitySamplesRef.current,
+        timelineRows: liveTimelineRowsRef.current,
+        repFindings: liveRepFindingsRef.current
+      })
+    }
+    if (exercise.slug === 'lateral-raise') {
+      return buildLateralRaiseAlignedReport({
+        source: 'live',
+        taskId: sessionStartedAtRef.current ? `live-${sessionStartedAtRef.current}` : 'live-session',
+        viewAngle: 'front',
+        exercise: { id: exercise.slug, name: exercise.displayName },
+        video: null,
+        fps: effectiveFps ?? LIVE_TARGET_FPS,
+        lastFeedback: feedback,
+        messageFreq: liveIssueFreqRef.current,
+        analyzedFrameCount: liveAnalyzedFrameCountRef.current,
+        trackingQualitySamples: liveTrackingQualitySamplesRef.current,
+        timelineRows: liveTimelineRowsRef.current,
+        repFindings: liveRepFindingsRef.current
+      })
+    }
     if (exercise.slug === 'pushup') {
       return buildPushupAlignedReport({
         source: 'live',
@@ -415,8 +455,7 @@ export default function PoseToolPage() {
         messageFreq: liveIssueFreqRef.current,
         analyzedFrameCount: liveAnalyzedFrameCountRef.current,
         trackingQualitySamples: liveTrackingQualitySamplesRef.current,
-        timelineRows: liveTimelineRowsRef.current,
-        repFindings: liveRepFindingsRef.current
+        timelineRows: liveTimelineRowsRef.current
       })
     }
 
@@ -494,6 +533,12 @@ export default function PoseToolPage() {
         analyzerRef.current.setTuning?.(liveSquatTuning)
         analyzerRef.current.setTempo?.(REALTIME_DEFAULT_SQUAT17_TEMPO)
         analyzerRef.current.setAnalyzerFps?.(LIVE_TARGET_FPS)
+      } else if (exercise.slug === 'pullup') {
+        analyzerRef.current.setTempo?.(REALTIME_DEFAULT_PULLUP17_TEMPO)
+        analyzerRef.current.setAnalyzerFps?.(LIVE_TARGET_FPS)
+      } else if (exercise.slug === 'lateral-raise') {
+        analyzerRef.current.setTempo?.(REALTIME_DEFAULT_LATERAL_RAISE17_TEMPO)
+        analyzerRef.current.setAnalyzerFps?.(LIVE_TARGET_FPS)
       }
       if (!stabilizerRef.current) stabilizerRef.current = new MoveNetStabilizer(2500)
       if (!distanceTrackerRef.current) distanceTrackerRef.current = new DistanceTracker(5000)
@@ -558,19 +603,20 @@ export default function PoseToolPage() {
         try {
           const detected = await provider.detect(videoEl, frameTs)
           const landmarks = detected.landmarks
-          if (landmarks && analyzerRef.current && stabilizerRef.current && distanceTrackerRef.current) {
+          const hasNative = !!detected.nativeKeypoints && detected.nativeKeypoints.length > 0
+          if ((landmarks || hasNative) && analyzerRef.current && stabilizerRef.current && distanceTrackerRef.current) {
             const nextFeedback =
-              exercise.slug === 'squat'
-                ? detected.nativeKeypoints && detected.nativeKeypoints.length > 0
-                  ? analyzerRef.current.analyzeNative?.(detected.nativeKeypoints) ?? null
+              hasNative && analyzerRef.current.analyzeNative
+                ? analyzerRef.current.analyzeNative(detected.nativeKeypoints!)
+                : landmarks
+                  ? analyzerRef.current.analyze(landmarks)
                   : null
-                : analyzerRef.current.analyze(landmarks)
             if (!nextFeedback) {
               requestAnimationFrame(() => void tick())
               return
             }
             setFeedback(nextFeedback)
-            if (exercise.slug === 'squat') {
+            if (exercise.slug === 'squat' || exercise.slug === 'pullup' || exercise.slug === 'lateral-raise') {
               liveAnalyzedFrameCountRef.current += 1
               if (Number.isFinite(nextFeedback.trackingQuality)) {
                 liveTrackingQualitySamplesRef.current.push(nextFeedback.trackingQuality)
@@ -613,19 +659,21 @@ export default function PoseToolPage() {
               }
             }
 
-            const trackingState = stabilizerRef.current.ingest(mediapipeToMoveNetFrame(landmarks, frameTs))
+            const trackingState = landmarks ? stabilizerRef.current.ingest(mediapipeToMoveNetFrame(landmarks, frameTs)) : null
             setTracking(trackingState)
 
-            const distanceState = distanceTrackerRef.current.ingest({
-              tMs: frameTs,
-              landmarks,
-              worldLandmarks: detected.worldLandmarks
-            })
+            const distanceState = landmarks
+              ? distanceTrackerRef.current.ingest({
+                  tMs: frameTs,
+                  landmarks,
+                  worldLandmarks: detected.worldLandmarks
+                })
+              : null
             setDistance(distanceState)
 
             const overlayColor = nextFeedback.issues.length > 0 ? 'bad' : nextFeedback.warnings.length > 0 ? 'warn' : 'ok'
             const activeDrawMode = drawModeRef.current
-            if (activeDrawMode === 'full17' && trackingState.joints2d.length > 0) {
+            if (trackingState && activeDrawMode === 'full17' && trackingState.joints2d.length > 0) {
               drawPoseJoints17(
                 ctx,
                 trackingState.joints2d,
@@ -634,7 +682,7 @@ export default function PoseToolPage() {
                 overlayColor,
                 viewport ? { viewport, mirror: true } : { mirror: true }
               )
-            } else if (trackingState.joints2d.length > 0) {
+            } else if (trackingState && trackingState.joints2d.length > 0) {
               drawMidpointSkeleton(
                 ctx,
                 trackingState.joints2d,
@@ -644,13 +692,15 @@ export default function PoseToolPage() {
                 viewport ? { viewport, mirror: true } : { mirror: true }
               )
             }
-            drawDistanceGuide(
-              ctx,
-              distanceState,
-              canvasEl.width,
-              canvasEl.height,
-              viewport ? { viewport, mirror: true, showTarget: true } : { mirror: true, showTarget: true }
-            )
+            if (distanceState) {
+              drawDistanceGuide(
+                ctx,
+                distanceState,
+                canvasEl.width,
+                canvasEl.height,
+                viewport ? { viewport, mirror: true, showTarget: true } : { mirror: true, showTarget: true }
+              )
+            }
           } else {
             setTracking(null)
             setDistance(null)
@@ -849,7 +899,11 @@ export default function PoseToolPage() {
       setOfflineProgress({ stage: 'Preparing local video', processed: 1, total: 1 })
 
       const effectiveViewAngle: 'unknown' | 'front' | 'side' | 'back' =
-        exercise.slug === 'squat' || exercise.slug === 'pullup' || exercise.slug === 'bench-press' ? 'side' : offlineViewAngle
+        exercise.slug === 'squat' || exercise.slug === 'bench-press'
+          ? 'side'
+          : exercise.slug === 'pullup' || exercise.slug === 'lateral-raise'
+            ? 'front'
+            : offlineViewAngle
       const localVideoMeta = {
         id: `local-${Date.now()}`,
         originalName: offlineFile.name,
@@ -902,17 +956,43 @@ export default function PoseToolPage() {
                 setOfflineProgress({ stage: 'Replaying real-time squat analyzer', processed, total })
               }
             })
-          : buildPushupVideoLiveStyleReport({
-              taskId,
-              viewAngle: effectiveViewAngle,
-              exercise: { id: exercise.id, name: exercise.exerciseType },
-              video: localVideoMeta,
-              fps: extractedFps,
-              frames: extractedFrames,
-              onProgress: (processed, total) => {
-                setOfflineProgress({ stage: 'Replaying real-time push-up analyzer', processed, total })
-              }
-            })
+          : exercise.slug === 'pullup'
+            ? buildPullupVideoLiveStyleReport({
+                taskId,
+                viewAngle: effectiveViewAngle,
+                exercise: { id: exercise.id, name: exercise.exerciseType },
+                video: localVideoMeta,
+                fps: extractedFps,
+                frames: extractedFrames,
+                nativeFrames: extractedNativeFrames,
+                onProgress: (processed, total) => {
+                  setOfflineProgress({ stage: 'Replaying real-time pull-up analyzer', processed, total })
+                }
+              })
+            : exercise.slug === 'lateral-raise'
+              ? buildLateralRaiseVideoLiveStyleReport({
+                  taskId,
+                  viewAngle: effectiveViewAngle,
+                  exercise: { id: exercise.id, name: exercise.exerciseType },
+                  video: localVideoMeta,
+                  fps: extractedFps,
+                  frames: extractedFrames,
+                  nativeFrames: extractedNativeFrames,
+                  onProgress: (processed, total) => {
+                    setOfflineProgress({ stage: 'Replaying real-time lateral-raise analyzer', processed, total })
+                  }
+                })
+              : buildPushupVideoLiveStyleReport({
+                  taskId,
+                  viewAngle: effectiveViewAngle,
+                  exercise: { id: exercise.id, name: exercise.exerciseType },
+                  video: localVideoMeta,
+                  fps: extractedFps,
+                  frames: extractedFrames,
+                  onProgress: (processed, total) => {
+                    setOfflineProgress({ stage: 'Replaying real-time push-up analyzer', processed, total })
+                  }
+                })
       setOfflineCompletedStep(3)
 
       setOfflineProgress({ stage: 'Finalizing local report', processed: 1, total: 1 })
@@ -955,7 +1035,12 @@ export default function PoseToolPage() {
     }
   }
 
-  const currentViewAngle = exercise.slug === 'squat' || exercise.slug === 'pullup' || exercise.slug === 'bench-press' ? 'side' : offlineViewAngle
+  const currentViewAngle =
+    exercise.slug === 'squat' || exercise.slug === 'bench-press'
+      ? 'side'
+      : exercise.slug === 'pullup' || exercise.slug === 'lateral-raise'
+        ? 'front'
+        : offlineViewAngle
   const taskStatusText = offlineBusy
     ? 'Analyzing video...'
     : offlineLocalStatus === 'succeeded'

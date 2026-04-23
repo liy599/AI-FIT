@@ -6,7 +6,8 @@ import { DistanceTracker, type DistanceState } from '../lib/pose/distanceTracker
 import { buildPoseGuidePath, buildPoseHistoryPath, buildPoseReportPath, getPoseExerciseBySlug } from '../lib/pose/exercises'
 import { buildTrainingRecordName } from '../lib/pose/trainingName'
 import { createBestRealtimePoseProvider, type RealtimePoseProvider } from '../lib/pose/livePoseProvider'
-import { extractPose33FromVideoUrlWithMoveNet } from '../lib/pose/movenetPose'
+import type { PoseFrame } from '../lib/pose/mediapipePose'
+import { extractPose33FromVideoUrlWithMoveNet, type MoveNetNativeFrame } from '../lib/pose/movenetPose'
 import { mediapipeToMoveNetFrame, MoveNetStabilizer, type TrackingState } from '../lib/pose/movenetTracker'
 import { type PoseAnalysisReport } from '../lib/pose/report'
 import { type RealtimeFeedback } from '../lib/pose/realtimeSquat'
@@ -46,7 +47,10 @@ import { LabelWithTip, MetricCard, ReportVisualization } from './poseTool/PoseTo
 
 const LIVE_TARGET_FPS = 40
 const LIVE_TARGET_FRAME_MS = 1000 / LIVE_TARGET_FPS
-const MAX_VIDEO_BYTES = 80 * 1024 * 1024
+const MAX_VIDEO_BYTES = 50 * 1024 * 1024
+const OFFLINE_ANALYSIS_LIMIT_SEC = 2 * 60
+const OFFLINE_ANALYSIS_TARGET_FPS = 40
+const OFFLINE_ANALYSIS_MAX_FRAMES = OFFLINE_ANALYSIS_LIMIT_SEC * OFFLINE_ANALYSIS_TARGET_FPS
 const LIVE_SESSION_LIMIT_MS = 2 * 60 * 1000
 const OFFLINE_DEDICATED_REPLAY_ACTIONS = new Set(['squat', 'pushup', 'pullup', 'bench-press', 'lateral-raise'])
 
@@ -63,6 +67,10 @@ type LiveSessionSummary = {
   sessionComment: string
   topIssues: string[]
 }
+
+type OfflineOverlayTone = 'ok' | 'warn' | 'bad'
+type OfflineOverlayFrame = { tMs: number; tone: OfflineOverlayTone; message: string | null }
+type OfflineReplayData = { fps: number; frames: PoseFrame[]; nativeFrames: MoveNetNativeFrame[]; overlayFrames: OfflineOverlayFrame[] }
 
 function pickVideoFailureTuning(source: Partial<Squat17Tuning> | null | undefined): Partial<Squat17Tuning> {
   if (!source) return {}
@@ -99,6 +107,12 @@ export default function PoseToolPage() {
   const previewScaleRef = useRef(0.78)
   const drawModeRef = useRef<'midline' | 'full17'>('full17')
   const offlineFileInputRef = useRef<HTMLInputElement | null>(null)
+  const offlineVideoRef = useRef<HTMLVideoElement | null>(null)
+  const offlineCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  const offlineReplayDataRef = useRef<OfflineReplayData | null>(null)
+  const offlineReplayRafRef = useRef<number | null>(null)
+  const offlineOverlayUiRef = useRef<{ tone: OfflineOverlayTone | null; message: string | null }>({ tone: null, message: null })
+  const offlineDrawNowRef = useRef<(() => void) | null>(null)
   const feedbackRef = useRef<RealtimeFeedback | null>(null)
   const liveProviderRef = useRef<RealtimePoseProvider | null>(null)
   const liveProviderPromiseRef = useRef<Promise<RealtimePoseProvider> | null>(null)
@@ -146,6 +160,9 @@ export default function PoseToolPage() {
   const [offlineLocalStatus, setOfflineLocalStatus] = useState<'idle' | 'running' | 'succeeded' | 'failed'>('idle')
   const [offlineRunStarted, setOfflineRunStarted] = useState(false)
   const [offlineCompletedStep, setOfflineCompletedStep] = useState(0)
+  const [offlineOverlayTone, setOfflineOverlayTone] = useState<OfflineOverlayTone | null>(null)
+  const [offlineOverlayMessage, setOfflineOverlayMessage] = useState<string | null>(null)
+  const [offlineOverlayReady, setOfflineOverlayReady] = useState(false)
 
   useEffect(() => {
     previewScaleRef.current = previewScale
@@ -158,6 +175,160 @@ export default function PoseToolPage() {
   useEffect(() => {
     feedbackRef.current = feedback
   }, [feedback])
+
+  useEffect(() => {
+    offlineDrawNowRef.current?.()
+  }, [drawMode, offlineOverlayReady, offlinePreviewUrl, mode])
+
+  useEffect(() => {
+    if (mode !== 'offline') return
+    const video = offlineVideoRef.current
+    const canvas = offlineCanvasRef.current
+    if (!video || !canvas) return
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    let last = { cssW: 0, cssH: 0, dpr: 1 }
+
+    const syncSize = () => {
+      const rect = video.getBoundingClientRect()
+      if (!rect.width || !rect.height) return null
+      const dpr = window.devicePixelRatio || 1
+      const nextCssW = Math.max(1, Math.round(rect.width))
+      const nextCssH = Math.max(1, Math.round(rect.height))
+      const nextW = Math.max(1, Math.round(nextCssW * dpr))
+      const nextH = Math.max(1, Math.round(nextCssH * dpr))
+      if (canvas.width !== nextW) canvas.width = nextW
+      if (canvas.height !== nextH) canvas.height = nextH
+      last = { cssW: nextCssW, cssH: nextCssH, dpr }
+      return last
+    }
+
+    const clear = (metrics: { cssW: number; cssH: number; dpr: number } | null) => {
+      const safe = metrics ?? syncSize()
+      if (!safe) return
+      ctx.setTransform(safe.dpr, 0, 0, safe.dpr, 0, 0)
+      ctx.clearRect(0, 0, safe.cssW, safe.cssH)
+    }
+
+    const drawNow = () => {
+      const data = offlineReplayDataRef.current
+      const metrics = syncSize()
+      if (!metrics || !data || !data.overlayFrames.length || !data.nativeFrames.length) {
+        clear(metrics)
+        if (offlineOverlayUiRef.current.tone !== null) {
+          offlineOverlayUiRef.current.tone = null
+          setOfflineOverlayTone(null)
+        }
+        if (offlineOverlayUiRef.current.message !== null) {
+          offlineOverlayUiRef.current.message = null
+          setOfflineOverlayMessage(null)
+        }
+        return
+      }
+
+      const sourceW = video.videoWidth
+      const sourceH = video.videoHeight
+      if (!sourceW || !sourceH) {
+        clear(metrics)
+        return
+      }
+      const viewport = computeContainViewport(sourceW, sourceH, metrics.cssW, metrics.cssH)
+
+      const tMs = Math.max(0, video.currentTime * 1000)
+      const idx = findClosestTmsIndex(data.overlayFrames, tMs)
+      const frame = data.overlayFrames[idx]
+      const joints = data.nativeFrames[idx]?.keypoints ?? []
+      const tone = frame?.tone ?? 'ok'
+      const message = frame?.message ?? null
+
+      const nextDrawMode = drawModeRef.current
+      const prevTone = offlineOverlayUiRef.current.tone
+      const prevMessage = offlineOverlayUiRef.current.message
+      const needsRedraw =
+        (prevTone ?? '') !== tone ||
+        (prevMessage ?? '') !== (message ?? '') ||
+        (canvas.dataset.lastIdx ? Number(canvas.dataset.lastIdx) !== idx : true) ||
+        (canvas.dataset.lastMode ? canvas.dataset.lastMode !== nextDrawMode : true) ||
+        (canvas.dataset.lastW ? Number(canvas.dataset.lastW) !== metrics.cssW : true) ||
+        (canvas.dataset.lastH ? Number(canvas.dataset.lastH) !== metrics.cssH : true) ||
+        (canvas.dataset.lastSW ? Number(canvas.dataset.lastSW) !== sourceW : true) ||
+        (canvas.dataset.lastSH ? Number(canvas.dataset.lastSH) !== sourceH : true)
+
+      if (offlineOverlayUiRef.current.tone !== tone) {
+        offlineOverlayUiRef.current.tone = tone
+        setOfflineOverlayTone(tone)
+      }
+      if (offlineOverlayUiRef.current.message !== message) {
+        offlineOverlayUiRef.current.message = message
+        setOfflineOverlayMessage(message)
+      }
+
+      if (!needsRedraw) return
+      canvas.dataset.lastIdx = String(idx)
+      canvas.dataset.lastMode = nextDrawMode
+      canvas.dataset.lastW = String(metrics.cssW)
+      canvas.dataset.lastH = String(metrics.cssH)
+      canvas.dataset.lastSW = String(sourceW)
+      canvas.dataset.lastSH = String(sourceH)
+
+      ctx.setTransform(metrics.dpr, 0, 0, metrics.dpr, 0, 0)
+      ctx.clearRect(0, 0, metrics.cssW, metrics.cssH)
+      if (nextDrawMode === 'midline') {
+        drawMidpointSkeleton(ctx, joints, metrics.cssW, metrics.cssH, tone, { mirror: false, viewport })
+      } else {
+        drawPoseJoints17(ctx, joints, metrics.cssW, metrics.cssH, tone, { mirror: false, viewport })
+      }
+    }
+
+    const startLoop = () => {
+      if (offlineReplayRafRef.current !== null) return
+      const tick = () => {
+        drawNow()
+        offlineReplayRafRef.current = requestAnimationFrame(tick)
+      }
+      offlineReplayRafRef.current = requestAnimationFrame(tick)
+    }
+
+    const stopLoop = () => {
+      if (offlineReplayRafRef.current === null) return
+      cancelAnimationFrame(offlineReplayRafRef.current)
+      offlineReplayRafRef.current = null
+    }
+
+    const onPlay = () => startLoop()
+    const onPause = () => {
+      stopLoop()
+      drawNow()
+    }
+    const onSeek = () => drawNow()
+    const onMeta = () => drawNow()
+    const onResize = () => drawNow()
+
+    offlineDrawNowRef.current = drawNow
+    video.addEventListener('play', onPlay)
+    video.addEventListener('pause', onPause)
+    video.addEventListener('seeking', onSeek)
+    video.addEventListener('seeked', onSeek)
+    video.addEventListener('timeupdate', onSeek)
+    video.addEventListener('loadedmetadata', onMeta)
+    window.addEventListener('resize', onResize)
+
+    drawNow()
+
+    return () => {
+      stopLoop()
+      video.removeEventListener('play', onPlay)
+      video.removeEventListener('pause', onPause)
+      video.removeEventListener('seeking', onSeek)
+      video.removeEventListener('seeked', onSeek)
+      video.removeEventListener('timeupdate', onSeek)
+      video.removeEventListener('loadedmetadata', onMeta)
+      window.removeEventListener('resize', onResize)
+      if (offlineDrawNowRef.current === drawNow) offlineDrawNowRef.current = null
+    }
+  }, [mode, offlinePreviewUrl])
 
   useEffect(() => {
     if (exercise.slug !== 'squat') return
@@ -840,8 +1011,8 @@ export default function PoseToolPage() {
     }
   }
 
-  function handleOfflineFileChange(file: File | null) {
-    setOfflineFile(file)
+  async function handleOfflineFileChange(file: File | null) {
+    setOfflineFile(null)
     setOfflineReport(null)
     setOfflineReportSessionId(null)
     setOfflineArchiveStatus('idle')
@@ -851,6 +1022,22 @@ export default function PoseToolPage() {
     setOfflineError(null)
     setOfflineStatusMsg(null)
     setOfflineProgress(null)
+    setOfflineOverlayTone(null)
+    setOfflineOverlayMessage(null)
+    setOfflineOverlayReady(false)
+    offlineReplayDataRef.current = null
+    if (offlineReplayRafRef.current !== null) {
+      cancelAnimationFrame(offlineReplayRafRef.current)
+      offlineReplayRafRef.current = null
+    }
+    if (offlineCanvasRef.current) {
+      const ctx = offlineCanvasRef.current.getContext('2d')
+      if (ctx) ctx.clearRect(0, 0, offlineCanvasRef.current.width, offlineCanvasRef.current.height)
+      delete offlineCanvasRef.current.dataset.lastIdx
+      delete offlineCanvasRef.current.dataset.lastMode
+      delete offlineCanvasRef.current.dataset.lastW
+      delete offlineCanvasRef.current.dataset.lastH
+    }
     if (previewUrlRef.current) {
       URL.revokeObjectURL(previewUrlRef.current)
       previewUrlRef.current = null
@@ -859,8 +1046,38 @@ export default function PoseToolPage() {
       setOfflinePreviewUrl(null)
       return
     }
+    if (file.size > MAX_VIDEO_BYTES) {
+      setOfflineError('Video exceeds the 50MB limit. Please compress it and try again.')
+      if (offlineFileInputRef.current) offlineFileInputRef.current.value = ''
+      setOfflinePreviewUrl(null)
+      return
+    }
     const nextUrl = URL.createObjectURL(file)
+    try {
+      const video = document.createElement('video')
+      video.preload = 'metadata'
+      video.muted = true
+      video.playsInline = true
+      video.src = nextUrl
+      await new Promise<void>((resolve, reject) => {
+        const onLoaded = () => resolve()
+        const onError = () => reject(new Error('Video load failed'))
+        video.addEventListener('loadedmetadata', onLoaded, { once: true })
+        video.addEventListener('error', onError, { once: true })
+      })
+      const duration = Number.isFinite(video.duration) ? video.duration : 0
+      if (!duration || duration <= 0) {
+        throw new Error('Invalid video duration')
+      }
+    } catch (e: unknown) {
+      setOfflineError(e instanceof Error ? e.message : 'Video load failed')
+      if (offlineFileInputRef.current) offlineFileInputRef.current.value = ''
+      URL.revokeObjectURL(nextUrl)
+      setOfflinePreviewUrl(null)
+      return
+    }
     previewUrlRef.current = nextUrl
+    setOfflineFile(file)
     setOfflinePreviewUrl(nextUrl)
   }
 
@@ -870,7 +1087,7 @@ export default function PoseToolPage() {
       return
     }
     if (offlineFile.size > MAX_VIDEO_BYTES) {
-      setOfflineError('Video exceeds the 80MB limit. Please compress it and try again.')
+      setOfflineError('Video exceeds the 50MB limit. Please compress it and try again.')
       return
     }
     if (!OFFLINE_DEDICATED_REPLAY_ACTIONS.has(exercise.slug)) {
@@ -890,6 +1107,10 @@ export default function PoseToolPage() {
     setOfflineLocalStatus('running')
     setOfflineStatusMsg(null)
     setOfflineProgress({ stage: 'Preparing local video', processed: 0, total: 1 })
+    setOfflineOverlayTone(null)
+    setOfflineOverlayMessage(null)
+    setOfflineOverlayReady(false)
+    offlineReplayDataRef.current = null
 
     let localObjectUrl: string | null = null
     try {
@@ -914,6 +1135,8 @@ export default function PoseToolPage() {
       let extractedFps = 40
       const extracted = await extractPose33FromVideoUrlWithMoveNet(localObjectUrl, {
         targetFps: 40,
+        maxFrames: OFFLINE_ANALYSIS_MAX_FRAMES,
+        maxDurationSec: OFFLINE_ANALYSIS_LIMIT_SEC,
         onProgress: (p) => {
           setOfflineProgress({
             stage: p.stage === 'loading' ? 'Loading MoveNet model' : 'Extracting pose keypoints',
@@ -933,6 +1156,7 @@ export default function PoseToolPage() {
       setOfflineCompletedStep(2)
 
       const taskId = `local-${Date.now()}`
+      const squatTuningForVideo = exercise.slug === 'squat' ? { ...liveSquatTuning } : undefined
       const report =
         exercise.slug === 'squat'
           ? buildSquatVideoLiveStyleReport({
@@ -942,16 +1166,8 @@ export default function PoseToolPage() {
               video: localVideoMeta,
               fps: extractedFps,
               frames: extractedFrames,
-        nativeFrames: extractedNativeFrames,
-        tuning:
-          exercise.slug === 'squat'
-            ? {
-                ...videoSquatTuning,
-                // Only failure-threshold knobs are split from realtime.
-                // Keep counting stability aligned with realtime to avoid rep-count drift.
-                trackingQualityMin: liveSquatTuning.trackingQualityMin
-              }
-            : undefined,
+              nativeFrames: extractedNativeFrames,
+              tuning: squatTuningForVideo,
               onProgress: (processed, total) => {
                 setOfflineProgress({ stage: 'Replaying real-time squat analyzer', processed, total })
               }
@@ -994,6 +1210,25 @@ export default function PoseToolPage() {
                   }
                 })
       setOfflineCompletedStep(3)
+
+      setOfflineProgress({ stage: 'Building replay overlay', processed: 0, total: extractedFrames.length })
+      const overlayFrames = buildOfflineOverlayFrames({
+        exerciseSlug: exercise.slug,
+        fps: extractedFps,
+        frames: extractedFrames,
+        nativeFrames: extractedNativeFrames,
+        squatTuning: squatTuningForVideo,
+        onProgress: (processed, total) => {
+          setOfflineProgress({ stage: 'Building replay overlay', processed, total })
+        }
+      })
+      offlineReplayDataRef.current = {
+        fps: extractedFps,
+        frames: extractedFrames,
+        nativeFrames: extractedNativeFrames,
+        overlayFrames
+      }
+      setOfflineOverlayReady(true)
 
       setOfflineProgress({ stage: 'Finalizing local report', processed: 1, total: 1 })
       setOfflineReport(report)
@@ -1416,6 +1651,9 @@ export default function PoseToolPage() {
                     <div>
                       <h4 className="cl_blog-widget-title mb-15">{exercise.displayName} - Video Analysis</h4>
                       <p className="pose-tool-subtitle pose-tool-subtitle-dark">Select a local video and run pose extraction plus motion analysis entirely in your browser. Video files are not uploaded to the server.</p>
+                      <p className="pose-tool-subtitle pose-tool-subtitle-dark">
+                        Limit: 2 minutes. If your video is longer than 2 minutes, only the first 2 minutes will be analyzed.
+                      </p>
                     </div>
                   </div>
 
@@ -1425,7 +1663,7 @@ export default function PoseToolPage() {
                       <input
                         ref={offlineFileInputRef}
                         accept="video/mp4,video/quicktime,video/webm,video/x-matroska"
-                        onChange={(e) => handleOfflineFileChange(e.target.files?.[0] ?? null)}
+                        onChange={(e) => void handleOfflineFileChange(e.target.files?.[0] ?? null)}
                         type="file"
                         className="pose-file-input-hidden"
                       />
@@ -1468,7 +1706,53 @@ export default function PoseToolPage() {
 
                   {offlinePreviewUrl ? (
                     <div className="pose-video-preview">
-                      <video controls src={offlinePreviewUrl} className="pose-video-preview__media" />
+                      <div className="pose-video-preview__stack">
+                        <video ref={offlineVideoRef} controls src={offlinePreviewUrl} className="pose-video-preview__media" />
+                        <canvas ref={offlineCanvasRef} className="pose-video-preview__overlay" />
+                      </div>
+                      <div className="pose-video-preview__meta" role="status" aria-live="polite">
+                        {offlineOverlayReady && offlineOverlayTone ? (
+                          <>
+                            <span
+                              className={`pose-status-pill ${
+                                offlineOverlayTone === 'bad'
+                                  ? 'pose-status-pill-danger'
+                                  : offlineOverlayTone === 'warn'
+                                    ? 'pose-status-pill-warning'
+                                    : 'pose-status-pill-success'
+                              }`}
+                            >
+                              {offlineOverlayTone.toUpperCase()}
+                            </span>
+                            <span className="pose-video-preview__message">
+                              {offlineOverlayMessage ?? (offlineOverlayTone === 'ok' ? 'Good form' : '')}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="pose-video-preview__message pose-video-preview__message-muted">
+                            {offlineBusy ? 'Analyzing video... Overlay will be available after completion.' : 'Run analysis to enable replay overlay.'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="pose-camera-toolbar pose-camera-toolbar-compact pose-camera-toolbar-offline">
+                        <div className="pose-camera-toolbar__group">
+                          <span className="pose-camera-toolbar__label">Overlay</span>
+                          <button
+                            className={drawMode === 'full17' ? 'cl_theme-btn pose-mini-btn' : 'pose-tool-ghost-btn pose-tool-light-btn pose-mini-btn'}
+                            onClick={() => setDrawMode('full17')}
+                            type="button"
+                          >
+                            Full Point
+                          </button>
+                          <button
+                            className={drawMode === 'midline' ? 'cl_theme-btn pose-mini-btn' : 'pose-tool-ghost-btn pose-tool-light-btn pose-mini-btn'}
+                            onClick={() => setDrawMode('midline')}
+                            type="button"
+                          >
+                            Midline
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   ) : null}
 
@@ -1543,6 +1827,85 @@ export default function PoseToolPage() {
       </section>
     </>
   )
+}
+
+function buildOfflineOverlayFrames(input: {
+  exerciseSlug: string
+  fps: number
+  frames: PoseFrame[]
+  nativeFrames: MoveNetNativeFrame[]
+  squatTuning?: Partial<Squat17Tuning>
+  onProgress?: (processed: number, total: number) => void
+}): OfflineOverlayFrame[] {
+  const analyzer = createAnalyzer(input.exerciseSlug as never)
+  analyzer.resetSession()
+  analyzer.setAnalyzerFps?.(input.fps)
+  if (input.exerciseSlug === 'squat') {
+    analyzer.setTuning?.(input.squatTuning ?? REALTIME_DEFAULT_SQUAT17_TUNING)
+    analyzer.setTempo?.(REALTIME_DEFAULT_SQUAT17_TEMPO)
+    analyzer.setAnalyzerFps?.(input.fps)
+  } else if (input.exerciseSlug === 'pullup') {
+    analyzer.setTempo?.(REALTIME_DEFAULT_PULLUP17_TEMPO)
+    analyzer.setAnalyzerFps?.(input.fps)
+  } else if (input.exerciseSlug === 'lateral-raise') {
+    analyzer.setTempo?.(REALTIME_DEFAULT_LATERAL_RAISE17_TEMPO)
+    analyzer.setAnalyzerFps?.(input.fps)
+  }
+
+  const total = input.frames.length
+  const out: OfflineOverlayFrame[] = []
+  for (let i = 0; i < input.frames.length; i++) {
+    const frame = input.frames[i]!
+    const native = input.nativeFrames[i]
+    const hasNative = !!native && Array.isArray(native.keypoints) && native.keypoints.length > 0
+    const hasLandmarks = Array.isArray(frame.landmarks) && frame.landmarks.length > 0
+
+    let feedback: RealtimeFeedback | null = null
+    if (input.exerciseSlug === 'squat') {
+      if (hasLandmarks && hasNative && analyzer.analyzeNative) feedback = analyzer.analyzeNative(native!.keypoints)
+    } else if (hasNative && analyzer.analyzeNative) {
+      feedback = analyzer.analyzeNative(native!.keypoints)
+    } else if (hasLandmarks) {
+      feedback = analyzer.analyze(frame.landmarks!)
+    }
+
+    out.push({
+      tMs: typeof frame.tMs === 'number' ? frame.tMs : typeof native?.tMs === 'number' ? native.tMs : (i / Math.max(1, input.fps)) * 1000,
+      tone: feedback && feedback.issues.length > 0 ? 'bad' : feedback && feedback.warnings.length > 0 ? 'warn' : 'ok',
+      message: feedback ? feedback.issues[0]?.message ?? feedback.warnings[0] ?? null : null
+    })
+    if (input.onProgress && ((i + 1) % 40 === 0 || i === input.frames.length - 1)) input.onProgress(i + 1, total)
+  }
+  return out
+}
+
+function findClosestTmsIndex(items: Array<{ tMs: number }>, tMs: number) {
+  if (!items.length) return 0
+  const target = Number.isFinite(tMs) ? tMs : 0
+  let lo = 0
+  let hi = items.length - 1
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1
+    const v = items[mid]!.tMs
+    if (v < target) lo = mid + 1
+    else hi = mid - 1
+  }
+  if (lo <= 0) return 0
+  if (lo >= items.length) return items.length - 1
+  const a = items[lo - 1]!.tMs
+  const b = items[lo]!.tMs
+  return target - a <= b - target ? lo - 1 : lo
+}
+
+function computeContainViewport(sourceW: number, sourceH: number, canvasW: number, canvasH: number) {
+  const sw = Math.max(1, sourceW)
+  const sh = Math.max(1, sourceH)
+  const cw = Math.max(1, canvasW)
+  const ch = Math.max(1, canvasH)
+  const fitScale = Math.min(cw / sw, ch / sh)
+  const drawW = sw * fitScale
+  const drawH = sh * fitScale
+  return { x: (cw - drawW) / 2, y: (ch - drawH) / 2, w: drawW, h: drawH }
 }
 
 function drawCameraFrame(

@@ -65,12 +65,15 @@ const POSE_EXERCISE_IMAGES: Record<string, string> = {
 }
 
 export default function PoseSelectPage() {
-  const visibleCategories = POSE_CATEGORIES
-    .map((cat) => ({
-      ...cat,
-      exercises: cat.exercises.filter((ex) => ex.status === 'ready')
-    }))
-    .filter((cat) => cat.exercises.length > 0)
+  const visibleExercises = POSE_CATEGORIES
+    .flatMap((cat) => cat.exercises)
+    .filter((ex) => ex.status === 'ready' && ex.id !== 'bench_press')
+    .sort((a, b) => {
+      const order = ['squat', 'pushup', 'pullup', 'lateral_raise']
+      const ai = order.indexOf(a.id)
+      const bi = order.indexOf(b.id)
+      return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi)
+    })
 
   return (
     <>
@@ -108,40 +111,31 @@ export default function PoseSelectPage() {
                 </p>
               </div>
 
-              <div className="row">
-                {visibleCategories.map((cat) => (
-                  <div key={cat.id} className="col-12">
-                    <div className="cl_blog-widget mb-30">
-                      <h5 className="cl_blog-widget-title mb-15">
-                        {cat.title}
-                        <span style={{ fontSize: 12, color: '#94a3b8', marginLeft: 8 }}>{cat.subtitle}</span>
-                      </h5>
-                      <div className="pose-select-exercise-grid">
-                        {cat.exercises.map((ex) => {
-                          const imageSrc = POSE_EXERCISE_IMAGES[ex.id]
-                          return (
-                            <div key={ex.id} className="pose-select-exercise-card">
-                              {imageSrc ? (
-                                <div className="pose-select-exercise-media">
-                                  <img src={imageSrc} alt={ex.name} loading="lazy" />
-                                </div>
-                              ) : null}
-                              <div className="pose-select-exercise-body">
-                                <div className="pose-select-exercise-meta">
-                                  <strong>{ex.name}</strong>
-                                  {ex.secondary ? <span>{ex.secondary}</span> : null}
-                                </div>
-                                <Link to={ex.href} className="cl_theme-btn pose-select-exercise-btn">
-                                  Select
-                                </Link>
-                              </div>
-                            </div>
-                          )
-                        })}
+              <div className="cl_blog-widget mb-30">
+                <h5 className="cl_blog-widget-title mb-15">Available Exercises</h5>
+                <div className="pose-select-exercise-grid">
+                  {visibleExercises.map((ex) => {
+                    const imageSrc = POSE_EXERCISE_IMAGES[ex.id]
+                    return (
+                      <div key={ex.id} className="pose-select-exercise-card">
+                        {imageSrc ? (
+                          <div className="pose-select-exercise-media">
+                            <img src={imageSrc} alt={ex.name} loading="lazy" />
+                          </div>
+                        ) : null}
+                        <div className="pose-select-exercise-body">
+                          <div className="pose-select-exercise-meta">
+                            <strong>{ex.name}</strong>
+                            {ex.secondary ? <span>{ex.secondary}</span> : null}
+                          </div>
+                          <Link to={ex.href} className="cl_theme-btn pose-select-exercise-btn">
+                            Select
+                          </Link>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                ))}
+                    )
+                  })}
+                </div>
               </div>
             </div>
           </div>

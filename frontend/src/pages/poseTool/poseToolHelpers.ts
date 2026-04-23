@@ -2,11 +2,17 @@ import { normalizeReportForArchive } from '../../lib/report/unified'
 import type { PoseAnalysisReport } from '../../lib/pose/report'
 import type { NormalizedLandmark, PoseFrame } from '../../lib/pose/mediapipePose'
 import { type RealtimeFeedback } from '../../lib/pose/realtimeSquat'
-import { RealtimeLateralRaise17Analyzer, VIDEO_DEFAULT_LATERAL_RAISE17_TEMPO } from '../../lib/pose/realtimeLateralRaise17'
+import { RealtimeLateralRaise17Analyzer, REALTIME_DEFAULT_LATERAL_RAISE17_TEMPO } from '../../lib/pose/realtimeLateralRaise17'
 import { RealtimePushupAnalyzer } from '../../lib/pose/realtimePushup'
-import { RealtimePullup17Analyzer, VIDEO_DEFAULT_PULLUP17_TEMPO } from '../../lib/pose/realtimePullup17'
+import { RealtimePullup17Analyzer, REALTIME_DEFAULT_PULLUP17_TEMPO } from '../../lib/pose/realtimePullup17'
 import { RealtimeBenchPressAnalyzer } from '../../lib/pose/realtimeBenchPress'
-import { RealtimeSquat17Analyzer, VIDEO_DEFAULT_SQUAT17_TEMPO, type Squat17Tempo, type Squat17Tuning } from '../../lib/pose/realtimeSquat17'
+import {
+  RealtimeSquat17Analyzer,
+  REALTIME_DEFAULT_SQUAT17_TEMPO,
+  REALTIME_DEFAULT_SQUAT17_TUNING,
+  type Squat17Tempo,
+  type Squat17Tuning
+} from '../../lib/pose/realtimeSquat17'
 import type { MoveNetKeypoint } from '../../lib/pose/movenetTracker'
 
 export type ExerciseSlug = 'squat' | 'lateral-raise' | 'pushup' | 'pullup' | 'bench-press'
@@ -319,8 +325,8 @@ export function buildSquatVideoLiveStyleReport(input: {
   onProgress?: (processed: number, total: number) => void
 }): PoseAnalysisReport {
   const analyzer = new RealtimeSquat17Analyzer()
-  analyzer.setTuning(input.tuning ?? VIDEO_DEFAULT_SQUAT17_TUNING)
-  analyzer.setTempo(VIDEO_DEFAULT_SQUAT17_TEMPO)
+  analyzer.setTuning(input.tuning ?? REALTIME_DEFAULT_SQUAT17_TUNING)
+  analyzer.setTempo(REALTIME_DEFAULT_SQUAT17_TEMPO)
   analyzer.setAnalyzerFps(input.fps)
   let lastFeedback: RealtimeFeedback | null = null
   let analyzedFrameCount = 0
@@ -1040,7 +1046,7 @@ export function buildPullupVideoLiveStyleReport(input: {
   onProgress?: (processed: number, total: number) => void
 }): PoseAnalysisReport {
   const analyzer = new RealtimePullup17Analyzer()
-  analyzer.setTempo(VIDEO_DEFAULT_PULLUP17_TEMPO)
+  analyzer.setTempo(REALTIME_DEFAULT_PULLUP17_TEMPO)
   analyzer.setAnalyzerFps(input.fps)
   let lastFeedback: RealtimeFeedback | null = null
   let analyzedFrameCount = 0
@@ -1377,7 +1383,7 @@ export function buildLateralRaiseVideoLiveStyleReport(input: {
   onProgress?: (processed: number, total: number) => void
 }): PoseAnalysisReport {
   const analyzer = new RealtimeLateralRaise17Analyzer()
-  analyzer.setTempo(VIDEO_DEFAULT_LATERAL_RAISE17_TEMPO)
+  analyzer.setTempo(REALTIME_DEFAULT_LATERAL_RAISE17_TEMPO)
   analyzer.setAnalyzerFps(input.fps)
   let lastFeedback: RealtimeFeedback | null = null
   let analyzedFrameCount = 0

@@ -48,28 +48,55 @@ export async function createMoveNetDetector(opts?: {
     import('@tensorflow/tfjs-backend-cpu')
   ])
   await ensureSupportedBackend(tf)
-  await tf.ready()
+  await withTimeout(tf.ready(), 8000, new Error('TensorFlow backend initialization timed out.'))
 
   const poseDetection = await import('@tensorflow-models/pose-detection')
   const variant = opts?.variant ?? 'lightning'
   const enableSmoothing = opts?.enableSmoothing ?? true
-  const detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, {
-    modelType:
-      variant === 'lightning'
-        ? poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING
-        : poseDetection.movenet.modelType.SINGLEPOSE_THUNDER,
-    enableSmoothing
-  })
+  const detector = await withTimeout(
+    poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, {
+      modelType:
+        variant === 'lightning'
+          ? poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING
+          : poseDetection.movenet.modelType.SINGLEPOSE_THUNDER,
+      enableSmoothing
+    }),
+    30000,
+    new Error(
+      'Loading MoveNet model timed out. This is usually caused by blocked/slow access to model hosting (e.g. tfhub.dev / storage.googleapis.com) or GPU/WebGL issues.'
+    )
+  )
   return detector as MoveNetDetector
 }
 
 async function ensureSupportedBackend(tf: typeof import('@tensorflow/tfjs-core')) {
+  const tryBackend = async (name: 'webgl' | 'cpu') => {
+    await tf.setBackend(name)
+    await withTimeout(tf.ready(), 5000, new Error(`TensorFlow backend "${name}" init timed out.`))
+  }
   try {
-    await tf.setBackend('webgl')
+    await tryBackend('webgl')
     return
   } catch {
-    await tf.setBackend('cpu')
+    await tryBackend('cpu')
   }
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, error: Error): Promise<T> {
+  if (!Number.isFinite(ms) || ms <= 0) return promise
+  return new Promise<T>((resolve, reject) => {
+    const id = window.setTimeout(() => reject(error), ms)
+    promise.then(
+      (value) => {
+        window.clearTimeout(id)
+        resolve(value)
+      },
+      (err) => {
+        window.clearTimeout(id)
+        reject(err)
+      }
+    )
+  })
 }
 
 export async function detectMoveNetLandmarks(
@@ -99,6 +126,7 @@ export async function detectMoveNetLandmarks(
 export type MoveNetExtractOptions = {
   maxFrames?: number
   targetFps?: number
+  maxDurationSec?: number
   minVisibility?: number
   onProgress?: (p: { processed: number; total: number; stage: 'loading' | 'extracting' }) => void
 }
@@ -112,7 +140,7 @@ export async function extractPose33FromVideoUrlWithMoveNet(
   videoUrl: string,
   opts: MoveNetExtractOptions = {}
 ): Promise<{ fps: number; frames: PoseFrame[]; nativeFrames: MoveNetNativeFrame[] }> {
-  const { maxFrames = 4000, targetFps = 40, minVisibility = 0.2, onProgress } = opts
+  const { maxFrames = 4000, targetFps = 40, maxDurationSec, minVisibility = 0.2, onProgress } = opts
   if (typeof window === 'undefined') throw new Error('Browser only')
 
   onProgress?.({ processed: 0, total: 1, stage: 'loading' })
@@ -137,8 +165,16 @@ export async function extractPose33FromVideoUrlWithMoveNet(
     throw new Error('Invalid video duration')
   }
 
-  const fps = Math.max(1, Math.min(60, Math.round(targetFps)))
-  const total = Math.min(maxFrames, Math.max(1, Math.floor(duration * fps)))
+  const cappedDuration =
+    typeof maxDurationSec === 'number' && Number.isFinite(maxDurationSec) && maxDurationSec > 0
+      ? Math.min(duration, maxDurationSec)
+      : duration
+  const fps = chooseFpsForDuration({
+    durationSec: cappedDuration,
+    targetFps,
+    maxFrames
+  })
+  const total = Math.min(maxFrames, Math.max(1, Math.floor(cappedDuration * fps)))
   const frames: PoseFrame[] = []
   const nativeFrames: MoveNetNativeFrame[] = []
   const knownNames = new Set<string>(MOVENET_NAMES as unknown as string[])
@@ -169,6 +205,18 @@ export async function extractPose33FromVideoUrlWithMoveNet(
   }
 
   return { fps, frames, nativeFrames }
+}
+
+function chooseFpsForDuration(input: { durationSec: number; targetFps: number; maxFrames: number }) {
+  const durationSec = Number.isFinite(input.durationSec) ? Math.max(0.01, input.durationSec) : 1
+  const target = Math.max(1, Math.min(60, Math.round(input.targetFps)))
+  const budgetFps = Math.max(1, Math.floor(Math.max(1, input.maxFrames) / durationSec))
+  const maxFps = Math.max(1, Math.min(target, budgetFps))
+  const candidates = [60, 50, 40, 25, 20, 10, 8, 5, 4, 2, 1]
+  for (const v of candidates) {
+    if (v <= maxFps) return v
+  }
+  return 1
 }
 
 function movenetToMediapipeLikeLandmarks(points: MoveNetPoint[]): NormalizedLandmark[] {

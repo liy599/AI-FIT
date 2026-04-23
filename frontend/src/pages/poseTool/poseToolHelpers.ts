@@ -57,15 +57,31 @@ export type RealtimeAnalyzer = {
   resetSession: () => void
 }
 
-// Video-analysis-only fallback tuning (aligned with backend defaults).
-export const VIDEO_DEFAULT_SQUAT17_TUNING: Squat17Tuning = {
-  kneeForwardWarnRatio: 0.050,
-  kneeForwardFailRatio: 0.065,
-  kneeForwardFailMinFrames: 2,
-  forwardLeanWarnDeg: 40,
-  forwardLeanFailDeg: 54,
-  forwardLeanFailMinFrames: 2,
-  trackingQualityMin: 0.28
+export type AnalyzerMode = 'live' | 'video'
+
+type AnalyzerDefaults = {
+  tuning?: Partial<Squat17Tuning>
+  tempo?: Partial<Squat17Tempo>
+}
+
+const ANALYZER_DEFAULTS_BASE: Partial<Record<ExerciseSlug, AnalyzerDefaults>> = {
+  squat: { tuning: REALTIME_DEFAULT_SQUAT17_TUNING, tempo: REALTIME_DEFAULT_SQUAT17_TEMPO },
+  pullup: { tempo: REALTIME_DEFAULT_PULLUP17_TEMPO },
+  'lateral-raise': { tempo: REALTIME_DEFAULT_LATERAL_RAISE17_TEMPO }
+}
+
+const ANALYZER_DEFAULTS_OVERRIDES: Record<AnalyzerMode, Partial<Record<ExerciseSlug, AnalyzerDefaults>>> = {
+  live: {},
+  video: {}
+}
+
+export function getAnalyzerDefaults(exerciseSlug: ExerciseSlug, mode: AnalyzerMode): AnalyzerDefaults {
+  const base = ANALYZER_DEFAULTS_BASE[exerciseSlug] ?? {}
+  const override = ANALYZER_DEFAULTS_OVERRIDES[mode]?.[exerciseSlug] ?? {}
+  return {
+    tuning: base.tuning && override.tuning ? { ...base.tuning, ...override.tuning } : override.tuning ?? base.tuning,
+    tempo: base.tempo && override.tempo ? { ...base.tempo, ...override.tempo } : override.tempo ?? base.tempo
+  }
 }
 
 export function buildSquatAlignedReport(input: {
@@ -325,8 +341,9 @@ export function buildSquatVideoLiveStyleReport(input: {
   onProgress?: (processed: number, total: number) => void
 }): PoseAnalysisReport {
   const analyzer = new RealtimeSquat17Analyzer()
-  analyzer.setTuning(input.tuning ?? REALTIME_DEFAULT_SQUAT17_TUNING)
-  analyzer.setTempo(REALTIME_DEFAULT_SQUAT17_TEMPO)
+  const defaults = getAnalyzerDefaults('squat', 'video')
+  analyzer.setTuning(input.tuning ?? defaults.tuning ?? REALTIME_DEFAULT_SQUAT17_TUNING)
+  if (defaults.tempo) analyzer.setTempo(defaults.tempo)
   analyzer.setAnalyzerFps(input.fps)
   let lastFeedback: RealtimeFeedback | null = null
   let analyzedFrameCount = 0
@@ -1046,7 +1063,8 @@ export function buildPullupVideoLiveStyleReport(input: {
   onProgress?: (processed: number, total: number) => void
 }): PoseAnalysisReport {
   const analyzer = new RealtimePullup17Analyzer()
-  analyzer.setTempo(REALTIME_DEFAULT_PULLUP17_TEMPO)
+  const defaults = getAnalyzerDefaults('pullup', 'video')
+  if (defaults.tempo) analyzer.setTempo(defaults.tempo)
   analyzer.setAnalyzerFps(input.fps)
   let lastFeedback: RealtimeFeedback | null = null
   let analyzedFrameCount = 0
@@ -1383,7 +1401,8 @@ export function buildLateralRaiseVideoLiveStyleReport(input: {
   onProgress?: (processed: number, total: number) => void
 }): PoseAnalysisReport {
   const analyzer = new RealtimeLateralRaise17Analyzer()
-  analyzer.setTempo(REALTIME_DEFAULT_LATERAL_RAISE17_TEMPO)
+  const defaults = getAnalyzerDefaults('lateral-raise', 'video')
+  if (defaults.tempo) analyzer.setTempo(defaults.tempo)
   analyzer.setAnalyzerFps(input.fps)
   let lastFeedback: RealtimeFeedback | null = null
   let analyzedFrameCount = 0

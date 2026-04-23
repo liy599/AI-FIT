@@ -11,9 +11,7 @@ import { extractPose33FromVideoUrlWithMoveNet, type MoveNetNativeFrame } from '.
 import { mediapipeToMoveNetFrame, MoveNetStabilizer, type TrackingState } from '../lib/pose/movenetTracker'
 import { type PoseAnalysisReport } from '../lib/pose/report'
 import { type RealtimeFeedback } from '../lib/pose/realtimeSquat'
-import { REALTIME_DEFAULT_LATERAL_RAISE17_TEMPO } from '../lib/pose/realtimeLateralRaise17'
-import { REALTIME_DEFAULT_PULLUP17_TEMPO } from '../lib/pose/realtimePullup17'
-import { REALTIME_DEFAULT_SQUAT17_TEMPO, REALTIME_DEFAULT_SQUAT17_TUNING, type Squat17Tuning } from '../lib/pose/realtimeSquat17'
+import { REALTIME_DEFAULT_SQUAT17_TUNING, type Squat17Tuning } from '../lib/pose/realtimeSquat17'
 import { createPoseTraining, getSquat17TuningConfig, updateSquat17TuningConfig } from '../lib/poseApi'
 import { normalizeReportForArchive } from '../lib/report/unified'
 import { requestCameraStream } from '../lib/media'
@@ -28,10 +26,10 @@ import {
   buildBenchPressVideoLiveStyleReport,
   buildSquatAlignedReport,
   buildSquatVideoLiveStyleReport,
-  VIDEO_DEFAULT_SQUAT17_TUNING,
   collectLiveFrameIssueMessages,
   collectLiveIssueMessages,
   createAnalyzer,
+  getAnalyzerDefaults,
   formatDuration,
   getRepsFromReport,
   getSessionComment,
@@ -72,17 +70,6 @@ type OfflineOverlayTone = 'ok' | 'warn' | 'bad'
 type OfflineOverlayFrame = { tMs: number; tone: OfflineOverlayTone; message: string | null }
 type OfflineReplayData = { fps: number; frames: PoseFrame[]; nativeFrames: MoveNetNativeFrame[]; overlayFrames: OfflineOverlayFrame[] }
 
-function pickVideoFailureTuning(source: Partial<Squat17Tuning> | null | undefined): Partial<Squat17Tuning> {
-  if (!source) return {}
-  return {
-    kneeForwardWarnRatio: source.kneeForwardWarnRatio,
-    kneeForwardFailRatio: source.kneeForwardFailRatio,
-    kneeForwardFailMinFrames: source.kneeForwardFailMinFrames,
-    forwardLeanWarnDeg: source.forwardLeanWarnDeg,
-    forwardLeanFailDeg: source.forwardLeanFailDeg,
-    forwardLeanFailMinFrames: source.forwardLeanFailMinFrames
-  }
-}
 export default function PoseToolPage() {
   const params = useParams<{ exerciseSlug: string }>()
   const exercise = getPoseExerciseBySlug(params.exerciseSlug)
@@ -141,7 +128,6 @@ export default function PoseToolPage() {
   const [liveSessionElapsedMs, setLiveSessionElapsedMs] = useState(0)
   const [liveSessionSummary, setLiveSessionSummary] = useState<LiveSessionSummary | null>(null)
   const [liveSquatTuning, setLiveSquatTuning] = useState<Squat17Tuning>({ ...REALTIME_DEFAULT_SQUAT17_TUNING })
-  const [videoSquatTuning, setVideoSquatTuning] = useState<Squat17Tuning>({ ...VIDEO_DEFAULT_SQUAT17_TUNING })
   const [savingSquatTuningConfig, setSavingSquatTuningConfig] = useState(false)
   const [squatTuningConfigMsg, setSquatTuningConfigMsg] = useState<string | null>(null)
 
@@ -343,7 +329,7 @@ export default function PoseToolPage() {
         const cfg = await getSquat17TuningConfig()
         if (cancelled) return
         if (cfg?.tuning) {
-          setVideoSquatTuning((prev) => ({ ...prev, ...pickVideoFailureTuning(cfg.tuning) }))
+          setLiveSquatTuning((prev) => ({ ...prev, ...cfg.tuning }))
         }
       } catch {
         // Keep local defaults when backend config is unavailable.
@@ -368,17 +354,11 @@ export default function PoseToolPage() {
     setDistance(null)
 
     analyzerRef.current = createAnalyzer(exercise.slug)
-    if (exercise.slug === 'squat') {
-      analyzerRef.current.setTuning?.(liveSquatTuning)
-      analyzerRef.current.setTempo?.(REALTIME_DEFAULT_SQUAT17_TEMPO)
-      analyzerRef.current.setAnalyzerFps?.(LIVE_TARGET_FPS)
-    } else if (exercise.slug === 'pullup') {
-      analyzerRef.current.setTempo?.(REALTIME_DEFAULT_PULLUP17_TEMPO)
-      analyzerRef.current.setAnalyzerFps?.(LIVE_TARGET_FPS)
-    } else if (exercise.slug === 'lateral-raise') {
-      analyzerRef.current.setTempo?.(REALTIME_DEFAULT_LATERAL_RAISE17_TEMPO)
-      analyzerRef.current.setAnalyzerFps?.(LIVE_TARGET_FPS)
-    }
+    const defaults = getAnalyzerDefaults(exercise.slug as never, 'live')
+    if (exercise.slug === 'squat') analyzerRef.current.setTuning?.(liveSquatTuning)
+    else if (defaults.tuning) analyzerRef.current.setTuning?.(defaults.tuning)
+    if (defaults.tempo) analyzerRef.current.setTempo?.(defaults.tempo)
+    analyzerRef.current.setAnalyzerFps?.(LIVE_TARGET_FPS)
     setFeedback(null)
     setError(null)
     setSaveTrainingMsg(null)
@@ -700,17 +680,11 @@ export default function PoseToolPage() {
 
     try {
       if (!analyzerRef.current) analyzerRef.current = createAnalyzer(exercise.slug)
-      if (exercise.slug === 'squat') {
-        analyzerRef.current.setTuning?.(liveSquatTuning)
-        analyzerRef.current.setTempo?.(REALTIME_DEFAULT_SQUAT17_TEMPO)
-        analyzerRef.current.setAnalyzerFps?.(LIVE_TARGET_FPS)
-      } else if (exercise.slug === 'pullup') {
-        analyzerRef.current.setTempo?.(REALTIME_DEFAULT_PULLUP17_TEMPO)
-        analyzerRef.current.setAnalyzerFps?.(LIVE_TARGET_FPS)
-      } else if (exercise.slug === 'lateral-raise') {
-        analyzerRef.current.setTempo?.(REALTIME_DEFAULT_LATERAL_RAISE17_TEMPO)
-        analyzerRef.current.setAnalyzerFps?.(LIVE_TARGET_FPS)
-      }
+      const defaults = getAnalyzerDefaults(exercise.slug as never, 'live')
+      if (exercise.slug === 'squat') analyzerRef.current.setTuning?.(liveSquatTuning)
+      else if (defaults.tuning) analyzerRef.current.setTuning?.(defaults.tuning)
+      if (defaults.tempo) analyzerRef.current.setTempo?.(defaults.tempo)
+      analyzerRef.current.setAnalyzerFps?.(LIVE_TARGET_FPS)
       if (!stabilizerRef.current) stabilizerRef.current = new MoveNetStabilizer(2500)
       if (!distanceTrackerRef.current) distanceTrackerRef.current = new DistanceTracker(5000)
 
@@ -1002,7 +976,7 @@ export default function PoseToolPage() {
     setSquatTuningConfigMsg(null)
     try {
       const saved = await updateSquat17TuningConfig(liveSquatTuning)
-      setVideoSquatTuning((prev) => ({ ...prev, ...pickVideoFailureTuning(saved.tuning) }))
+      setLiveSquatTuning(saved.tuning)
       setSquatTuningConfigMsg('Saved to backend defaults. It will persist across refresh and restart.')
     } catch (e: unknown) {
       setSquatTuningConfigMsg(e instanceof Error ? e.message : 'Failed to save backend defaults.')
@@ -1134,9 +1108,10 @@ export default function PoseToolPage() {
 
       let extractedFps = 40
       const extracted = await extractPose33FromVideoUrlWithMoveNet(localObjectUrl, {
-        targetFps: 40,
+        targetFps: OFFLINE_ANALYSIS_TARGET_FPS,
         maxFrames: OFFLINE_ANALYSIS_MAX_FRAMES,
         maxDurationSec: OFFLINE_ANALYSIS_LIMIT_SEC,
+        detectorVariant: 'thunder',
         onProgress: (p) => {
           setOfflineProgress({
             stage: p.stage === 'loading' ? 'Loading MoveNet model' : 'Extracting pose keypoints',
@@ -1146,8 +1121,18 @@ export default function PoseToolPage() {
         }
       })
       let extractedFrames = extracted.frames
-      const extractedNativeFrames = extracted.nativeFrames
+      let extractedNativeFrames = extracted.nativeFrames
       extractedFps = extracted.fps
+      const baseT =
+        Math.min(
+          typeof extractedFrames[0]?.tMs === 'number' && Number.isFinite(extractedFrames[0]!.tMs) ? extractedFrames[0]!.tMs : Infinity,
+          typeof extractedNativeFrames[0]?.tMs === 'number' && Number.isFinite(extractedNativeFrames[0]!.tMs) ? extractedNativeFrames[0]!.tMs : Infinity
+        ) ?? 0
+      const baseTms = Number.isFinite(baseT) && baseT > 0 ? baseT : 0
+      if (baseTms > 0) {
+        extractedFrames = extractedFrames.map((f) => ({ ...f, tMs: Math.max(0, f.tMs - baseTms) }))
+        extractedNativeFrames = extractedNativeFrames.map((f) => ({ ...f, tMs: Math.max(0, f.tMs - baseTms) }))
+      }
       if (exercise.slug === 'squat' && !extractedNativeFrames.length) {
         throw new Error('No native MoveNet keypoints were extracted from this video. Please try another file.')
       }
@@ -1837,20 +1822,20 @@ function buildOfflineOverlayFrames(input: {
   squatTuning?: Partial<Squat17Tuning>
   onProgress?: (processed: number, total: number) => void
 }): OfflineOverlayFrame[] {
+  const getWarningMessage = (warning: unknown): string | null => {
+    if (typeof warning === 'string') return warning
+    if (!warning || typeof warning !== 'object') return null
+    const value = (warning as { message?: unknown }).message
+    return typeof value === 'string' ? value : null
+  }
+
   const analyzer = createAnalyzer(input.exerciseSlug as never)
   analyzer.resetSession()
   analyzer.setAnalyzerFps?.(input.fps)
-  if (input.exerciseSlug === 'squat') {
-    analyzer.setTuning?.(input.squatTuning ?? REALTIME_DEFAULT_SQUAT17_TUNING)
-    analyzer.setTempo?.(REALTIME_DEFAULT_SQUAT17_TEMPO)
-    analyzer.setAnalyzerFps?.(input.fps)
-  } else if (input.exerciseSlug === 'pullup') {
-    analyzer.setTempo?.(REALTIME_DEFAULT_PULLUP17_TEMPO)
-    analyzer.setAnalyzerFps?.(input.fps)
-  } else if (input.exerciseSlug === 'lateral-raise') {
-    analyzer.setTempo?.(REALTIME_DEFAULT_LATERAL_RAISE17_TEMPO)
-    analyzer.setAnalyzerFps?.(input.fps)
-  }
+  const defaults = getAnalyzerDefaults(input.exerciseSlug as never, 'video')
+  if (input.exerciseSlug === 'squat') analyzer.setTuning?.(input.squatTuning ?? defaults.tuning ?? REALTIME_DEFAULT_SQUAT17_TUNING)
+  else if (defaults.tuning) analyzer.setTuning?.(defaults.tuning)
+  if (defaults.tempo) analyzer.setTempo?.(defaults.tempo)
 
   const total = input.frames.length
   const out: OfflineOverlayFrame[] = []
@@ -1861,18 +1846,19 @@ function buildOfflineOverlayFrames(input: {
     const hasLandmarks = Array.isArray(frame.landmarks) && frame.landmarks.length > 0
 
     let feedback: RealtimeFeedback | null = null
-    if (input.exerciseSlug === 'squat') {
-      if (hasLandmarks && hasNative && analyzer.analyzeNative) feedback = analyzer.analyzeNative(native!.keypoints)
-    } else if (hasNative && analyzer.analyzeNative) {
+    if (hasNative && analyzer.analyzeNative) {
       feedback = analyzer.analyzeNative(native!.keypoints)
     } else if (hasLandmarks) {
       feedback = analyzer.analyze(frame.landmarks!)
     }
 
+    const firstIssueMsg = feedback?.issues?.[0]?.message ?? null
+    const firstWarnMsg = feedback ? getWarningMessage((feedback.warnings as unknown[] | undefined)?.[0]) : null
+
     out.push({
       tMs: typeof frame.tMs === 'number' ? frame.tMs : typeof native?.tMs === 'number' ? native.tMs : (i / Math.max(1, input.fps)) * 1000,
       tone: feedback && feedback.issues.length > 0 ? 'bad' : feedback && feedback.warnings.length > 0 ? 'warn' : 'ok',
-      message: feedback ? feedback.issues[0]?.message ?? feedback.warnings[0] ?? null : null
+      message: firstIssueMsg ?? firstWarnMsg
     })
     if (input.onProgress && ((i + 1) % 40 === 0 || i === input.frames.length - 1)) input.onProgress(i + 1, total)
   }
@@ -1942,6 +1928,3 @@ function drawCameraFrame(
 
   return { x: offsetX, y: offsetY, w: drawWidth, h: drawHeight }
 }
-
-
-

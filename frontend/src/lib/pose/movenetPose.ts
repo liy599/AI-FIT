@@ -1,6 +1,6 @@
 import type { NormalizedLandmark, PoseFrame } from './mediapipePose'
 import type { MoveNetKeypoint, MoveNetName } from './movenetTracker'
-import { MOVENET_NAMES } from './movenetTracker'
+import { MOVENET_NAMES, MoveNetStabilizer } from './movenetTracker'
 
 type MoveNetPoint = {
   x: number
@@ -40,6 +40,7 @@ const MOVENET_TO_MP_INDEX: Record<string, number> = {
 export async function createMoveNetDetector(opts?: {
   variant?: 'lightning' | 'thunder'
   enableSmoothing?: boolean
+  modelUrl?: string
 }): Promise<MoveNetDetector> {
   const tf = await import('@tensorflow/tfjs-core')
   await Promise.all([
@@ -48,25 +49,65 @@ export async function createMoveNetDetector(opts?: {
     import('@tensorflow/tfjs-backend-cpu')
   ])
   await ensureSupportedBackend(tf)
-  await withTimeout(tf.ready(), 8000, new Error('TensorFlow backend initialization timed out.'))
+  await withTimeout(tf.ready(), 15000, new Error('TensorFlow backend initialization timed out.'))
 
   const poseDetection = await import('@tensorflow-models/pose-detection')
   const variant = opts?.variant ?? 'lightning'
   const enableSmoothing = opts?.enableSmoothing ?? true
-  const detector = await withTimeout(
+  const desiredModelUrl =
+    opts?.modelUrl ?? `/assets/models/movenet/singlepose-${variant}/model.json`
+
+  const build = (modelUrl?: string) =>
     poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, {
       modelType:
         variant === 'lightning'
           ? poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING
           : poseDetection.movenet.modelType.SINGLEPOSE_THUNDER,
-      enableSmoothing
-    }),
-    30000,
-    new Error(
-      'Loading MoveNet model timed out. This is usually caused by blocked/slow access to model hosting (e.g. tfhub.dev / storage.googleapis.com) or GPU/WebGL issues.'
+      enableSmoothing,
+      ...(modelUrl ? { modelUrl } : {})
+    })
+  try {
+    if (!opts?.modelUrl) {
+      try {
+        const res = await fetch(desiredModelUrl, { method: 'GET' })
+        if (res.ok) {
+          const detector = await withTimeout(
+            build(desiredModelUrl),
+            120000,
+            new Error(
+              'Loading MoveNet model timed out. This is usually caused by blocked/slow access to model hosting (e.g. tfhub.dev / storage.googleapis.com).'
+            )
+          )
+          return detector as MoveNetDetector
+        }
+      } catch {
+      }
+    }
+
+    const detector = await withTimeout(
+      build(opts?.modelUrl),
+      120000,
+      new Error(
+        'Loading MoveNet model timed out. This is usually caused by blocked/slow access to model hosting (e.g. tfhub.dev / storage.googleapis.com).'
+      )
     )
-  )
-  return detector as MoveNetDetector
+    return detector as MoveNetDetector
+  } catch (e: unknown) {
+    try {
+      await tf.setBackend('cpu')
+      await withTimeout(tf.ready(), 15000, new Error('TensorFlow CPU backend initialization timed out.'))
+      const detector = await withTimeout(
+        build(opts?.modelUrl),
+        120000,
+        new Error(
+          'Loading MoveNet model timed out. This is usually caused by blocked/slow access to model hosting (e.g. tfhub.dev / storage.googleapis.com).'
+        )
+      )
+      return detector as MoveNetDetector
+    } catch {
+      throw e
+    }
+  }
 }
 
 async function ensureSupportedBackend(tf: typeof import('@tensorflow/tfjs-core')) {
@@ -128,6 +169,10 @@ export type MoveNetExtractOptions = {
   targetFps?: number
   maxDurationSec?: number
   minVisibility?: number
+  enableStabilizer?: boolean
+  enableAntiSwap?: boolean
+  preferPlaybackSampling?: boolean
+  detectorVariant?: 'lightning' | 'thunder'
   onProgress?: (p: { processed: number; total: number; stage: 'loading' | 'extracting' }) => void
 }
 
@@ -140,17 +185,37 @@ export async function extractPose33FromVideoUrlWithMoveNet(
   videoUrl: string,
   opts: MoveNetExtractOptions = {}
 ): Promise<{ fps: number; frames: PoseFrame[]; nativeFrames: MoveNetNativeFrame[] }> {
-  const { maxFrames = 4000, targetFps = 40, maxDurationSec, minVisibility = 0.2, onProgress } = opts
+  const {
+    maxFrames = 4000,
+    targetFps = 40,
+    maxDurationSec,
+    minVisibility = 0.2,
+    enableStabilizer = true,
+    enableAntiSwap = true,
+    preferPlaybackSampling = true,
+    detectorVariant = 'lightning',
+    onProgress
+  } = opts
   if (typeof window === 'undefined') throw new Error('Browser only')
 
   onProgress?.({ processed: 0, total: 1, stage: 'loading' })
-  const detector = await createMoveNetDetector({ variant: 'lightning', enableSmoothing: true })
+  const detector = await createMoveNetDetector({ variant: detectorVariant, enableSmoothing: true })
 
   const video = document.createElement('video')
   video.src = videoUrl
   video.muted = true
   video.playsInline = true
   video.preload = 'auto'
+  const host = document.createElement('div')
+  host.style.position = 'fixed'
+  host.style.left = '-10000px'
+  host.style.top = '0'
+  host.style.width = '2px'
+  host.style.height = '2px'
+  host.style.opacity = '0'
+  host.style.pointerEvents = 'none'
+  host.appendChild(video)
+  document.body.appendChild(host)
 
   await new Promise<void>((resolve, reject) => {
     const onLoaded = () => resolve()
@@ -169,42 +234,41 @@ export async function extractPose33FromVideoUrlWithMoveNet(
     typeof maxDurationSec === 'number' && Number.isFinite(maxDurationSec) && maxDurationSec > 0
       ? Math.min(duration, maxDurationSec)
       : duration
-  const fps = chooseFpsForDuration({
-    durationSec: cappedDuration,
-    targetFps,
-    maxFrames
-  })
+  const fps = chooseFpsForDuration({ durationSec: cappedDuration, targetFps, maxFrames })
   const total = Math.min(maxFrames, Math.max(1, Math.floor(cappedDuration * fps)))
-  const frames: PoseFrame[] = []
-  const nativeFrames: MoveNetNativeFrame[] = []
-  const knownNames = new Set<string>(MOVENET_NAMES as unknown as string[])
-
   try {
-    for (let i = 0; i < total; i++) {
-      const tMs = (i / fps) * 1000
-      const timeSec = i / fps
-      await seekVideo(video, timeSec)
-      const out = await detectMoveNetLandmarks(detector, video, { flipHorizontal: false })
-      const nativeKeypoints: MoveNetKeypoint[] = out.keypoints
-        .filter((point) => knownNames.has(point.name))
-        .map((point) => ({
-          name: point.name as MoveNetName,
-          x: video.videoWidth > 0 ? point.x / video.videoWidth : 0,
-          y: video.videoHeight > 0 ? point.y / video.videoHeight : 0,
-          score: point.score
-        }))
-      frames.push({
-        tMs,
-        landmarks: filterByVisibility(out.landmarks33, minVisibility)
+    if (preferPlaybackSampling && typeof (video as unknown as { requestVideoFrameCallback?: unknown }).requestVideoFrameCallback === 'function') {
+      const extracted = await extractByPlaybackSampling({
+        detector,
+        video,
+        fps,
+        total,
+        minVisibility,
+        enableStabilizer,
+        enableAntiSwap,
+        onProgress
       })
-      nativeFrames.push({ tMs, keypoints: nativeKeypoints })
-      onProgress?.({ processed: i + 1, total, stage: 'extracting' })
+      return { fps, frames: extracted.frames, nativeFrames: extracted.nativeFrames }
     }
+
+    const extracted = await extractBySeeking({
+      detector,
+      video,
+      fps,
+      total,
+      minVisibility,
+      enableStabilizer,
+      enableAntiSwap,
+      onProgress
+    })
+    return { fps, frames: extracted.frames, nativeFrames: extracted.nativeFrames }
   } finally {
     detector.dispose?.()
+    try {
+      video.pause()
+    } catch {}
+    host.remove()
   }
-
-  return { fps, frames, nativeFrames }
 }
 
 function chooseFpsForDuration(input: { durationSec: number; targetFps: number; maxFrames: number }) {
@@ -217,6 +281,212 @@ function chooseFpsForDuration(input: { durationSec: number; targetFps: number; m
     if (v <= maxFps) return v
   }
   return 1
+}
+
+async function extractBySeeking(input: {
+  detector: MoveNetDetector
+  video: HTMLVideoElement
+  fps: number
+  total: number
+  minVisibility: number
+  enableStabilizer: boolean
+  enableAntiSwap: boolean
+  startIndex?: number
+  onProgress?: (p: { processed: number; total: number; stage: 'loading' | 'extracting' }) => void
+}) {
+  const frames: PoseFrame[] = []
+  const nativeFrames: MoveNetNativeFrame[] = []
+  const knownNames = new Set<string>(MOVENET_NAMES as unknown as string[])
+  const stabilizer = input.enableStabilizer ? new MoveNetStabilizer(600) : null
+  let prevForAntiSwap: MoveNetKeypoint[] | null = null
+
+  const startIndex = typeof input.startIndex === 'number' && Number.isFinite(input.startIndex) ? Math.max(0, Math.floor(input.startIndex)) : 0
+  for (let i = startIndex; i < input.total; i++) {
+    const tMs = (i / input.fps) * 1000
+    const timeSec = i / input.fps
+    await seekVideo(input.video, timeSec)
+    const out = await withTimeout(
+      detectMoveNetLandmarks(input.detector, input.video, { flipHorizontal: false }),
+      10000,
+      new Error('Pose estimation timed out while extracting keypoints.')
+    )
+    const nativeKeypointsRaw: MoveNetKeypoint[] = out.keypoints
+      .filter((point) => knownNames.has(point.name))
+      .map((point) => ({
+        name: point.name as MoveNetName,
+        x: input.video.videoWidth > 0 ? point.x / input.video.videoWidth : 0,
+        y: input.video.videoHeight > 0 ? point.y / input.video.videoHeight : 0,
+        score: point.score
+      }))
+    const nativeKeypoints: MoveNetKeypoint[] =
+      input.enableAntiSwap && prevForAntiSwap ? maybeFixLeftRightSwap(prevForAntiSwap, nativeKeypointsRaw) : nativeKeypointsRaw
+    prevForAntiSwap = nativeKeypoints
+    const stabilized =
+      stabilizer && nativeKeypoints.length > 0
+        ? stabilizer.ingest({ tMs, keypoints: nativeKeypoints }).joints2d.map((j) => ({
+            name: j.name,
+            x: j.x,
+            y: j.y,
+            score: j.score
+          }))
+        : nativeKeypoints
+    frames.push({ tMs, landmarks: filterByVisibility(out.landmarks33, input.minVisibility) })
+    nativeFrames.push({ tMs, keypoints: stabilized })
+    input.onProgress?.({ processed: i + 1, total: input.total, stage: 'extracting' })
+  }
+  return { frames, nativeFrames }
+}
+
+async function extractByPlaybackSampling(input: {
+  detector: MoveNetDetector
+  video: HTMLVideoElement
+  fps: number
+  total: number
+  minVisibility: number
+  enableStabilizer: boolean
+  enableAntiSwap: boolean
+  onProgress?: (p: { processed: number; total: number; stage: 'loading' | 'extracting' }) => void
+}) {
+  const frames: PoseFrame[] = []
+  const nativeFrames: MoveNetNativeFrame[] = []
+  const knownNames = new Set<string>(MOVENET_NAMES as unknown as string[])
+  const stabilizer = input.enableStabilizer ? new MoveNetStabilizer(600) : null
+  let prevForAntiSwap: MoveNetKeypoint[] | null = null
+
+  input.video.currentTime = 0
+  try {
+    await input.video.play()
+  } catch {
+    return extractBySeeking(input)
+  }
+  await waitForPresentedFrame(input.video, 800)
+  try {
+    await withTimeout(
+      detectMoveNetLandmarks(input.detector, input.video, { flipHorizontal: false }),
+      30000,
+      new Error('Pose estimation warmup timed out while extracting keypoints.')
+    )
+  } catch {}
+
+  const stepSec = 1 / Math.max(1, input.fps)
+  let nextSampleSec = 0
+  let processed = 0
+
+  while (processed < input.total) {
+    if (input.video.ended) break
+    if (input.video.paused) {
+      try {
+        await input.video.play()
+      } catch {}
+    }
+
+    const meta = await waitForNextVideoFrame(input.video, 2500)
+    if (!meta) continue
+    const mediaSec = meta.mediaTimeSec
+    if (!Number.isFinite(mediaSec) || mediaSec < nextSampleSec - 1e-4) continue
+
+    const tMs = Math.max(0, mediaSec * 1000)
+    nextSampleSec = (processed + 1) * stepSec
+
+    try {
+      const out = await withTimeout(
+        detectMoveNetLandmarks(input.detector, input.video, { flipHorizontal: false }),
+        10000,
+        new Error('Pose estimation timed out while extracting keypoints.')
+      )
+      const nativeKeypointsRaw: MoveNetKeypoint[] = out.keypoints
+        .filter((point) => knownNames.has(point.name))
+        .map((point) => ({
+          name: point.name as MoveNetName,
+          x: input.video.videoWidth > 0 ? point.x / input.video.videoWidth : 0,
+          y: input.video.videoHeight > 0 ? point.y / input.video.videoHeight : 0,
+          score: point.score
+        }))
+      const nativeKeypoints: MoveNetKeypoint[] =
+        input.enableAntiSwap && prevForAntiSwap ? maybeFixLeftRightSwap(prevForAntiSwap, nativeKeypointsRaw) : nativeKeypointsRaw
+      prevForAntiSwap = nativeKeypoints
+      const stabilized =
+        stabilizer && nativeKeypoints.length > 0
+          ? stabilizer.ingest({ tMs, keypoints: nativeKeypoints }).joints2d.map((j) => ({
+              name: j.name,
+              x: j.x,
+              y: j.y,
+              score: j.score
+            }))
+          : nativeKeypoints
+      frames.push({ tMs, landmarks: filterByVisibility(out.landmarks33, input.minVisibility) })
+      nativeFrames.push({ tMs, keypoints: stabilized })
+    } catch {
+      frames.push({ tMs, landmarks: null })
+      nativeFrames.push({ tMs, keypoints: [] })
+    }
+
+    processed += 1
+    input.onProgress?.({ processed, total: input.total, stage: 'extracting' })
+  }
+
+  try {
+    input.video.pause()
+  } catch {}
+
+  return { frames, nativeFrames }
+}
+
+const ANTI_SWAP_PAIRS: Array<[MoveNetName, MoveNetName]> = [
+  ['left_shoulder', 'right_shoulder'],
+  ['left_elbow', 'right_elbow'],
+  ['left_wrist', 'right_wrist'],
+  ['left_hip', 'right_hip'],
+  ['left_knee', 'right_knee'],
+  ['left_ankle', 'right_ankle'],
+  ['left_eye', 'right_eye'],
+  ['left_ear', 'right_ear']
+]
+
+function maybeFixLeftRightSwap(prev: MoveNetKeypoint[], cur: MoveNetKeypoint[]): MoveNetKeypoint[] {
+  const minScore = 0.22
+  const prevMap = new Map<MoveNetName, MoveNetKeypoint>()
+  for (const p of prev) prevMap.set(p.name, p)
+  const curMap = new Map<MoveNetName, MoveNetKeypoint>()
+  for (const p of cur) curMap.set(p.name, p)
+
+  let usedPairs = 0
+  let costOriginal = 0
+  let costSwapped = 0
+
+  for (const [l, r] of ANTI_SWAP_PAIRS) {
+    const pl = prevMap.get(l)
+    const pr = prevMap.get(r)
+    const cl = curMap.get(l)
+    const cr = curMap.get(r)
+    if (!pl || !pr || !cl || !cr) continue
+    if (pl.score < minScore || pr.score < minScore || cl.score < minScore || cr.score < minScore) continue
+    usedPairs += 1
+    const d = (a: MoveNetKeypoint, b: MoveNetKeypoint) => {
+      const dx = a.x - b.x
+      const dy = a.y - b.y
+      return dx * dx + dy * dy
+    }
+    costOriginal += d(cl, pl) + d(cr, pr)
+    costSwapped += d(cl, pr) + d(cr, pl)
+  }
+
+  if (usedPairs < 2) return cur
+  if (costSwapped >= costOriginal * 0.72) return cur
+  if (costOriginal < 1e-6) return cur
+
+  const map = new Map<MoveNetName, MoveNetName>()
+  for (const [l, r] of ANTI_SWAP_PAIRS) {
+    if (curMap.has(l) && curMap.has(r)) {
+      map.set(l, r)
+      map.set(r, l)
+    }
+  }
+  if (map.size === 0) return cur
+  return cur.map((p) => {
+    const next = map.get(p.name)
+    return next ? { ...p, name: next } : p
+  })
 }
 
 function movenetToMediapipeLikeLandmarks(points: MoveNetPoint[]): NormalizedLandmark[] {
@@ -241,6 +511,52 @@ function movenetToMediapipeLikeLandmarks(points: MoveNetPoint[]): NormalizedLand
   return out
 }
 
+async function waitForPresentedFrame(video: HTMLVideoElement, ms: number) {
+  const v = video as unknown as {
+    requestVideoFrameCallback?: (cb: (now: number, meta?: { mediaTime?: number }) => void) => number
+  }
+  const rvfc = v.requestVideoFrameCallback
+  if (typeof rvfc === 'function') {
+    await new Promise<void>((resolve) => {
+      const id = window.setTimeout(() => resolve(), Math.max(0, ms))
+      try {
+        rvfc(() => {
+          window.clearTimeout(id)
+          resolve()
+        })
+      } catch {
+        window.clearTimeout(id)
+        resolve()
+      }
+    })
+    return
+  }
+  await new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+  })
+}
+
+async function waitForNextVideoFrame(video: HTMLVideoElement, timeoutMs: number): Promise<{ mediaTimeSec: number } | null> {
+  const v = video as unknown as {
+    requestVideoFrameCallback?: (cb: (now: number, meta?: { mediaTime?: number }) => void) => number
+  }
+  const rvfc = v.requestVideoFrameCallback
+  if (typeof rvfc !== 'function') return { mediaTimeSec: Number.isFinite(video.currentTime) ? video.currentTime : 0 }
+  return new Promise((resolve) => {
+    const id = window.setTimeout(() => resolve(null), Math.max(0, timeoutMs))
+    try {
+      rvfc((_now, meta) => {
+        window.clearTimeout(id)
+        const mediaTimeSec = typeof meta?.mediaTime === 'number' && Number.isFinite(meta.mediaTime) ? meta.mediaTime : video.currentTime
+        resolve({ mediaTimeSec: Number.isFinite(mediaTimeSec) ? mediaTimeSec : 0 })
+      })
+    } catch {
+      window.clearTimeout(id)
+      resolve(null)
+    }
+  })
+}
+
 async function seekVideo(video: HTMLVideoElement, timeSec: number) {
   if (Math.abs(video.currentTime - timeSec) < 1e-4) return
 
@@ -251,6 +567,7 @@ async function seekVideo(video: HTMLVideoElement, timeSec: number) {
     video.addEventListener('error', onError, { once: true })
     video.currentTime = Math.min(Math.max(0, timeSec), Math.max(0, (video.duration || 0) - 1e-3))
   })
+  await waitForPresentedFrame(video, 250)
 }
 
 function filterByVisibility(lms: NormalizedLandmark[], minVisibility: number): NormalizedLandmark[] {

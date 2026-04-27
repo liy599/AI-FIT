@@ -1,5 +1,6 @@
 import type { NormalizedLandmark } from './mediapipePose'
 import type { RealtimeFeedback } from './realtimeSquat'
+import type { MoveNetName } from './movenetTracker'
 
 export class RealtimeBenchPressAnalyzer {
   private repCount = 0
@@ -29,7 +30,7 @@ export class RealtimeBenchPressAnalyzer {
     const trackingQuality = this.avgVisibility(landmarks, [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28])
 
     const warnings: string[] = []
-    const issues: Array<{ message: string; joints: number[] }> = []
+    const issues: Array<{ message: string; joints: MoveNetName[] }> = []
     const isCountingPaused = trackingQuality < 0.45 || elbowAngle === null
     const nextState = isCountingPaused ? this.currentState : this.detectState(elbowAngle)
 
@@ -37,7 +38,7 @@ export class RealtimeBenchPressAnalyzer {
       warnings.push('Low keypoint confidence. Keep your full body in frame with better lighting.')
     }
     if (torsoAngle !== null && torsoAngle > 30) {
-      issues.push({ message: 'Keep your torso stable and avoid excessive bridge.', joints: [11, 12, 23, 24] })
+      issues.push({ message: 'Keep your torso stable and avoid excessive bridge.', joints: ['left_shoulder', 'right_shoulder', 'left_hip', 'right_hip'] })
     }
     if (bodyLineAngle !== null && bodyLineAngle < 140) {
       warnings.push('Keep a stable setup and avoid leg drive that causes body sway.')

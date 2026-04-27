@@ -1,9 +1,8 @@
-import type { NormalizedLandmark } from '../../../lib/pose/mediapipePose'
 import type { RealtimeFeedback } from '../../../lib/pose/realtimeSquat'
-import type { Squat17Tempo, Squat17Tuning } from '../../../lib/pose/realtimeSquat17'
+import type { SquatTempo, SquatTuning } from '../../../lib/pose/realtimeSquatAnalyzer'
 import type { MoveNetKeypoint } from '../../../lib/pose/movenetTracker'
 
-export type ExerciseSlug = 'squat' | 'lateral-raise' | 'pushup' | 'pullup' | 'bench-press'
+export type ExerciseSlug = 'squat' | 'lateral-raise' | 'pushup' | 'pullup' | 'bent-over-row'
 
 export type SquatTimelineRow = {
   frame: number
@@ -24,28 +23,17 @@ export type SquatRepFinding = {
   tMs: number
 }
 
-export type BenchPressTimelineRow = {
-  frame: number
-  tMs: number
-  phase: string
-  trackingQuality: number | null
-  elbowAngleDeg: number | null
-  bodyLineAngleDeg: number | null
-  torsoFromHorizontalDeg: number | null
-}
-
 export type RealtimeAnalyzer = {
-  analyze: (landmarks: NormalizedLandmark[]) => RealtimeFeedback
-  analyzeNative?: (keypoints: MoveNetKeypoint[]) => RealtimeFeedback
-  setTuning?: (next: Partial<Squat17Tuning>) => void
-  setTempo?: (next: Partial<Squat17Tempo>) => void
+  analyzeNative: (keypoints: MoveNetKeypoint[]) => RealtimeFeedback
+  setTuning?: (next: Partial<SquatTuning>) => void
+  setTempo?: (next: Partial<SquatTempo>) => void
   setAnalyzerFps?: (fps: number) => void
   resetSession: () => void
 }
 
-export type { Squat17Tuning, Squat17Tempo }
+export type { SquatTuning, SquatTempo }
 
-export const VIDEO_DEFAULT_SQUAT17_TUNING: Squat17Tuning = {
+export const VIDEO_DEFAULT_SQUAT_TUNING: SquatTuning = {
   kneeForwardWarnRatio: 0.05,
   kneeForwardFailRatio: 0.065,
   kneeForwardFailMinFrames: 2,

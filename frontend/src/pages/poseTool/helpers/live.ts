@@ -17,13 +17,13 @@ export function evaluateRangeCheck(feedback: RealtimeFeedback | null, exerciseSl
     return { ok: true, reason: 'Raise height reached' }
   }
   if (
-    (exerciseSlug === 'pushup' || exerciseSlug === 'pullup' || exerciseSlug === 'bench-press') &&
+    (exerciseSlug === 'pushup' || exerciseSlug === 'pullup') &&
     typeof feedback.kneeAngle === 'number' &&
     feedback.kneeAngle <= 95
   ) {
     return {
       ok: true,
-      reason: exerciseSlug === 'pushup' ? 'Push-up depth reached' : exerciseSlug === 'pullup' ? 'Top position reached' : 'Bench depth reached'
+      reason: exerciseSlug === 'pushup' ? 'Push-up depth reached' : 'Top position reached'
     }
   }
   if (exerciseSlug === 'squat' && typeof feedback.kneeAngle === 'number' && feedback.kneeAngle < 85) {
@@ -40,9 +40,7 @@ export function getSessionComment(accuracyPct: number, reps: number, exerciseSlu
         ? 'No completed reps were detected. Lower until elbows bend deeper, then press up in one line.'
         : exerciseSlug === 'pullup'
           ? 'No completed reps were detected. Pull with full range and lower under control.'
-          : exerciseSlug === 'bench-press'
-            ? 'No completed reps were detected. Lower to stable depth and press with a controlled path.'
-            : 'No completed reps were detected. Try a full-depth squat with a steady tempo.'
+          : 'No completed reps were detected. Try a full-depth squat with a steady tempo.'
   }
   if (accuracyPct >= 90) return 'Excellent consistency. Keep the same depth and tempo in your next set.'
   if (accuracyPct >= 75) return 'Good overall form. Focus on the repeated issues to improve consistency.'
@@ -135,9 +133,7 @@ export function buildLiveSuggestions(feedback: RealtimeFeedback | null, fallback
           ? 'Keep your core tight and move through a full push-up range with controlled tempo.'
           : exerciseSlug === 'pullup'
             ? 'Use a steady pull-up tempo and avoid body swing during both ascent and descent.'
-            : exerciseSlug === 'bench-press'
-              ? 'Keep your setup stable and press with controlled tempo through full range.'
-              : 'Keep your movement controlled and maintain a stable side-view camera angle.'
+            : 'Keep your movement controlled and maintain a stable side-view camera angle.'
     )
   }
   return Array.from(suggestions).slice(0, 4)

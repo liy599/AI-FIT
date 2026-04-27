@@ -1,8 +1,8 @@
 import { normalizeReportForArchive } from '../../../lib/report/unified'
 import type { PoseAnalysisReport } from '../../../lib/pose/report'
-import type { PoseFrame } from '../../../lib/pose/mediapipePose'
 import type { RealtimeFeedback } from '../../../lib/pose/realtimeSquat'
 import { RealtimePushupAnalyzer } from '../../../lib/pose/realtimePushup'
+import type { MoveNetKeypoint } from '../../../lib/pose/movenetTracker'
 import { collectLiveFrameIssueMessages } from './live'
 import { computeReportErrorStats, sampleTimelineRows, toIssueCode } from './reportBase'
 import { mapSuggestionFromIssue } from './suggestionMap'
@@ -181,6 +181,7 @@ export function buildPushupAlignedReport(input: {
     correctReps,
     incorrectReps,
     formAccuracyPct: input.lastFeedback?.session.accuracyPct ?? 0,
+    avgRepDurationSec: input.lastFeedback?.session.avgRepDurationSec ?? null,
     minElbowAngleDeg: minElbowAngle,
     avgTrackingQuality: Math.round(avgTrackingQuality * 100) / 100,
     fastRepCount: Math.max(tempoCheck.fastDescentCount, tempoCheck.fastAscentCount),
@@ -256,7 +257,7 @@ export function buildPushupVideoLiveStyleReport(input: {
   exercise: { id: string; name: string } | null
   video: { id: string; originalName: string; mimeType: string; sizeBytes: number } | null
   fps: number
-  frames: PoseFrame[]
+  nativeFrames: Array<{ tMs: number; keypoints: MoveNetKeypoint[] }>
   onProgress?: (processed: number, total: number) => void
 }): PoseAnalysisReport {
   const analyzer = new RealtimePushupAnalyzer()
@@ -267,12 +268,12 @@ export function buildPushupVideoLiveStyleReport(input: {
   const timelineRows: SquatTimelineRow[] = []
   const repFindings: SquatRepFinding[] = []
   let lastRepCount = 0
-  const total = input.frames.length
+  const total = input.nativeFrames.length
 
-  for (let i = 0; i < input.frames.length; i++) {
-    const frame = input.frames[i]!
-    if (frame.landmarks) {
-      const feedback = analyzer.analyze(frame.landmarks)
+  for (let i = 0; i < input.nativeFrames.length; i++) {
+    const frame = input.nativeFrames[i]!
+    if (frame.keypoints?.length) {
+      const feedback = analyzer.analyzeNative(frame.keypoints)
       lastFeedback = feedback
       analyzedFrameCount += 1
       if (Number.isFinite(feedback.trackingQuality)) trackingQualitySamples.push(feedback.trackingQuality)
@@ -311,7 +312,7 @@ export function buildPushupVideoLiveStyleReport(input: {
         lastRepCount = feedback.repCount
       }
     }
-    if (input.onProgress && ((i + 1) % 20 === 0 || i === input.frames.length - 1)) {
+    if (input.onProgress && ((i + 1) % 20 === 0 || i === input.nativeFrames.length - 1)) {
       input.onProgress(i + 1, total)
     }
   }

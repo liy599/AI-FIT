@@ -1,4 +1,4 @@
-export type PoseExerciseSlug = 'squat' | 'lateral-raise' | 'pushup' | 'pullup' | 'bench-press'
+export type PoseExerciseSlug = 'squat' | 'lateral-raise' | 'pushup' | 'pullup' | 'bent-over-row'
 
 export type PoseExerciseDefinition = {
   slug: PoseExerciseSlug
@@ -82,27 +82,6 @@ const POSE_EXERCISES: Record<PoseExerciseSlug, PoseExerciseDefinition> = {
       { title: '3) Control the tempo', content: 'Pull up smoothly and lower down under control without swinging.' }
     ]
   },
-  'bench-press': {
-    slug: 'bench-press',
-    id: 'bench_press',
-    displayName: 'Bench Press',
-    exerciseType: 'bench_press',
-    liveSubtitle: 'Real-time bench press coaching for depth, control, and bar path stability',
-    liveStageTip: 'Current bench press phase recognized by the analyzer.',
-    completedRepsTip: 'Number of bench press reps detected in this session.',
-    secondaryMetricLabel: 'Elbow Bend',
-    secondaryMetricTip: 'Estimated elbow flexion angle during the press.',
-    rangeSectionTitle: 'Depth Check',
-    rangeAlignmentLabel: 'Camera Side Alignment',
-    rangeAlignmentTip: 'Use a side-view so elbow depth and torso stability can be tracked clearly.',
-    offlineInstructionPlaceholder: 'e.g. Focus on touchpoint consistency and controlled lockout',
-    guideTitle: 'Bench Press Camera Tips',
-    guideTips: [
-      { title: '1) Side view works best', content: 'Set the camera to your side so elbow depth is easier to evaluate.' },
-      { title: '2) Keep full body in frame', content: 'Shoulders, elbows, wrists, torso, and feet should remain visible.' },
-      { title: '3) Press under control', content: 'Lower steadily, then press smoothly with a consistent bar path.' }
-    ]
-  },
   'lateral-raise': {
     slug: 'lateral-raise',
     id: 'lateral_raise',
@@ -123,6 +102,27 @@ const POSE_EXERCISES: Record<PoseExerciseSlug, PoseExerciseDefinition> = {
       { title: '2) Keep full upper body in frame', content: 'Include shoulders, elbows, wrists, and hips for stable tracking.' },
       { title: '3) Move under control', content: 'Raise both arms together and avoid swinging your torso.' }
     ]
+  },
+  'bent-over-row': {
+    slug: 'bent-over-row',
+    id: 'bent_over_row',
+    displayName: 'Bent-Over Row',
+    exerciseType: 'bent_over_row',
+    liveSubtitle: 'Real-time bent-over row coaching for back strength and form',
+    liveStageTip: 'Current bent-over row phase recognized by the analyzer.',
+    completedRepsTip: 'Number of bent-over row reps detected in this session.',
+    secondaryMetricLabel: 'Elbow Bend',
+    secondaryMetricTip: 'Estimated elbow flexion angle during the row.',
+    rangeSectionTitle: 'Form Check',
+    rangeAlignmentLabel: 'Camera Side Alignment',
+    rangeAlignmentTip: 'Use a side-view so elbow bend and back alignment can be tracked clearly.',
+    offlineInstructionPlaceholder: 'e.g. Focus on keeping back flat and pulling to the hips',
+    guideTitle: 'Bent-Over Row Camera Tips',
+    guideTips: [
+      { title: '1) Side view works best', content: 'Stand sideways to the camera so elbow bend is easier to evaluate.' },
+      { title: '2) Keep full upper body in frame', content: 'Include shoulders, elbows, wrists, and hips for stable tracking.' },
+      { title: '3) Control the tempo', content: 'Pull the dumbbells to your hips and lower under control without swinging.' }
+    ]
   }
 }
 
@@ -130,7 +130,7 @@ export function getPoseExerciseBySlug(slug: string | undefined): PoseExerciseDef
   if (slug === 'lateral-raise') return POSE_EXERCISES['lateral-raise']
   if (slug === 'pushup') return POSE_EXERCISES.pushup
   if (slug === 'pullup') return POSE_EXERCISES.pullup
-  if (slug === 'bench-press') return POSE_EXERCISES['bench-press']
+  if (slug === 'bent-over-row') return POSE_EXERCISES['bent-over-row']
   return POSE_EXERCISES.squat
 }
 
@@ -138,7 +138,7 @@ export function getPoseExerciseByType(exerciseType: string | null | undefined): 
   if (exerciseType === 'lateral_raise') return POSE_EXERCISES['lateral-raise']
   if (exerciseType === 'pushup') return POSE_EXERCISES.pushup
   if (exerciseType === 'pullup' || exerciseType === 'pull_up') return POSE_EXERCISES.pullup
-  if (exerciseType === 'bench_press' || exerciseType === 'benchpress') return POSE_EXERCISES['bench-press']
+  if (exerciseType === 'bent_over_row') return POSE_EXERCISES['bent-over-row']
   return POSE_EXERCISES.squat
 }
 
@@ -147,13 +147,17 @@ export function buildPoseGuidePath(slug: PoseExerciseSlug) {
 }
 
 export function buildPoseToolPath(slug: PoseExerciseSlug) {
-  return `/tools/pose/${slug}/tool`
+  return `/tools/pose/${slug}/live`
+}
+
+export function buildPoseVideoPath(slug: PoseExerciseSlug) {
+  return `/tools/pose/${slug}/video`
 }
 
 export function buildPoseHistoryPath(slug: PoseExerciseSlug) {
-  return `/tools/pose/${slug}/tool/history`
+  return `/tools/pose/${slug}/history`
 }
 
 export function buildPoseReportPath(slug: PoseExerciseSlug, sessionId: string | number) {
-  return `/tools/pose/${slug}/tool/history/${sessionId}`
+  return `/tools/pose/${slug}/history/${sessionId}`
 }

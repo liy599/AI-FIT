@@ -1,14 +1,14 @@
 import { normalizeReportForArchive } from '../../../lib/report/unified'
 import type { PoseAnalysisReport } from '../../../lib/pose/report'
 import type { RealtimeFeedback } from '../../../lib/pose/realtimeSquat'
-import { RealtimePullupAnalyzer } from '../../../lib/pose/realtimePullup'
+import { RealtimeBentOverRowAnalyzer } from '../../../lib/pose/realtimeBentOverRow'
 import type { MoveNetKeypoint } from '../../../lib/pose/movenetTracker'
 import { collectLiveFrameIssueMessages } from './live'
 import { computeReportErrorStats, sampleTimelineRows, toIssueCode } from './reportBase'
 import { mapSuggestionFromIssue } from './suggestionMap'
-import type { SquatTimelineRow } from './types'
+import type { SquatRepFinding, SquatTimelineRow } from './types'
 
-export function buildPullupAlignedReport(input: {
+export function buildBentOverRowAlignedReport(input: {
   source: 'live' | 'video'
   taskId: string
   viewAngle: string
@@ -20,6 +20,10 @@ export function buildPullupAlignedReport(input: {
   analyzedFrameCount: number
   trackingQualitySamples: number[]
   timelineRows: SquatTimelineRow[]
+  repFindings?: SquatRepFinding[]
+  messageFirstSeenMs?: Map<string, number>
+  messageEventCount?: Map<string, number>
+  messageSeenMomentsMs?: Map<string, number[]>
 }): PoseAnalysisReport {
   const sortedIssues = Array.from(input.messageFreq.entries())
     .sort((a, b) => b[1] - a[1])
@@ -30,18 +34,18 @@ export function buildPullupAlignedReport(input: {
       ? input.trackingQualitySamples.reduce((acc, value) => acc + value, 0) / input.trackingQualitySamples.length
       : 0
 
-  let minElbowAngle: number | null = null
+  let maxRowDeg: number | null = null
   for (const row of input.timelineRows) {
-    const angle = typeof row.kneeAngleDeg === 'number' ? row.kneeAngleDeg : null
-    if (angle === null) continue
-    minElbowAngle = minElbowAngle === null ? angle : Math.min(minElbowAngle, angle)
+    const raise = typeof row.kneeAngleDeg === 'number' ? row.kneeAngleDeg : null
+    if (raise === null) continue
+    maxRowDeg = maxRowDeg === null ? raise : Math.max(maxRowDeg, raise)
   }
 
-  const fallbackSuggestion = 'Pull with full range, avoid body swing, and lower under control.'
+  const fallbackSuggestion = 'Pull the dumbbells to your hips with a smooth tempo and keep your back flat.'
   const currentSuggestion = input.lastFeedback
     ? input.lastFeedback.issues[0]?.message ?? input.lastFeedback.warnings[0] ?? input.lastFeedback.lastRepMessage ?? fallbackSuggestion
     : input.source === 'video'
-      ? 'No valid pose frames were detected. Keep your full body in frame and try another video.'
+      ? 'No valid pose frames were detected. Keep your full upper body in frame and try another video.'
       : 'No valid pose frames were detected in the live session.'
 
   const issueMessages = sortedIssues
@@ -49,7 +53,7 @@ export function buildPullupAlignedReport(input: {
       const ratio = input.analyzedFrameCount > 0 ? count / input.analyzedFrameCount : 0
       const text = message.toLowerCase()
       const isFrontWarn = text.includes('face the camera') || text.includes('front')
-      const isLowConfidenceWarn = text.includes('low keypoint confidence')
+      const isLowConfidenceWarn = text.includes('low keypoint confidence') || text.includes('confidence')
       if ((isFrontWarn || isLowConfidenceWarn) && avgTrackingQuality >= 0.62) {
         return ratio >= 0.35
       }
@@ -57,17 +61,20 @@ export function buildPullupAlignedReport(input: {
     })
     .map(([message]) => message)
 
-  const issues =
+  const issues: PoseAnalysisReport['issues'] =
     issueMessages.length > 0
       ? issueMessages.map((message) => {
-          const count = input.messageFreq.get(message) ?? 0
-          const ratio = input.analyzedFrameCount > 0 ? count / input.analyzedFrameCount : 0
+          const frameCount = input.messageFreq.get(message) ?? 0
+          const ratio = input.analyzedFrameCount > 0 ? frameCount / input.analyzedFrameCount : 0
           const severity: 'info' | 'warning' | 'error' = ratio >= 0.35 ? 'error' : ratio >= 0.12 ? 'warning' : 'info'
           return {
             code: toIssueCode(message),
             severity,
             message,
-            atFrame: null
+            atFrame: null,
+            count: messageMomentCount(input, message),
+            firstSeenMs: findFirstSeenMs(input.messageFirstSeenMs, message),
+            seenMomentsMs: collectMessageMoments(input.messageSeenMomentsMs, message)
           }
         })
       : [
@@ -84,7 +91,7 @@ export function buildPullupAlignedReport(input: {
     ? `${summaryPrefix}: total ${input.lastFeedback.session.totalReps}, correct ${input.lastFeedback.session.correctReps}, accuracy ${input.lastFeedback.session.accuracyPct}%`
     : `${summaryPrefix}: no stable pose frames were detected.`
 
-  const suggestions = buildPullupReplaySuggestions(sortedIssues, fallbackSuggestion)
+  const suggestions = buildBentOverRowReplaySuggestions(sortedIssues, fallbackSuggestion)
   const totalReps = input.lastFeedback?.session.totalReps ?? 0
   const correctReps = input.lastFeedback?.session.correctReps ?? 0
   const incorrectReps = input.lastFeedback?.session.incorrectReps ?? 0
@@ -98,13 +105,14 @@ export function buildPullupAlignedReport(input: {
     incorrectReps,
     formAccuracyPct: input.lastFeedback?.session.accuracyPct ?? 0,
     avgRepDurationSec: input.lastFeedback?.session.avgRepDurationSec ?? null,
-    minElbowAngleDeg: minElbowAngle,
+    maxRowDeg,
     avgTrackingQuality: Math.round(avgTrackingQuality * 100) / 100,
     effectiveFps: input.fps
   }
 
   const generatedAt = new Date().toISOString()
   const timelineSampled = sampleTimelineRows(input.timelineRows, 180)
+  const repFindings = input.repFindings ?? []
 
   return normalizeReportForArchive({
     version: 3,
@@ -118,22 +126,24 @@ export function buildPullupAlignedReport(input: {
     issues,
     suggestions,
     details: {
-      type: input.source === 'video' ? 'video_live_replay_pullup' : 'live_realtime_pullup',
+      type: input.source === 'video' ? 'video_live_replay_bent_over_row' : 'live_realtime_bent_over_row',
       modelName: input.source === 'video' ? 'MoveNet Lightning (offline replay)' : 'MoveNet Lightning (realtime)',
-      analyzer: 'RealtimePullupAnalyzer',
+      analyzer: 'RealtimeBentOverRowAnalyzer',
       effectiveFps: input.fps,
       repCount: input.lastFeedback?.repCount ?? 0,
       correctCount: input.lastFeedback?.correctCount ?? 0,
       incorrectCount: input.lastFeedback?.incorrectCount ?? 0,
-      elbowAngle: input.lastFeedback?.kneeAngle ?? null,
-      bodyLineAngle: input.lastFeedback?.hipAngle ?? null,
+      rowDeg: input.lastFeedback?.kneeAngle ?? null,
+      elbowAngle: input.lastFeedback?.hipAngle ?? null,
       torsoAngle: input.lastFeedback?.torsoAngle ?? null,
+      symmetryGap: input.lastFeedback?.kneeVerticalAngle ?? null,
       frontAlignment: input.lastFeedback?.offsetAngle ?? null,
       trackingQuality: input.lastFeedback?.trackingQuality ?? null,
       avgTrackingQuality: Math.round(avgTrackingQuality * 100) / 100,
       currentSuggestion,
       warnings: input.lastFeedback?.warnings ?? [],
-      timelineSampled
+      timelineSampled,
+      repFindings
     },
     sections: {
       overview: {
@@ -147,12 +157,13 @@ export function buildPullupAlignedReport(input: {
       metrics: keyMetrics,
       errorStats: computeReportErrorStats(issues),
       suggestions,
-      timelineSampled
+      timelineSampled,
+      repFindings
     }
   })
 }
 
-export function buildPullupVideoLiveStyleReport(input: {
+export function buildBentOverRowVideoLiveStyleReport(input: {
   taskId: string
   viewAngle: string
   exercise: { id: string; name: string } | null
@@ -161,12 +172,18 @@ export function buildPullupVideoLiveStyleReport(input: {
   nativeFrames: Array<{ tMs: number; keypoints: MoveNetKeypoint[] }>
   onProgress?: (processed: number, total: number) => void
 }): PoseAnalysisReport {
-  const analyzer = new RealtimePullupAnalyzer()
+  const analyzer = new RealtimeBentOverRowAnalyzer()
   let lastFeedback: RealtimeFeedback | null = null
   let analyzedFrameCount = 0
   const messageFreq = new Map<string, number>()
+  const messageFirstSeenMs = new Map<string, number>()
+  const messageEventCount = new Map<string, number>()
+  const messageLastEventMs = new Map<string, number>()
+  const messageSeenMomentsMs = new Map<string, number[]>()
   const trackingQualitySamples: number[] = []
   const timelineRows: SquatTimelineRow[] = []
+  const repFindings: SquatRepFinding[] = []
+  let lastRepCount = 0
   const total = input.nativeFrames.length
 
   for (let i = 0; i < input.nativeFrames.length; i++) {
@@ -180,6 +197,8 @@ export function buildPullupVideoLiveStyleReport(input: {
         const text = message.trim()
         if (!text) continue
         messageFreq.set(text, (messageFreq.get(text) ?? 0) + 1)
+        if (!messageFirstSeenMs.has(text)) messageFirstSeenMs.set(text, frame.tMs)
+        recordMessageMoment(text, frame.tMs, messageEventCount, messageLastEventMs, messageSeenMomentsMs)
       }
       timelineRows.push({
         frame: i,
@@ -190,13 +209,33 @@ export function buildPullupVideoLiveStyleReport(input: {
         hipAngleDeg: feedback.hipAngle,
         torsoFromVerticalDeg: feedback.torsoAngle
       })
+      if (feedback.repCount > lastRepCount) {
+        const result: SquatRepFinding['result'] =
+          feedback.lastRepResult === 'correct' ? 'correct' : feedback.lastRepResult === 'incorrect' ? 'incorrect' : 'invalid'
+        const reasons = feedback.lastRepReasonLabels.length > 0 ? [...feedback.lastRepReasonLabels] : []
+        const primaryIssue =
+          reasons[0] ??
+          feedback.lastRepMessage ??
+          (result === 'correct' ? 'Rep passed quality check.' : 'Rep was counted but not valid for quality scoring.')
+        for (let repNo = lastRepCount + 1; repNo <= feedback.repCount; repNo++) {
+          repFindings.push({
+            repNumber: repNo,
+            result,
+            primaryIssue,
+            reasons,
+            atFrame: i,
+            tMs: frame.tMs
+          })
+        }
+        lastRepCount = feedback.repCount
+      }
     }
     if (input.onProgress && ((i + 1) % 20 === 0 || i === input.nativeFrames.length - 1)) {
       input.onProgress(i + 1, total)
     }
   }
 
-  return buildPullupAlignedReport({
+  return buildBentOverRowAlignedReport({
     source: 'video',
     taskId: input.taskId,
     viewAngle: input.viewAngle,
@@ -207,18 +246,64 @@ export function buildPullupVideoLiveStyleReport(input: {
     messageFreq,
     analyzedFrameCount,
     trackingQualitySamples,
-    timelineRows
+    timelineRows,
+    repFindings,
+    messageFirstSeenMs,
+    messageEventCount,
+    messageSeenMomentsMs
   })
 }
 
-function buildPullupReplaySuggestions(sortedIssues: Array<[string, number]>, fallbackSuggestion: string) {
+function findFirstSeenMs(messageFirstSeenMs: Map<string, number> | undefined, message: string) {
+  if (!messageFirstSeenMs) return null
+  return messageFirstSeenMs.get(message) ?? null
+}
+
+function estimateMessageMoments(count: number, fps: number) {
+  if (!(count > 0)) return 0
+  if (!(fps > 0)) return count
+  return Math.max(1, Math.ceil(count / Math.max(1, Math.round(fps))))
+}
+
+function messageMomentCount(
+  input: { messageFreq: Map<string, number>; messageEventCount?: Map<string, number>; fps: number },
+  message: string
+) {
+  const exact = input.messageEventCount?.get(message)
+  if (typeof exact === 'number' && exact > 0) return exact
+  return estimateMessageMoments(input.messageFreq.get(message) ?? 0, input.fps)
+}
+
+function collectMessageMoments(messageSeenMomentsMs: Map<string, number[]> | undefined, message: string) {
+  if (!messageSeenMomentsMs) return []
+  return [...(messageSeenMomentsMs.get(message) ?? [])].sort((a, b) => a - b)
+}
+
+function recordMessageMoment(
+  message: string,
+  tMs: number,
+  messageEventCount: Map<string, number>,
+  messageLastEventMs: Map<string, number>,
+  messageSeenMomentsMs: Map<string, number[]>,
+  debounceMs = 1000
+) {
+  const prev = messageLastEventMs.get(message)
+  if (prev === undefined || tMs - prev >= debounceMs) {
+    messageEventCount.set(message, (messageEventCount.get(message) ?? 0) + 1)
+    messageLastEventMs.set(message, tMs)
+    const existing = messageSeenMomentsMs.get(message)
+    if (existing) existing.push(tMs)
+    else messageSeenMomentsMs.set(message, [tMs])
+  }
+}
+
+function buildBentOverRowReplaySuggestions(sortedIssues: Array<[string, number]>, fallbackSuggestion: string) {
   const suggestions = new Set<string>()
   for (const [message] of sortedIssues) {
-    const mapped = mapSuggestionFromIssue(message, 'pullup')
+    const mapped = mapSuggestionFromIssue(message, 'bent-over-row')
     if (mapped) suggestions.add(mapped)
     if (suggestions.size >= 4) break
   }
   if (suggestions.size === 0) suggestions.add(fallbackSuggestion.trim())
   return Array.from(suggestions).slice(0, 5)
 }
-

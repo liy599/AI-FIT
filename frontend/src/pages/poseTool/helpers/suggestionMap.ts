@@ -31,10 +31,11 @@ export function mapSuggestionFromIssue(issue: string, exerciseSlug: ExerciseSlug
     if (text.includes('side-view') || text.includes('side view')) return 'Rotate to a clearer side-view to improve pull-up range and alignment checks.'
     if (text.includes('confidence') || text.includes('frame')) return 'Improve lighting and keep your full body visible throughout each rep.'
   }
-  if (exerciseSlug === 'bench-press') {
-    if (text.includes('torso') || text.includes('bridge')) return 'Keep your torso braced and avoid excessive arch changes between reps.'
-    if (text.includes('side-view') || text.includes('side view')) return 'Rotate to a clearer side-view to improve bench depth and elbow tracking.'
-    if (text.includes('confidence') || text.includes('frame')) return 'Improve lighting and keep shoulders, elbows, wrists, and torso visible.'
+  if (exerciseSlug === 'bent-over-row') {
+    if (text.includes('torso lean') || text.includes('lean')) return 'Keep your back flat and hips square. Avoid excessive forward lean.'
+    if (text.includes('symmetry') || text.includes('evenly')) return 'Pull both arms together and match left-right at the top.'
+    if (text.includes('face the camera') || text.includes('front')) return 'Face the camera so both arms stay visible for row tracking.'
+    if (text.includes('range') || text.includes('not pull')) return 'Pull the dumbbells closer to your hips for a full contraction.'
   }
   if (text.includes('tempo unstable') || text.includes('tempo stability')) {
     return 'Tempo is uneven: keep a consistent cadence (about 2s down and controlled rise) across all reps.'

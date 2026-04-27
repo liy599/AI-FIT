@@ -1,12 +1,12 @@
 import { Link } from 'react-router-dom'
 import { useParams } from 'react-router-dom'
-import { buildPoseToolPath, getPoseExerciseBySlug } from '../lib/pose/exercises'
+import { buildPoseToolPath, buildPoseVideoPath, getPoseExerciseBySlug } from '../lib/pose/exercises'
 
 export default function PoseGuidePage() {
   const params = useParams<{ exerciseSlug: string }>()
   const exercise = getPoseExerciseBySlug(params.exerciseSlug)
-  const toolPath = buildPoseToolPath(exercise.slug)
-  const videoPath = `${toolPath}?mode=offline`
+  const livePath = buildPoseToolPath(exercise.slug)
+  const videoPath = buildPoseVideoPath(exercise.slug)
 
   return (
     <>
@@ -47,7 +47,7 @@ export default function PoseGuidePage() {
                 </div>
 
                 <div className="pose-tool-actions pose-guide-actions mt-40">
-                  <Link to={toolPath} className="cl_theme-btn pose-guide-cta">
+                  <Link to={livePath} className="cl_theme-btn pose-guide-cta">
                     <span className="pose-guide-cta-title">📷 Live Coaching</span>
                     <span className="pose-guide-cta-sub">Real-time feedback using your camera</span>
                   </Link>

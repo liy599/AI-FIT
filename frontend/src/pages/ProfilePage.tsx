@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { API_BASE, apiFetch, apiUpload, resolveBackendUrl } from '../lib/api'
-import { getPoseExerciseByType } from '../lib/pose/exercises'
+import { buildPoseHistoryPath, getPoseExerciseByType } from '../lib/pose/exercises'
 import { listPoseTrainings, type PoseTrainingSession } from '../lib/poseApi'
 import { buildTrainingRecordName } from '../lib/pose/trainingName'
 import { useAuth } from '../state/auth-context'
@@ -694,7 +694,7 @@ export default function ProfilePage() {
               <div className="mt-1 text-xs text-slate-600">Calendar view of your pose training sessions</div>
             </div>
             <Link
-              to="/tools/pose/squat/tool/history"
+              to={buildPoseHistoryPath('squat')}
               className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
             >
               Open full history
@@ -799,14 +799,7 @@ export default function ProfilePage() {
                             {s.sets.length} sets · {totalReps} reps
                           </div>
                         </div>
-                        <div className="flex gap-2">
-                          <Link
-                            to={`/tools/pose/squat/tool/history/${s.id}`}
-                            className="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500"
-                          >
-                            View report
-                          </Link>
-                        </div>
+                        <div className="flex gap-2" />
                       </div>
                     </div>
                   )

@@ -644,6 +644,10 @@ body {
   flex-wrap: wrap;
 }
 
+.pose-tool-page .pose-mode-switch .pose-mode-switch__history {
+  margin-left: auto;
+}
+
 .pose-tool-ghost-btn {
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: transparent;
@@ -984,6 +988,10 @@ body {
   margin-top: 10px;
 }
 
+.pose-form-grid-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .pose-form-field {
   display: grid;
   gap: 8px;
@@ -1089,6 +1097,127 @@ body {
 
 .pose-video-preview__message-muted {
   color: #94a3b8;
+}
+
+.pose-video-layout {
+  align-items: stretch;
+}
+
+.pose-video-layout > [class*='col-'] {
+  margin-bottom: 16px;
+}
+
+.pose-video-layout .pose-live-right-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pose-video-layout .pose-panel-head {
+  display: grid;
+  gap: 4px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.pose-video-layout .pose-panel-kicker {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #0f766e;
+  background: rgba(20, 184, 166, 0.14);
+}
+
+.pose-video-layout .pose-panel-title {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+}
+
+.pose-video-layout .pose-panel-subtitle {
+  margin: 0;
+  font-size: 14px;
+  color: #64748b;
+}
+
+.pose-video-layout .pose-live-section {
+  margin-top: 0 !important;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  padding: 14px 16px;
+}
+
+.pose-video-layout .pose-live-section .pose-section-title {
+  margin: 0 0 10px !important;
+  font-size: 14px;
+  line-height: 1.2;
+  font-weight: 700;
+  color: #64748b !important;
+  letter-spacing: 0.02em;
+}
+
+.pose-video-layout .pose-live-section .pose-detail-list {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.pose-video-layout .pose-live-section .pose-detail-list li {
+  position: relative;
+  padding-left: 16px;
+  color: #475569;
+  line-height: 1.6;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.pose-video-layout .pose-live-section .pose-detail-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.6em;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(15, 118, 110, 0.75);
+}
+
+.pose-video-analysis-card,
+.pose-video-teaching-card {
+  border-radius: 20px;
+}
+
+.pose-video-analysis-card .pose-tool-head {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 0;
+}
+
+.pose-video-analysis-card .pose-tool-subtitle {
+  max-width: none;
+  margin-bottom: 0;
+}
+
+.pose-video-analysis-card .pose-export-row {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.pose-video-teaching-card .pose-video-preview__media {
+  max-height: 320px;
 }
 
 .pose-camera-toolbar-offline {
@@ -1271,6 +1400,13 @@ body {
   align-items: center;
 }
 
+.pose-report-summary-block {
+  margin-top: 8px;
+  display: grid;
+  gap: 10px;
+  width: 100%;
+}
+
 .pose-summary-block {
   display: grid;
   gap: 10px;
@@ -1303,6 +1439,29 @@ body {
 .pose-report-abbrev-title {
   font-weight: 700;
   color: #334155;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.pose-report-summary-copy {
+  margin: 0;
+  color: #334155;
+  font-size: 15px;
+  line-height: 1.85;
+  max-width: none;
+  width: 100%;
+  white-space: pre-line;
+}
+
+.pose-report-summary-box {
+  margin-top: 8px;
+  padding: 18px 20px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(153, 246, 228, 0.4);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  width: 100%;
 }
 
 .pose-abbrev-pill {
@@ -1345,6 +1504,32 @@ body {
   gap: 10px;
 }
 
+.pose-report-metrics-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.pose-report-metric-section {
+  display: grid;
+  gap: 10px;
+}
+
+.pose-report-metric-section-title {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(20, 184, 166, 0.12);
+  border: 1px solid rgba(20, 184, 166, 0.18);
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .pose-report-metric-fragment {
   display: contents;
 }
@@ -1369,22 +1554,148 @@ body {
   gap: 12px;
 }
 
+.pose-report-card-soft {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: linear-gradient(180deg, #fcfdff 0%, #f8fafc 100%);
+}
+
+.pose-report-card-metrics {
+  background: linear-gradient(180deg, #fcfffe 0%, #f8fafc 100%);
+}
+
+.pose-report-card-issues {
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  background: linear-gradient(180deg, #fff7f7 0%, #fff1f2 100%);
+}
+
+.pose-report-card-fixes {
+  border: 1px solid rgba(45, 212, 191, 0.22);
+  background: linear-gradient(180deg, #f3fffb 0%, #ecfdf5 100%);
+}
+
+.pose-report-highlight {
+  border-radius: 18px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.05);
+}
+
+.pose-report-highlight-good {
+  border: 1px solid rgba(45, 212, 191, 0.22);
+  background: linear-gradient(180deg, #f3fffb 0%, #ecfdf5 100%);
+}
+
+.pose-report-highlight-warn {
+  border: 1px solid rgba(251, 146, 60, 0.24);
+  background: linear-gradient(180deg, #fff9f2 0%, #fff7ed 100%);
+}
+
+.pose-report-highlight-soft {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: linear-gradient(180deg, #fcfdff 0%, #f8fafc 100%);
+}
+
+.pose-report-highlight-body {
+  display: grid;
+  gap: 8px;
+}
+
+.pose-report-highlight-body strong {
+  color: #0f172a;
+  font-size: 17px;
+  line-height: 1.55;
+}
+
+.pose-report-highlight-body p {
+  margin: 0;
+  color: #475569;
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+.pose-report-intro {
+  margin: 0 0 12px;
+  color: #475569;
+  font-size: 15px;
+  line-height: 1.65;
+}
+
 .pose-report-issue-list {
   display: grid;
   gap: 8px;
 }
 
+.pose-report-issue-head,
+.pose-live-tip-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.pose-tier-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: rgba(148, 163, 184, 0.12);
+  color: #334155;
+  white-space: nowrap;
+}
+
+.pose-tier-gate {
+  border-color: rgba(100, 116, 139, 0.45);
+  background: rgba(100, 116, 139, 0.12);
+  color: #334155;
+}
+
+.pose-tier-warning {
+  border-color: rgba(245, 158, 11, 0.55);
+  background: rgba(245, 158, 11, 0.12);
+  color: #92400e;
+}
+
+.pose-tier-issue {
+  border-color: rgba(239, 68, 68, 0.55);
+  background: rgba(239, 68, 68, 0.12);
+  color: #991b1b;
+}
+
+.pose-tier-rep_fail {
+  border-color: rgba(127, 29, 29, 0.6);
+  background: rgba(127, 29, 29, 0.14);
+  color: #7f1d1d;
+}
+
 .pose-report-issue {
   display: grid;
   gap: 4px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: #f8fafc;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.pose-report-card-issues .pose-report-title {
+  color: #991b1b;
+}
+
+.pose-report-card-fixes .pose-report-title {
+  color: #065f46;
+}
+
+.pose-report-card-issues .pose-report-issue {
+  background: rgba(255, 255, 255, 0.72);
+  border-left: 4px solid rgba(239, 68, 68, 0.45);
 }
 
 .pose-report-issue strong {
   font-size: 15px;
-  line-height: 1.45;
+  line-height: 1.55;
 }
 
 .pose-report-issue span {
@@ -1394,12 +1705,41 @@ body {
 
 .pose-report-suggestions {
   margin: 0;
-  padding-left: 18px;
+  padding-left: 0;
   display: grid;
-  gap: 6px;
+  gap: 8px;
   color: #334155;
   font-size: 15px;
-  line-height: 1.5;
+  line-height: 1.7;
+  font-weight: 500;
+  list-style: none;
+  counter-reset: pose-fix-step;
+}
+
+.pose-report-suggestions li {
+  position: relative;
+  padding: 12px 14px 12px 48px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid rgba(45, 212, 191, 0.14);
+}
+
+.pose-report-suggestions li::before {
+  counter-increment: pose-fix-step;
+  content: counter(pose-fix-step);
+  position: absolute;
+  left: 14px;
+  top: 12px;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(13, 148, 136, 0.12);
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .pose-criteria-list {
@@ -1413,7 +1753,7 @@ body {
 .pose-criteria-list li {
   padding: 10px 2px;
   display: grid;
-  gap: 4px;
+  gap: 6px;
   border-bottom: 1px dashed #d6dee8;
 }
 
@@ -1422,15 +1762,50 @@ body {
 }
 
 .pose-criteria-label {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   color: #0f172a;
 }
 
+.pose-criteria-item-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pose-criteria-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(15, 118, 110, 0.12);
+  color: #0f766e;
+  border: 1px solid rgba(15, 118, 110, 0.2);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
 .pose-criteria-text {
   font-size: 14px;
-  line-height: 1.55;
+  line-height: 1.65;
   color: #334155;
+}
+
+.pose-criteria-list-soft {
+  gap: 10px;
+}
+
+.pose-criteria-list-soft li {
+  padding: 14px 16px;
+  border-bottom: none;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
 }
 
 .pose-report-line-stack {
@@ -1487,6 +1862,12 @@ body {
   border-color: rgba(13, 148, 136, 0.45);
   transform: translateY(-1px);
   box-shadow: 0 8px 20px rgba(2, 132, 199, 0.08);
+}
+
+.pose-history-item-static:hover {
+  border-color: rgba(148, 163, 184, 0.2);
+  transform: none;
+  box-shadow: none;
 }
 
 .pose-history-item-top {

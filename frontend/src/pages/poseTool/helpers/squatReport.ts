@@ -1,16 +1,15 @@
 import { normalizeReportForArchive } from '../../../lib/report/unified'
 import type { PoseAnalysisReport } from '../../../lib/pose/report'
-import type { PoseFrame } from '../../../lib/pose/mediapipePose'
 import type { RealtimeFeedback } from '../../../lib/pose/realtimeSquat'
-import { RealtimeSquat17Analyzer, VIDEO_DEFAULT_SQUAT17_TEMPO } from '../../../lib/pose/realtimeSquat17'
+import { RealtimeSquatAnalyzer, VIDEO_DEFAULT_SQUAT_TEMPO } from '../../../lib/pose/realtimeSquatAnalyzer'
 import type { MoveNetKeypoint } from '../../../lib/pose/movenetTracker'
 import { collectLiveFrameIssueMessages } from './live'
 import { computeReportErrorStats, sampleTimelineRows } from './reportBase'
 import { mapSuggestionFromIssue } from './suggestionMap'
-import { VIDEO_DEFAULT_SQUAT17_TUNING, type Squat17Tuning, type Squat17Tempo, type SquatRepFinding, type SquatTimelineRow } from './types'
+import { VIDEO_DEFAULT_SQUAT_TUNING, type SquatTempo, type SquatTuning, type SquatRepFinding, type SquatTimelineRow } from './types'
 
-export { VIDEO_DEFAULT_SQUAT17_TEMPO }
-export type { Squat17Tuning, Squat17Tempo }
+export { VIDEO_DEFAULT_SQUAT_TEMPO }
+export type { SquatTuning, SquatTempo }
 
 export function buildSquatAlignedReport(input: {
   source: 'live' | 'video'
@@ -217,7 +216,7 @@ export function buildSquatAlignedReport(input: {
     details: {
       type: input.source === 'video' ? 'video_live_replay_squat' : 'live_realtime_squat',
       modelName: input.source === 'video' ? 'MoveNet Lightning (offline replay)' : 'MoveNet Lightning (realtime)',
-      analyzer: 'RealtimeSquat17Analyzer',
+      analyzer: 'RealtimeSquatAnalyzer',
       effectiveFps: input.fps,
       repCount: input.lastFeedback?.repCount ?? 0,
       effectiveRepCount: effectiveReps,
@@ -262,14 +261,13 @@ export function buildSquatVideoLiveStyleReport(input: {
   exercise: { id: string; name: string } | null
   video: { id: string; originalName: string; mimeType: string; sizeBytes: number } | null
   fps: number
-  frames: PoseFrame[]
-  nativeFrames?: Array<{ tMs: number; keypoints: MoveNetKeypoint[] }>
-  tuning?: Partial<Squat17Tuning>
+  nativeFrames: Array<{ tMs: number; keypoints: MoveNetKeypoint[] }>
+  tuning?: Partial<SquatTuning>
   onProgress?: (processed: number, total: number) => void
 }): PoseAnalysisReport {
-  const analyzer = new RealtimeSquat17Analyzer()
-  analyzer.setTuning(input.tuning ?? VIDEO_DEFAULT_SQUAT17_TUNING)
-  analyzer.setTempo(VIDEO_DEFAULT_SQUAT17_TEMPO)
+  const analyzer = new RealtimeSquatAnalyzer()
+  analyzer.setTuning(input.tuning ?? VIDEO_DEFAULT_SQUAT_TUNING)
+  analyzer.setTempo(VIDEO_DEFAULT_SQUAT_TEMPO)
   analyzer.setAnalyzerFps(input.fps)
   let lastFeedback: RealtimeFeedback | null = null
   let analyzedFrameCount = 0
@@ -278,12 +276,11 @@ export function buildSquatVideoLiveStyleReport(input: {
   const timelineRows: SquatTimelineRow[] = []
   const repFindings: SquatRepFinding[] = []
   let lastRepCount = 0
-  const total = input.frames.length
+  const total = input.nativeFrames.length
 
-  for (let i = 0; i < input.frames.length; i++) {
-    const frame = input.frames[i]!
-    const nativeFrame = input.nativeFrames?.[i]
-    if (frame.landmarks && nativeFrame?.keypoints?.length) {
+  for (let i = 0; i < input.nativeFrames.length; i++) {
+    const nativeFrame = input.nativeFrames[i]!
+    if (nativeFrame.keypoints?.length) {
       const feedback = analyzer.analyzeNative(nativeFrame.keypoints)
       lastFeedback = feedback
       analyzedFrameCount += 1
@@ -295,7 +292,7 @@ export function buildSquatVideoLiveStyleReport(input: {
       }
       timelineRows.push({
         frame: i,
-        tMs: frame.tMs,
+        tMs: nativeFrame.tMs,
         phase: feedback.phase,
         trackingQuality: feedback.trackingQuality,
         kneeAngleDeg: feedback.kneeAngle,
@@ -317,13 +314,13 @@ export function buildSquatVideoLiveStyleReport(input: {
             primaryIssue,
             reasons,
             atFrame: i,
-            tMs: frame.tMs
+            tMs: nativeFrame.tMs
           })
         }
         lastRepCount = feedback.repCount
       }
     }
-    if (input.onProgress && ((i + 1) % 20 === 0 || i === input.frames.length - 1)) {
+    if (input.onProgress && ((i + 1) % 20 === 0 || i === input.nativeFrames.length - 1)) {
       input.onProgress(i + 1, total)
     }
   }

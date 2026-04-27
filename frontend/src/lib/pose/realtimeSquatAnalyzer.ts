@@ -1,8 +1,6 @@
-import type { NormalizedLandmark } from './mediapipePose'
 import type { MoveNetKeypoint } from './movenetTracker'
 import type { RealtimeFeedback } from './realtimeSquat'
 
-// Realtime-only squat defaults (do not use as video fallback).
 const KNEE_FORWARD_WARN_RATIO = 0.048
 const KNEE_FORWARD_FAIL_RATIO = 0.053
 const KNEE_FORWARD_FAIL_MIN_FRAMES = 1
@@ -33,13 +31,14 @@ const TORSO_BLEND_MAX_DIFF_DEG = 6
 const JOINT_BLEND_MAX_DIFF_DEG = 8
 const KNEE_ANGLE_CORRECTION_DEG = 8
 const TORSO_PEAK_HOLD_MS = 300
+
 function torsoPeakHoldFramesForFps(fps: number) {
   return Math.max(2, Math.round((TORSO_PEAK_HOLD_MS / 1000) * Math.max(10, fps)))
 }
 
 type KeypointMap = Partial<Record<MoveNetKeypoint['name'], MoveNetKeypoint>>
 
-export type Squat17Tuning = {
+export type SquatTuning = {
   kneeForwardWarnRatio: number
   kneeForwardFailRatio: number
   kneeForwardFailMinFrames: number
@@ -49,12 +48,12 @@ export type Squat17Tuning = {
   trackingQualityMin: number
 }
 
-export type Squat17Tempo = {
+export type SquatTempo = {
   repFastSec: number
   repSlowSec: number
 }
 
-export const DEFAULT_SQUAT17_TUNING: Squat17Tuning = {
+export const DEFAULT_SQUAT_TUNING: SquatTuning = {
   kneeForwardWarnRatio: KNEE_FORWARD_WARN_RATIO,
   kneeForwardFailRatio: KNEE_FORWARD_FAIL_RATIO,
   kneeForwardFailMinFrames: KNEE_FORWARD_FAIL_MIN_FRAMES,
@@ -64,17 +63,17 @@ export const DEFAULT_SQUAT17_TUNING: Squat17Tuning = {
   trackingQualityMin: TRACKING_QUALITY_MIN
 }
 
-export const REALTIME_DEFAULT_SQUAT17_TUNING: Squat17Tuning = { ...DEFAULT_SQUAT17_TUNING }
-export const REALTIME_DEFAULT_SQUAT17_TEMPO: Squat17Tempo = {
+export const REALTIME_DEFAULT_SQUAT_TUNING: SquatTuning = { ...DEFAULT_SQUAT_TUNING }
+export const REALTIME_DEFAULT_SQUAT_TEMPO: SquatTempo = {
   repFastSec: LIVE_REP_FAST_SEC,
   repSlowSec: LIVE_REP_SLOW_SEC
 }
-export const VIDEO_DEFAULT_SQUAT17_TEMPO: Squat17Tempo = {
+export const VIDEO_DEFAULT_SQUAT_TEMPO: SquatTempo = {
   repFastSec: VIDEO_REP_FAST_SEC,
   repSlowSec: VIDEO_REP_SLOW_SEC
 }
 
-export class RealtimeSquat17Analyzer {
+export class RealtimeSquatAnalyzer {
   private repCount = 0
   private correctCount = 0
   private incorrectCount = 0
@@ -108,10 +107,10 @@ export class RealtimeSquat17Analyzer {
   private recentTorsoAngles: number[] = []
   private analyzerFps = DEFAULT_ANALYZER_FPS
   private torsoPeakHoldFrames = torsoPeakHoldFramesForFps(DEFAULT_ANALYZER_FPS)
-  private tuning: Squat17Tuning = { ...DEFAULT_SQUAT17_TUNING }
-  private tempo: Squat17Tempo = { ...REALTIME_DEFAULT_SQUAT17_TEMPO }
+  private tuning: SquatTuning = { ...DEFAULT_SQUAT_TUNING }
+  private tempo: SquatTempo = { ...REALTIME_DEFAULT_SQUAT_TEMPO }
 
-  setTuning(next: Partial<Squat17Tuning>) {
+  setTuning(next: Partial<SquatTuning>) {
     this.tuning = {
       ...this.tuning,
       ...next
@@ -124,7 +123,7 @@ export class RealtimeSquat17Analyzer {
     this.torsoPeakHoldFrames = torsoPeakHoldFramesForFps(this.analyzerFps)
   }
 
-  setTempo(next: Partial<Squat17Tempo>) {
+  setTempo(next: Partial<SquatTempo>) {
     const repFastSec =
       typeof next.repFastSec === 'number' && Number.isFinite(next.repFastSec) ? Math.max(0.2, Math.min(8, next.repFastSec)) : this.tempo.repFastSec
     const repSlowSec =
@@ -133,11 +132,6 @@ export class RealtimeSquat17Analyzer {
       repFastSec,
       repSlowSec: Math.max(repSlowSec, repFastSec + 0.1)
     }
-  }
-
-  analyze(landmarks: NormalizedLandmark[]): RealtimeFeedback {
-    const keypoints = this.landmarksToMoveNetKeypoints(landmarks)
-    return this.analyzeNative(keypoints)
   }
 
   analyzeNative(keypoints: MoveNetKeypoint[]): RealtimeFeedback {
@@ -208,10 +202,8 @@ export class RealtimeSquat17Analyzer {
 
     const heldTorsoAngle = this.updateTorsoPeakHold(torsoAngle)
     const warnings: string[] = []
-    const issues: Array<{ message: string; joints: number[] }> = []
+    const issues: Array<{ message: string; joints: MoveNetKeypoint['name'][] }> = []
     const isCountingPaused = trackingQuality < this.tuning.trackingQualityMin || lowerBodyQuality < LOWER_BODY_QUALITY_MIN || kneeVerticalAngle === null || torsoAngle === null
-    // Keep rep state transitions on raw geometry so display calibration
-    // (kneeAngle - correction) does not suppress rep counting.
     const nextState = this.detectState(kneeAngleRaw)
     let kneeForwardRatio: number | null = null
 
@@ -220,13 +212,14 @@ export class RealtimeSquat17Analyzer {
       warnings.push('Try to stay in a clear side view for more stable tracking.')
     }
     if (heldTorsoAngle !== null && heldTorsoAngle > this.tuning.forwardLeanWarnDeg) {
-      issues.push({ message: 'Excessive forward torso lean', joints: [11, 12, 23, 24] })
+      issues.push({
+        message: 'Excessive forward torso lean',
+        joints: ['left_shoulder', 'right_shoulder', 'left_hip', 'right_hip']
+      })
     }
 
     if (knee && ankle && hip) {
       const dir = Math.sign((ankle.x - hip.x) || 1)
-      // Calibrate ankle-based forward drift to approximate prior toe-based rule:
-      // old rule used (knee - footIndex), and synthetic footIndex was ankle + ux * 0.06.
       const shinDx = ankle.x - knee.x
       const shinDy = ankle.y - knee.y
       const shinMag = Math.hypot(shinDx, shinDy) || 1
@@ -236,7 +229,10 @@ export class RealtimeSquat17Analyzer {
         warnings.push('Knee is moving too far forward. Push hips back first and keep shins more vertical.')
       }
       if (kneeForwardRatio >= this.tuning.kneeForwardFailRatio) {
-        issues.push({ message: 'Knee drifted too far ahead of ankle', joints: [side === 'right' ? 26 : 25, side === 'right' ? 28 : 27] })
+        issues.push({
+          message: 'Knee drifted too far ahead of ankle',
+          joints: [side === 'right' ? 'right_knee' : 'left_knee', side === 'right' ? 'right_ankle' : 'left_ankle']
+        })
       }
     }
 
@@ -481,7 +477,7 @@ export class RealtimeSquat17Analyzer {
                   ? 'Rep failed: tempo was too fast.'
                   : reasonLabels[0] === 'Rep tempo was too slow'
                     ? 'Rep failed: tempo was too slow.'
-                  : 'Rep failed: knees drifted too far forward.'
+                    : 'Rep failed: knees drifted too far forward.'
           }
         } else {
           this.correctCount += 1
@@ -570,7 +566,6 @@ export class RealtimeSquat17Analyzer {
         ? this.avgScore(map, ['right_shoulder', 'right_hip', 'right_knee', 'right_ankle'])
         : this.avgScore(map, ['left_shoulder', 'left_hip', 'left_knee', 'left_ankle'])
     const face = this.avgScore(map, ['nose'])
-    // Prioritize the visible side in side-view drills, but keep a small penalty from the occluded side.
     return primary * 0.75 + secondary * 0.15 + face * 0.1
   }
 
@@ -722,36 +717,5 @@ export class RealtimeSquat17Analyzer {
     const noseDy = Math.abs(nose.y - shoulder.y) + 1e-6
     const noseOffsetDeg = (Math.atan2(noseDx, noseDy) * 180) / Math.PI
     return (frontalLikeDeg + noseOffsetDeg) / 2
-  }
-
-  private landmarksToMoveNetKeypoints(landmarks: NormalizedLandmark[]): MoveNetKeypoint[] {
-    const map: Array<[MoveNetKeypoint['name'], number]> = [
-      ['nose', 0],
-      ['left_eye', 2],
-      ['right_eye', 5],
-      ['left_ear', 7],
-      ['right_ear', 8],
-      ['left_shoulder', 11],
-      ['right_shoulder', 12],
-      ['left_elbow', 13],
-      ['right_elbow', 14],
-      ['left_wrist', 15],
-      ['right_wrist', 16],
-      ['left_hip', 23],
-      ['right_hip', 24],
-      ['left_knee', 25],
-      ['right_knee', 26],
-      ['left_ankle', 27],
-      ['right_ankle', 28]
-    ]
-    return map.map(([name, idx]) => {
-      const p = landmarks[idx]
-      return {
-        name,
-        x: p?.x ?? 0,
-        y: p?.y ?? 0,
-        score: p?.visibility ?? 0
-      }
-    })
   }
 }

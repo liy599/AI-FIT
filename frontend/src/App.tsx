@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import Layout from './components/Layout'
 import { AuthProvider, useAuth } from './state/auth-context'
 import AboutPage from './pages/AboutPage'
@@ -13,7 +13,6 @@ import NotFoundPage from './pages/NotFoundPage'
 import PoseGuidePage from './pages/PoseGuidePage'
 import PoseSelectPage from './pages/PoseSelectPage'
 import PoseTrainingHistoryPage from './pages/PoseTrainingHistoryPage'
-import PoseTrainingReportPage from './pages/PoseTrainingReportPage'
 import PoseToolPage from './pages/PoseToolPage'
 import ProfilePage from './pages/ProfilePage'
 import RegisterPage from './pages/RegisterPage'
@@ -27,6 +26,33 @@ function RequireAuth(props: { children: React.ReactNode }) {
   return props.children
 }
 
+function PoseToolLegacyRedirect() {
+  const params = useParams<{ exerciseSlug: string }>()
+  const loc = useLocation()
+  const slug = params.exerciseSlug || 'squat'
+  const raw = new URLSearchParams(loc.search).get('mode')
+  const target = raw === 'offline' ? `/tools/pose/${slug}/video` : `/tools/pose/${slug}/live`
+  return <Navigate to={target} replace />
+}
+
+function PoseHistoryLegacyRedirect() {
+  const params = useParams<{ exerciseSlug: string }>()
+  const slug = params.exerciseSlug || 'squat'
+  return <Navigate to={`/tools/pose/${slug}/history`} replace />
+}
+
+function PoseReportLegacyRedirect() {
+  const params = useParams<{ exerciseSlug: string; sessionId: string }>()
+  const slug = params.exerciseSlug || 'squat'
+  return <Navigate to={`/tools/pose/${slug}/history`} replace />
+}
+
+function PoseDetailReportDisabledRedirect() {
+  const params = useParams<{ exerciseSlug: string }>()
+  const slug = params.exerciseSlug || 'squat'
+  return <Navigate to={`/tools/pose/${slug}/history`} replace />
+}
+
 export default function App() {
   return (
     <AuthProvider>
@@ -38,9 +64,14 @@ export default function App() {
           <Route path="/food/meal/:mealType" element={<FoodMealPage />} />
           <Route path="/tools/pose" element={<PoseSelectPage />} />
           <Route path="/tools/pose/:exerciseSlug" element={<PoseGuidePage />} />
-          <Route path="/tools/pose/:exerciseSlug/tool" element={<PoseToolPage />} />
-          <Route path="/tools/pose/:exerciseSlug/tool/history" element={<RequireAuth children={<PoseTrainingHistoryPage />} />} />
-          <Route path="/tools/pose/:exerciseSlug/tool/history/:sessionId" element={<RequireAuth children={<PoseTrainingReportPage />} />} />
+          <Route path="/tools/pose/:exerciseSlug/live" element={<PoseToolPage />} />
+          <Route path="/tools/pose/:exerciseSlug/video" element={<PoseToolPage />} />
+          <Route path="/tools/pose/:exerciseSlug/history" element={<RequireAuth children={<PoseTrainingHistoryPage />} />} />
+          {/* Detail report page is temporarily disabled until the final report flow is cleaned up. */}
+          <Route path="/tools/pose/:exerciseSlug/history/:sessionId" element={<RequireAuth children={<PoseDetailReportDisabledRedirect />} />} />
+          <Route path="/tools/pose/:exerciseSlug/tool" element={<PoseToolLegacyRedirect />} />
+          <Route path="/tools/pose/:exerciseSlug/tool/history" element={<PoseHistoryLegacyRedirect />} />
+          <Route path="/tools/pose/:exerciseSlug/tool/history/:sessionId" element={<PoseReportLegacyRedirect />} />
           <Route path="/tools/food" element={<Navigate to="/food" replace />} />
           <Route path="/blogs" element={<BlogListPage />} />
           <Route path="/blogs/:id" element={<BlogDetailPage />} />

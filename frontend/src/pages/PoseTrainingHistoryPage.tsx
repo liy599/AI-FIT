@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { buildPoseGuidePath, buildPoseReportPath, buildPoseToolPath, getPoseExerciseBySlug, getPoseExerciseByType } from '../lib/pose/exercises'
+import { buildPoseGuidePath, buildPoseToolPath, getPoseExerciseBySlug, getPoseExerciseByType } from '../lib/pose/exercises'
 import { buildTrainingRecordName } from '../lib/pose/trainingName'
 import { listPoseTrainings, type PoseTrainingSession } from '../lib/poseApi'
 import { DEMO_POSE_TRAINING, DEMO_POSE_TRAINING_ID } from '../lib/poseTrainingMock'
+import { humanizePoseReport } from '../lib/pose/feedbackCopy'
 
 export default function PoseTrainingHistoryPage() {
   const params = useParams<{ exerciseSlug: string }>()
@@ -56,7 +57,7 @@ export default function PoseTrainingHistoryPage() {
                     <Link to="/">Home</Link>
                     <span><Link to="/tools/pose">Pose</Link></span>
                     <span><Link to={buildPoseGuidePath(exercise.slug)}>{exercise.displayName}</Link></span>
-                    <span><Link to={buildPoseToolPath(exercise.slug)}>Tool</Link></span>
+                    <span><Link to={buildPoseToolPath(exercise.slug)}>Live</Link></span>
                     <span>History</span>
                   </div>
                 </div>
@@ -74,7 +75,7 @@ export default function PoseTrainingHistoryPage() {
                 <div className="pose-history-head">
                   <h4 className="cl_blog-widget-title mb-0">Saved Training Records</h4>
                   <Link to={buildPoseToolPath(exercise.slug)} className="pose-tool-ghost-btn pose-tool-light-btn">
-                    Back to Tool
+                    Back to Live
                   </Link>
                 </div>
 
@@ -106,19 +107,22 @@ export default function PoseTrainingHistoryPage() {
                   <div className="pose-history-list">
                     {displayItems.map((item) => {
                       const reps = item.sets.reduce((total, setItem) => total + (setItem.reps ?? 0), 0)
+                      const displayReport =
+                        item.report && isRecord(item.report) && (isRecord(item.report.keyMetrics) || Array.isArray(item.report.issues) || Array.isArray(item.report.suggestions))
+                          ? (humanizePoseReport(item.report as never) as unknown as Record<string, unknown>)
+                          : item.report
                       const reportSummary =
-                        item.report && typeof item.report.summary === 'string' && item.report.summary.trim()
-                          ? item.report.summary
+                        displayReport && isRecord(displayReport) && typeof displayReport.summary === 'string' && displayReport.summary.trim()
+                          ? displayReport.summary
                           : 'No summary in report'
                       const sessionExerciseType = item.sets[0]?.exercise_type ?? 'squat'
-                      const sessionExerciseSlug = getPoseExerciseByType(sessionExerciseType).slug
                       const derivedName = buildTrainingRecordName({
                         startedAt: item.started_at,
                         exerciseName: getPoseExerciseByType(sessionExerciseType).displayName
                       })
                       const sessionName = item.id === DEMO_POSE_TRAINING_ID ? 'Demo Session' : (item.note?.trim() || derivedName)
                       return (
-                        <Link key={item.id} to={buildPoseReportPath(sessionExerciseSlug, item.id)} className="pose-history-item">
+                        <div key={item.id} className="pose-history-item pose-history-item-static">
                           <div className="pose-history-item-top">
                             <strong>{sessionName}</strong>
                             <span>{formatDateTime(item.started_at)}</span>
@@ -129,7 +133,7 @@ export default function PoseTrainingHistoryPage() {
                             <span>Ended: {item.ended_at ? formatDateTime(item.ended_at) : 'In progress'}</span>
                           </div>
                           <p className="pose-history-summary">{reportSummary}</p>
-                        </Link>
+                        </div>
                       )
                     })}
                   </div>
@@ -147,4 +151,8 @@ function formatDateTime(value: string) {
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) return value
   return parsed.toLocaleString()
+}
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
 }

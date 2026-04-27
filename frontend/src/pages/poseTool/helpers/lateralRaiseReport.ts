@@ -1,8 +1,8 @@
 import { normalizeReportForArchive } from '../../../lib/report/unified'
 import type { PoseAnalysisReport } from '../../../lib/pose/report'
-import type { PoseFrame } from '../../../lib/pose/mediapipePose'
 import type { RealtimeFeedback } from '../../../lib/pose/realtimeSquat'
 import { RealtimeLateralRaiseAnalyzer } from '../../../lib/pose/realtimeLateralRaise'
+import type { MoveNetKeypoint } from '../../../lib/pose/movenetTracker'
 import { collectLiveFrameIssueMessages } from './live'
 import { computeReportErrorStats, sampleTimelineRows, toIssueCode } from './reportBase'
 import { mapSuggestionFromIssue } from './suggestionMap'
@@ -85,11 +85,19 @@ export function buildLateralRaiseAlignedReport(input: {
     : `${summaryPrefix}: no stable pose frames were detected.`
 
   const suggestions = buildLateralRaiseReplaySuggestions(sortedIssues, fallbackSuggestion)
+  const totalReps = input.lastFeedback?.session.totalReps ?? 0
+  const correctReps = input.lastFeedback?.session.correctReps ?? 0
+  const incorrectReps = input.lastFeedback?.session.incorrectReps ?? 0
+  const effectiveReps = correctReps + incorrectReps
+  const unassessedReps = Math.max(0, totalReps - effectiveReps)
   const keyMetrics = {
-    totalReps: input.lastFeedback?.session.totalReps ?? 0,
-    correctReps: input.lastFeedback?.session.correctReps ?? 0,
-    incorrectReps: input.lastFeedback?.session.incorrectReps ?? 0,
+    totalReps,
+    effectiveReps,
+    unassessedReps,
+    correctReps,
+    incorrectReps,
     formAccuracyPct: input.lastFeedback?.session.accuracyPct ?? 0,
+    avgRepDurationSec: input.lastFeedback?.session.avgRepDurationSec ?? null,
     maxRaiseDeg,
     avgTrackingQuality: Math.round(avgTrackingQuality * 100) / 100,
     effectiveFps: input.fps
@@ -151,7 +159,7 @@ export function buildLateralRaiseVideoLiveStyleReport(input: {
   exercise: { id: string; name: string } | null
   video: { id: string; originalName: string; mimeType: string; sizeBytes: number } | null
   fps: number
-  frames: PoseFrame[]
+  nativeFrames: Array<{ tMs: number; keypoints: MoveNetKeypoint[] }>
   onProgress?: (processed: number, total: number) => void
 }): PoseAnalysisReport {
   const analyzer = new RealtimeLateralRaiseAnalyzer()
@@ -160,12 +168,12 @@ export function buildLateralRaiseVideoLiveStyleReport(input: {
   const messageFreq = new Map<string, number>()
   const trackingQualitySamples: number[] = []
   const timelineRows: SquatTimelineRow[] = []
-  const total = input.frames.length
+  const total = input.nativeFrames.length
 
-  for (let i = 0; i < input.frames.length; i++) {
-    const frame = input.frames[i]!
-    if (frame.landmarks) {
-      const feedback = analyzer.analyze(frame.landmarks)
+  for (let i = 0; i < input.nativeFrames.length; i++) {
+    const frame = input.nativeFrames[i]!
+    if (frame.keypoints?.length) {
+      const feedback = analyzer.analyzeNative(frame.keypoints)
       lastFeedback = feedback
       analyzedFrameCount += 1
       if (Number.isFinite(feedback.trackingQuality)) trackingQualitySamples.push(feedback.trackingQuality)
@@ -184,7 +192,7 @@ export function buildLateralRaiseVideoLiveStyleReport(input: {
         torsoFromVerticalDeg: feedback.torsoAngle
       })
     }
-    if (input.onProgress && ((i + 1) % 20 === 0 || i === input.frames.length - 1)) {
+    if (input.onProgress && ((i + 1) % 20 === 0 || i === input.nativeFrames.length - 1)) {
       input.onProgress(i + 1, total)
     }
   }

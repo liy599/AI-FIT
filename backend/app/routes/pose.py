@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import uuid
 from datetime import datetime, time
 
@@ -27,8 +28,8 @@ ALLOWED_VIDEO_MIME_TYPES = {
 }
 ALLOWED_VIEW_ANGLES = {"unknown", "front", "side", "back"}
 ALLOWED_STATUSES = {"uploaded", "running", "succeeded", "failed"}
-SQUAT17_TUNING_FILENAME = "squat17_tuning.json"
-SQUAT17_TUNING_DEFAULTS = {
+SQUAT_TUNING_FILENAME = "squat_tuning.json"
+SQUAT_TUNING_DEFAULTS = {
     "kneeForwardWarnRatio": 0.045,
     "kneeForwardFailRatio": 0.058,
     "kneeForwardFailMinFrames": 2,
@@ -37,7 +38,7 @@ SQUAT17_TUNING_DEFAULTS = {
     "forwardLeanFailMinFrames": 5,
     "trackingQualityMin": 0.28,
 }
-SQUAT17_TUNING_BOUNDS = {
+SQUAT_TUNING_BOUNDS = {
     "kneeForwardWarnRatio": (0.01, 0.3),
     "kneeForwardFailRatio": (0.01, 0.35),
     "kneeForwardFailMinFrames": (1, 30),
@@ -64,18 +65,18 @@ def _pose_config_dir() -> str:
     return folder
 
 
-def _squat17_tuning_path() -> str:
-    return os.path.join(_pose_config_dir(), SQUAT17_TUNING_FILENAME)
+def _squat_tuning_path() -> str:
+    return os.path.join(_pose_config_dir(), SQUAT_TUNING_FILENAME)
 
 
-def _normalize_squat17_tuning(raw: dict | None) -> dict:
-    merged = dict(SQUAT17_TUNING_DEFAULTS)
+def _normalize_squat_tuning(raw: dict | None) -> dict:
+    merged = dict(SQUAT_TUNING_DEFAULTS)
     if isinstance(raw, dict):
         merged.update(raw)
     out: dict[str, float | int] = {}
-    for key, default_value in SQUAT17_TUNING_DEFAULTS.items():
+    for key, default_value in SQUAT_TUNING_DEFAULTS.items():
         value = merged.get(key, default_value)
-        lo, hi = SQUAT17_TUNING_BOUNDS[key]
+        lo, hi = SQUAT_TUNING_BOUNDS[key]
         is_int = isinstance(default_value, int)
         try:
             numeric = int(value) if is_int else float(value)
@@ -90,23 +91,50 @@ def _normalize_squat17_tuning(raw: dict | None) -> dict:
     return out
 
 
-def _load_squat17_tuning() -> tuple[dict, str]:
-    path = _squat17_tuning_path()
+def _find_legacy_squat_tuning_path() -> str | None:
+    folder = _pose_config_dir()
+    pattern = re.compile(r"^squat[0-9]+_tuning\.json$")
+    for name in os.listdir(folder):
+        if pattern.match(name):
+            candidate = os.path.join(folder, name)
+            if os.path.isfile(candidate):
+                return candidate
+    return None
+
+
+def _load_squat_tuning() -> tuple[dict, str]:
+    path = _squat_tuning_path()
     if not os.path.isfile(path):
-        return dict(SQUAT17_TUNING_DEFAULTS), "default"
+        legacy = _find_legacy_squat_tuning_path()
+        if legacy:
+            try:
+                with open(legacy, "r", encoding="utf-8") as f:
+                    payload = json.load(f)
+                if not isinstance(payload, dict):
+                    raise ValueError("invalid payload")
+                normalized = _normalize_squat_tuning(payload)
+                _save_squat_tuning(normalized)
+                try:
+                    os.remove(legacy)
+                except OSError:
+                    pass
+                return normalized, "migrated"
+            except Exception:
+                return dict(SQUAT_TUNING_DEFAULTS), "default"
+        return dict(SQUAT_TUNING_DEFAULTS), "default"
     try:
         with open(path, "r", encoding="utf-8") as f:
             payload = json.load(f)
         if not isinstance(payload, dict):
             raise ValueError("invalid payload")
-        normalized = _normalize_squat17_tuning(payload)
+        normalized = _normalize_squat_tuning(payload)
         return normalized, "stored"
     except Exception:
-        return dict(SQUAT17_TUNING_DEFAULTS), "default"
+        return dict(SQUAT_TUNING_DEFAULTS), "default"
 
 
-def _save_squat17_tuning(tuning: dict) -> None:
-    path = _squat17_tuning_path()
+def _save_squat_tuning(tuning: dict) -> None:
+    path = _squat_tuning_path()
     tmp = f"{path}.tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(tuning, f, ensure_ascii=False, indent=2)
@@ -225,15 +253,15 @@ def _training_session_public(session: TrainingSession):
     }
 
 
-@bp.get("/config/squat17-tuning")
-def get_squat17_tuning():
-    tuning, source = _load_squat17_tuning()
+@bp.get("/config/squat-tuning")
+def get_squat_tuning():
+    tuning, source = _load_squat_tuning()
     return jsonify({"tuning": tuning, "source": source})
 
 
-@bp.put("/config/squat17-tuning")
+@bp.put("/config/squat-tuning")
 @jwt_required()
-def update_squat17_tuning():
+def update_squat_tuning():
     user_id = int(get_jwt_identity())
     if not _admin_guard(user_id):
         return jsonify({"error": "forbidden"}), 403
@@ -242,8 +270,8 @@ def update_squat17_tuning():
     raw = data.get("tuning")
     if not isinstance(raw, dict):
         return jsonify({"error": "tuning object required"}), 400
-    normalized = _normalize_squat17_tuning(raw)
-    _save_squat17_tuning(normalized)
+    normalized = _normalize_squat_tuning(raw)
+    _save_squat_tuning(normalized)
     return jsonify({"ok": True, "tuning": normalized})
 
 

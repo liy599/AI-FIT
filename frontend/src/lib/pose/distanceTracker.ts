@@ -1,4 +1,4 @@
-import type { NormalizedLandmark } from './mediapipePose'
+import type { MoveNetKeypoint, MoveNetName } from './movenetTracker'
 
 export type BoxNorm = { x: number; y: number; w: number; h: number }
 export type DistanceLabel = 'too_close' | 'ok' | 'too_far' | 'unknown'
@@ -37,14 +37,14 @@ export class DistanceTracker {
     this.lastLabel = 'unknown'
   }
 
-  ingest(input: { tMs: number; landmarks: NormalizedLandmark[]; worldLandmarks: NormalizedLandmark[] | null }): DistanceState {
+  ingest(input: { tMs: number; keypoints: MoveNetKeypoint[] }): DistanceState {
     if (this.startMs === null) this.startMs = input.tMs
     const elapsed = Math.max(0, input.tMs - this.startMs)
     const prepProgress = Math.min(1, elapsed / this.prepDurationMs)
     const prepRemainingMs = Math.max(0, this.prepDurationMs - elapsed)
 
-    const q = avgKeyJointVisibility(input.landmarks)
-    const currentBox = bboxFromLandmarks(input.landmarks)
+    const q = avgKeyJointScore(input.keypoints)
+    const currentBox = bboxFromKeypoints(input.keypoints)
     if (q < 0.18 || !currentBox) {
       this.lastLabel = 'unknown'
       return {
@@ -60,7 +60,7 @@ export class DistanceTracker {
 
     // Use skeleton-chain scale first (shoulder-hip-knee-ankle), fallback to area-based scale.
     // This is more robust to front/side orientation and squat up/down posture changes.
-    const rawRatio = bodyScaleFromLandmarks(input.landmarks) ?? Math.sqrt(Math.max(1e-6, currentBox.w * currentBox.h))
+    const rawRatio = bodyScaleFromKeypoints(input.keypoints) ?? Math.sqrt(Math.max(1e-6, currentBox.w * currentBox.h))
     const emaAlpha = 0.2
     this.ratioEma = this.ratioEma === null ? rawRatio : lerp(this.ratioEma, rawRatio, emaAlpha)
     const ratio = this.ratioEma
@@ -122,18 +122,33 @@ function centerBox(box: BoxNorm): BoxNorm {
   }
 }
 
-function bboxFromLandmarks(lm: NormalizedLandmark[]): BoxNorm | null {
-  const idx = [0, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28]
+function bboxFromKeypoints(keypoints: MoveNetKeypoint[]): BoxNorm | null {
+  const map = byName(keypoints)
+  const names: MoveNetName[] = [
+    'nose',
+    'left_shoulder',
+    'right_shoulder',
+    'left_elbow',
+    'right_elbow',
+    'left_wrist',
+    'right_wrist',
+    'left_hip',
+    'right_hip',
+    'left_knee',
+    'right_knee',
+    'left_ankle',
+    'right_ankle'
+  ]
   let minX = Infinity
   let minY = Infinity
   let maxX = -Infinity
   let maxY = -Infinity
   let n = 0
 
-  for (const i of idx) {
-    const p = lm[i]
+  for (const name of names) {
+    const p = map.get(name)
     if (!p) continue
-    const v = typeof p.visibility === 'number' ? p.visibility : 1
+    const v = typeof p.score === 'number' ? p.score : 0
     if (!Number.isFinite(v) || v < 0.18) continue
     const x = clamp01(p.x)
     const y = clamp01(p.y)
@@ -151,17 +166,18 @@ function bboxFromLandmarks(lm: NormalizedLandmark[]): BoxNorm | null {
   return { x: minX, y: minY, w, h }
 }
 
-function bodyScaleFromLandmarks(lm: NormalizedLandmark[]): number | null {
-  const left = chainScale(lm, [11, 23, 25, 27])
-  const right = chainScale(lm, [12, 24, 26, 28])
+function bodyScaleFromKeypoints(keypoints: MoveNetKeypoint[]): number | null {
+  const map = byName(keypoints)
+  const left = chainScale(map, ['left_shoulder', 'left_hip', 'left_knee', 'left_ankle'])
+  const right = chainScale(map, ['right_shoulder', 'right_hip', 'right_knee', 'right_ankle'])
   if (left !== null && right !== null) return (left + right) / 2
   if (left !== null) return left
   if (right !== null) return right
   return null
 }
 
-function chainScale(lm: NormalizedLandmark[], indices: [number, number, number, number]): number | null {
-  const [a, b, c, d] = indices.map((idx) => lm[idx])
+function chainScale(map: Map<MoveNetName, MoveNetKeypoint>, names: [MoveNetName, MoveNetName, MoveNetName, MoveNetName]): number | null {
+  const [a, b, c, d] = names.map((name) => map.get(name))
   if (!isVisible(a) || !isVisible(b) || !isVisible(c) || !isVisible(d)) return null
   const ab = dist2d(a, b)
   const bc = dist2d(b, c)
@@ -170,13 +186,13 @@ function chainScale(lm: NormalizedLandmark[], indices: [number, number, number, 
   return Number.isFinite(total) && total > 1e-6 ? total : null
 }
 
-function isVisible(p: NormalizedLandmark | undefined) {
+function isVisible(p: MoveNetKeypoint | undefined): p is MoveNetKeypoint {
   if (!p) return false
-  const v = typeof p.visibility === 'number' ? p.visibility : 1
+  const v = typeof p.score === 'number' ? p.score : 0
   return Number.isFinite(v) && v >= 0.18
 }
 
-function dist2d(a: NormalizedLandmark, b: NormalizedLandmark) {
+function dist2d(a: MoveNetKeypoint, b: MoveNetKeypoint) {
   const ax = clamp01(a.x)
   const ay = clamp01(a.y)
   const bx = clamp01(b.x)
@@ -184,11 +200,12 @@ function dist2d(a: NormalizedLandmark, b: NormalizedLandmark) {
   return Math.hypot(ax - bx, ay - by)
 }
 
-function avgKeyJointVisibility(landmarks: NormalizedLandmark[]) {
-  const keys = [11, 12, 23, 24, 25, 26, 27, 28]
+function avgKeyJointScore(keypoints: MoveNetKeypoint[]) {
+  const map = byName(keypoints)
+  const keys: MoveNetName[] = ['left_shoulder', 'right_shoulder', 'left_hip', 'right_hip', 'left_knee', 'right_knee', 'left_ankle', 'right_ankle']
   let sum = 0
-  for (const idx of keys) {
-    const v = landmarks[idx]?.visibility ?? 0
+  for (const name of keys) {
+    const v = map.get(name)?.score ?? 0
     sum += Number.isFinite(v) ? clamp01(v) : 0
   }
   return sum / keys.length
@@ -212,5 +229,11 @@ function clamp01(v: number) {
   if (v < 0) return 0
   if (v > 1) return 1
   return v
+}
+
+function byName(keypoints: MoveNetKeypoint[]) {
+  const map = new Map<MoveNetName, MoveNetKeypoint>()
+  for (const p of keypoints) map.set(p.name, p)
+  return map
 }
 

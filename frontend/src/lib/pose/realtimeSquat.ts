@@ -1,3 +1,5 @@
+import type { MoveNetName } from './movenetTracker'
+
 export type RealtimeFeedback = {
   phase: 'up' | 'descent' | 'bottom' | 'ascent'
   state: 's1' | 's2' | 's3' | null
@@ -10,7 +12,7 @@ export type RealtimeFeedback = {
   trackingQuality: number
   isCountingPaused: boolean
   warnings: string[]
-  issues: Array<{ message: string; joints: number[] }>
+  issues: Array<{ message: string; joints: MoveNetName[] }>
   stateSequence: Array<'s2' | 's3'>
   lastRepResult: 'correct' | 'incorrect' | null
   lastRepMessage: string | null

@@ -96,16 +96,6 @@ export default function Navbar(props: NavbarProps) {
               </div>
             </div>
             <div className="cl_header-right">
-              <button
-                type="button"
-                className="cl_header-action-btn cl_search_popup d-none d-lg-flex"
-                onClick={(e) => {
-                  props.onOpenSearch?.(e.currentTarget)
-                }}
-                aria-label="Open search"
-              >
-                <i className="fa-regular fa-magnifying-glass"></i>
-              </button>
               {auth.user ? (
                 <div className="cl_header-account d-none d-xxl-flex">
                   <Link to="/profile" className="cl_header-action-btn" aria-label="Open profile menu">

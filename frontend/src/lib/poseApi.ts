@@ -1,5 +1,5 @@
 import { API_BASE, apiFetch, apiFetchBlob, apiUpload, resolveBackendUrl } from './api'
-import type { Squat17Tuning } from './pose/realtimeSquat17'
+import type { SquatTuning } from './pose/realtimeSquatAnalyzer'
 
 
 export type PoseVideo = {
@@ -336,16 +336,16 @@ export async function createPoseVideoObjectUrl(video: Pick<PoseVideo, 'id'>) {
   return URL.createObjectURL(blob)
 }
 
-export async function getSquat17TuningConfig() {
-  const data = await apiFetch<{ tuning: Partial<Squat17Tuning>; source: 'default' | 'stored' }>(
-    '/api/pose/config/squat17-tuning',
+export async function getSquatTuningConfig() {
+  const data = await apiFetch<{ tuning: Partial<SquatTuning>; source: 'default' | 'stored' | 'migrated' }>(
+    '/api/pose/config/squat-tuning',
     { auth: false }
   )
   return data
 }
 
-export async function updateSquat17TuningConfig(tuning: Partial<Squat17Tuning>) {
-  const data = await apiFetch<{ ok: boolean; tuning: Squat17Tuning }>('/api/pose/config/squat17-tuning', {
+export async function updateSquatTuningConfig(tuning: Partial<SquatTuning>) {
+  const data = await apiFetch<{ ok: boolean; tuning: SquatTuning }>('/api/pose/config/squat-tuning', {
     method: 'PUT',
     body: JSON.stringify({ tuning })
   })

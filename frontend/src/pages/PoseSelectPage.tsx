@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { buildPoseHistoryPath } from '../lib/pose/exercises'
 
 type PoseExerciseStatus = 'ready' | 'coming_soon'
 
@@ -23,8 +24,7 @@ const POSE_CATEGORIES: PoseCategory[] = [
     title: 'Chest',
     subtitle: 'Push movements',
     exercises: [
-      { id: 'pushup', name: 'Push-Up', secondary: 'Bodyweight', status: 'ready', href: '/tools/pose/pushup' },
-      { id: 'bench_press', name: 'Bench Press', secondary: 'Dumbbell', status: 'ready', href: '/tools/pose/bench-press' }
+      { id: 'pushup', name: 'Push-Up', secondary: 'Bodyweight', status: 'ready', href: '/tools/pose/pushup' }
     ]
   },
   {
@@ -32,7 +32,7 @@ const POSE_CATEGORIES: PoseCategory[] = [
     title: 'Back',
     subtitle: 'Pull movements',
     exercises: [
-      { id: 'pullup', name: 'Pull-Up', secondary: 'Bodyweight', status: 'ready', href: '/tools/pose/pullup' },
+      { id: 'bent-over-row', name: 'Bent-Over Row', secondary: 'Dumbbell', status: 'ready', href: '/tools/pose/bent-over-row' },
       { id: 'row', name: 'Standing Row', secondary: 'Dumbbell', status: 'coming_soon', href: '/tools/pose/row' }
     ]
   },
@@ -58,8 +58,7 @@ const POSE_CATEGORIES: PoseCategory[] = [
 
 const POSE_EXERCISE_IMAGES: Record<string, string> = {
   pushup: '/assets/images/pose/Push-Up.jpg',
-  bench_press: '/assets/images/pose/Bench%20Press.jpg',
-  pullup: '/assets/images/pose/Pull-Up.jpg',
+  'bent-over-row': '/assets/images/pose/Bent-Over Row.jpg',
   lateral_raise: '/assets/images/pose/Lateral%20Raise.jpg',
   squat: '/assets/images/pose/Deep%20Squat.jpg'
 }
@@ -67,9 +66,9 @@ const POSE_EXERCISE_IMAGES: Record<string, string> = {
 export default function PoseSelectPage() {
   const visibleExercises = POSE_CATEGORIES
     .flatMap((cat) => cat.exercises)
-    .filter((ex) => ex.status === 'ready' && ex.id !== 'bench_press')
+    .filter((ex) => ex.status === 'ready')
     .sort((a, b) => {
-      const order = ['squat', 'pushup', 'pullup', 'lateral_raise']
+      const order = ['squat', 'pushup', 'bent-over-row', 'lateral_raise']
       const ai = order.indexOf(a.id)
       const bi = order.indexOf(b.id)
       return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi)
@@ -102,7 +101,7 @@ export default function PoseSelectPage() {
               <div className="cl_blog-widget mb-30 pose-select-hero">
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                   <h4 className="cl_blog-widget-title mb-0">Choose what you want to train</h4>
-                  <Link to="/tools/pose/squat/tool/history" className="pose-tool-ghost-btn pose-tool-light-btn">
+                  <Link to={buildPoseHistoryPath('squat')} className="pose-tool-ghost-btn pose-tool-light-btn">
                     Training History
                   </Link>
                 </div>

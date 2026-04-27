@@ -1,18 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useLocation, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../state/auth-context'
 import { drawDistanceGuide, drawMidpointSkeleton, drawPoseJoints17, drawUpperLimbSkeleton } from '../lib/pose/draw'
 import { DistanceTracker, type DistanceState } from '../lib/pose/distanceTracker'
-import { buildPoseGuidePath, buildPoseHistoryPath, buildPoseReportPath, getPoseExerciseBySlug } from '../lib/pose/exercises'
+import {
+  buildPoseGuidePath,
+  buildPoseHistoryPath,
+  buildPoseToolPath,
+  buildPoseVideoPath,
+  getPoseExerciseBySlug
+} from '../lib/pose/exercises'
 import { buildTrainingRecordName } from '../lib/pose/trainingName'
 import { createBestRealtimePoseProvider, type RealtimePoseProvider } from '../lib/pose/livePoseProvider'
-import type { PoseFrame } from '../lib/pose/mediapipePose'
-import { extractPose33FromVideoUrlWithMoveNet, type MoveNetNativeFrame } from '../lib/pose/movenetPose'
-import { mediapipeToMoveNetFrame, MoveNetStabilizer, type TrackingState } from '../lib/pose/movenetTracker'
+import { extractNativePoseFromVideoUrlWithMoveNet, type MoveNetNativeFrame } from '../lib/pose/movenetPose'
+import { MoveNetStabilizer, type TrackingState } from '../lib/pose/movenetTracker'
 import { type PoseAnalysisReport } from '../lib/pose/report'
 import { type RealtimeFeedback } from '../lib/pose/realtimeSquat'
-import { REALTIME_DEFAULT_SQUAT17_TUNING, type Squat17Tuning } from '../lib/pose/realtimeSquat17'
-import { createPoseTraining, getSquat17TuningConfig, updateSquat17TuningConfig } from '../lib/poseApi'
+import { REALTIME_DEFAULT_SQUAT_TUNING, type SquatTuning } from '../lib/pose/realtimeSquatAnalyzer'
+import { humanizePoseReport, mapPoseFeedbackMessage, pickLiveMainTip, poseTierLabel } from '../lib/pose/feedbackCopy'
+import { createPoseTraining, getSquatTuningConfig, updateSquatTuningConfig } from '../lib/poseApi'
 import { normalizeReportForArchive } from '../lib/report/unified'
 import { requestCameraStream } from '../lib/media'
 import {
@@ -23,9 +29,10 @@ import {
   buildPullupVideoLiveStyleReport,
   buildPushupAlignedReport,
   buildPushupVideoLiveStyleReport,
-  buildBenchPressVideoLiveStyleReport,
   buildSquatAlignedReport,
   buildSquatVideoLiveStyleReport,
+  buildBentOverRowAlignedReport,
+  buildBentOverRowVideoLiveStyleReport,
   collectLiveFrameIssueMessages,
   collectLiveIssueMessages,
   createAnalyzer,
@@ -50,7 +57,7 @@ const OFFLINE_ANALYSIS_LIMIT_SEC = 2 * 60
 const OFFLINE_ANALYSIS_TARGET_FPS = 40
 const OFFLINE_ANALYSIS_MAX_FRAMES = OFFLINE_ANALYSIS_LIMIT_SEC * OFFLINE_ANALYSIS_TARGET_FPS
 const LIVE_SESSION_LIMIT_MS = 2 * 60 * 1000
-const OFFLINE_DEDICATED_REPLAY_ACTIONS = new Set(['squat', 'pushup', 'pullup', 'bench-press', 'lateral-raise'])
+const OFFLINE_DEDICATED_REPLAY_ACTIONS = new Set(['squat', 'pushup', 'pullup', 'lateral-raise', 'bent-over-row'])
 
 type Mode = 'live' | 'offline'
 type OfflineProgress = { stage: string; processed: number; total: number } | null
@@ -68,17 +75,21 @@ type LiveSessionSummary = {
 
 type OfflineOverlayTone = 'ok' | 'warn' | 'bad'
 type OfflineOverlayFrame = { tMs: number; tone: OfflineOverlayTone; message: string | null }
-type OfflineReplayData = { fps: number; frames: PoseFrame[]; nativeFrames: MoveNetNativeFrame[]; overlayFrames: OfflineOverlayFrame[] }
+type OfflineReplayData = { fps: number; nativeFrames: MoveNetNativeFrame[]; overlayFrames: OfflineOverlayFrame[] }
 
 export default function PoseToolPage() {
   const params = useParams<{ exerciseSlug: string }>()
   const exercise = getPoseExerciseBySlug(params.exerciseSlug)
   const { user } = useAuth()
   const location = useLocation()
-  const [mode, setMode] = useState<Mode>(() => {
+  const nav = useNavigate()
+  const mode = useMemo<Mode>(() => {
+    const pathname = location.pathname.toLowerCase()
+    if (pathname.endsWith('/video')) return 'offline'
+    if (pathname.endsWith('/live')) return 'live'
     const raw = new URLSearchParams(location.search).get('mode')
     return raw === 'offline' ? 'offline' : 'live'
-  })
+  }, [location.pathname, location.search])
 
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -121,13 +132,13 @@ export default function PoseToolPage() {
   const [drawMode, setDrawMode] = useState<'midline' | 'full17'>('full17')
   const [savingTraining, setSavingTraining] = useState(false)
   const [saveTrainingMsg, setSaveTrainingMsg] = useState<string | null>(null)
-  const [savedLiveSessionId, setSavedLiveSessionId] = useState<number | null>(null)
+  const [, setSavedLiveSessionId] = useState<number | null>(null)
   const [previewScale, setPreviewScale] = useState(0.78)
   const [liveSessionStatus, setLiveSessionStatus] = useState<LiveSessionStatus>('idle')
   const [liveSessionEndReason, setLiveSessionEndReason] = useState<LiveSessionEndReason>(null)
   const [liveSessionElapsedMs, setLiveSessionElapsedMs] = useState(0)
   const [liveSessionSummary, setLiveSessionSummary] = useState<LiveSessionSummary | null>(null)
-  const [liveSquatTuning, setLiveSquatTuning] = useState<Squat17Tuning>({ ...REALTIME_DEFAULT_SQUAT17_TUNING })
+  const [liveSquatTuning, setLiveSquatTuning] = useState<SquatTuning>({ ...REALTIME_DEFAULT_SQUAT_TUNING })
   const [savingSquatTuningConfig, setSavingSquatTuningConfig] = useState(false)
   const [squatTuningConfigMsg, setSquatTuningConfigMsg] = useState<string | null>(null)
 
@@ -326,7 +337,7 @@ export default function PoseToolPage() {
     let cancelled = false
     void (async () => {
       try {
-        const cfg = await getSquat17TuningConfig()
+        const cfg = await getSquatTuningConfig()
         if (cancelled) return
         if (cfg?.tuning) {
           setLiveSquatTuning((prev) => ({ ...prev, ...cfg.tuning }))
@@ -353,7 +364,13 @@ export default function PoseToolPage() {
     setTracking(null)
     setDistance(null)
 
-    analyzerRef.current = createAnalyzer(exercise.slug)
+    try {
+      analyzerRef.current = createAnalyzer(exercise.slug)
+    } catch (e: unknown) {
+      analyzerRef.current = null
+      setError(e instanceof Error ? e.message : 'Analyzer initialization failed')
+      return
+    }
     const defaults = getAnalyzerDefaults(exercise.slug as never, 'live')
     if (exercise.slug === 'squat') analyzerRef.current.setTuning?.(liveSquatTuning)
     else if (defaults.tuning) analyzerRef.current.setTuning?.(defaults.tuning)
@@ -434,39 +451,36 @@ export default function PoseToolPage() {
     }
   }, [])
 
-  const currentSuggestion = useMemo(() => {
-    if (!feedback) return 'Start the camera to receive live form coaching.'
-    return (
-      feedback.lastRepReasonLabels[0] ??
-      feedback.lastRepMessage ??
-      feedback.issues[0]?.message ??
-      feedback.warnings[0] ??
-      (exercise.slug === 'lateral-raise'
-        ? 'Move both arms together, keep shoulders down, and avoid torso swing.'
-        : exercise.slug === 'pushup'
-          ? 'Brace your core, keep your body line straight, and lower under control.'
-          : exercise.slug === 'pullup'
-            ? 'Pull smoothly, avoid swinging, and lower under control.'
-            : exercise.slug === 'bench-press'
-              ? 'Lower under control, keep wrists stacked, and press in a smooth path.'
-        : 'Keep a steady tempo and align your knees with your toes.')
-    )
-  }, [exercise.slug, feedback])
+  const currentMainTip = useMemo(
+    () =>
+      pickLiveMainTip({
+        exerciseSlug: exercise.slug,
+        feedback: feedback
+          ? {
+              warnings: feedback.warnings ?? [],
+              issues: feedback.issues?.map((x) => ({ message: x.message })) ?? [],
+              lastRepMessage: feedback.lastRepMessage ?? null,
+              lastRepReasonLabels: feedback.lastRepReasonLabels ?? []
+            }
+          : null
+      }),
+    [exercise.slug, feedback]
+  )
 
-  const [displaySuggestion, setDisplaySuggestion] = useState(() => currentSuggestion)
+  const [displayMainTip, setDisplayMainTip] = useState(() => currentMainTip)
   const suggestionLastUpdatedRef = useRef(0)
   const suggestionTimerRef = useRef<number | null>(null)
-  const suggestionPendingRef = useRef(currentSuggestion)
+  const suggestionPendingRef = useRef(currentMainTip)
 
   useEffect(() => {
-    suggestionPendingRef.current = currentSuggestion
+    suggestionPendingRef.current = currentMainTip
 
     const now = Date.now()
     const elapsed = now - suggestionLastUpdatedRef.current
 
     if (elapsed >= 1000) {
       suggestionLastUpdatedRef.current = now
-      setDisplaySuggestion(currentSuggestion)
+      setDisplayMainTip(currentMainTip)
       if (suggestionTimerRef.current !== null) {
         window.clearTimeout(suggestionTimerRef.current)
         suggestionTimerRef.current = null
@@ -478,7 +492,7 @@ export default function PoseToolPage() {
     const waitMs = 1000 - elapsed
     suggestionTimerRef.current = window.setTimeout(() => {
       suggestionLastUpdatedRef.current = Date.now()
-      setDisplaySuggestion(suggestionPendingRef.current)
+      setDisplayMainTip(suggestionPendingRef.current)
       suggestionTimerRef.current = null
     }, waitMs)
 
@@ -488,7 +502,7 @@ export default function PoseToolPage() {
         suggestionTimerRef.current = null
       }
     }
-  }, [currentSuggestion])
+  }, [currentMainTip])
 
   const rangeStatusText = useMemo(() => {
     if (!distance) return 'Waiting for detection'
@@ -606,7 +620,24 @@ export default function PoseToolPage() {
         messageFreq: liveIssueFreqRef.current,
         analyzedFrameCount: liveAnalyzedFrameCountRef.current,
         trackingQualitySamples: liveTrackingQualitySamplesRef.current,
-        timelineRows: liveTimelineRowsRef.current
+        timelineRows: liveTimelineRowsRef.current,
+        repFindings: liveRepFindingsRef.current
+      })
+    }
+    if (exercise.slug === 'bent-over-row') {
+      return buildBentOverRowAlignedReport({
+        source: 'live',
+        taskId: sessionStartedAtRef.current ? `live-${sessionStartedAtRef.current}` : 'live-session',
+        viewAngle: 'side',
+        exercise: { id: exercise.slug, name: exercise.displayName },
+        video: null,
+        fps: effectiveFps ?? LIVE_TARGET_FPS,
+        lastFeedback: feedback,
+        messageFreq: liveIssueFreqRef.current,
+        analyzedFrameCount: liveAnalyzedFrameCountRef.current,
+        trackingQualitySamples: liveTrackingQualitySamplesRef.current,
+        timelineRows: liveTimelineRowsRef.current,
+        repFindings: liveRepFindingsRef.current
       })
     }
 
@@ -614,8 +645,9 @@ export default function PoseToolPage() {
       ? `Live training: total ${feedback.session.totalReps}, correct ${feedback.session.correctReps}, accuracy ${feedback.session.accuracyPct}%`
       : 'No live training data yet'
     const issueMessages = collectLiveIssueMessages(feedback)
-    const suggestions = buildLiveSuggestions(feedback, currentSuggestion, exercise.slug)
-    return normalizeReportForArchive({
+    const suggestions = buildLiveSuggestions(feedback, currentMainTip.label, exercise.slug)
+    return humanizePoseReport(
+      normalizeReportForArchive({
       version: 1,
       status: 'ok',
       tool: 'pose-live',
@@ -637,7 +669,7 @@ export default function PoseToolPage() {
       torsoAngle: feedback?.torsoAngle ?? null,
       offsetAngle: feedback?.offsetAngle ?? null,
       trackingQuality: feedback?.trackingQuality ?? null,
-      currentSuggestion,
+      currentSuggestion: currentMainTip.label,
       warnings: feedback?.warnings ?? [],
       issues: issueMessages.map((message) => ({
         code: toIssueCode(message),
@@ -646,8 +678,9 @@ export default function PoseToolPage() {
         atFrame: null
       })),
       suggestions
-    })
-  }, [currentSuggestion, effectiveFps, exercise.displayName, exercise.slug, feedback])
+      }) as never
+    )
+  }, [currentMainTip.label, effectiveFps, exercise.displayName, exercise.slug, feedback])
 
   async function getLiveProvider() {
     if (liveProviderRef.current) return liveProviderRef.current
@@ -679,7 +712,16 @@ export default function PoseToolPage() {
     resetLiveDedicatedSessionStats()
 
     try {
-      if (!analyzerRef.current) analyzerRef.current = createAnalyzer(exercise.slug)
+      if (!analyzerRef.current) {
+        try {
+          analyzerRef.current = createAnalyzer(exercise.slug)
+        } catch (e: unknown) {
+          setLoading(false)
+          setLoadingMsg(null)
+          setError(e instanceof Error ? e.message : 'Analyzer initialization failed')
+          return
+        }
+      }
       const defaults = getAnalyzerDefaults(exercise.slug as never, 'live')
       if (exercise.slug === 'squat') analyzerRef.current.setTuning?.(liveSquatTuning)
       else if (defaults.tuning) analyzerRef.current.setTuning?.(defaults.tuning)
@@ -747,21 +789,12 @@ export default function PoseToolPage() {
 
         try {
           const detected = await provider.detect(videoEl, frameTs)
-          const landmarks = detected.landmarks
-          const hasNative = !!detected.nativeKeypoints && detected.nativeKeypoints.length > 0
-          if ((landmarks || hasNative) && analyzerRef.current && stabilizerRef.current && distanceTrackerRef.current) {
-            const nextFeedback =
-              hasNative && analyzerRef.current.analyzeNative
-                ? analyzerRef.current.analyzeNative(detected.nativeKeypoints!)
-                : landmarks
-                  ? analyzerRef.current.analyze(landmarks)
-                  : null
-            if (!nextFeedback) {
-              requestAnimationFrame(() => void tick())
-              return
-            }
+          const nativeKeypoints = detected.nativeKeypoints
+          const hasNative = !!nativeKeypoints && nativeKeypoints.length > 0
+          if (hasNative && analyzerRef.current && stabilizerRef.current && distanceTrackerRef.current) {
+            const nextFeedback = analyzerRef.current.analyzeNative(nativeKeypoints)
             setFeedback(nextFeedback)
-            if (exercise.slug === 'squat' || exercise.slug === 'pullup' || exercise.slug === 'lateral-raise') {
+            if (exercise.slug === 'squat' || exercise.slug === 'pullup' || exercise.slug === 'lateral-raise' || exercise.slug === 'bent-over-row') {
               liveAnalyzedFrameCountRef.current += 1
               if (Number.isFinite(nextFeedback.trackingQuality)) {
                 liveTrackingQualitySamplesRef.current.push(nextFeedback.trackingQuality)
@@ -804,16 +837,10 @@ export default function PoseToolPage() {
               }
             }
 
-            const trackingState = landmarks ? stabilizerRef.current.ingest(mediapipeToMoveNetFrame(landmarks, frameTs)) : null
+            const trackingState = stabilizerRef.current.ingest({ tMs: frameTs, keypoints: nativeKeypoints })
             setTracking(trackingState)
 
-            const distanceState = landmarks
-              ? distanceTrackerRef.current.ingest({
-                  tMs: frameTs,
-                  landmarks,
-                  worldLandmarks: detected.worldLandmarks
-                })
-              : null
+            const distanceState = distanceTrackerRef.current.ingest({ tMs: frameTs, keypoints: nativeKeypoints })
             setDistance(distanceState)
 
             const overlayColor = nextFeedback.issues.length > 0 ? 'bad' : nextFeedback.warnings.length > 0 ? 'warn' : 'ok'
@@ -958,8 +985,8 @@ export default function PoseToolPage() {
         ended_at: new Date().toISOString(),
         exercise_type: exercise.exerciseType,
         note: buildTrainingRecordName({ startedAt, exerciseName: exercise.displayName }),
-        sets: [{ reps, note: currentSuggestion }],
-        report: liveReport as Record<string, unknown>
+        sets: [{ reps, note: currentMainTip.label }],
+        report: humanizePoseReport(liveReport as never) as unknown as Record<string, unknown>
       })
       setSaveTrainingMsg(`Saved training record #${session.id}`)
       setSavedLiveSessionId(session.id)
@@ -975,7 +1002,7 @@ export default function PoseToolPage() {
     setSavingSquatTuningConfig(true)
     setSquatTuningConfigMsg(null)
     try {
-      const saved = await updateSquat17TuningConfig(liveSquatTuning)
+      const saved = await updateSquatTuningConfig(liveSquatTuning)
       setLiveSquatTuning(saved.tuning)
       setSquatTuningConfigMsg('Saved to backend defaults. It will persist across refresh and restart.')
     } catch (e: unknown) {
@@ -1094,11 +1121,7 @@ export default function PoseToolPage() {
       setOfflineProgress({ stage: 'Preparing local video', processed: 1, total: 1 })
 
       const effectiveViewAngle: 'unknown' | 'front' | 'side' | 'back' =
-        exercise.slug === 'squat' || exercise.slug === 'bench-press'
-          ? 'side'
-          : exercise.slug === 'pullup' || exercise.slug === 'lateral-raise'
-            ? 'front'
-            : offlineViewAngle
+        exercise.slug === 'squat' ? 'side' : exercise.slug === 'pullup' || exercise.slug === 'lateral-raise' ? 'front' : exercise.slug === 'bent-over-row' ? 'side' : offlineViewAngle
       const localVideoMeta = {
         id: `local-${Date.now()}`,
         originalName: offlineFile.name,
@@ -1107,11 +1130,12 @@ export default function PoseToolPage() {
       }
 
       let extractedFps = 40
-      const extracted = await extractPose33FromVideoUrlWithMoveNet(localObjectUrl, {
+      const extracted = await extractNativePoseFromVideoUrlWithMoveNet(localObjectUrl, {
         targetFps: OFFLINE_ANALYSIS_TARGET_FPS,
         maxFrames: OFFLINE_ANALYSIS_MAX_FRAMES,
         maxDurationSec: OFFLINE_ANALYSIS_LIMIT_SEC,
         detectorVariant: 'thunder',
+        preferPlaybackSampling: false,
         onProgress: (p) => {
           setOfflineProgress({
             stage: p.stage === 'loading' ? 'Loading MoveNet model' : 'Extracting pose keypoints',
@@ -1120,17 +1144,11 @@ export default function PoseToolPage() {
           })
         }
       })
-      let extractedFrames = extracted.frames
       let extractedNativeFrames = extracted.nativeFrames
       extractedFps = extracted.fps
-      const baseT =
-        Math.min(
-          typeof extractedFrames[0]?.tMs === 'number' && Number.isFinite(extractedFrames[0]!.tMs) ? extractedFrames[0]!.tMs : Infinity,
-          typeof extractedNativeFrames[0]?.tMs === 'number' && Number.isFinite(extractedNativeFrames[0]!.tMs) ? extractedNativeFrames[0]!.tMs : Infinity
-        ) ?? 0
+      const baseT = (typeof extractedNativeFrames[0]?.tMs === 'number' && Number.isFinite(extractedNativeFrames[0]!.tMs) ? extractedNativeFrames[0]!.tMs : 0) ?? 0
       const baseTms = Number.isFinite(baseT) && baseT > 0 ? baseT : 0
       if (baseTms > 0) {
-        extractedFrames = extractedFrames.map((f) => ({ ...f, tMs: Math.max(0, f.tMs - baseTms) }))
         extractedNativeFrames = extractedNativeFrames.map((f) => ({ ...f, tMs: Math.max(0, f.tMs - baseTms) }))
       }
       if (exercise.slug === 'squat' && !extractedNativeFrames.length) {
@@ -1142,7 +1160,7 @@ export default function PoseToolPage() {
 
       const taskId = `local-${Date.now()}`
       const squatTuningForVideo = exercise.slug === 'squat' ? { ...liveSquatTuning } : undefined
-      const report =
+      const rawReport =
         exercise.slug === 'squat'
           ? buildSquatVideoLiveStyleReport({
               taskId,
@@ -1150,7 +1168,6 @@ export default function PoseToolPage() {
               exercise: { id: exercise.id, name: exercise.exerciseType },
               video: localVideoMeta,
               fps: extractedFps,
-              frames: extractedFrames,
               nativeFrames: extractedNativeFrames,
               tuning: squatTuningForVideo,
               onProgress: (processed, total) => {
@@ -1164,43 +1181,53 @@ export default function PoseToolPage() {
                 exercise: { id: exercise.id, name: exercise.exerciseType },
                 video: localVideoMeta,
                 fps: extractedFps,
-                frames: extractedFrames,
                 nativeFrames: extractedNativeFrames,
                 onProgress: (processed, total) => {
                   setOfflineProgress({ stage: 'Replaying real-time pull-up analyzer', processed, total })
                 }
               })
             : exercise.slug === 'lateral-raise'
-              ? buildLateralRaiseVideoLiveStyleReport({
+                ? buildLateralRaiseVideoLiveStyleReport({
+                    taskId,
+                    viewAngle: effectiveViewAngle,
+                    exercise: { id: exercise.id, name: exercise.exerciseType },
+                    video: localVideoMeta,
+                    fps: extractedFps,
+                    nativeFrames: extractedNativeFrames,
+                    onProgress: (processed, total) => {
+                      setOfflineProgress({ stage: 'Replaying real-time lateral-raise analyzer', processed, total })
+                    }
+                  })
+                : exercise.slug === 'bent-over-row'
+                  ? buildBentOverRowVideoLiveStyleReport({
+                      taskId,
+                      viewAngle: effectiveViewAngle,
+                      exercise: { id: exercise.id, name: exercise.exerciseType },
+                      video: localVideoMeta,
+                      fps: extractedFps,
+                      nativeFrames: extractedNativeFrames,
+                      onProgress: (processed, total) => {
+                        setOfflineProgress({ stage: 'Replaying real-time bent-over-row analyzer', processed, total })
+                      }
+                    })
+                  : buildPushupVideoLiveStyleReport({
                   taskId,
                   viewAngle: effectiveViewAngle,
                   exercise: { id: exercise.id, name: exercise.exerciseType },
                   video: localVideoMeta,
                   fps: extractedFps,
-                  frames: extractedFrames,
                   nativeFrames: extractedNativeFrames,
-                  onProgress: (processed, total) => {
-                    setOfflineProgress({ stage: 'Replaying real-time lateral-raise analyzer', processed, total })
-                  }
-                })
-              : buildPushupVideoLiveStyleReport({
-                  taskId,
-                  viewAngle: effectiveViewAngle,
-                  exercise: { id: exercise.id, name: exercise.exerciseType },
-                  video: localVideoMeta,
-                  fps: extractedFps,
-                  frames: extractedFrames,
                   onProgress: (processed, total) => {
                     setOfflineProgress({ stage: 'Replaying real-time push-up analyzer', processed, total })
                   }
                 })
       setOfflineCompletedStep(3)
+      const report = humanizePoseReport(rawReport as never) as unknown as PoseAnalysisReport
 
-      setOfflineProgress({ stage: 'Building replay overlay', processed: 0, total: extractedFrames.length })
+      setOfflineProgress({ stage: 'Building replay overlay', processed: 0, total: extractedNativeFrames.length })
       const overlayFrames = buildOfflineOverlayFrames({
         exerciseSlug: exercise.slug,
         fps: extractedFps,
-        frames: extractedFrames,
         nativeFrames: extractedNativeFrames,
         squatTuning: squatTuningForVideo,
         onProgress: (processed, total) => {
@@ -1209,7 +1236,6 @@ export default function PoseToolPage() {
       })
       offlineReplayDataRef.current = {
         fps: extractedFps,
-        frames: extractedFrames,
         nativeFrames: extractedNativeFrames,
         overlayFrames
       }
@@ -1223,7 +1249,7 @@ export default function PoseToolPage() {
         if (!user) throw new Error('Please log in if you want to save this local report to training history.')
         setOfflineArchiveStatus('saving')
         const reps = getRepsFromReport(report)
-        const startedAt = new Date(Date.now() - Math.max(1000, Math.round((extractedFrames.length / Math.max(1, extractedFps)) * 1000))).toISOString()
+        const startedAt = new Date(Date.now() - Math.max(1000, Math.round((extractedNativeFrames.length / Math.max(1, extractedFps)) * 1000))).toISOString()
         const session = await createPoseTraining({
           started_at: startedAt,
           ended_at: new Date().toISOString(),
@@ -1255,12 +1281,6 @@ export default function PoseToolPage() {
     }
   }
 
-  const currentViewAngle =
-    exercise.slug === 'squat' || exercise.slug === 'bench-press'
-      ? 'side'
-      : exercise.slug === 'pullup' || exercise.slug === 'lateral-raise'
-        ? 'front'
-        : offlineViewAngle
   const taskStatusText = offlineBusy
     ? 'Analyzing video...'
     : offlineLocalStatus === 'succeeded'
@@ -1298,6 +1318,61 @@ export default function PoseToolPage() {
     { label: 'Finalize local report', done: offlineCompletedStep >= 4 || !!offlineReport },
     { label: 'Archive to training history', done: offlineArchiveStatus === 'done', failed: offlineArchiveStatus === 'failed', saving: offlineArchiveStatus === 'saving' }
   ]
+  const hasTutorialVideo =
+    exercise.slug === 'squat' || exercise.slug === 'pushup' || exercise.slug === 'lateral-raise' || exercise.slug === 'bent-over-row'
+  const tutorialVideoSrc = hasTutorialVideo ? `/assets/images/vedios/${encodeURIComponent(exercise.displayName)}.mp4` : null
+  const teachingCopy = (() => {
+    if (exercise.slug === 'pushup') {
+      return {
+        cameraAngle: 'Place your camera at a true side view (about 90°) so your whole body stays in frame.',
+        tipsLines: [
+          'Start in a straight line from head to heels.',
+          'Hands under shoulders, core tight.',
+          'Lower with control until elbows reach about 90°.',
+          'Keep elbows slightly tucked (not flared).',
+          'Press up by pushing the floor away; avoid hips sagging or piking; keep neck neutral.'
+        ]
+      }
+    }
+    if (exercise.slug === 'bent-over-row') {
+      return {
+        cameraAngle: 'Use a side view (about 60–90°) to clearly see your hip hinge and the dumbbells’ path.',
+        tipsLines: [
+          'Hinge at the hips with a flat back; knees softly bent; chest proud.',
+          'Keep your torso angle stable.',
+          'Pull dumbbells toward lower ribs/waist by driving elbows back close to your body.',
+          'Pause briefly at the top.',
+          'Lower slowly without swinging; avoid shrugging; avoid using momentum.'
+        ]
+      }
+    }
+    if (exercise.slug === 'lateral-raise') {
+      return {
+        cameraAngle: 'Set the camera directly in front (0°) so both arms are equally visible.',
+        tipsLines: [
+          'Stand tall with a slight bend in the elbows.',
+          'Raise dumbbells to about shoulder height.',
+          'Keep shoulders down (don’t shrug) and wrists neutral.',
+          'Lead with elbows slightly higher than wrists.',
+          'Control the lowering phase; avoid rocking your torso to “cheat” the weight up.'
+        ]
+      }
+    }
+    if (exercise.slug === 'squat') {
+      return {
+        cameraAngle: 'Use a 30–45° front angle (or a true side view at 90°) to capture hips, knees, and ankles clearly.',
+        tipsLines: [
+          'Feet about shoulder-width; toes slightly out; brace core before descending.',
+          'Sit hips down and back; let knees track over toes.',
+          'Keep heels planted and chest up.',
+          'Aim for depth you can control.',
+          'Stand by pushing the floor away and driving hips up.',
+          'Avoid knees collapsing inward; avoid bouncing at the bottom.'
+        ]
+      }
+    }
+    return null
+  })()
 
   return (
     <>
@@ -1324,74 +1399,106 @@ export default function PoseToolPage() {
       <section className="pt-100 pb-100 pose-tool-page">
         <div className="container">
           <div className="pose-mode-switch mb-30">
-            <button className={mode === 'live' ? 'cl_theme-btn' : 'pose-tool-ghost-btn pose-tool-light-btn'} onClick={() => setMode('live')} type="button">
+            <button
+              className={mode === 'live' ? 'cl_theme-btn' : 'pose-tool-ghost-btn pose-tool-light-btn'}
+              onClick={() => nav(buildPoseToolPath(exercise.slug))}
+              type="button"
+            >
               Live Coaching
             </button>
-            <button className={mode === 'offline' ? 'cl_theme-btn' : 'pose-tool-ghost-btn pose-tool-light-btn'} onClick={() => setMode('offline')} type="button">
+            <button
+              className={mode === 'offline' ? 'cl_theme-btn' : 'pose-tool-ghost-btn pose-tool-light-btn'}
+              onClick={() => nav(buildPoseVideoPath(exercise.slug))}
+              type="button"
+            >
               Video Analysis
             </button>
-            <Link to={buildPoseHistoryPath(exercise.slug)} className="pose-tool-ghost-btn pose-tool-light-btn">
+            <Link to={buildPoseHistoryPath(exercise.slug)} className="pose-tool-ghost-btn pose-tool-light-btn pose-mode-switch__history">
               Training History
             </Link>
           </div>
 
           {mode === 'live' ? (
             <div className="row pose-live-layout pose-live-shell">
-              <div className="col-xl-3 col-lg-12 d-flex">
-                <div className="cl_blog-widget mb-30 pose-live-feedback h-100 w-100 pose-live-right-card pose-live-guide-card">
+              <div className="col-xl-3 col-lg-12">
+                <div className="cl_blog-widget mb-30 pose-live-feedback w-100 pose-live-right-card pose-live-guide-card">
                   <div className="pose-panel-head">
                     <span className="pose-panel-kicker">Guide</span>
                     <h4 className="pose-panel-title">{exercise.displayName} Quick Guide</h4>
                     <p className="pose-panel-subtitle">How to operate, read the camera overlay, and follow form cues.</p>
                   </div>
 
-                  <div className="pose-tip-card pose-tip-card-light pose-live-section">
-                    <h6 className="sub-title mb-15 pose-section-title">1) Setup</h6>
+                  <details className="pose-guide-details pose-tip-card pose-tip-card-light pose-live-section">
+                    <summary className="pose-guide-details__summary">1) Setup</summary>
                     <ul className="pose-detail-list pose-detail-list-light">
                       <li>Place the camera steady and keep your full body in frame.</li>
                       <li>Tap Start and move at a controlled tempo.</li>
                       <li>Tap Stop to end the set, then save if it looks valid.</li>
                     </ul>
-                  </div>
+                  </details>
 
-                  <div className="pose-tip-card pose-tip-card-light pose-live-section">
-                    <h6 className="sub-title mb-15 pose-section-title">2) Read the Overlay</h6>
+                  <details className="pose-guide-details pose-tip-card pose-tip-card-light pose-live-section">
+                    <summary className="pose-guide-details__summary">2) Color Overlay</summary>
                     <ul className="pose-detail-list pose-detail-list-light">
                       <li>Body box: Green = OK, Orange = too close, Red = too far.</li>
                       <li>Skeleton lines: Green = normal, Yellow = warning, Red = issue.</li>
                       <li>Use Live Feedback to correct form between reps.</li>
                     </ul>
-                  </div>
+                  </details>
 
-                  <div className="pose-tip-card pose-tip-card-light pose-live-section">
-                    <h6 className="sub-title mb-15 pose-section-title">3) Validity & Scoring</h6>
+                  <details className="pose-guide-details pose-tip-card pose-tip-card-light pose-live-section">
+                    <summary className="pose-guide-details__summary">3) Validity & Scoring</summary>
                     <ul className="pose-detail-list pose-detail-list-light">
                       <li>Keep camera distance at OK and avoid leaving the frame.</li>
                       <li>Maintain the required view angle for your exercise.</li>
                       <li>Unstable tracking can reduce assessed rep coverage.</li>
                     </ul>
+                  </details>
+                </div>
+
+                <div className="cl_blog-widget mb-30 pose-live-feedback w-100 pose-live-right-card pose-live-guide-card">
+                  <div className="pose-panel-head">
+                    <span className="pose-panel-kicker">Tip</span>
+                    <h4 className="pose-panel-title">{exercise.displayName} Teaching Video</h4>
                   </div>
 
                   <div className="pose-tip-card pose-tip-card-light pose-live-section">
-                    <details className="pose-guide-details">
-                      <summary className="pose-guide-details__summary">Advanced tips</summary>
-                      {exercise.slug === 'squat' ? (
-                        <ul className="pose-detail-list pose-detail-list-light">
-                          <li>Use a clear side view and keep feet visible.</li>
-                          <li>Sit hips back and avoid knee-forward drift.</li>
-                          <li>Brace core and keep a controlled tempo.</li>
-                          <li>Tempo rule: a rep faster than 1.20s is marked as Too Fast.</li>
-                        </ul>
-                      ) : (
-                        <ul className="pose-detail-list pose-detail-list-light">
-                          {exercise.guideTips.map((tip) => (
-                            <li key={tip.title}>
-                              <strong style={{ color: '#0f766e' }}>{tip.title}:</strong> {tip.content}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </details>
+                    {teachingCopy ? (
+                      <>
+                        <div
+                          style={{
+                            position: 'sticky',
+                            top: 12,
+                            zIndex: 1,
+                            borderRadius: 14,
+                            padding: '10px 12px',
+                            border: '1px solid rgba(16, 185, 129, 0.35)',
+                            background: '#ecfdf5',
+                            color: '#065f46',
+                            fontWeight: 900,
+                            lineHeight: 1.35
+                          }}
+                        >
+                          <span style={{ textTransform: 'uppercase', letterSpacing: 0.3 }}>Camera angle:</span> {teachingCopy.cameraAngle}
+                        </div>
+                        <details className="pose-guide-details" style={{ marginTop: 10 }}>
+                          <summary className="pose-guide-details__summary">Tips</summary>
+                          <ul className="pose-detail-list pose-detail-list-light" style={{ marginTop: 10, marginBottom: 0 }}>
+                            {teachingCopy.tipsLines.map((line) => (
+                              <li key={line}>{line}</li>
+                            ))}
+                          </ul>
+                        </details>
+                        <div style={{ height: 12 }} />
+                      </>
+                    ) : null}
+                    {tutorialVideoSrc ? (
+                      <div className="pose-video-preview" style={{ marginTop: 0 }}>
+                        <video className="pose-video-preview__media" autoPlay muted loop playsInline controls src={tutorialVideoSrc} />
+                      </div>
+                    ) : (
+                      <div className="pose-muted-copy">&nbsp;</div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1553,11 +1660,6 @@ export default function PoseToolPage() {
                       <button className="pose-tool-ghost-btn pose-tool-light-btn" disabled={savingTraining} onClick={() => void saveTrainingRecord()} type="button">
                         {savingTraining ? 'Saving...' : 'Save Training'}
                       </button>
-                      {savedLiveSessionId ? (
-                        <Link to={buildPoseReportPath(exercise.slug, savedLiveSessionId)} className="cl_theme-btn">
-                          Open Report
-                        </Link>
-                      ) : null}
                     </div>
                     {saveTrainingMsg ? <div className="pose-inline-note">{saveTrainingMsg}</div> : null}
                   </div>
@@ -1576,32 +1678,16 @@ export default function PoseToolPage() {
                       <MetricCard label={<LabelWithTip label={exercise.secondaryMetricLabel} tip={exercise.secondaryMetricTip} />} value={feedback?.kneeAngle ?? '-'} unit={feedback?.kneeAngle ? '°' : ''} />
                       <MetricCard label={<LabelWithTip label="Hip Bend" tip="Estimated hip joint angle during your movement." />} value={feedback?.hipAngle ?? '-'} unit={feedback?.hipAngle ? '°' : ''} />
                       <MetricCard label={<LabelWithTip label="Torso Lean" tip="Estimated torso angle relative to upright posture." />} value={feedback?.torsoAngle ?? '-'} unit={feedback?.torsoAngle ? '°' : ''} />
-                      <MetricCard label={<LabelWithTip label="Side View" tip="Current camera-side alignment status for squat validity." />} value={exercise.slug === 'squat' ? (sideViewIndicator?.ok ? 'OK' : 'Adjust') : '-'} />
                     </div>
 
-                    {exercise.slug === 'squat' && sideViewIndicator ? (
-                      <div className="pose-tip-card pose-tip-card-light pose-live-section pose-live-section-split" role="status">
-                        <h6 className="sub-title mb-15 pose-section-title">Side View</h6>
-                        <p
-                          className="pose-live-coaching-copy pose-sideview-copy"
-                          style={{
-                            ...sideViewIndicator.style,
-                            borderRadius: 10,
-                            padding: '10px 12px',
-                            minHeight: 72,
-                            display: 'flex',
-                            alignItems: 'center',
-                            fontWeight: 700
-                          }}
-                        >
-                          {sideViewIndicator.text}
-                        </p>
-                      </div>
-                    ) : null}
-
                     <div className="pose-tip-card pose-tip-card-light pose-live-section pose-live-section-split">
-                      <h6 className="sub-title mb-15 pose-section-title">Coaching Tip</h6>
-                      <p className="pose-live-coaching-copy pose-live-coaching-copy-fill">{displaySuggestion}</p>
+                      <div className="pose-live-tip-head">
+                        <h6 className="sub-title mb-15 pose-section-title" style={{ marginBottom: 0 }}>
+                          Coaching Tip
+                        </h6>
+                        <span className={`pose-tier-pill pose-tier-${displayMainTip.tier}`}>{poseTierLabel(displayMainTip.tier)}</span>
+                      </div>
+                      <p className="pose-live-coaching-copy pose-live-coaching-copy-fill">{displayMainTip.label}</p>
                     </div>
 
                     <div className="pose-tip-card pose-tip-card-light pose-live-section">
@@ -1629,9 +1715,9 @@ export default function PoseToolPage() {
               </div>
             </div>
           ) : (
-            <div className="row">
-              <div className="col-12">
-                <div className="cl_blog-widget mb-30">
+            <div className="row pose-video-layout">
+              <div className="col-xl-8 col-lg-7 d-flex">
+                <div className="cl_blog-widget mb-30 h-100 w-100 pose-video-analysis-card">
                   <div className="pose-tool-head">
                     <div>
                       <h4 className="cl_blog-widget-title mb-15">{exercise.displayName} - Video Analysis</h4>
@@ -1642,7 +1728,7 @@ export default function PoseToolPage() {
                     </div>
                   </div>
 
-                  <div className="pose-form-grid">
+                  <div className="pose-form-grid pose-form-grid-single">
                     <label className="pose-form-field">
                       <span>Video File</span>
                       <input
@@ -1662,24 +1748,6 @@ export default function PoseToolPage() {
                         </button>
                         <span className="pose-file-picker__name">{offlineFile ? offlineFile.name : 'No file selected'}</span>
                       </div>
-                    </label>
-
-                    <label className="pose-form-field">
-                      <span>View Angle</span>
-                      {exercise.slug === 'squat' || exercise.slug === 'bench-press' ? (
-                        <input value="Side (required)" readOnly />
-                      ) : exercise.slug === 'pullup' ? (
-                        <input value="Front (required)" readOnly />
-                      ) : exercise.slug === 'lateral-raise' ? (
-                        <input value="Front (required)" readOnly />
-                      ) : (
-                        <select value={offlineViewAngle} onChange={(e) => setOfflineViewAngle(e.target.value as 'unknown' | 'front' | 'side' | 'back')}>
-                          <option value="side">Side</option>
-                          <option value="front">Front</option>
-                          <option value="back">Back</option>
-                          <option value="unknown">Unknown</option>
-                        </select>
-                      )}
                     </label>
                   </div>
 
@@ -1755,12 +1823,56 @@ export default function PoseToolPage() {
                 </div>
               </div>
 
+              <div className="col-xl-4 col-lg-5 d-flex">
+                <div className="cl_blog-widget mb-30 h-100 w-100 pose-live-feedback pose-live-right-card pose-live-guide-card pose-video-teaching-card">
+                  <div className="pose-panel-head">
+                    <span className="pose-panel-kicker">Tip</span>
+                    <h4 className="pose-panel-title">{exercise.displayName} Teaching Video</h4>
+                  </div>
+
+                  <div className="pose-tip-card pose-tip-card-light pose-live-section">
+                    {teachingCopy ? (
+                      <>
+                        <div
+                          style={{
+                            borderRadius: 14,
+                            padding: '10px 12px',
+                            border: '1px solid rgba(16, 185, 129, 0.35)',
+                            background: '#ecfdf5',
+                            color: '#065f46',
+                            fontWeight: 900,
+                            lineHeight: 1.35
+                          }}
+                        >
+                          <span style={{ textTransform: 'uppercase', letterSpacing: 0.3 }}>Camera angle:</span> {teachingCopy.cameraAngle}
+                        </div>
+                        <div style={{ marginTop: 10 }}>
+                          <h6 className="sub-title mb-15 pose-section-title">Tips</h6>
+                          <ul className="pose-detail-list pose-detail-list-light" style={{ marginTop: 0, marginBottom: 0 }}>
+                            {teachingCopy.tipsLines.map((line) => (
+                              <li key={line}>{line}</li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div style={{ height: 12 }} />
+                      </>
+                    ) : null}
+                    {tutorialVideoSrc ? (
+                      <div className="pose-video-preview" style={{ marginTop: 0 }}>
+                        <video className="pose-video-preview__media" autoPlay muted loop playsInline controls src={tutorialVideoSrc} />
+                      </div>
+                    ) : (
+                      <div className="pose-muted-copy">&nbsp;</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <div className="col-12">
                 <div className="cl_blog-widget mb-30">
                   <h4 className="cl_blog-widget-title mb-30">Analysis Report</h4>
                   <div className="pose-report-overview">
                     <span className={`pose-status-pill ${taskStatusToneClass}`}>{taskStatusText}</span>
-                    <span className="pose-status-pill pose-status-pill-muted">View: {currentViewAngle}</span>
                     <span className="pose-status-pill pose-status-pill-muted">Video: {offlineFile ? `${Math.round(offlineFile.size / 1024 / 1024)} MB` : 'Not selected'}</span>
                   </div>
                   {analysisStarted ? (
@@ -1778,22 +1890,6 @@ export default function PoseToolPage() {
                   ) : null}
                   {offlineReport ? (
                     <>
-                      <div className="pose-export-row" style={{ justifyContent: 'flex-start', flexWrap: 'wrap' }}>
-                        <Link
-                          to={offlineReportSessionId ? buildPoseReportPath(exercise.slug, offlineReportSessionId) : '#'}
-                          className="cl_theme-btn"
-                          aria-disabled={offlineReportSessionId ? undefined : true}
-                          style={offlineReportSessionId ? undefined : { opacity: 0.5, pointerEvents: 'none' }}
-                          onClick={(e) => {
-                            if (!offlineReportSessionId) e.preventDefault()
-                          }}
-                        >
-                          Open Detailed Report
-                        </Link>
-                        <Link to={buildPoseHistoryPath(exercise.slug)} className="pose-tool-ghost-btn pose-tool-light-btn">
-                          Go To Training History
-                        </Link>
-                      </div>
                       <div style={{ marginTop: 14 }}>
                         <ReportVisualization report={offlineReport} />
                       </div>
@@ -1817,9 +1913,8 @@ export default function PoseToolPage() {
 function buildOfflineOverlayFrames(input: {
   exerciseSlug: string
   fps: number
-  frames: PoseFrame[]
   nativeFrames: MoveNetNativeFrame[]
-  squatTuning?: Partial<Squat17Tuning>
+  squatTuning?: Partial<SquatTuning>
   onProgress?: (processed: number, total: number) => void
 }): OfflineOverlayFrame[] {
   const getWarningMessage = (warning: unknown): string | null => {
@@ -1833,34 +1928,28 @@ function buildOfflineOverlayFrames(input: {
   analyzer.resetSession()
   analyzer.setAnalyzerFps?.(input.fps)
   const defaults = getAnalyzerDefaults(input.exerciseSlug as never, 'video')
-  if (input.exerciseSlug === 'squat') analyzer.setTuning?.(input.squatTuning ?? defaults.tuning ?? REALTIME_DEFAULT_SQUAT17_TUNING)
+  if (input.exerciseSlug === 'squat') analyzer.setTuning?.(input.squatTuning ?? defaults.tuning ?? REALTIME_DEFAULT_SQUAT_TUNING)
   else if (defaults.tuning) analyzer.setTuning?.(defaults.tuning)
   if (defaults.tempo) analyzer.setTempo?.(defaults.tempo)
 
-  const total = input.frames.length
+  const total = input.nativeFrames.length
   const out: OfflineOverlayFrame[] = []
-  for (let i = 0; i < input.frames.length; i++) {
-    const frame = input.frames[i]!
-    const native = input.nativeFrames[i]
-    const hasNative = !!native && Array.isArray(native.keypoints) && native.keypoints.length > 0
-    const hasLandmarks = Array.isArray(frame.landmarks) && frame.landmarks.length > 0
-
-    let feedback: RealtimeFeedback | null = null
-    if (hasNative && analyzer.analyzeNative) {
-      feedback = analyzer.analyzeNative(native!.keypoints)
-    } else if (hasLandmarks) {
-      feedback = analyzer.analyze(frame.landmarks!)
-    }
+  for (let i = 0; i < input.nativeFrames.length; i++) {
+    const native = input.nativeFrames[i]!
+    const hasNative = Array.isArray(native.keypoints) && native.keypoints.length > 0
+    const feedback: RealtimeFeedback | null = hasNative ? analyzer.analyzeNative(native.keypoints) : null
 
     const firstIssueMsg = feedback?.issues?.[0]?.message ?? null
     const firstWarnMsg = feedback ? getWarningMessage((feedback.warnings as unknown[] | undefined)?.[0]) : null
+    const rawMsg = firstIssueMsg ?? firstWarnMsg
+    const human = rawMsg ? mapPoseFeedbackMessage({ exerciseSlug: input.exerciseSlug, message: rawMsg }) : null
 
     out.push({
-      tMs: typeof frame.tMs === 'number' ? frame.tMs : typeof native?.tMs === 'number' ? native.tMs : (i / Math.max(1, input.fps)) * 1000,
-      tone: feedback && feedback.issues.length > 0 ? 'bad' : feedback && feedback.warnings.length > 0 ? 'warn' : 'ok',
-      message: firstIssueMsg ?? firstWarnMsg
+      tMs: typeof native.tMs === 'number' ? native.tMs : (i / Math.max(1, input.fps)) * 1000,
+      tone: human ? (human.tier === 'rep_fail' || human.tier === 'issue' ? 'bad' : human.tier === 'warning' || human.tier === 'gate' ? 'warn' : 'ok') : 'ok',
+      message: human?.shortHint ?? null
     })
-    if (input.onProgress && ((i + 1) % 40 === 0 || i === input.frames.length - 1)) input.onProgress(i + 1, total)
+    if (input.onProgress && ((i + 1) % 40 === 0 || i === input.nativeFrames.length - 1)) input.onProgress(i + 1, total)
   }
   return out
 }

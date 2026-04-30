@@ -1,37 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { apiFetch, resolveBackendUrl } from '../lib/api'
+import {
+  createBlogComment,
+  deleteComment,
+  getBlogComments,
+  getBlogDetail,
+  resolveBlogMediaUrl,
+  toggleBlogLike,
+  toggleCommentLike,
+  updateComment,
+  type BlogDetail,
+  type CommentNode
+} from '../features/blog'
 import { useAuth } from '../state/auth-context'
 
-type BlogDetail = {
-  id: number
-  title: string
-  cover_image_url: string | null
-  content: string
-  author: { id: number; username: string; avatar_url: string | null }
-  view_count: number
-  like_count: number
-  liked_by_me: boolean
-  created_at: string
-  tags: { id: number; name: string }[]
-}
-
-type CommentNode = {
-  id: number
-  blog_id: number
-  parent_id: number | null
-  content: string
-  like_count: number
-  liked_by_me: boolean
-  created_at: string
-  updated_at: string
-  user: { id: number; username: string; avatar_url: string | null }
-  replies: CommentNode[]
-}
-
 function resolveMediaUrl(url: string | null | undefined) {
-  if (!url) return null
-  return resolveBackendUrl(url)
+  return resolveBlogMediaUrl(url)
 }
 
 function CommentItem(props: {
@@ -49,16 +33,13 @@ function CommentItem(props: {
   const canDelete = auth.user && (props.meId === props.node.user.id || props.meId === props.blogAuthorId)
 
   async function like() {
-    await apiFetch(`/api/comments/${props.node.id}/like`, { method: 'POST' })
+    await toggleCommentLike(props.node.id)
     props.onReload()
   }
 
   async function submitReply() {
     if (!replyText.trim()) return
-    await apiFetch(`/api/blogs/${props.node.blog_id}/comments`, {
-      method: 'POST',
-      body: JSON.stringify({ content: replyText, parent_id: props.node.id })
-    })
+    await createBlogComment(props.node.blog_id, { content: replyText, parent_id: props.node.id })
     setReplyText('')
     setReplying(false)
     props.onReload()
@@ -66,16 +47,13 @@ function CommentItem(props: {
 
   async function saveEdit() {
     if (!editText.trim()) return
-    await apiFetch(`/api/comments/${props.node.id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ content: editText })
-    })
+    await updateComment(props.node.id, editText)
     setEditing(false)
     props.onReload()
   }
 
   async function remove() {
-    await apiFetch(`/api/comments/${props.node.id}`, { method: 'DELETE' })
+    await deleteComment(props.node.id)
     props.onReload()
   }
 
@@ -216,8 +194,8 @@ export default function BlogDetailPage() {
     () => async () => {
       if (!Number.isFinite(id)) return
       setError(null)
-      const b = await apiFetch<BlogDetail>(`/api/blogs/${id}`)
-      const c = await apiFetch<{ items: CommentNode[] }>(`/api/blogs/${id}/comments?page=1&page_size=20`)
+      const b = await getBlogDetail(id)
+      const c = await getBlogComments(id, 1, 20)
       setBlog(b)
       setComments(c.items)
     },
@@ -231,7 +209,7 @@ export default function BlogDetailPage() {
   async function toggleLike() {
     if (!blog) return
     try {
-      await apiFetch(`/api/blogs/${blog.id}/like`, { method: 'POST' })
+      await toggleBlogLike(blog.id)
       await load()
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Action failed')
@@ -242,10 +220,7 @@ export default function BlogDetailPage() {
     if (!blog || !commentText.trim()) return
     setError(null)
     try {
-      await apiFetch(`/api/blogs/${blog.id}/comments`, {
-        method: 'POST',
-        body: JSON.stringify({ content: commentText })
-      })
+      await createBlogComment(blog.id, { content: commentText })
       setCommentText('')
       await load()
     } catch (e: unknown) {

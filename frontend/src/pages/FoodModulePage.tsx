@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getTodaySummary } from '../lib/food/api'
-import type { DaySummary, FoodMealType } from '../lib/food/types_runtime'
+import { getTodaySummary, type DaySummary, type FoodMealType } from '../features/food'
 import { useAuth } from '../state/auth-context'
 import AppButton from '../components/ui/AppButton'
 import '../styles/food-module.css'

@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useParams } from 'react-router-dom'
-import { buildPoseToolPath, buildPoseVideoPath, getPoseExerciseBySlug } from '../lib/pose/exercises'
+import { buildPoseToolPath, buildPoseVideoPath, getPoseExerciseBySlug } from '../features/pose'
 
 export default function PoseGuidePage() {
   const params = useParams<{ exerciseSlug: string }>()

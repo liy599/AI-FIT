@@ -24,16 +24,19 @@ function mapGetUserMediaError(error: unknown) {
   }
 
   if (error.name === 'NotAllowedError' || error.name === 'SecurityError') {
-    return 'Camera permission was denied. Please allow camera access in browser settings.'
+    return 'Camera permission was denied or blocked by browser/system policy. Allow camera access for this site and check OS privacy settings.'
   }
   if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
     return 'No camera device was found. Please connect a camera and retry.'
   }
   if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
-    return 'Camera is busy or blocked by another app. Close other camera apps and retry.'
+    return 'Camera cannot be started. Possible causes: device in-use by another process, OS privacy block, camera hardware switch, driver issue, or browser device conflict. Retry after re-plugging camera/restarting browser and checking system camera privacy.'
   }
   if (error.name === 'OverconstrainedError') {
     return 'Requested camera settings are not supported by this device.'
+  }
+  if (error.name === 'NotSupportedError') {
+    return 'Camera is not supported in this browser context. Use a modern browser and ensure this page is served from localhost or HTTPS.'
   }
   if (error.name === 'AbortError') {
     return 'Camera initialization was interrupted. Please retry.'

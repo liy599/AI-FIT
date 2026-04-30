@@ -1,9 +1,25 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { API_BASE, apiFetch, apiUpload, resolveBackendUrl } from '../lib/api'
-import { buildPoseHistoryPath, getPoseExerciseByType } from '../lib/pose/exercises'
-import { listPoseTrainings, type PoseTrainingSession } from '../lib/poseApi'
-import { buildTrainingRecordName } from '../lib/pose/trainingName'
+import {
+  API_BASE,
+  getMyBlogs,
+  getMyComments,
+  getMyMeals,
+  getMyProfile,
+  getMyWorkouts,
+  resolveBackendUrl,
+  updateMyProfile,
+  uploadBlogCover,
+  uploadMyAvatar
+} from '../features/user'
+import {
+  buildPoseHistoryPath,
+  buildTrainingRecordName,
+  getPoseExerciseByType,
+  listPoseTrainings,
+  type PoseTrainingSession
+} from '../features/pose'
+import { createBlog as createBlogPost, deleteBlogById, deleteComment as deleteBlogComment, getBlogTags, updateBlog } from '../features/blog'
 import { useAuth } from '../state/auth-context'
 
 type Profile = {
@@ -201,7 +217,7 @@ export default function ProfilePage() {
   }
 
   async function loadProfile() {
-    const p = await apiFetch<Profile>('/api/user/profile')
+    const p = await getMyProfile<Profile>()
     setProfile(p)
     setEdit((curr) => {
       if (isEditing && curr) return curr
@@ -228,9 +244,7 @@ export default function ProfilePage() {
     }
     setAvatarUploading(true)
     try {
-      const form = new FormData()
-      form.append('file', file)
-      const r = await apiUpload<{ avatar_url: string }>('/api/user/avatar', form)
+      const r = await uploadMyAvatar(file)
       setProfile((p) => (p ? { ...p, avatar_url: r.avatar_url } : p))
       if (auth.user) auth.setUser({ ...auth.user, avatar_url: r.avatar_url })
       flashNotice('Avatar updated')
@@ -255,9 +269,7 @@ export default function ProfilePage() {
     }
     setCoverUploading(true)
     try {
-      const form = new FormData()
-      form.append('file', file)
-      const r = await apiUpload<{ cover_image_url: string }>('/api/blogs/cover', form)
+      const r = await uploadBlogCover(file)
       setNewBlog((b) => ({ ...b, cover_image_url: r.cover_image_url }))
       flashNotice('Cover uploaded')
     } catch (e: unknown) {
@@ -272,29 +284,29 @@ export default function ProfilePage() {
   }
 
   async function loadWorkouts() {
-    const r = await apiFetch<{ items: Workout[] }>('/api/workouts?page=1&page_size=20')
+    const r = await getMyWorkouts<Workout>()
     setWorkouts(r.items)
   }
 
   async function loadMeals() {
-    const r = await apiFetch<{ items: MealHistory[] }>('/api/meals/history?page=1&page_size=20')
+    const r = await getMyMeals<MealHistory>()
     setMeals(r.items)
   }
 
   async function loadMyBlogs() {
-    const r = await apiFetch<{ items: MyBlog[] }>('/api/user/blogs?page=1&page_size=20')
+    const r = await getMyBlogs<MyBlog>()
     setMyBlogs(r.items)
   }
 
   async function loadMyComments() {
-    const r = await apiFetch<{ items: MyComment[] }>('/api/user/comments?page=1&page_size=20')
+    const r = await getMyComments<MyComment>()
     setMyComments(r.items)
   }
 
   useEffect(() => {
     setError(null)
     loadProfile().catch((e: unknown) => setError(e instanceof Error ? e.message : 'Failed to load'))
-    apiFetch<Tag[]>('/api/tags', { auth: false }).then(setTags).catch(() => {})
+    getBlogTags().then(setTags).catch(() => {})
     loadWorkouts().catch(() => {})
     loadMeals().catch(() => {})
     loadMyBlogs().catch(() => {})
@@ -309,15 +321,12 @@ export default function ProfilePage() {
     if (!edit) return
     setError(null)
     try {
-      const p = await apiFetch<Profile>('/api/user/profile', {
-        method: 'PUT',
-        body: JSON.stringify({
-          username: edit.username,
-          gender: edit.gender || null,
-          height: edit.height ? Number(edit.height) : null,
-          weight: edit.weight ? Number(edit.weight) : null,
-          fitness_goal: edit.fitness_goal || null
-        })
+      const p = await updateMyProfile<Profile>({
+        username: edit.username,
+        gender: edit.gender || null,
+        height: edit.height ? Number(edit.height) : null,
+        weight: edit.weight ? Number(edit.weight) : null,
+        fitness_goal: edit.fitness_goal || null
       })
       setProfile(p)
       if (auth.user) auth.setUser({ ...auth.user, username: p.username, avatar_url: p.avatar_url })
@@ -339,7 +348,7 @@ export default function ProfilePage() {
     setError(null)
     try {
       const nowPublished = !blog.is_published
-      await apiFetch(`/api/blogs/${blog.id}`, { method: 'PUT', body: JSON.stringify({ is_published: nowPublished }) })
+      await updateBlog(blog.id, { is_published: nowPublished })
       await loadMyBlogs()
       flashNotice(nowPublished ? 'Published' : 'Moved to draft')
       if (nowPublished) navigate(`/blogs/${blog.id}`)
@@ -351,7 +360,7 @@ export default function ProfilePage() {
   async function deleteBlog(blogId: number) {
     setError(null)
     try {
-      await apiFetch(`/api/blogs/${blogId}`, { method: 'DELETE' })
+      await deleteBlogById(blogId)
       await loadMyBlogs()
       flashNotice('Deleted')
     } catch (e: unknown) {
@@ -367,10 +376,7 @@ export default function ProfilePage() {
     }
     try {
       const publishNow = newBlog.is_published
-      const r = await apiFetch<{ id: number }>('/api/blogs', {
-        method: 'POST',
-        body: JSON.stringify(newBlog)
-      })
+      const r = await createBlogPost(newBlog)
       setNewBlog({ title: '', content: '', tag_ids: [], is_published: false, cover_image_url: null })
       await loadMyBlogs()
       setCreateOpen(false)
@@ -384,7 +390,7 @@ export default function ProfilePage() {
   async function deleteComment(commentId: number) {
     setError(null)
     try {
-      await apiFetch(`/api/comments/${commentId}`, { method: 'DELETE' })
+      await deleteBlogComment(commentId)
       await loadMyComments()
       flashNotice('Deleted')
     } catch (e: unknown) {

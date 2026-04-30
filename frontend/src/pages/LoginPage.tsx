@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { apiFetch } from '../lib/api'
+import { loginByPassword, requestPasswordReset } from '../features/user'
 import { useAuth } from '../state/auth-context'
 
 export default function LoginPage() {
@@ -46,13 +46,7 @@ export default function LoginPage() {
     }
     setBusy(true)
     try {
-      const r = await apiFetch<{
-        access_token: string
-        user: { id: number; email: string; username: string; avatar_url?: string | null }
-      }>(
-        '/api/auth/login',
-        { method: 'POST', auth: false, body: JSON.stringify({ email, password }) }
-      )
+      const r = await loginByPassword(email, password)
       auth.setAuth(r.access_token, r.user)
       nav(from, { replace: true })
     } catch (e: unknown) {
@@ -70,11 +64,7 @@ export default function LoginPage() {
       return
     }
     try {
-      const r = await apiFetch<{ reset_link?: string }>('/api/auth/forgot-password', {
-        method: 'POST',
-        auth: false,
-        body: JSON.stringify({ email })
-      })
+      const r = await requestPasswordReset(email)
       const path = buildResetPath(r.reset_link)
       if (path) {
         nav(path, { replace: true })

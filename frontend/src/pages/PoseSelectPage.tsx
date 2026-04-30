@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { buildPoseHistoryPath } from '../lib/pose/exercises'
+import { buildPoseHistoryPath } from '../features/pose'
 
 type PoseExerciseStatus = 'ready' | 'coming_soon'
 

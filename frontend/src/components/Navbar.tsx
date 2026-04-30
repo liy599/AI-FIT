@@ -1,5 +1,5 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { resolveBackendUrl } from '../lib/api'
+import { resolveBackendUrl } from '../features/user'
 import { useAuth } from '../state/auth-context'
 
 function resolveAvatarUrl(url: string | null | undefined) {

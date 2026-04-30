@@ -90,6 +90,19 @@ export type PoseAiEnhancedReportResponse = {
   meta: PoseAiEnhancedReportMeta
 }
 
+export type PoseCapabilities = {
+  local_inference: {
+    enabled: boolean
+    default: boolean
+    privacy: string
+  }
+  server_inference: {
+    enabled: boolean
+    requires_explicit_consent: boolean
+    privacy: string
+  }
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
@@ -230,6 +243,30 @@ export async function uploadPoseVideo(file: File) {
   form.append('file', file)
   const data = await apiUpload<{ video: PoseVideo }>('/api/pose/videos', form)
   return data.video
+}
+
+export function getPoseCapabilities() {
+  return apiFetch<PoseCapabilities>('/api/pose/capabilities', { auth: false })
+}
+
+export async function submitPoseServerAnalysis(input: {
+  file: File
+  exercise_type: string
+  view_angle: 'unknown' | 'front' | 'side' | 'back'
+  consent: boolean
+}) {
+  const form = new FormData()
+  form.append('file', input.file)
+  form.append('exercise_type', input.exercise_type)
+  form.append('view_angle', input.view_angle)
+  form.append('consent', input.consent ? 'true' : 'false')
+  return apiUpload<{ task: PoseAnalysisTask; queued: boolean }>('/api/pose/server-analysis/submit', form)
+}
+
+export function cancelPoseServerAnalysis(taskId: number) {
+  return apiFetch<{ ok: boolean; task_id: number; status: string }>(`/api/pose/server-analysis/${taskId}/cancel`, {
+    method: 'POST',
+  })
 }
 
 export async function createPoseAnalysisTask(input: {

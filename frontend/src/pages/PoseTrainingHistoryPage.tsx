@@ -1,10 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { buildPoseGuidePath, buildPoseToolPath, getPoseExerciseBySlug, getPoseExerciseByType } from '../lib/pose/exercises'
-import { buildTrainingRecordName } from '../lib/pose/trainingName'
-import { listPoseTrainings, type PoseTrainingSession } from '../lib/poseApi'
-import { DEMO_POSE_TRAINING, DEMO_POSE_TRAINING_ID } from '../lib/poseTrainingMock'
-import { humanizePoseReport } from '../lib/pose/feedbackCopy'
+import {
+  buildPoseGuidePath,
+  buildPoseToolPath,
+  buildTrainingRecordName,
+  DEMO_POSE_TRAINING,
+  DEMO_POSE_TRAINING_ID,
+  getPoseExerciseBySlug,
+  getPoseExerciseByType,
+  humanizePoseReport,
+  listPoseTrainings,
+  type PoseTrainingSession
+} from '../features/pose'
 
 export default function PoseTrainingHistoryPage() {
   const params = useParams<{ exerciseSlug: string }>()

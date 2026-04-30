@@ -1,96 +1,79 @@
-$ErrorActionPreference = "Stop"
+﻿param(
+  [switch]$BackendOnly,
+  [switch]$FrontendOnly,
+  [switch]$SkipDb
+)
 
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$root = Split-Path -Parent $scriptDir
-$backendDir = Join-Path $root "backend"
-$frontendDir = Join-Path $root "frontend"
+$ErrorActionPreference = 'Stop'
 
-function Test-ExternalOk {
-  param(
-    [Parameter(Mandatory=$true)][string]$File,
-    [Parameter(Mandatory=$false)][string[]]$Args
-  )
+$repoRoot = Split-Path -Parent $PSScriptRoot
+$backendDir = Join-Path $repoRoot 'backend'
+$frontendDir = Join-Path $repoRoot 'frontend'
+
+if (-not (Test-Path $backendDir)) { throw "Backend directory not found: $backendDir" }
+if (-not (Test-Path $frontendDir)) { throw "Frontend directory not found: $frontendDir" }
+
+function Start-Db {
+  if ($SkipDb) {
+    Write-Host 'SkipDb enabled: skip docker compose db startup.'
+    return
+  }
+
+  $dockerOk = $false
   try {
-    & $File @Args 1>$null 2>$null
-    return ($LASTEXITCODE -eq 0)
+    $null = docker --version
+    $null = docker compose version
+    $dockerOk = $true
   } catch {
-    return $false
+    throw 'Docker is required for PostgreSQL startup. Install/start Docker Desktop or use -SkipDb with an existing PostgreSQL service.'
+  }
+
+  if ($dockerOk) {
+    Write-Host 'Starting PostgreSQL container (docker compose up -d db)...'
+    Set-Location -LiteralPath $repoRoot
+    docker compose up -d db | Out-Host
   }
 }
 
-$pythonForVenv = $null
-if (Get-Command python -ErrorAction SilentlyContinue) {
-  $pythonForVenv = (Get-Command python).Source
-} elseif (Get-Command py -ErrorAction SilentlyContinue) {
-  $pythonForVenv = (Get-Command py).Source
+function Start-Backend {
+  $backendCmd = @"
+Set-Location -LiteralPath '$backendDir'
+if (Test-Path '.\\.venv\\Scripts\\python.exe') {
+  & '.\\.venv\\Scripts\\python.exe' '.\\run.py'
 } else {
-  throw 'Python not found on PATH. Install Python 3.10+ and retry.'
+  python '.\\run.py'
+}
+"@
+  Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoExit', '-ExecutionPolicy', 'Bypass', '-Command', $backendCmd)
 }
 
-if (-not (Get-Command npm.cmd -ErrorAction SilentlyContinue)) {
-  throw 'npm.cmd not found on PATH. Install Node.js 18+ and retry.'
+function Start-Frontend {
+  $frontendCmd = @"
+Set-Location -LiteralPath '$frontendDir'
+npm.cmd run dev
+"@
+  Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoExit', '-ExecutionPolicy', 'Bypass', '-Command', $frontendCmd)
 }
 
-$backendEnv = Join-Path $backendDir ".env"
-if (-not (Test-Path $backendEnv)) {
-  Copy-Item (Join-Path $backendDir ".env.example") $backendEnv
+if ($BackendOnly -and $FrontendOnly) {
+  throw 'Cannot use -BackendOnly and -FrontendOnly together.'
 }
 
-$frontendEnv = Join-Path $frontendDir ".env"
-if (-not (Test-Path $frontendEnv)) {
-  Copy-Item (Join-Path $frontendDir ".env.example") $frontendEnv
+Start-Db
+
+if ($BackendOnly) {
+  Start-Backend
+  Write-Host 'Started backend only.'
+  exit 0
 }
 
-$dockerAvailable = $false
-if (Get-Command docker -ErrorAction SilentlyContinue) {
-  if (Test-ExternalOk -File "docker" -Args @("info")) {
-    $dockerAvailable = $true
-  }
+if ($FrontendOnly) {
+  Start-Frontend
+  Write-Host 'Started frontend only.'
+  exit 0
 }
 
-if ($dockerAvailable) {
-  & docker compose up -d db
-  if ($LASTEXITCODE -ne 0) {
-    $dockerAvailable = $false
-  } else {
-    for ($i = 0; $i -lt 30; $i++) {
-      if (Get-Command Test-NetConnection -ErrorAction SilentlyContinue) {
-        try {
-          if (Test-NetConnection -ComputerName "127.0.0.1" -Port 5432 -InformationLevel Quiet -WarningAction SilentlyContinue) {
-            break
-          }
-        } catch {
-        }
-      }
-      Start-Sleep -Seconds 1
-    }
-  }
-}
-
-if (-not $dockerAvailable) {
-  throw "Docker Desktop / Docker daemon is required for consistent local environment. Start Docker Desktop and retry."
-}
-
-$venvPython = Join-Path $backendDir ".venv\Scripts\python.exe"
-if (-not (Test-Path $venvPython)) {
-  & $pythonForVenv -m venv (Join-Path $backendDir ".venv")
-}
-
-& $venvPython -m pip install -r (Join-Path $backendDir "requirements.txt")
-
-Push-Location $frontendDir
-try {
-  & npm.cmd install
-} finally {
-  Pop-Location
-}
-
-$backendCmd = "cd `"$backendDir`"; & `"$venvPython`" run.py"
-$frontendCmd = "cd `"$frontendDir`"; & npm.cmd run dev"
-
-Start-Process -FilePath "powershell" -ArgumentList @("-NoExit", "-Command", $backendCmd) | Out-Null
-Start-Process -FilePath "powershell" -ArgumentList @("-NoExit", "-Command", $frontendCmd) | Out-Null
-
-Write-Host "Database: Postgres (Docker)"
-Write-Host "Backend: http://127.0.0.1:5000/api/health"
-Write-Host "Frontend: http://localhost:5173"
+Start-Backend
+Start-Sleep -Milliseconds 1000
+Start-Frontend
+Write-Host 'Started backend and frontend in separate PowerShell windows.'

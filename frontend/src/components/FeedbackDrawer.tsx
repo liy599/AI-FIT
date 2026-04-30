@@ -1,15 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
-import { apiFetch } from '../lib/api'
+import { listRecentFeedback, submitFeedback, type FeedbackItem } from '../features/app'
 import { useAuth } from '../state/auth-context'
-
-type FeedbackItem = {
-  id: number
-  user: { id: number; username: string } | null
-  content: string
-  rating: number | null
-  created_at: string
-}
 
 export default function FeedbackDrawer() {
   const auth = useAuth()
@@ -69,7 +61,7 @@ export default function FeedbackDrawer() {
     let cancelled = false
     setLoading(true)
     setError(null)
-    apiFetch<{ items: FeedbackItem[] }>('/api/feedback?page=1&page_size=6')
+    listRecentFeedback(1, 6)
       .then((r) => {
         if (cancelled) return
         setItems(r.items)
@@ -96,14 +88,11 @@ export default function FeedbackDrawer() {
   async function submit() {
     setError(null)
     try {
-      await apiFetch('/api/feedback', {
-        method: 'POST',
-        body: JSON.stringify({
-          type: tab,
-          content,
-          rating: tab === 'Review' ? rating : undefined,
-          contact_email: auth.user ? undefined : email
-        })
+      await submitFeedback({
+        type: tab,
+        content,
+        rating: tab === 'Review' ? rating : undefined,
+        contact_email: auth.user ? undefined : email
       })
       setContent('')
       setEmail('')

@@ -1,23 +1,25 @@
+﻿import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import Layout from './components/Layout'
 import { AuthProvider, useAuth } from './state/auth-context'
-import AboutPage from './pages/AboutPage'
-import AdminDataLifecyclePage from './pages/AdminDataLifecyclePage'
-import BlogDetailPage from './pages/BlogDetailPage'
-import BlogListPage from './pages/BlogListPage'
-import FoodMealPage from './pages/FoodMealPage'
-import FoodModulePage from './pages/FoodModulePage'
 import HomePage from './pages/HomePage'
-import LoginPage from './pages/LoginPage'
-import NotFoundPage from './pages/NotFoundPage'
-import PoseGuidePage from './pages/PoseGuidePage'
-import PoseSelectPage from './pages/PoseSelectPage'
-import PoseTrainingHistoryPage from './pages/PoseTrainingHistoryPage'
-import PoseToolPage from './pages/PoseToolPage'
-import ProfilePage from './pages/ProfilePage'
-import RegisterPage from './pages/RegisterPage'
-import ResetPasswordPage from './pages/ResetPasswordPage'
-import UserPrivacyPage from './pages/UserPrivacyPage'
+
+const AboutPage = lazy(() => import('./pages/AboutPage'))
+const AdminDataLifecyclePage = lazy(() => import('./pages/AdminDataLifecyclePage'))
+const BlogDetailPage = lazy(() => import('./pages/BlogDetailPage'))
+const BlogListPage = lazy(() => import('./pages/BlogListPage'))
+const FoodMealPage = lazy(() => import('./pages/FoodMealPage'))
+const FoodModulePage = lazy(() => import('./pages/FoodModulePage'))
+const LoginPage = lazy(() => import('./pages/LoginPage'))
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
+const PoseGuidePage = lazy(() => import('./pages/PoseGuidePage'))
+const PoseSelectPage = lazy(() => import('./pages/PoseSelectPage'))
+const PoseTrainingHistoryPage = lazy(() => import('./pages/PoseTrainingHistoryPage'))
+const PoseToolPage = lazy(() => import('./pages/PoseToolPage'))
+const ProfilePage = lazy(() => import('./pages/ProfilePage'))
+const RegisterPage = lazy(() => import('./pages/RegisterPage'))
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'))
+const UserPrivacyPage = lazy(() => import('./pages/UserPrivacyPage'))
 
 function RequireAuth(props: { children: React.ReactNode }) {
   const auth = useAuth()
@@ -57,32 +59,33 @@ export default function App() {
   return (
     <AuthProvider>
       <Layout>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/about" element={<AboutPage />} />
-          <Route path="/food" element={<FoodModulePage />} />
-          <Route path="/food/meal/:mealType" element={<FoodMealPage />} />
-          <Route path="/tools/pose" element={<PoseSelectPage />} />
-          <Route path="/tools/pose/:exerciseSlug" element={<PoseGuidePage />} />
-          <Route path="/tools/pose/:exerciseSlug/live" element={<PoseToolPage />} />
-          <Route path="/tools/pose/:exerciseSlug/video" element={<PoseToolPage />} />
-          <Route path="/tools/pose/:exerciseSlug/history" element={<RequireAuth children={<PoseTrainingHistoryPage />} />} />
-          {/* Detail report page is temporarily disabled until the final report flow is cleaned up. */}
-          <Route path="/tools/pose/:exerciseSlug/history/:sessionId" element={<RequireAuth children={<PoseDetailReportDisabledRedirect />} />} />
-          <Route path="/tools/pose/:exerciseSlug/tool" element={<PoseToolLegacyRedirect />} />
-          <Route path="/tools/pose/:exerciseSlug/tool/history" element={<PoseHistoryLegacyRedirect />} />
-          <Route path="/tools/pose/:exerciseSlug/tool/history/:sessionId" element={<PoseReportLegacyRedirect />} />
-          <Route path="/tools/food" element={<Navigate to="/food" replace />} />
-          <Route path="/blogs" element={<BlogListPage />} />
-          <Route path="/blogs/:id" element={<BlogDetailPage />} />
-          <Route path="/profile" element={<RequireAuth children={<ProfilePage />} />} />
-          <Route path="/profile/privacy" element={<RequireAuth children={<UserPrivacyPage />} />} />
-          <Route path="/admin/data-lifecycle" element={<RequireAuth children={<AdminDataLifecyclePage />} />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
+        <Suspense fallback={<div className="container py-5">Loading...</div>}>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/food" element={<FoodModulePage />} />
+            <Route path="/food/meal/:mealType" element={<FoodMealPage />} />
+            <Route path="/tools/pose" element={<PoseSelectPage />} />
+            <Route path="/tools/pose/:exerciseSlug" element={<PoseGuidePage />} />
+            <Route path="/tools/pose/:exerciseSlug/live" element={<PoseToolPage />} />
+            <Route path="/tools/pose/:exerciseSlug/video" element={<PoseToolPage />} />
+            <Route path="/tools/pose/:exerciseSlug/history" element={<RequireAuth children={<PoseTrainingHistoryPage />} />} />
+            <Route path="/tools/pose/:exerciseSlug/history/:sessionId" element={<RequireAuth children={<PoseDetailReportDisabledRedirect />} />} />
+            <Route path="/tools/pose/:exerciseSlug/tool" element={<PoseToolLegacyRedirect />} />
+            <Route path="/tools/pose/:exerciseSlug/tool/history" element={<PoseHistoryLegacyRedirect />} />
+            <Route path="/tools/pose/:exerciseSlug/tool/history/:sessionId" element={<PoseReportLegacyRedirect />} />
+            <Route path="/tools/food" element={<Navigate to="/food" replace />} />
+            <Route path="/blogs" element={<BlogListPage />} />
+            <Route path="/blogs/:id" element={<BlogDetailPage />} />
+            <Route path="/profile" element={<RequireAuth children={<ProfilePage />} />} />
+            <Route path="/profile/privacy" element={<RequireAuth children={<UserPrivacyPage />} />} />
+            <Route path="/admin/data-lifecycle" element={<RequireAuth children={<AdminDataLifecyclePage />} />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </Suspense>
       </Layout>
     </AuthProvider>
   )

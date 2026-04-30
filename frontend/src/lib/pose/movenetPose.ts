@@ -11,17 +11,15 @@ export type MoveNetDetector = {
   dispose?: () => void
 }
 
+const prewarmCache = new Map<'lightning' | 'thunder', Promise<void>>()
+
 export async function createMoveNetDetector(opts?: {
   variant?: 'lightning' | 'thunder'
   enableSmoothing?: boolean
   modelUrl?: string
 }): Promise<MoveNetDetector> {
   const tf = await import('@tensorflow/tfjs-core')
-  await Promise.all([
-    import('@tensorflow/tfjs-converter'),
-    import('@tensorflow/tfjs-backend-webgl'),
-    import('@tensorflow/tfjs-backend-cpu')
-  ])
+  await Promise.all([import('@tensorflow/tfjs-converter'), import('@tensorflow/tfjs-backend-webgl')])
   await ensureSupportedBackend(tf)
   await withTimeout(tf.ready(), 15000, new Error('TensorFlow backend initialization timed out.'))
 
@@ -68,6 +66,7 @@ export async function createMoveNetDetector(opts?: {
     return detector as MoveNetDetector
   } catch (e: unknown) {
     try {
+      await import('@tensorflow/tfjs-backend-cpu')
       await tf.setBackend('cpu')
       await withTimeout(tf.ready(), 15000, new Error('TensorFlow CPU backend initialization timed out.'))
       const detector = await withTimeout(
@@ -93,8 +92,22 @@ async function ensureSupportedBackend(tf: typeof import('@tensorflow/tfjs-core')
     await tryBackend('webgl')
     return
   } catch {
+    await import('@tensorflow/tfjs-backend-cpu')
     await tryBackend('cpu')
   }
+}
+
+export function prewarmMoveNet(variant: 'lightning' | 'thunder' = 'lightning'): Promise<void> {
+  const cached = prewarmCache.get(variant)
+  if (cached) return cached
+  const task = (async () => {
+    const detector = await createMoveNetDetector({ variant, enableSmoothing: true })
+    detector.dispose?.()
+  })().catch(() => {
+    // Warmup failure should not block user flow.
+  })
+  prewarmCache.set(variant, task)
+  return task
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number, error: Error): Promise<T> {

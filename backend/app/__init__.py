@@ -7,6 +7,7 @@ from werkzeug.exceptions import RequestEntityTooLarge
 from .config import Config
 from .extensions import cors, db, jwt
 from .services.food.catalog_runtime import ensure_food_seed_data
+from .services.pose.server_inference_worker import start_server_inference_worker
 from .utils.upload_access import normalize_upload_path, verify_upload_access_token
 
 DB_INIT_ADVISORY_LOCK_KEY = 42042420
@@ -113,5 +114,6 @@ def create_app(config_object=Config):
 
     with app.app_context():
         _initialize_database()
+        start_server_inference_worker(app)
 
     return app

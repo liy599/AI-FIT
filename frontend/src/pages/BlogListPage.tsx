@@ -1,22 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { apiFetch, resolveBackendUrl } from '../lib/api'
-import OrganicFluidBackground from '../components/OrganicFluidBackground'
-
-type Tag = { id: number; name: string }
-type BlogCard = {
-  id: number
-  title: string
-  excerpt: string
-  cover_image_url: string | null
-  author: { id: number; username: string }
-  created_at: string
-  tags: Tag[]
-}
+import { getBlogTags, queryBlogs, resolveBlogMediaUrl, type BlogCard, type BlogTag as Tag } from '../features/blog'
+const OrganicFluidBackground = lazy(() => import('../components/OrganicFluidBackground'))
 
 function resolveMediaUrl(url: string | null | undefined) {
-  if (!url) return null
-  return resolveBackendUrl(url)
+  return resolveBlogMediaUrl(url)
 }
 
 function formatLongDate(value: string) {
@@ -387,7 +375,7 @@ export default function BlogListPage() {
   const tagIds = sp.getAll('tag').map((x) => Number(x)).filter((x) => Number.isFinite(x))
 
   useEffect(() => {
-    apiFetch<Tag[]>('/api/tags', { auth: false })
+    getBlogTags()
       .then(setTags)
       .catch(() => {})
   }, [])
@@ -405,7 +393,7 @@ export default function BlogListPage() {
     let cancelled = false
     setLoading(true)
     setError(null)
-    apiFetch<{ items: BlogCard[]; total: number }>(`/api/blogs?${queryString}`, { auth: false })
+    queryBlogs(queryString)
       .then((r) => {
         if (cancelled) return
         setItems(r.items)
@@ -515,7 +503,9 @@ export default function BlogListPage() {
       `}</style>
       <section className="relative overflow-hidden bg-neutral-50 px-4 pb-16 pt-10 md:pb-24 md:pt-16">
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[55%]">
-          <OrganicFluidBackground className="absolute inset-0 h-full w-full overflow-hidden rounded-none" />
+          <Suspense fallback={null}>
+            <OrganicFluidBackground className="absolute inset-0 h-full w-full overflow-hidden rounded-none" />
+          </Suspense>
           <div className="absolute inset-0 bg-gradient-to-b from-neutral-50 via-neutral-50/70 to-transparent" />
         </div>
         <div className="relative mx-auto grid max-w-[1200px] grid-cols-1 gap-10 lg:grid-cols-12 lg:items-center">
@@ -718,7 +708,9 @@ export default function BlogListPage() {
       >
         <div className="mx-auto max-w-[1200px]">
           <div className="relative grid grid-cols-1 gap-8 rounded-3xl px-6 py-[60px] text-white shadow-xl md:px-10 lg:grid-cols-12 lg:items-center">
-            <OrganicFluidBackground />
+            <Suspense fallback={null}>
+              <OrganicFluidBackground />
+            </Suspense>
             <div className="relative z-10 lg:col-span-7">
               <h2 className="text-2xl font-semibold leading-tight tracking-tight md:text-3xl">
                 Join the community –

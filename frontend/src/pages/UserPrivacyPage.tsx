@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { apiFetch } from '../lib/api'
+import { previewOrDeleteMyData } from '../features/user'
 import { useAuth } from '../state/auth-context'
 
 const TARGETS = [
@@ -48,10 +48,7 @@ export default function UserPrivacyPage() {
         dry_run: dryRun,
         confirm: accountSelected ? confirmText : undefined
       }
-      const r = await apiFetch<DeleteResponse>('/api/user/data-lifecycle/delete', {
-        method: 'POST',
-        body: JSON.stringify(payload)
-      })
+      const r = await previewOrDeleteMyData(payload) as DeleteResponse
       setResult(r)
       if (!dryRun && accountSelected) {
         auth.logout()
@@ -135,4 +132,3 @@ export default function UserPrivacyPage() {
     </div>
   )
 }
-

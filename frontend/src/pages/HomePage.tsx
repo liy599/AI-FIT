@@ -1,20 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { apiFetch, resolveBackendUrl } from '../lib/api'
-
-type BlogCard = {
-  id: number
-  title: string
-  cover_image_url: string | null
-  excerpt: string
-  author: { id: number; username: string }
-  created_at: string
-  tags: { id: number; name: string }[]
-}
+import { getBlogs, resolveBlogMediaUrl, type BlogCard } from '../features/blog'
 
 function resolveMediaUrl(url: string | null | undefined) {
-  if (!url) return null
-  return resolveBackendUrl(url)
+  return resolveBlogMediaUrl(url)
 }
 
 function Arrow15() {
@@ -43,7 +32,7 @@ export default function HomePage() {
 
   useEffect(() => {
     let cancelled = false
-    apiFetch<{ items: BlogCard[] }>('/api/blogs?page=1&page_size=8', { auth: false })
+    getBlogs({ page: 1, page_size: 8, auth: false })
       .then((r) => {
         if (cancelled) return
         setBlogs(r.items)

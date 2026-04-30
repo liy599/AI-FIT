@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { apiFetch } from '../lib/api'
+import { confirmPasswordReset } from '../features/user'
 
 export default function ResetPasswordPage() {
   const [sp] = useSearchParams()
@@ -25,11 +25,7 @@ export default function ResetPasswordPage() {
     }
     setBusy(true)
     try {
-      await apiFetch('/api/auth/reset-password', {
-        method: 'POST',
-        auth: false,
-        body: JSON.stringify({ token, new_password: newPassword })
-      })
+      await confirmPasswordReset(token, newPassword)
       setOk(true)
       setTimeout(() => nav('/login'), 800)
     } catch (e: unknown) {

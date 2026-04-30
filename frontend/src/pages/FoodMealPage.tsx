@@ -1,7 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { deleteMeal, getFoodCategories, getFoodsBulk, getFoodsPage, getTodaySummary, recognizeFoods, saveMeal } from '../lib/food/api'
-import type { FoodItem, FoodMealType } from '../lib/food/types_runtime'
+import {
+  deleteMeal,
+  getFoodCategories,
+  getFoodsBulk,
+  getFoodsPage,
+  getTodaySummary,
+  recognizeFoods,
+  saveMeal,
+  type FoodItem,
+  type FoodMealType
+} from '../features/food'
 import { useAuth } from '../state/auth-context'
 import '../styles/food-module.css'
 

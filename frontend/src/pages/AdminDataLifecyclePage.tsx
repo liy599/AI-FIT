@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { apiFetch } from '../lib/api'
+import { getAdminLifecyclePolicy, runAdminLifecycleCleanup } from '../features/user'
 
 type PolicyResponse = { retention_days: Record<string, number> }
 type CleanupResponse = {
@@ -18,7 +18,7 @@ export default function AdminDataLifecyclePage() {
 
   useEffect(() => {
     setLoading(true)
-    apiFetch<PolicyResponse>('/api/admin/data-lifecycle/policy')
+    getAdminLifecyclePolicy<PolicyResponse>()
       .then((r) => setRetention(r.retention_days))
       .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Failed to load policy'))
       .finally(() => setLoading(false))
@@ -28,10 +28,7 @@ export default function AdminDataLifecyclePage() {
     setRunning(true)
     setError(null)
     try {
-      const r = await apiFetch<CleanupResponse>('/api/admin/data-lifecycle/cleanup', {
-        method: 'POST',
-        body: JSON.stringify({ dry_run: dryRun, retention_days: retention })
-      })
+      const r = await runAdminLifecycleCleanup<CleanupResponse>({ dry_run: dryRun, retention_days: retention })
       setResult(r)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Cleanup request failed')
@@ -98,4 +95,3 @@ export default function AdminDataLifecyclePage() {
     </div>
   )
 }
-

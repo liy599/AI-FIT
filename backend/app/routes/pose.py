@@ -205,6 +205,19 @@ def _video_relative_path(stored_path: str) -> str | None:
     return rel
 
 
+def _purge_video_payload(video: VideoAsset) -> None:
+    resolved = _resolve_video_path(video.storage_path)
+    if resolved and os.path.isfile(resolved):
+        try:
+            os.remove(resolved)
+        except OSError:
+            pass
+    tombstone = f"deleted/{video.id}"
+    video.storage_path = encrypt_text(tombstone) or tombstone
+    video.size_bytes = 0
+    video.duration_seconds = None
+
+
 def _parse_dt(value: str | None):
     if not value:
         return None
@@ -257,6 +270,24 @@ def _training_session_public(session: TrainingSession):
 def get_squat_tuning():
     tuning, source = _load_squat_tuning()
     return jsonify({"tuning": tuning, "source": source})
+
+
+@bp.get("/capabilities")
+def get_pose_capabilities():
+    return jsonify(
+        {
+            "local_inference": {
+                "enabled": True,
+                "default": True,
+                "privacy": "video_stays_on_device",
+            },
+            "server_inference": {
+                "enabled": bool(current_app.config.get("POSE_SERVER_INFERENCE_ENABLED", False)),
+                "requires_explicit_consent": True,
+                "privacy": "uploads_video_or_keyframes",
+            },
+        }
+    )
 
 
 @bp.put("/config/squat-tuning")
@@ -393,6 +424,91 @@ def create_analysis_task():
     db.session.add(task)
     db.session.commit()
     return jsonify({"task": _task_public(task)}), 201
+
+
+@bp.post("/server-analysis/submit")
+@jwt_required()
+def submit_server_analysis():
+    user_id = int(get_jwt_identity())
+    if not bool(current_app.config.get("POSE_SERVER_INFERENCE_ENABLED", False)):
+        return jsonify({"error": "server inference disabled"}), 403
+
+    consent_raw = (request.form.get("consent") or "").strip().lower()
+    if consent_raw not in {"1", "true", "yes", "on"}:
+        return jsonify({"error": "explicit consent required"}), 400
+
+    exercise_type = (request.form.get("exercise_type") or "squat").strip().lower() or "squat"
+    view_angle = (request.form.get("view_angle") or "unknown").strip().lower()
+    if view_angle not in ALLOWED_VIEW_ANGLES:
+        return jsonify({"error": "invalid view_angle"}), 400
+
+    f = request.files.get("file")
+    if f is None or not f.filename:
+        return jsonify({"error": "file required"}), 400
+
+    mime_type = (getattr(f, "mimetype", "") or "").lower()
+    ext = ALLOWED_VIDEO_MIME_TYPES.get(mime_type)
+    if ext is None:
+        filename = secure_filename(f.filename)
+        fallback_ext = os.path.splitext(filename)[1].lower()
+        if fallback_ext not in {".mp4", ".mov", ".webm", ".mkv"}:
+            return jsonify({"error": "unsupported video type"}), 400
+        ext = fallback_ext
+        mime_type = mime_type or "application/octet-stream"
+
+    original_name = secure_filename(f.filename) or f"video{ext}"
+    folder = _pose_video_dir(user_id)
+    os.makedirs(folder, exist_ok=True)
+    saved_name = f"{uuid.uuid4().hex}{ext}"
+    path = os.path.join(folder, saved_name)
+    f.save(path)
+    size_bytes = os.path.getsize(path)
+
+    relative_path = os.path.relpath(path, current_app.config["UPLOAD_FOLDER"]).replace("\\", "/")
+    video = VideoAsset(
+        user_id=user_id,
+        original_name=original_name,
+        mime_type=mime_type,
+        size_bytes=size_bytes,
+        storage_path=encrypt_text(relative_path) or relative_path,
+    )
+    db.session.add(video)
+    db.session.flush()
+
+    task = AnalysisTask(
+        user_id=user_id,
+        video_asset_id=video.id,
+        exercise_type=exercise_type,
+        view_angle=view_angle,
+        instruction="server_inference_requested_with_explicit_consent:v1",
+        status="uploaded",
+    )
+    db.session.add(task)
+    db.session.commit()
+    return jsonify({"task": _task_public(task), "queued": True}), 201
+
+
+@bp.post("/server-analysis/<int:task_id>/cancel")
+@jwt_required()
+def cancel_server_analysis(task_id: int):
+    user_id = int(get_jwt_identity())
+    task = AnalysisTask.query.filter_by(id=task_id, user_id=user_id).first()
+    if task is None:
+        return jsonify({"error": "not found"}), 404
+
+    video = VideoAsset.query.filter_by(id=task.video_asset_id, user_id=user_id).first()
+    if task.status in {"succeeded", "failed"}:
+        return jsonify({"error": "task already finished"}), 400
+
+    task.status = "failed"
+    task.finished_at = datetime.utcnow()
+    task.error_message = "cancelled_by_user"
+
+    if video is not None:
+        _purge_video_payload(video)
+
+    db.session.commit()
+    return jsonify({"ok": True, "task_id": task.id, "status": task.status})
 
 
 @bp.get("/analysis/tasks/<int:task_id>")

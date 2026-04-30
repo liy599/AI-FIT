@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { apiFetch } from '../lib/api'
+import { registerByPassword } from '../features/user'
 import { useAuth } from '../state/auth-context'
 
 export default function RegisterPage() {
@@ -30,13 +30,7 @@ export default function RegisterPage() {
     }
     setBusy(true)
     try {
-      const r = await apiFetch<{
-        access_token: string
-        user: { id: number; email: string; username: string; avatar_url?: string | null }
-      }>(
-        '/api/auth/register',
-        { method: 'POST', auth: false, body: JSON.stringify({ email, username, password }) }
-      )
+      const r = await registerByPassword(email, username, password)
       auth.setAuth(r.access_token, r.user)
       nav('/profile', { replace: true })
     } catch (e: unknown) {

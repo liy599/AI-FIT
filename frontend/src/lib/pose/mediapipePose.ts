@@ -22,6 +22,8 @@ export async function extractPose33FromVideoUrl(
   videoUrl: string,
   opts: PoseExtractOptions = {}
 ): Promise<{ fps: number; frames: PoseFrame[] }> {
+  throw new Error('Legacy MediaPipe Pose-33 extraction is disabled.')
+  /*
   const { maxFrames = 4000, targetFps = 30, minVisibility = 0.2, onProgress } = opts
 
   if (typeof window === 'undefined') throw new Error('Browser only')
@@ -76,6 +78,7 @@ export async function extractPose33FromVideoUrl(
 
   landmarker.close()
   return { fps, frames }
+  */
 }
 
 async function seekVideo(video: HTMLVideoElement, timeSec: number) {

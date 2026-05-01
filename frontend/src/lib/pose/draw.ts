@@ -1,5 +1,6 @@
 import type { DistanceState } from './distanceTracker'
-import type { NormalizedLandmark } from './mediapipePose'
+// LEGACY (MediaPipe 33 landmarks): not used by current PoseTool chain.
+// import type { NormalizedLandmark } from './mediapipePose'
 import type { MoveNetName, StableJoint } from './movenetTracker'
 
 export function drawUpperLimbSkeleton(
@@ -188,6 +189,7 @@ export function drawDistanceGuide(
   }
 }
 
+/*
 const POSE_CONNECTIONS_33: Array<[number, number]> = [
   [0, 2],
   [0, 5],
@@ -265,6 +267,7 @@ export function drawPoseLandmarks33(
 
   ctx.restore()
 }
+*/
 
 const POSE_CONNECTIONS_17: Array<[MoveNetName, MoveNetName]> = [
   ['nose', 'left_eye'],

@@ -1,5 +1,5 @@
-import type { NormalizedLandmark } from './mediapipePose'
 import type { RealtimeFeedback } from './realtimeSquat'
+import type { MoveNetKeypoint, MoveNetName } from './movenetTracker'
 
 const ASSUMED_ANALYZER_FPS = 24
 const REP_FAST_SEC = 0.85
@@ -9,10 +9,10 @@ const REP_COUNT_MIN_FRAMES = 7
 const REP_COUNT_MIN_ACTIVE_FRAMES = 5
 const REP_COUNT_MIN_BOTTOM_FRAMES = 3
 const REP_COUNT_MIN_ELBOW_ANGLE = 125
-const REP_VALID_MIN_FRAMES = 3
-const REP_VALID_RATIO_MIN = 0.25
+const REP_VALID_MIN_FRAMES = 2
+const REP_VALID_RATIO_MIN = 0.2
 const TRACKING_QUALITY_MIN_FOR_COUNT = 0.22
-const TRACKING_QUALITY_MIN_FOR_ASSESS = 0.35
+const TRACKING_QUALITY_MIN_FOR_ASSESS = 0.3
 
 const S1_ENTER_ELBOW_ANGLE = 150
 const S1_EXIT_ELBOW_ANGLE = 142
@@ -23,7 +23,7 @@ const DEPTH_REQUIRED_ELBOW_ANGLE = 130
 const DEPTH_GOOD_MIN_FRAMES = 1
 
 const SIDE_VIEW_WARN_DEG = 55
-const SIDE_VIEW_ASSESS_DEG = 75
+const SIDE_VIEW_ASSESS_DEG = 85
 const SIDE_VIEW_HARD_DEG = 65
 const SIDE_VIEW_HARD_MIN_FRAMES = 3
 
@@ -70,25 +70,39 @@ export class RealtimePushupAnalyzer {
   private fastRepCount = 0
   private slowRepCount = 0
 
-  analyze(landmarks: NormalizedLandmark[]): RealtimeFeedback {
-    const side = this.chooseSide(landmarks)
-    const shoulder = landmarks[side === 'right' ? 12 : 11]
-    const elbow = landmarks[side === 'right' ? 14 : 13]
-    const wrist = landmarks[side === 'right' ? 16 : 15]
-    const hip = landmarks[side === 'right' ? 24 : 23]
-    const knee = landmarks[side === 'right' ? 26 : 25]
-    const ankle = landmarks[side === 'right' ? 28 : 27]
-    const otherShoulder = landmarks[side === 'right' ? 11 : 12]
+  analyzeNative(keypoints: MoveNetKeypoint[]): RealtimeFeedback {
+    const map = this.byName(keypoints)
+    const side = this.chooseSide(map)
+    const shoulder = map[side === 'right' ? 'right_shoulder' : 'left_shoulder']
+    const elbow = map[side === 'right' ? 'right_elbow' : 'left_elbow']
+    const wrist = map[side === 'right' ? 'right_wrist' : 'left_wrist']
+    const hip = map[side === 'right' ? 'right_hip' : 'left_hip']
+    const knee = map[side === 'right' ? 'right_knee' : 'left_knee']
+    const ankle = map[side === 'right' ? 'right_ankle' : 'left_ankle']
+    const otherShoulder = map[side === 'right' ? 'left_shoulder' : 'right_shoulder']
 
     const elbowAngle = this.angleDeg(shoulder, elbow, wrist)
     const torsoTiltSigned = this.signedAngleFromHorizontalDeg(shoulder, hip)
     const torsoAngle = torsoTiltSigned !== null ? Math.round(Math.abs(torsoTiltSigned)) : null
     const bodyLineAngle = this.angleDeg(shoulder, hip, ankle)
     const sideAlignment = this.sideAlignmentDeg(shoulder, otherShoulder)
-    const trackingQuality = this.avgVisibility(landmarks, [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28])
+    const trackingQuality = this.avgScore(map, [
+      'left_shoulder',
+      'right_shoulder',
+      'left_elbow',
+      'right_elbow',
+      'left_wrist',
+      'right_wrist',
+      'left_hip',
+      'right_hip',
+      'left_knee',
+      'right_knee',
+      'left_ankle',
+      'right_ankle'
+    ])
 
     const warnings: string[] = []
-    const issues: Array<{ message: string; joints: number[] }> = []
+    const issues: Array<{ message: string; joints: MoveNetName[] }> = []
     const isCountingPaused = trackingQuality < TRACKING_QUALITY_MIN_FOR_COUNT || elbowAngle === null
     const nextState = isCountingPaused || elbowAngle === null ? this.currentState : this.detectState(elbowAngle)
 
@@ -101,7 +115,10 @@ export class RealtimePushupAnalyzer {
     const hipsSaggingNow = torsoTiltSigned !== null && torsoTiltSigned > HIP_SAG_HARD_DEG
     const bodyLineBadNow = bodyLineAngle !== null && bodyLineAngle < BODY_LINE_FAIL_ANGLE
     if (hipsSaggingNow || bodyLineBadNow) {
-      issues.push({ message: 'Hips sagging detected. Keep shoulders, hips, and ankles aligned in one line.', joints: [11, 12, 23, 24, 27, 28] })
+      issues.push({
+        message: 'Hips sagging detected. Keep shoulders, hips, and ankles aligned in one line.',
+        joints: ['left_shoulder', 'right_shoulder', 'left_hip', 'right_hip', 'left_ankle', 'right_ankle']
+      })
     } else if (bodyLineAngle !== null && bodyLineAngle < 168) {
       warnings.push('Body line not stable. Keep shoulders, hips, and ankles aligned in one line.')
     }
@@ -500,16 +517,15 @@ export class RealtimePushupAnalyzer {
     return 'up'
   }
 
-  private chooseSide(landmarks: NormalizedLandmark[]): 'left' | 'right' {
-    let leftVis = 0
-    let rightVis = 0
-    for (const i of [11, 13, 15, 23, 25, 27]) leftVis += landmarks[i]?.visibility ?? 0
-    for (const i of [12, 14, 16, 24, 26, 28]) rightVis += landmarks[i]?.visibility ?? 0
-    return rightVis > leftVis ? 'right' : 'left'
+  private chooseSide(map: Partial<Record<MoveNetName, MoveNetKeypoint>>): 'left' | 'right' {
+    const left = this.avgScore(map, ['left_shoulder', 'left_elbow', 'left_wrist', 'left_hip', 'left_knee', 'left_ankle'])
+    const right = this.avgScore(map, ['right_shoulder', 'right_elbow', 'right_wrist', 'right_hip', 'right_knee', 'right_ankle'])
+    return right > left ? 'right' : 'left'
   }
 
-  private angleDeg(a?: NormalizedLandmark | null, b?: NormalizedLandmark | null, c?: NormalizedLandmark | null): number | null {
+  private angleDeg(a?: MoveNetKeypoint | null, b?: MoveNetKeypoint | null, c?: MoveNetKeypoint | null): number | null {
     if (!a || !b || !c) return null
+    if (Math.min(this.score(a), this.score(b), this.score(c)) < 0.15) return null
     const ba = { x: a.x - b.x, y: a.y - b.y }
     const bc = { x: c.x - b.x, y: c.y - b.y }
     const dot = ba.x * bc.x + ba.y * bc.y
@@ -519,8 +535,9 @@ export class RealtimePushupAnalyzer {
     return (Math.acos(cos) * 180) / Math.PI
   }
 
-  private angleFromHorizontalDeg(a?: NormalizedLandmark | null, b?: NormalizedLandmark | null): number | null {
+  private angleFromHorizontalDeg(a?: MoveNetKeypoint | null, b?: MoveNetKeypoint | null): number | null {
     if (!a || !b) return null
+    if (Math.min(this.score(a), this.score(b)) < 0.15) return null
     const dx = b.x - a.x
     const dy = b.y - a.y
     const mag = Math.hypot(dx, dy)
@@ -528,8 +545,9 @@ export class RealtimePushupAnalyzer {
     return Math.abs((Math.asin(dy / mag) * 180) / Math.PI)
   }
 
-  private signedAngleFromHorizontalDeg(a?: NormalizedLandmark | null, b?: NormalizedLandmark | null): number | null {
+  private signedAngleFromHorizontalDeg(a?: MoveNetKeypoint | null, b?: MoveNetKeypoint | null): number | null {
     if (!a || !b) return null
+    if (Math.min(this.score(a), this.score(b)) < 0.15) return null
     const dx = b.x - a.x
     const dy = b.y - a.y
     const mag = Math.hypot(dx, dy)
@@ -537,22 +555,34 @@ export class RealtimePushupAnalyzer {
     return (Math.asin(dy / mag) * 180) / Math.PI
   }
 
-  private sideAlignmentDeg(shoulder?: NormalizedLandmark | null, otherShoulder?: NormalizedLandmark | null): number | null {
+  private sideAlignmentDeg(shoulder?: MoveNetKeypoint | null, otherShoulder?: MoveNetKeypoint | null): number | null {
     if (!shoulder || !otherShoulder) return null
+    if (Math.min(this.score(shoulder), this.score(otherShoulder)) < 0.15) return null
     const shoulderSpanX = Math.abs(shoulder.x - otherShoulder.x)
     const shoulderSpanY = Math.abs(shoulder.y - otherShoulder.y) + 1e-6
     return (Math.atan2(shoulderSpanX, shoulderSpanY) * 180) / Math.PI
   }
 
-  private avgVisibility(landmarks: NormalizedLandmark[], indices: number[]) {
-    let total = 0
-    for (const idx of indices) total += this.visibilityOf(landmarks[idx])
-    return indices.length > 0 ? total / indices.length : 0
+  private byName(keypoints: MoveNetKeypoint[]) {
+    const map: Partial<Record<MoveNetName, MoveNetKeypoint>> = {}
+    for (const p of keypoints) map[p.name] = p
+    return map
   }
 
-  private visibilityOf(p: NormalizedLandmark | undefined) {
-    if (!p) return 0
-    const v = typeof p.visibility === 'number' ? p.visibility : 0.5
+  private avgScore(map: Partial<Record<MoveNetName, MoveNetKeypoint>>, names: MoveNetName[]) {
+    let total = 0
+    let count = 0
+    for (const name of names) {
+      const p = map[name]
+      if (!p) continue
+      total += this.score(p)
+      count += 1
+    }
+    return count > 0 ? total / count : 0
+  }
+
+  private score(p: MoveNetKeypoint) {
+    const v = typeof p.score === 'number' ? p.score : 0
     if (!Number.isFinite(v)) return 0
     return Math.max(0, Math.min(1, v))
   }

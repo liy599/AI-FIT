@@ -1,5 +1,3 @@
-import type { NormalizedLandmark } from './mediapipePose'
-
 export const MOVENET_NAMES = [
   'nose',
   'left_eye',
@@ -46,26 +44,6 @@ export type TrackingState = {
   prepProgress: number
   prepRemainingMs: number
   joints2d: StableJoint[]
-}
-
-const MP_TO_MOVENET_MAP: Record<MoveNetName, number> = {
-  nose: 0,
-  left_eye: 2,
-  right_eye: 5,
-  left_ear: 7,
-  right_ear: 8,
-  left_shoulder: 11,
-  right_shoulder: 12,
-  left_elbow: 13,
-  right_elbow: 14,
-  left_wrist: 15,
-  right_wrist: 16,
-  left_hip: 23,
-  right_hip: 24,
-  left_knee: 25,
-  right_knee: 26,
-  left_ankle: 27,
-  right_ankle: 28
 }
 
 export class MoveNetStabilizer {
@@ -131,20 +109,6 @@ export class MoveNetStabilizer {
     }
     return out
   }
-}
-
-export function mediapipeToMoveNetFrame(landmarks: NormalizedLandmark[], tMs: number): MoveNetFrame {
-  const keypoints: MoveNetKeypoint[] = MOVENET_NAMES.map((name) => {
-    const idx = MP_TO_MOVENET_MAP[name]
-    const src = landmarks[idx]
-    return {
-      name,
-      x: src?.x ?? 0,
-      y: src?.y ?? 0,
-      score: src?.visibility ?? 0
-    }
-  })
-  return { tMs, keypoints }
 }
 
 function byName(keypoints: MoveNetKeypoint[]) {

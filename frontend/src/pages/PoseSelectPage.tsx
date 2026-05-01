@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { buildPoseHistoryPath } from '../lib/pose/exercises'
 
 type PoseExerciseStatus = 'ready' | 'coming_soon'
 
@@ -23,8 +24,7 @@ const POSE_CATEGORIES: PoseCategory[] = [
     title: 'Chest',
     subtitle: 'Push movements',
     exercises: [
-      { id: 'pushup', name: 'Push-Up', secondary: 'Bodyweight', status: 'ready', href: '/tools/pose/pushup' },
-      { id: 'bench_press', name: 'Bench Press', secondary: 'Dumbbell', status: 'ready', href: '/tools/pose/bench-press' }
+      { id: 'pushup', name: 'Push-Up', secondary: 'Bodyweight', status: 'ready', href: '/tools/pose/pushup' }
     ]
   },
   {
@@ -32,7 +32,7 @@ const POSE_CATEGORIES: PoseCategory[] = [
     title: 'Back',
     subtitle: 'Pull movements',
     exercises: [
-      { id: 'pullup', name: 'Pull-Up', secondary: 'Bodyweight', status: 'ready', href: '/tools/pose/pullup' },
+      { id: 'bent-over-row', name: 'Bent-Over Row', secondary: 'Dumbbell', status: 'ready', href: '/tools/pose/bent-over-row' },
       { id: 'row', name: 'Standing Row', secondary: 'Dumbbell', status: 'coming_soon', href: '/tools/pose/row' }
     ]
   },
@@ -56,7 +56,24 @@ const POSE_CATEGORIES: PoseCategory[] = [
   }
 ]
 
+const POSE_EXERCISE_IMAGES: Record<string, string> = {
+  pushup: '/assets/images/pose/Push-Up.jpg',
+  'bent-over-row': '/assets/images/pose/Bent-Over Row.jpg',
+  lateral_raise: '/assets/images/pose/Lateral%20Raise.jpg',
+  squat: '/assets/images/pose/Deep%20Squat.jpg'
+}
+
 export default function PoseSelectPage() {
+  const visibleExercises = POSE_CATEGORIES
+    .flatMap((cat) => cat.exercises)
+    .filter((ex) => ex.status === 'ready')
+    .sort((a, b) => {
+      const order = ['squat', 'pushup', 'bent-over-row', 'lateral_raise']
+      const ai = order.indexOf(a.id)
+      const bi = order.indexOf(b.id)
+      return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi)
+    })
+
   return (
     <>
       <section className="cl_breadcrumb-area">
@@ -84,7 +101,7 @@ export default function PoseSelectPage() {
               <div className="cl_blog-widget mb-30 pose-select-hero">
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                   <h4 className="cl_blog-widget-title mb-0">Choose what you want to train</h4>
-                  <Link to="/tools/pose/squat/tool/history" className="pose-tool-ghost-btn pose-tool-light-btn">
+                  <Link to={buildPoseHistoryPath('squat')} className="pose-tool-ghost-btn pose-tool-light-btn">
                     Training History
                   </Link>
                 </div>
@@ -93,82 +110,30 @@ export default function PoseSelectPage() {
                 </p>
               </div>
 
-              <div className="row">
-                {POSE_CATEGORIES.map((cat) => (
-                  <div key={cat.id} className="col-xl-6 col-lg-6 col-md-6">
-                    <div className="cl_blog-widget mb-30">
-                      <h5 className="cl_blog-widget-title mb-15">
-                        {cat.title}
-                        <span style={{ fontSize: 12, color: '#94a3b8', marginLeft: 8 }}>{cat.subtitle}</span>
-                      </h5>
-                      <div style={{ display: 'grid', gap: 10 }}>
-                        {cat.exercises.map((ex) => {
-                          const disabled = ex.status !== 'ready'
-                          return (
-                            <div
-                              key={ex.id}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                gap: 12,
-                                border: '1px solid rgba(148,163,184,0.35)',
-                                borderRadius: 12,
-                                padding: '12px 14px',
-                                background: disabled ? 'rgba(15,23,42,0.03)' : '#fff'
-                              }}
-                            >
-                              <div style={{ display: 'grid' }}>
-                                <strong style={{ lineHeight: 1.2, color: '#0f172a' }}>{ex.name}</strong>
-                                {ex.secondary ? <span style={{ fontSize: 12, color: '#64748b' }}>{ex.secondary}</span> : null}
-                              </div>
-                              {disabled ? (
-                                <span
-                                  style={{
-                                    minWidth: 98,
-                                    height: 34,
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    fontSize: 12,
-                                    color: '#64748b',
-                                    border: '1px solid rgba(148,163,184,0.45)',
-                                    padding: '4px 8px',
-                                    borderRadius: 9999,
-                                    whiteSpace: 'nowrap'
-                                  }}
-                                >
-                                  Coming soon
-                                </span>
-                              ) : (
-                                <Link
-                                  to={ex.href}
-                                  className="cl_theme-btn"
-                                  style={{
-                                    minWidth: 98,
-                                    height: 34,
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    padding: '0 12px',
-                                    fontSize: 12
-                                  }}
-                                >
-                                  Select
-                                </Link>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
               <div className="cl_blog-widget mb-30">
-                <div className="pose-inline-note" style={{ marginTop: 0 }}>
-                  Deep Squat, Pull-Up, Bench Press, Lateral Raise, and Push-Up real-time correction are available right now. More exercises are coming soon.
+                <h5 className="cl_blog-widget-title mb-15">Available Exercises</h5>
+                <div className="pose-select-exercise-grid">
+                  {visibleExercises.map((ex) => {
+                    const imageSrc = POSE_EXERCISE_IMAGES[ex.id]
+                    return (
+                      <div key={ex.id} className="pose-select-exercise-card">
+                        {imageSrc ? (
+                          <div className="pose-select-exercise-media">
+                            <img src={imageSrc} alt={ex.name} loading="lazy" />
+                          </div>
+                        ) : null}
+                        <div className="pose-select-exercise-body">
+                          <div className="pose-select-exercise-meta">
+                            <strong>{ex.name}</strong>
+                            {ex.secondary ? <span>{ex.secondary}</span> : null}
+                          </div>
+                          <Link to={ex.href} className="cl_theme-btn pose-select-exercise-btn">
+                            Select
+                          </Link>
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             </div>

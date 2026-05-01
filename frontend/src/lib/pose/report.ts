@@ -13,7 +13,16 @@ export type PoseAnalysisReport = {
   video: { id: string; originalName: string; mimeType: string; sizeBytes: number } | null
   summary: string
   keyMetrics: Record<string, number | string | null>
-  issues: Array<{ code: string; severity: 'info' | 'warning' | 'error'; message: string; atFrame: number | null }>
+  issues: Array<{
+    code: string
+    severity: 'info' | 'warning' | 'error'
+    message: string
+    atFrame: number | null
+    count?: number | null
+    firstSeenMs?: number | null
+    lastSeenMs?: number | null
+    seenMomentsMs?: number[]
+  }>
   suggestions: string[]
   details: unknown
   sections: {

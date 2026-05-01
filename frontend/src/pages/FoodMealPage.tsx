@@ -1,8 +1,9 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { deleteMeal, getFoods, getFoodsBulk, getTodaySummary, recognizeFoods, saveMeal } from '../lib/food/api'
+import { deleteMeal, getFoodCategories, getFoodsBulk, getFoodsPage, getTodaySummary, recognizeFoods, saveMeal } from '../lib/food/api'
 import type { FoodItem, FoodMealType } from '../lib/food/types_runtime'
 import { useAuth } from '../state/auth-context'
+import '../styles/food-module.css'
 
 type CartItem = {
   food: FoodItem
@@ -40,6 +41,7 @@ const mealTitles: Record<FoodMealType, { title: string; note: string; accent: st
 }
 
 const quickGramSteps = [50, 100, 150, 200]
+const FOODS_PAGE_SIZE = 20
 
 function isMealType(value: string | undefined): value is FoodMealType {
   return value === 'breakfast' || value === 'lunch' || value === 'dinner' || value === 'snack'
@@ -65,8 +67,31 @@ function calcTotals(cart: Record<number, CartItem>) {
   }
 }
 
+function formatMetricParts(value: number | undefined, unit: string) {
+  if (value == null) return { numberText: '--', unitText: unit }
+  return { numberText: value.toFixed(1), unitText: unit }
+}
+
 function formatMacro(value: number, unit: string) {
   return `${value.toFixed(1)} ${unit}`
+}
+
+function emojiForFoodCategory(category: string) {
+  const value = category.trim().toLowerCase()
+  if (!value) return '🏷️'
+  if (value.includes('western') || value.includes('西方')) return '🍞'
+  if (value.includes('eastern') || value.includes('东方') || value.includes('chinese') || value.includes('中式')) return '🥟'
+  if (value.includes('fruit') || value.includes('水果')) return '🍎'
+  if (value.includes('veget') || value.includes('蔬')) return '🥬'
+  if (value.includes('meat') || value.includes('肉')) return '🥩'
+  if (value.includes('fish') || value.includes('sea') || value.includes('海鲜')) return '🐟'
+  if (value.includes('egg') || value.includes('蛋')) return '🥚'
+  if (value.includes('milk') || value.includes('dairy') || value.includes('奶')) return '🥛'
+  if (value.includes('grain') || value.includes('rice') || value.includes('bread') || value.includes('谷') || value.includes('米') || value.includes('面')) return '🍚'
+  if (value.includes('snack') || value.includes('零食')) return '🍪'
+  if (value.includes('drink') || value.includes('beverage') || value.includes('饮')) return '🥤'
+  if (value.includes('nut') || value.includes('坚果')) return '🥜'
+  return '🍽️'
 }
 
 function isAuthErrorMessage(message: string | null) {
@@ -96,22 +121,34 @@ export default function FoodMealPage() {
   const params = useParams()
   const auth = useAuth()
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
+  const gramsInputRefs = useRef<Record<number, HTMLInputElement | null>>({})
+  const didInitFoodsQueryRef = useRef(false)
   const routeMealType = isMealType(params.mealType) ? params.mealType : null
   const mealType = routeMealType ?? 'lunch'
   const meal = mealTitles[mealType]
 
   const [foods, setFoods] = useState<FoodItem[]>([])
+  const [foodCategories, setFoodCategories] = useState<string[]>([])
   const [query, setQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [cart, setCart] = useState<Record<number, CartItem>>({})
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [lastErrorAction, setLastErrorAction] = useState<'load' | 'save' | 'delete' | null>(null)
   const [savedMealId, setSavedMealId] = useState<number | null>(null)
+  const [foodsPage, setFoodsPage] = useState(1)
+  const [foodsTotalPages, setFoodsTotalPages] = useState(1)
+  const [foodsTotal, setFoodsTotal] = useState(0)
+  const [foodsLoadingPage, setFoodsLoadingPage] = useState(false)
   const [recognizing, setRecognizing] = useState(false)
   const [recognizeHint, setRecognizeHint] = useState<string | null>(null)
   const [successHint, setSuccessHint] = useState<string | null>(null)
+  const [recognizeSuccessHint, setRecognizeSuccessHint] = useState<string | null>(null)
   const [recognitionSummary, setRecognitionSummary] = useState<RecognitionSummary | null>(null)
+  const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null)
+  const uploadedImageUrlRef = useRef<string | null>(null)
   const authError = isAuthErrorMessage(error)
 
   useEffect(() => {
@@ -125,11 +162,22 @@ export default function FoodMealPage() {
     }
     setLoading(true)
     setError(null)
+    setLastErrorAction(null)
     setSuccessHint(null)
-    Promise.all([getFoods({ limit: 300 }), auth.user ? getTodaySummary() : Promise.resolve(null)])
-      .then(([foodItems, summary]) => {
+    setRecognizeHint(null)
+    setRecognizeSuccessHint(null)
+    Promise.all([
+      getFoodsPage({ limit: FOODS_PAGE_SIZE, page: 1 }),
+      getFoodCategories(),
+      auth.user ? getTodaySummary() : Promise.resolve(null)
+    ])
+      .then(([foodsPageResult, categoriesResult, summary]) => {
         if (cancelled) return
-        setFoods(foodItems)
+        setFoods(foodsPageResult.items)
+        setFoodsPage(foodsPageResult.page)
+        setFoodsTotal(foodsPageResult.total)
+        setFoodsTotalPages(Math.max(1, Math.ceil(foodsPageResult.total / foodsPageResult.limit)))
+        setFoodCategories(categoriesResult)
         if (summary) {
           const existingMeal = summary.meals.find((item) => item.mealType === mealType) ?? null
           setSavedMealId(existingMeal?.id ?? null)
@@ -149,7 +197,10 @@ export default function FoodMealPage() {
         }
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load meal editor')
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to load meal editor')
+          setLastErrorAction('load')
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -160,32 +211,93 @@ export default function FoodMealPage() {
     }
   }, [auth.user, mealType, routeMealType])
 
-  const categories = useMemo(() => {
-    const unique = Array.from(new Set(foods.map((item) => item.category)))
-    return ['all', ...unique]
-  }, [foods])
+  useEffect(() => {
+    return () => {
+      if (uploadedImageUrlRef.current) URL.revokeObjectURL(uploadedImageUrlRef.current)
+    }
+  }, [])
 
-  const filteredFoods = useMemo(() => {
-    const normalized = query.trim().toLowerCase()
-    return foods.filter((item) => {
-      const inCategory = selectedCategory === 'all' ? true : item.category === selectedCategory
-      if (!inCategory) return false
-      if (!normalized) return true
-      return (
-        item.displayName.toLowerCase().includes(normalized) ||
-        item.name.toLowerCase().includes(normalized) ||
-        item.aliases.some((alias) => alias.toLowerCase().includes(normalized))
-      )
-    })
-  }, [foods, query, selectedCategory])
+  const categories = useMemo(() => {
+    const unique = new Set((foodCategories.length ? foodCategories : foods.map((item) => item.category)).filter(Boolean))
+    if (selectedCategory !== 'all') unique.add(selectedCategory)
+    return ['all', ...Array.from(unique)]
+  }, [foodCategories, foods, selectedCategory])
 
   const selectedItems = useMemo(() => Object.values(cart), [cart])
   const totals = useMemo(() => calcTotals(cart), [cart])
   const selectedCount = selectedItems.length
+  const pageNumbers = useMemo(() => {
+    const total = foodsTotalPages
+    const current = foodsPage
+    if (total <= 1) return []
+    const windowSize = 7
+    let start = Math.max(1, current - Math.floor(windowSize / 2))
+    let end = Math.min(total, start + windowSize - 1)
+    start = Math.max(1, end - windowSize + 1)
+    const pages: number[] = []
+    for (let p = start; p <= end; p += 1) pages.push(p)
+    return pages
+  }, [foodsPage, foodsTotalPages])
+
+  useEffect(() => {
+    if (!didInitFoodsQueryRef.current) {
+      didInitFoodsQueryRef.current = true
+      return
+    }
+
+    let cancelled = false
+    setFoodsLoadingPage(true)
+    const timer = window.setTimeout(() => {
+      const q = query.trim()
+      const category = selectedCategory === 'all' ? undefined : selectedCategory
+      getFoodsPage({ limit: FOODS_PAGE_SIZE, page: 1, q: q || undefined, category })
+        .then((result) => {
+          if (cancelled) return
+          setFoods(result.items)
+          setFoodsPage(result.page)
+          setFoodsTotal(result.total)
+          setFoodsTotalPages(Math.max(1, Math.ceil(result.total / result.limit)))
+        })
+        .catch((err: unknown) => {
+          if (cancelled) return
+          setError(err instanceof Error ? err.message : 'Failed to load foods')
+          setLastErrorAction('load')
+        })
+        .finally(() => {
+          if (!cancelled) setFoodsLoadingPage(false)
+        })
+    }, 250)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [query, selectedCategory])
+
+  function focusSearch() {
+    requestAnimationFrame(() => {
+      searchInputRef.current?.focus()
+      searchInputRef.current?.select()
+    })
+  }
+
+  function focusGrams(foodId: number) {
+    requestAnimationFrame(() => {
+      const el = gramsInputRefs.current[foodId]
+      if (el) {
+        el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+        el.focus()
+        el.select()
+      }
+    })
+  }
 
   function toggleFood(food: FoodItem) {
     setError(null)
     setSuccessHint(null)
+    setRecognizeHint(null)
+    setRecognizeSuccessHint(null)
+    const wasSelected = Boolean(cart[food.id])
     setCart((prev) => {
       const next = { ...prev }
       if (next[food.id]) {
@@ -195,9 +307,12 @@ export default function FoodMealPage() {
       }
       return next
     })
+    if (!wasSelected) focusGrams(food.id)
   }
 
   function updateGrams(foodId: number, grams: number) {
+    setError(null)
+    setSuccessHint(null)
     setCart((prev) => {
       const current = prev[foodId]
       if (!current) return prev
@@ -219,12 +334,43 @@ export default function FoodMealPage() {
     })
   }
 
+  async function gotoFoodsPage(nextPage: number) {
+    if (foodsLoadingPage) return
+    const targetPage = Math.min(Math.max(1, nextPage), foodsTotalPages)
+    setFoodsLoadingPage(true)
+    try {
+      const q = query.trim()
+      const category = selectedCategory === 'all' ? undefined : selectedCategory
+      const result = await getFoodsPage({ limit: FOODS_PAGE_SIZE, page: targetPage, q: q || undefined, category })
+      setFoods(result.items)
+      setFoodsPage(result.page)
+      setFoodsTotal(result.total)
+      setFoodsTotalPages(Math.max(1, Math.ceil(result.total / result.limit)))
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load foods')
+      setLastErrorAction('load')
+    } finally {
+      setFoodsLoadingPage(false)
+    }
+  }
+
   async function handleRecognize(file: File) {
     setError(null)
     setSuccessHint(null)
     setRecognizeHint(null)
+    setRecognizeSuccessHint(null)
     setRecognizing(true)
     try {
+      if (uploadedImageUrlRef.current) URL.revokeObjectURL(uploadedImageUrlRef.current)
+      const objectUrl = URL.createObjectURL(file)
+      uploadedImageUrlRef.current = objectUrl
+      setUploadedImageUrl(objectUrl)
+      setRecognitionSummary({
+        fileName: file.name,
+        recognizedNames: [],
+        matchedNames: [],
+        unmatchedNames: []
+      })
       const result = await recognizeFoods(file)
       setRecognitionSummary({
         fileName: file.name,
@@ -253,10 +399,11 @@ export default function FoodMealPage() {
         }
         return next
       })
-      setSuccessHint(`Added ${recognizedItems.length} food item(s) from image recognition.`)
+      setRecognizeSuccessHint(`Added ${recognizedItems.length} food item(s) from image recognition.`)
       if (result.unmatchedNames.length) {
         setRecognizeHint(`Partially matched. Unmatched: ${result.unmatchedNames.join(', ')}`)
       }
+      if (recognizedItems.length > 0) focusGrams(recognizedItems[0].id)
     } catch (err: unknown) {
       setRecognizeHint(mapRecognizeErrorMessage(err))
     } finally {
@@ -267,10 +414,12 @@ export default function FoodMealPage() {
   async function handleSave() {
     if (selectedCount === 0) {
       setError('Select at least one food before saving')
+      setLastErrorAction('save')
       return
     }
     setBusy(true)
     setError(null)
+    setLastErrorAction(null)
     setSuccessHint(null)
     try {
       const saved = await saveMeal(
@@ -284,6 +433,7 @@ export default function FoodMealPage() {
       setSuccessHint(`${meal.title} saved to today's formal meal record.`)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Save failed')
+      setLastErrorAction('save')
     } finally {
       setBusy(false)
     }
@@ -293,6 +443,7 @@ export default function FoodMealPage() {
     if (!savedMealId) return
     setBusy(true)
     setError(null)
+    setLastErrorAction(null)
     setSuccessHint(null)
     try {
       await deleteMeal(savedMealId)
@@ -301,6 +452,7 @@ export default function FoodMealPage() {
       setSuccessHint(`${meal.title} meal record deleted.`)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Delete failed')
+      setLastErrorAction('delete')
     } finally {
       setBusy(false)
     }
@@ -309,7 +461,10 @@ export default function FoodMealPage() {
   function clearDraft() {
     setCart({})
     setError(null)
+    setLastErrorAction(null)
     setSuccessHint(null)
+    setRecognizeHint(null)
+    setRecognizeSuccessHint(null)
   }
 
   if (!routeMealType) {
@@ -324,6 +479,7 @@ export default function FoodMealPage() {
                     <h2 className="cl_breadcrumb-content-title">Invalid Meal Slot</h2>
                     <div className="cl_breadcrumb-content-list">
                       <Link to="/">Home</Link>
+                      <span aria-hidden="true" />
                       <Link to="/food">Food Module</Link>
                       <span>Invalid Meal Slot</span>
                     </div>
@@ -371,6 +527,7 @@ export default function FoodMealPage() {
                   <h2 className="cl_breadcrumb-content-title">{meal.title}</h2>
                   <div className="cl_breadcrumb-content-list">
                     <Link to="/">Home</Link>
+                    <span aria-hidden="true" />
                     <Link to="/food">Food Module</Link>
                     <span>{meal.title}</span>
                   </div>
@@ -414,30 +571,10 @@ export default function FoodMealPage() {
                       <div style={{ fontSize: 13, letterSpacing: '0.08em', textTransform: 'uppercase', opacity: 0.78 }}>
                         Formal Meal Editor
                       </div>
-                      <h3 style={{ fontSize: 34, lineHeight: 1.15, marginTop: 10, marginBottom: 12 }}>{meal.title}</h3>
+                      <h3 style={{ fontSize: 34, lineHeight: 1.15, marginTop: 10, marginBottom: 12, fontWeight: 900 }}>
+                        {meal.title}
+                      </h3>
                       <p style={{ marginBottom: 0, color: 'rgba(255,255,255,0.86)' }}>{meal.note}</p>
-                    </div>
-                    <div style={{ display: 'grid', gap: 10, alignContent: 'start' }}>
-                      <div
-                        style={{
-                          padding: '10px 14px',
-                          borderRadius: 999,
-                          background: 'rgba(255,255,255,0.18)',
-                          fontSize: 13
-                        }}
-                      >
-                        {savedMealId ? `Saved meal #${savedMealId}` : 'Draft not saved'}
-                      </div>
-                      <div
-                        style={{
-                          padding: '10px 14px',
-                          borderRadius: 999,
-                          background: 'rgba(255,255,255,0.18)',
-                          fontSize: 13
-                        }}
-                      >
-                        {selectedCount} selected / {filteredFoods.length} visible
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -510,16 +647,7 @@ export default function FoodMealPage() {
                     />
 
                     {recognitionSummary ? (
-                      <div
-                        style={{
-                          borderRadius: 18,
-                          background: '#f8fafc',
-                          border: '1px solid rgba(148, 163, 184, 0.18)',
-                          padding: 18,
-                          display: 'grid',
-                          gap: 12
-                        }}
-                      >
+                      <div className="food-meal-recognition-card">
                         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
                           <div>
                             <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>Latest Recognition</div>
@@ -530,21 +658,18 @@ export default function FoodMealPage() {
                           </div>
                         </div>
 
+                        {uploadedImageUrl ? (
+                          <div className="food-meal-upload-preview">
+                            <img className="food-meal-upload-preview-image" src={uploadedImageUrl} alt="Uploaded" />
+                          </div>
+                        ) : null}
+
                         {recognitionSummary.recognizedNames.length > 0 ? (
                           <div>
                             <div style={{ fontSize: 12, color: '#64748b', marginBottom: 8 }}>Recognized labels</div>
                             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                               {recognitionSummary.recognizedNames.map((name) => (
-                                <span
-                                  key={`recognized-${name}`}
-                                  style={{
-                                    borderRadius: 999,
-                                    background: '#e2e8f0',
-                                    color: '#334155',
-                                    padding: '6px 10px',
-                                    fontSize: 12
-                                  }}
-                                >
+                                <span key={`recognized-${name}`} className="food-chip food-chip--neutral">
                                   {name}
                                 </span>
                               ))}
@@ -557,16 +682,7 @@ export default function FoodMealPage() {
                             <div style={{ fontSize: 12, color: '#64748b', marginBottom: 8 }}>Added to meal draft</div>
                             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                               {recognitionSummary.matchedNames.map((name) => (
-                                <span
-                                  key={`matched-${name}`}
-                                  style={{
-                                    borderRadius: 999,
-                                    background: '#dcfce7',
-                                    color: '#166534',
-                                    padding: '6px 10px',
-                                    fontSize: 12
-                                  }}
-                                >
+                                <span key={`matched-${name}`} className="food-chip food-chip--success">
                                   {name}
                                 </span>
                               ))}
@@ -579,18 +695,18 @@ export default function FoodMealPage() {
                             <div style={{ fontSize: 12, color: '#64748b', marginBottom: 8 }}>Needs manual selection</div>
                             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                               {recognitionSummary.unmatchedNames.map((name) => (
-                                <span
+                                <button
                                   key={`unmatched-${name}`}
-                                  style={{
-                                    borderRadius: 999,
-                                    background: '#fff7ed',
-                                    color: '#c2410c',
-                                    padding: '6px 10px',
-                                    fontSize: 12
+                                  type="button"
+                                  className="food-chip food-chip--warn food-chip--clickable"
+                                  onClick={() => {
+                                    setQuery(name)
+                                    setSelectedCategory('all')
+                                    focusSearch()
                                   }}
                                 >
                                   {name}
-                                </span>
+                                </button>
                               ))}
                             </div>
                           </div>
@@ -599,9 +715,17 @@ export default function FoodMealPage() {
                     ) : null}
 
                     <input
+                      ref={searchInputRef}
                       value={query}
                       onChange={(event) => setQuery(event.target.value)}
                       placeholder="Search foods in Chinese or English"
+                      onKeyDown={(event) => {
+                        if (event.key !== 'Enter') return
+                        const first = foods[0]
+                        if (!first) return
+                        event.preventDefault()
+                        toggleFood(first)
+                      }}
                       style={{
                         width: '100%',
                         minHeight: 52,
@@ -614,6 +738,7 @@ export default function FoodMealPage() {
                     <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                       {categories.map((category) => {
                         const active = selectedCategory === category
+                        const emoji = category === 'all' ? '' : `${emojiForFoodCategory(category)} `
                         return (
                           <button
                             key={category}
@@ -623,46 +748,27 @@ export default function FoodMealPage() {
                               border: active ? '1px solid #0f766e' : '1px solid rgba(148, 163, 184, 0.24)',
                               background: active ? '#ecfeff' : '#fff',
                               color: active ? '#0f766e' : '#475569',
-                              minHeight: 40,
+                              minHeight: 44,
                               padding: '0 14px',
                               borderRadius: 999,
-                              fontSize: 13,
-                              fontWeight: 600
+                              fontSize: 14,
+                              fontWeight: 700
                             }}
                           >
-                            {category === 'all' ? 'All Categories' : category}
+                            {category === 'all' ? 'All Categories' : `${emoji}${category}`}
                           </button>
                         )
                       })}
                     </div>
 
-                    {authError ? (
-                      <div style={{ borderRadius: 14, background: '#fff7ed', color: '#9a3412', padding: '14px 16px' }}>
-                        Your login session is no longer valid for meal records. Re-login before saving or loading this meal.
-                        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 12 }}>
-                          <Link to="/login" className="cl_theme-btn">
-                            Go Login
-                          </Link>
-                          <button type="button" className="cl_theme-btn" onClick={auth.logout}>
-                            Clear Session
-                          </button>
-                        </div>
-                      </div>
-                    ) : null}
                     {recognizeHint ? (
-                      <div style={{ borderRadius: 14, background: '#ecfeff', color: '#0f766e', padding: '12px 14px' }}>
-                        {recognizeHint}
-                      </div>
+                      <div className="food-notice food-notice--info">{recognizeHint}</div>
                     ) : null}
-                    {successHint ? (
-                      <div style={{ borderRadius: 14, background: '#f0fdf4', color: '#166534', padding: '12px 14px' }}>
-                        {successHint}
-                      </div>
+                    {recognizeSuccessHint ? (
+                      <div className="food-notice food-notice--success">{recognizeSuccessHint}</div>
                     ) : null}
                     {error ? (
-                      <div style={{ borderRadius: 14, background: '#fef2f2', color: '#b91c1c', padding: '12px 14px' }}>
-                        {error}
-                      </div>
+                      <div className="food-notice food-notice--error">{error}</div>
                     ) : null}
                     {loading ? <div style={{ color: '#64748b' }}>Loading foods...</div> : null}
 
@@ -673,13 +779,21 @@ export default function FoodMealPage() {
                         gap: 14
                       }}
                     >
-                      {filteredFoods.map((food) => {
+                      {foods.map((food) => {
                         const selected = Boolean(cart[food.id])
+                        const categoryEmoji = emojiForFoodCategory(food.category)
                         return (
-                          <button
+                          <div
                             key={food.id}
-                            type="button"
                             onClick={() => toggleFood(food)}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault()
+                                toggleFood(food)
+                              }
+                            }}
+                            role="button"
+                            tabIndex={0}
                             style={{
                               border: selected ? '1px solid #0f766e' : '1px solid rgba(148, 163, 184, 0.24)',
                               background: selected ? '#f0fdfa' : '#fff',
@@ -693,16 +807,15 @@ export default function FoodMealPage() {
                           >
                             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start' }}>
                               <div>
-                                <div style={{ fontSize: 17, fontWeight: 700, color: '#0f172a' }}>{food.displayName}</div>
-                                <div style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>{food.name}</div>
+                                <div style={{ fontSize: 20, fontWeight: 800, color: '#0f172a' }}>{food.displayName}</div>
                               </div>
                               <div
                                 style={{
                                   minWidth: 72,
                                   textAlign: 'right',
                                   color: selected ? '#0f766e' : '#94a3b8',
-                                  fontSize: 12,
-                                  fontWeight: 700,
+                                  fontSize: 13,
+                                  fontWeight: 800,
                                   letterSpacing: '0.06em'
                                 }}
                               >
@@ -711,45 +824,12 @@ export default function FoodMealPage() {
                             </div>
 
                             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                              <span
-                                style={{
-                                  borderRadius: 999,
-                                  background: '#f8fafc',
-                                  color: '#475569',
-                                  padding: '6px 10px',
-                                  fontSize: 12
-                                }}
-                              >
-                                {food.category}
+                              <span className="food-chip food-chip--neutral">
+                                {categoryEmoji} {food.category}
                               </span>
-                              <span
-                                style={{
-                                  borderRadius: 999,
-                                  background: '#fff7ed',
-                                  color: '#c2410c',
-                                  padding: '6px 10px',
-                                  fontSize: 12
-                                }}
-                              >
-                                {Math.round(food.calories)} kcal / 100g
-                              </span>
+                              {selected ? <span className="food-chip food-chip--success">Selected</span> : null}
                             </div>
-
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
-                              <div>
-                                <div style={{ fontSize: 12, color: '#94a3b8' }}>Protein</div>
-                                <div style={{ marginTop: 2, fontWeight: 700, color: '#0f172a' }}>{food.protein.toFixed(1)}g</div>
-                              </div>
-                              <div>
-                                <div style={{ fontSize: 12, color: '#94a3b8' }}>Fat</div>
-                                <div style={{ marginTop: 2, fontWeight: 700, color: '#0f172a' }}>{food.fat.toFixed(1)}g</div>
-                              </div>
-                              <div>
-                                <div style={{ fontSize: 12, color: '#94a3b8' }}>Carbs</div>
-                                <div style={{ marginTop: 2, fontWeight: 700, color: '#0f172a' }}>{food.carbs.toFixed(1)}g</div>
-                              </div>
-                            </div>
-                          </button>
+                          </div>
                         )
                       })}
                       {!loading && foods.length === 0 ? (
@@ -757,16 +837,49 @@ export default function FoodMealPage() {
                           The formal food library is currently empty. Check backend seed data and `/api/foods`.
                         </div>
                       ) : null}
-                      {!loading && foods.length > 0 && filteredFoods.length === 0 ? (
-                        <div style={{ color: '#64748b' }}>No foods matched the current filters.</div>
-                      ) : null}
                     </div>
+
+                    {foodsLoadingPage ? <div style={{ color: '#64748b', marginTop: 14 }}>Loading...</div> : null}
+                    {foodsTotalPages > 1 ? (
+                      <div className="food-meal-pagination">
+                        <button
+                          type="button"
+                          className="food-meal-page-btn"
+                          disabled={foodsPage <= 1 || foodsLoadingPage}
+                          onClick={() => void gotoFoodsPage(foodsPage - 1)}
+                        >
+                          Prev
+                        </button>
+                        {pageNumbers.map((page) => (
+                          <button
+                            key={page}
+                            type="button"
+                            className={`food-meal-page-btn${page === foodsPage ? ' food-meal-page-btn--active' : ''}`}
+                            disabled={foodsLoadingPage}
+                            onClick={() => void gotoFoodsPage(page)}
+                          >
+                            {page}
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          className="food-meal-page-btn"
+                          disabled={foodsPage >= foodsTotalPages || foodsLoadingPage}
+                          onClick={() => void gotoFoodsPage(foodsPage + 1)}
+                        >
+                          Next
+                        </button>
+                        <div style={{ color: '#64748b', fontSize: 13 }}>
+                          Page {foodsPage} / {foodsTotalPages} · {foodsTotal} foods
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </div>
 
               <div className="col-xl-4 col-lg-5">
-                <div className="cl_blog-widget">
+                <div className="cl_blog-widget food-meal-draft-sticky">
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
                     <h4 className="cl_blog-widget-title mb-0">Meal Draft</h4>
                     {selectedCount > 0 ? (
@@ -778,26 +891,6 @@ export default function FoodMealPage() {
                         Clear
                       </button>
                     ) : null}
-                  </div>
-
-                  <div
-                    style={{
-                      marginTop: 18,
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                      gap: 12
-                    }}
-                  >
-                    <div style={{ padding: 14, borderRadius: 16, background: '#f8fafc' }}>
-                      <div style={{ fontSize: 12, color: '#64748b' }}>Selected foods</div>
-                      <div style={{ marginTop: 4, fontSize: 24, fontWeight: 700, color: '#0f172a' }}>{selectedCount}</div>
-                    </div>
-                    <div style={{ padding: 14, borderRadius: 16, background: '#f8fafc' }}>
-                      <div style={{ fontSize: 12, color: '#64748b' }}>Save state</div>
-                      <div style={{ marginTop: 4, fontSize: 16, fontWeight: 700, color: '#0f172a' }}>
-                        {savedMealId ? 'Saved' : 'Draft'}
-                      </div>
-                    </div>
                   </div>
 
                   {selectedCount === 0 ? (
@@ -839,6 +932,9 @@ export default function FoodMealPage() {
                               onChange={(event) => {
                                 const grams = Number(event.target.value)
                                 if (Number.isFinite(grams) && grams > 0) updateGrams(item.food.id, grams)
+                              }}
+                              ref={(el) => {
+                                gramsInputRefs.current[item.food.id] = el
                               }}
                               style={{
                                 width: '100%',
@@ -892,28 +988,82 @@ export default function FoodMealPage() {
                   )}
 
                   <div style={{ marginTop: 18, paddingTop: 18, borderTop: '1px solid rgba(148, 163, 184, 0.2)' }}>
-                    <div
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                        gap: 10
-                      }}
-                    >
-                      <div style={{ padding: 12, borderRadius: 14, background: '#fff7ed' }}>
-                        <div style={{ fontSize: 12, color: '#9a3412' }}>Calories</div>
-                        <div style={{ marginTop: 4, fontWeight: 700, color: '#7c2d12' }}>{formatMacro(totals.kcal, 'kcal')}</div>
+                    {authError ? (
+                      <div className="food-notice food-notice--warn">
+                        <div style={{ fontWeight: 800 }}>Login expired</div>
+                        <div style={{ marginTop: 6 }}>
+                          Your session is no longer valid for meal records. Re-login before saving or loading this meal.
+                        </div>
+                        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 12 }}>
+                          <Link to="/login" className="cl_theme-btn">
+                            Go Login
+                          </Link>
+                          <button type="button" className="cl_theme-btn" onClick={auth.logout}>
+                            Clear Session
+                          </button>
+                        </div>
                       </div>
-                      <div style={{ padding: 12, borderRadius: 14, background: '#eff6ff' }}>
-                        <div style={{ fontSize: 12, color: '#1d4ed8' }}>Protein</div>
-                        <div style={{ marginTop: 4, fontWeight: 700, color: '#1e3a8a' }}>{formatMacro(totals.protein, 'g')}</div>
+                    ) : null}
+                    {successHint ? (
+                      <div className="food-notice food-notice--success">
+                        <div style={{ fontWeight: 800 }}>Saved</div>
+                        <div style={{ marginTop: 6 }}>{successHint}</div>
                       </div>
-                      <div style={{ padding: 12, borderRadius: 14, background: '#fefce8' }}>
-                        <div style={{ fontSize: 12, color: '#a16207' }}>Fat</div>
-                        <div style={{ marginTop: 4, fontWeight: 700, color: '#854d0e' }}>{formatMacro(totals.fat, 'g')}</div>
+                    ) : null}
+                    {error && !authError ? (
+                      <div className="food-notice food-notice--error">
+                        <div style={{ fontWeight: 800 }}>Action failed</div>
+                        <div style={{ marginTop: 6 }}>{error}</div>
+                        {lastErrorAction === 'save' ? (
+                          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 12 }}>
+                            <button
+                              type="button"
+                              className="cl_theme-btn"
+                              onClick={() => void handleSave()}
+                              disabled={busy || selectedCount === 0}
+                            >
+                              Retry Save
+                            </button>
+                          </div>
+                        ) : null}
                       </div>
-                      <div style={{ padding: 12, borderRadius: 14, background: '#f0fdf4' }}>
-                        <div style={{ fontSize: 12, color: '#15803d' }}>Carbs</div>
-                        <div style={{ marginTop: 4, fontWeight: 700, color: '#166534' }}>{formatMacro(totals.carbs, 'g')}</div>
+                    ) : null}
+                    <div className="food-meal-side-metrics">
+                      <div className="food-module-metric food-module-metric--calories">
+                        <div className="food-module-metric-label">
+                          <span className="food-module-metric-icon">🔥</span> Calories
+                        </div>
+                        <div className="food-module-metric-value">
+                          <span className="food-module-metric-number">{formatMetricParts(totals.kcal, 'kcal').numberText}</span>
+                          <span className="food-module-metric-unit">{formatMetricParts(totals.kcal, 'kcal').unitText}</span>
+                        </div>
+                      </div>
+                      <div className="food-module-metric food-module-metric--protein">
+                        <div className="food-module-metric-label">
+                          <span className="food-module-metric-icon">💪</span> Protein
+                        </div>
+                        <div className="food-module-metric-value">
+                          <span className="food-module-metric-number">{formatMetricParts(totals.protein, 'g').numberText}</span>
+                          <span className="food-module-metric-unit">{formatMetricParts(totals.protein, 'g').unitText}</span>
+                        </div>
+                      </div>
+                      <div className="food-module-metric food-module-metric--fat">
+                        <div className="food-module-metric-label">
+                          <span className="food-module-metric-icon">🥑</span> Fat
+                        </div>
+                        <div className="food-module-metric-value">
+                          <span className="food-module-metric-number">{formatMetricParts(totals.fat, 'g').numberText}</span>
+                          <span className="food-module-metric-unit">{formatMetricParts(totals.fat, 'g').unitText}</span>
+                        </div>
+                      </div>
+                      <div className="food-module-metric food-module-metric--carbs">
+                        <div className="food-module-metric-label">
+                          <span className="food-module-metric-icon">🍚</span> Carbs
+                        </div>
+                        <div className="food-module-metric-value">
+                          <span className="food-module-metric-number">{formatMetricParts(totals.carbs, 'g').numberText}</span>
+                          <span className="food-module-metric-unit">{formatMetricParts(totals.carbs, 'g').unitText}</span>
+                        </div>
                       </div>
                     </div>
 

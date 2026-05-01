@@ -1,10 +1,12 @@
 import { Link } from 'react-router-dom'
 import { useParams } from 'react-router-dom'
-import { buildPoseToolPath, getPoseExerciseBySlug } from '../lib/pose/exercises'
+import { buildPoseToolPath, buildPoseVideoPath, getPoseExerciseBySlug } from '../lib/pose/exercises'
 
 export default function PoseGuidePage() {
   const params = useParams<{ exerciseSlug: string }>()
   const exercise = getPoseExerciseBySlug(params.exerciseSlug)
+  const livePath = buildPoseToolPath(exercise.slug)
+  const videoPath = buildPoseVideoPath(exercise.slug)
 
   return (
     <>
@@ -44,9 +46,14 @@ export default function PoseGuidePage() {
                   </ul>
                 </div>
 
-                <div className="text-center mt-40" style={{ textAlign: 'center' }}>
-                  <Link to={buildPoseToolPath(exercise.slug)} className="cl_theme-btn">
-                    Got it, continue
+                <div className="pose-tool-actions pose-guide-actions mt-40">
+                  <Link to={livePath} className="cl_theme-btn pose-guide-cta">
+                    <span className="pose-guide-cta-title">📷 Live Coaching</span>
+                    <span className="pose-guide-cta-sub">Real-time feedback using your camera</span>
+                  </Link>
+                  <Link to={videoPath} className="pose-tool-ghost-btn pose-tool-light-btn pose-guide-cta">
+                    <span className="pose-guide-cta-title">🎞️ Video Analysis</span>
+                    <span className="pose-guide-cta-sub pose-guide-cta-sub-light">Upload a clip and get a report</span>
                   </Link>
                 </div>
               </div>

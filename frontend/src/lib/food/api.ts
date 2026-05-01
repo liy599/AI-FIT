@@ -12,6 +12,16 @@ type FoodsQuery = {
   q?: string
   category?: string
   limit?: number
+  offset?: number
+  page?: number
+}
+
+export type FoodsPage = {
+  items: FoodItem[]
+  total: number
+  limit: number
+  offset: number
+  page: number
 }
 
 export function getFoodModuleMeta() {
@@ -29,8 +39,40 @@ export function getFoods(query: FoodsQuery = {}) {
   if (query.q) params.set('q', query.q)
   if (query.category) params.set('category', query.category)
   if (query.limit != null) params.set('limit', String(query.limit))
+  if (query.offset != null) params.set('offset', String(query.offset))
+  if (query.page != null) params.set('page', String(query.page))
   const suffix = params.toString() ? `?${params.toString()}` : ''
   return apiFetch<FoodItem[]>(`/api/foods${suffix}`)
+}
+
+export function getFoodCategories() {
+  return apiFetch<string[]>('/api/foods/categories', { auth: false })
+}
+
+export function getFoodsPage(query: FoodsQuery = {}) {
+  const params = new URLSearchParams()
+  params.set('paged', '1')
+  if (query.q) params.set('q', query.q)
+  if (query.category) params.set('category', query.category)
+  if (query.limit != null) params.set('limit', String(query.limit))
+  if (query.offset != null) params.set('offset', String(query.offset))
+  if (query.page != null) params.set('page', String(query.page))
+  const suffix = params.toString() ? `?${params.toString()}` : ''
+  return apiFetch<FoodsPage | FoodItem[]>(`/api/foods${suffix}`).then((data) => {
+    if (Array.isArray(data)) {
+      const limit = query.limit ?? (data.length || 1)
+      const page = query.page ?? 1
+      const offset = query.offset ?? (page - 1) * limit
+      return {
+        items: data,
+        total: offset + data.length,
+        limit,
+        offset,
+        page
+      }
+    }
+    return data
+  })
 }
 
 export function getFoodsBulk(ids: number[]) {

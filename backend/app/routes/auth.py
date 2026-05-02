@@ -134,7 +134,7 @@ def reset_password():
     except BadSignature:
         return jsonify({"error": "invalid token"}), 400
 
-    user = User.query.get(int(payload["user_id"]))
+    user = db.session.get(User, int(payload["user_id"]))
     if user is None or user.email != payload.get("email"):
         return jsonify({"error": "invalid token"}), 400
 
@@ -147,7 +147,7 @@ def reset_password():
 @jwt_required()
 def me():
     user_id = int(get_jwt_identity())
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if user is None:
         return jsonify({"error": "not found"}), 404
     return jsonify(_auth_user(user))

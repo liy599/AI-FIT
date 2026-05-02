@@ -100,7 +100,7 @@ def _remove_avatar_file(user: User) -> None:
 @jwt_required()
 def get_profile():
     user_id = int(get_jwt_identity())
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if user is None:
         return jsonify({"error": "not found"}), 404
     return jsonify(_user_public(user))
@@ -110,7 +110,7 @@ def get_profile():
 @jwt_required()
 def update_profile():
     user_id = int(get_jwt_identity())
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if user is None:
         return jsonify({"error": "not found"}), 404
 
@@ -142,7 +142,7 @@ def avatar_options():
 @jwt_required()
 def upload_avatar():
     user_id = int(get_jwt_identity())
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if user is None:
         return jsonify({"error": "not found"}), 404
 
@@ -343,7 +343,7 @@ def delete_my_data():
                 VideoAsset.query.filter(VideoAsset.id.in_([v.id for v in videos])).delete(synchronize_session=False)
 
     if "account" in targets:
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)
         counts["account"] = 1 if user is not None else 0
         if not dry_run and user is not None:
             _remove_avatar_file(user)

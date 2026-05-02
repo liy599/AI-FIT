@@ -39,7 +39,10 @@ def recognize_foods():
         image_data_url=image_data_url,
     )
     if not recognized.ok:
-        return jsonify({"error": "stepfun_failed", "rawText": recognized.raw_text}), 502
+        payload = {"error": "stepfun_failed"}
+        if not is_production:
+            payload["rawText"] = recognized.raw_text
+        return jsonify(payload), 502
 
     matched_ids, unmatched_names = match_food_labels(recognized.labels, get_foods_for_match())
     payload = {
@@ -47,6 +50,7 @@ def recognize_foods():
         "foodIds": matched_ids,
         "unmatchedNames": unmatched_names,
     }
-    if request.args.get("debug") == "1":
+    if request.args.get("debug") == "1" and not is_production:
         payload["rawText"] = recognized.raw_text
     return jsonify(payload)
+    is_production = str(current_app.config.get("APP_ENV", "")).lower() == "production"

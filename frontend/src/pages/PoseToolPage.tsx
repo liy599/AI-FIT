@@ -38,7 +38,6 @@ import {
   extractNativePoseFromVideoUrlWithMoveNet,
   formatDuration,
   getAnalyzerDefaults,
-  getPoseCapabilities,
   getPoseExerciseBySlug,
   getRepsFromReport,
   getSessionComment,
@@ -57,7 +56,6 @@ import {
   toIssueCode,
   type MoveNetNativeFrame,
   type PoseAnalysisReport,
-  type PoseCapabilities,
   type RealtimeAnalyzer,
   type RealtimeFeedback,
   type SquatRepFinding,
@@ -66,24 +64,19 @@ import {
   type TrackingState,
   updateSquatTuningConfig
 } from '../features/pose'
-import {
-  LIVE_SESSION_LIMIT_MS,
-  LIVE_TARGET_FPS,
-  LIVE_TARGET_FRAME_MS,
-  MAX_VIDEO_BYTES
-} from '../features/pose/tool/constants'
 import { resolvePoseToolMode } from '../features/pose/tool/mode'
 import {
   buildOfflineOverlayFrames,
-  computeContainViewport,
-  drawCameraFrame,
-  findClosestTmsIndex
+  drawCameraFrame
 } from '../features/pose/tool/replay'
 import { buildOfflineTaskUi, buildSideViewIndicator, getRangeStatusText, getTutorialVideoSrc } from '../features/pose/tool/ui'
 import { getPoseTeachingCopy } from '../features/pose/tool/tutorial'
 import { useOfflineFileHandler } from '../features/pose/tool/useOfflineFileHandler'
+import { PoseOfflineReportPanel, PoseOfflineTeachingPanel } from '../features/pose/tool/PoseOfflinePanels'
 import { useOfflinePoseAnalysis } from '../features/pose/tool/useOfflinePoseAnalysis'
+import { useOfflineReplayOverlay } from '../features/pose/tool/useOfflineReplayOverlay'
 import { useRealtimePoseProvider } from '../features/pose/tool/useRealtimePoseProvider'
+import { usePoseRuntimePolicy } from '../features/pose/tool/usePoseRuntimePolicy'
 import { useThrottledMainTip } from '../features/pose/tool/useThrottledMainTip'
 import type {
   LiveSessionEndReason,
@@ -158,8 +151,6 @@ export default function PoseToolPage() {
   const [offlineProcessingMode, setOfflineProcessingMode] = useState<'local' | 'server'>('local')
   const [offlineServerConsent, setOfflineServerConsent] = useState(false)
   const [offlineServerTaskId, setOfflineServerTaskId] = useState<number | null>(null)
-  const [poseCapabilities, setPoseCapabilities] = useState<PoseCapabilities | null>(null)
-  const [poseCapabilitiesLoading, setPoseCapabilitiesLoading] = useState(false)
   const [offlinePreviewUrl, setOfflinePreviewUrl] = useState<string | null>(null)
   const [offlineViewAngle, setOfflineViewAngle] = useState<'unknown' | 'front' | 'side' | 'back'>(
     exercise.slug === 'lateral-raise' || exercise.slug === 'pullup' ? 'front' : 'side'
@@ -206,181 +197,23 @@ export default function PoseToolPage() {
     return () => globalThis.clearTimeout(timer)
   }, [])
 
-  useEffect(() => {
-    offlineDrawNowRef.current?.()
-  }, [drawMode, offlineOverlayReady, offlinePreviewUrl, mode])
-
-  useEffect(() => {
-    if (mode !== 'offline') return
-    let active = true
-    setPoseCapabilitiesLoading(true)
-    getPoseCapabilities()
-      .then((cap) => {
-        if (!active) return
-        setPoseCapabilities(cap)
-      })
-      .catch(() => {
-        if (!active) return
-        setPoseCapabilities(null)
-      })
-      .finally(() => {
-        if (!active) return
-        setPoseCapabilitiesLoading(false)
-      })
-    return () => {
-      active = false
-    }
-  }, [mode])
-
-  useEffect(() => {
-    if (mode !== 'offline') return
-    const video = offlineVideoRef.current
-    const canvas = offlineCanvasRef.current
-    if (!video || !canvas) return
-
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    let last = { cssW: 0, cssH: 0, dpr: 1 }
-
-    const syncSize = () => {
-      const rect = video.getBoundingClientRect()
-      if (!rect.width || !rect.height) return null
-      const dpr = window.devicePixelRatio || 1
-      const nextCssW = Math.max(1, Math.round(rect.width))
-      const nextCssH = Math.max(1, Math.round(rect.height))
-      const nextW = Math.max(1, Math.round(nextCssW * dpr))
-      const nextH = Math.max(1, Math.round(nextCssH * dpr))
-      if (canvas.width !== nextW) canvas.width = nextW
-      if (canvas.height !== nextH) canvas.height = nextH
-      last = { cssW: nextCssW, cssH: nextCssH, dpr }
-      return last
-    }
-
-    const clear = (metrics: { cssW: number; cssH: number; dpr: number } | null) => {
-      const safe = metrics ?? syncSize()
-      if (!safe) return
-      ctx.setTransform(safe.dpr, 0, 0, safe.dpr, 0, 0)
-      ctx.clearRect(0, 0, safe.cssW, safe.cssH)
-    }
-
-    const drawNow = () => {
-      const data = offlineReplayDataRef.current
-      const metrics = syncSize()
-      if (!metrics || !data || !data.overlayFrames.length || !data.nativeFrames.length) {
-        clear(metrics)
-        if (offlineOverlayUiRef.current.tone !== null) {
-          offlineOverlayUiRef.current.tone = null
-          setOfflineOverlayTone(null)
-        }
-        if (offlineOverlayUiRef.current.message !== null) {
-          offlineOverlayUiRef.current.message = null
-          setOfflineOverlayMessage(null)
-        }
-        return
-      }
-
-      const sourceW = video.videoWidth
-      const sourceH = video.videoHeight
-      if (!sourceW || !sourceH) {
-        clear(metrics)
-        return
-      }
-      const viewport = computeContainViewport(sourceW, sourceH, metrics.cssW, metrics.cssH)
-
-      const tMs = Math.max(0, video.currentTime * 1000)
-      const idx = findClosestTmsIndex(data.overlayFrames, tMs)
-      const frame = data.overlayFrames[idx]
-      const joints = data.nativeFrames[idx]?.keypoints ?? []
-      const tone = frame?.tone ?? 'ok'
-      const message = frame?.message ?? null
-
-      const nextDrawMode = drawModeRef.current
-      const prevTone = offlineOverlayUiRef.current.tone
-      const prevMessage = offlineOverlayUiRef.current.message
-      const needsRedraw =
-        (prevTone ?? '') !== tone ||
-        (prevMessage ?? '') !== (message ?? '') ||
-        (canvas.dataset.lastIdx ? Number(canvas.dataset.lastIdx) !== idx : true) ||
-        (canvas.dataset.lastMode ? canvas.dataset.lastMode !== nextDrawMode : true) ||
-        (canvas.dataset.lastW ? Number(canvas.dataset.lastW) !== metrics.cssW : true) ||
-        (canvas.dataset.lastH ? Number(canvas.dataset.lastH) !== metrics.cssH : true) ||
-        (canvas.dataset.lastSW ? Number(canvas.dataset.lastSW) !== sourceW : true) ||
-        (canvas.dataset.lastSH ? Number(canvas.dataset.lastSH) !== sourceH : true)
-
-      if (offlineOverlayUiRef.current.tone !== tone) {
-        offlineOverlayUiRef.current.tone = tone
-        setOfflineOverlayTone(tone)
-      }
-      if (offlineOverlayUiRef.current.message !== message) {
-        offlineOverlayUiRef.current.message = message
-        setOfflineOverlayMessage(message)
-      }
-
-      if (!needsRedraw) return
-      canvas.dataset.lastIdx = String(idx)
-      canvas.dataset.lastMode = nextDrawMode
-      canvas.dataset.lastW = String(metrics.cssW)
-      canvas.dataset.lastH = String(metrics.cssH)
-      canvas.dataset.lastSW = String(sourceW)
-      canvas.dataset.lastSH = String(sourceH)
-
-      ctx.setTransform(metrics.dpr, 0, 0, metrics.dpr, 0, 0)
-      ctx.clearRect(0, 0, metrics.cssW, metrics.cssH)
-      if (nextDrawMode === 'midline') {
-        drawMidpointSkeleton(ctx, joints, metrics.cssW, metrics.cssH, tone, { mirror: false, viewport })
-      } else {
-        drawPoseJoints17(ctx, joints, metrics.cssW, metrics.cssH, tone, { mirror: false, viewport })
-      }
-    }
-
-    const startLoop = () => {
-      if (offlineReplayRafRef.current !== null) return
-      const tick = () => {
-        drawNow()
-        offlineReplayRafRef.current = requestAnimationFrame(tick)
-      }
-      offlineReplayRafRef.current = requestAnimationFrame(tick)
-    }
-
-    const stopLoop = () => {
-      if (offlineReplayRafRef.current === null) return
-      cancelAnimationFrame(offlineReplayRafRef.current)
-      offlineReplayRafRef.current = null
-    }
-
-    const onPlay = () => startLoop()
-    const onPause = () => {
-      stopLoop()
-      drawNow()
-    }
-    const onSeek = () => drawNow()
-    const onMeta = () => drawNow()
-    const onResize = () => drawNow()
-
-    offlineDrawNowRef.current = drawNow
-    video.addEventListener('play', onPlay)
-    video.addEventListener('pause', onPause)
-    video.addEventListener('seeking', onSeek)
-    video.addEventListener('seeked', onSeek)
-    video.addEventListener('timeupdate', onSeek)
-    video.addEventListener('loadedmetadata', onMeta)
-    window.addEventListener('resize', onResize)
-
-    drawNow()
-
-    return () => {
-      stopLoop()
-      video.removeEventListener('play', onPlay)
-      video.removeEventListener('pause', onPause)
-      video.removeEventListener('seeking', onSeek)
-      video.removeEventListener('seeked', onSeek)
-      video.removeEventListener('timeupdate', onSeek)
-      video.removeEventListener('loadedmetadata', onMeta)
-      window.removeEventListener('resize', onResize)
-      if (offlineDrawNowRef.current === drawNow) offlineDrawNowRef.current = null
-    }
-  }, [mode, offlinePreviewUrl])
+  const { poseCapabilities, poseCapabilitiesLoading, posePolicy, liveTargetFps, liveTargetFrameMs, liveSessionLimitMs, maxVideoBytes } =
+    usePoseRuntimePolicy(mode)
+  useOfflineReplayOverlay({
+    mode,
+    drawMode,
+    drawModeRef,
+    offlineOverlayReady,
+    offlinePreviewUrl,
+    offlineVideoRef,
+    offlineCanvasRef,
+    offlineReplayDataRef,
+    offlineReplayRafRef,
+    offlineOverlayUiRef,
+    offlineDrawNowRef,
+    setOfflineOverlayTone,
+    setOfflineOverlayMessage
+  })
 
   useEffect(() => {
     if (exercise.slug !== 'squat') return
@@ -430,7 +263,7 @@ export default function PoseToolPage() {
     if (exercise.slug === 'squat') analyzerRef.current.setTuning?.(liveSquatTuning)
     else if (defaults.tuning) analyzerRef.current.setTuning?.(defaults.tuning)
     if (defaults.tempo) analyzerRef.current.setTempo?.(defaults.tempo)
-    analyzerRef.current.setAnalyzerFps?.(LIVE_TARGET_FPS)
+    analyzerRef.current.setAnalyzerFps?.(liveTargetFps)
     setFeedback(null)
     setError(null)
     setSaveTrainingMsg(null)
@@ -462,14 +295,14 @@ export default function PoseToolPage() {
     const timer = window.setInterval(() => {
       const startedAt = sessionStartedPerfRef.current
       if (!startedAt) return
-      const elapsed = Math.min(LIVE_SESSION_LIMIT_MS, Math.max(0, performance.now() - startedAt))
+      const elapsed = Math.min(liveSessionLimitMs, Math.max(0, performance.now() - startedAt))
       setLiveSessionElapsedMs(elapsed)
-      if (elapsed >= LIVE_SESSION_LIMIT_MS) {
+      if (elapsed >= liveSessionLimitMs) {
         stopLive('timeout')
       }
     }, 250)
     return () => window.clearInterval(timer)
-  }, [running])
+  }, [running, liveSessionLimitMs])
 
   useEffect(() => {
     return () => {
@@ -520,7 +353,7 @@ export default function PoseToolPage() {
         viewAngle: 'side',
         exercise: { id: exercise.slug, name: exercise.displayName },
         video: null,
-        fps: effectiveFps ?? LIVE_TARGET_FPS,
+        fps: effectiveFps ?? liveTargetFps,
         lastFeedback: feedback,
         messageFreq: liveIssueFreqRef.current,
         analyzedFrameCount: liveAnalyzedFrameCountRef.current,
@@ -536,7 +369,7 @@ export default function PoseToolPage() {
         viewAngle: 'front',
         exercise: { id: exercise.slug, name: exercise.displayName },
         video: null,
-        fps: effectiveFps ?? LIVE_TARGET_FPS,
+        fps: effectiveFps ?? liveTargetFps,
         lastFeedback: feedback,
         messageFreq: liveIssueFreqRef.current,
         analyzedFrameCount: liveAnalyzedFrameCountRef.current,
@@ -552,7 +385,7 @@ export default function PoseToolPage() {
         viewAngle: 'front',
         exercise: { id: exercise.slug, name: exercise.displayName },
         video: null,
-        fps: effectiveFps ?? LIVE_TARGET_FPS,
+        fps: effectiveFps ?? liveTargetFps,
         lastFeedback: feedback,
         messageFreq: liveIssueFreqRef.current,
         analyzedFrameCount: liveAnalyzedFrameCountRef.current,
@@ -568,7 +401,7 @@ export default function PoseToolPage() {
         viewAngle: 'side',
         exercise: { id: exercise.slug, name: exercise.displayName },
         video: null,
-        fps: effectiveFps ?? LIVE_TARGET_FPS,
+        fps: effectiveFps ?? liveTargetFps,
         lastFeedback: feedback,
         messageFreq: liveIssueFreqRef.current,
         analyzedFrameCount: liveAnalyzedFrameCountRef.current,
@@ -584,7 +417,7 @@ export default function PoseToolPage() {
         viewAngle: 'side',
         exercise: { id: exercise.slug, name: exercise.displayName },
         video: null,
-        fps: effectiveFps ?? LIVE_TARGET_FPS,
+        fps: effectiveFps ?? liveTargetFps,
         lastFeedback: feedback,
         messageFreq: liveIssueFreqRef.current,
         analyzedFrameCount: liveAnalyzedFrameCountRef.current,
@@ -633,7 +466,7 @@ export default function PoseToolPage() {
       suggestions
       }) as never
     )
-  }, [currentMainTip.label, effectiveFps, exercise.displayName, exercise.slug, feedback])
+  }, [currentMainTip.label, effectiveFps, exercise.displayName, exercise.slug, feedback, liveTargetFps])
 
   async function startLive() {
     setError(null)
@@ -663,7 +496,7 @@ export default function PoseToolPage() {
       if (exercise.slug === 'squat') analyzerRef.current.setTuning?.(liveSquatTuning)
       else if (defaults.tuning) analyzerRef.current.setTuning?.(defaults.tuning)
       if (defaults.tempo) analyzerRef.current.setTempo?.(defaults.tempo)
-      analyzerRef.current.setAnalyzerFps?.(LIVE_TARGET_FPS)
+      analyzerRef.current.setAnalyzerFps?.(liveTargetFps)
       if (!stabilizerRef.current) stabilizerRef.current = new MoveNetStabilizer(2500)
       if (!distanceTrackerRef.current) distanceTrackerRef.current = new DistanceTracker(5000)
 
@@ -711,7 +544,7 @@ export default function PoseToolPage() {
       const tick = async () => {
         if (cancelled || !provider || !videoRef.current || !canvasRef.current) return
         const frameTs = performance.now()
-        if (frameTs - lastProcessedTsRef.current < LIVE_TARGET_FRAME_MS) {
+        if (frameTs - lastProcessedTsRef.current < liveTargetFrameMs) {
           requestAnimationFrame(() => void tick())
           return
         }
@@ -742,7 +575,7 @@ export default function PoseToolPage() {
                 liveIssueFreqRef.current.set(text, (liveIssueFreqRef.current.get(text) ?? 0) + 1)
               }
               const startedPerf = sessionStartedPerfRef.current
-              const tMs = startedPerf ? Math.max(0, Math.round(frameTs - startedPerf)) : Math.round(liveTimelineRowsRef.current.length * LIVE_TARGET_FRAME_MS)
+              const tMs = startedPerf ? Math.max(0, Math.round(frameTs - startedPerf)) : Math.round(liveTimelineRowsRef.current.length * liveTargetFrameMs)
               liveTimelineRowsRef.current.push({
                 frame: liveTimelineRowsRef.current.length,
                 tMs,
@@ -840,7 +673,7 @@ export default function PoseToolPage() {
 
   function stopLive(reason: Exclude<LiveSessionEndReason, null> = 'manual') {
     const startedAt = sessionStartedPerfRef.current
-    const elapsedMs = startedAt ? Math.min(LIVE_SESSION_LIMIT_MS, Math.max(0, performance.now() - startedAt)) : liveSessionElapsedMs
+    const elapsedMs = startedAt ? Math.min(liveSessionLimitMs, Math.max(0, performance.now() - startedAt)) : liveSessionElapsedMs
     const snapshot = feedbackRef.current
 
     cleanupRef.current?.()
@@ -950,7 +783,7 @@ export default function PoseToolPage() {
   }
 
   const handleOfflineFileChange = useOfflineFileHandler({
-    maxVideoBytes: MAX_VIDEO_BYTES,
+    maxVideoBytes,
     offlineFileInputRef,
     offlineCanvasRef,
     offlineReplayDataRef,
@@ -976,6 +809,7 @@ export default function PoseToolPage() {
     offlineFile,
     offlineProcessingMode,
     poseCapabilities,
+    posePolicy,
     offlineServerConsent,
     offlineViewAngle,
     exercise: { id: exercise.id, slug: exercise.slug, displayName: exercise.displayName, exerciseType: exercise.exerciseType },
@@ -1193,7 +1027,7 @@ export default function PoseToolPage() {
                     <div style={{ marginTop: 10, height: 8, borderRadius: 9999, background: '#e2e8f0', overflow: 'hidden' }}>
                       <div
                         style={{
-                          width: `${Math.min(100, (liveSessionElapsedMs / LIVE_SESSION_LIMIT_MS) * 100)}%`,
+                          width: `${Math.min(100, (liveSessionElapsedMs / liveSessionLimitMs) * 100)}%`,
                           height: '100%',
                           background: liveSessionStatus === 'ended' ? '#ef4444' : '#10b981',
                           transition: 'width 0.2s linear'
@@ -1531,83 +1365,23 @@ export default function PoseToolPage() {
               </div>
 
               <div className="col-xl-4 col-lg-5 d-flex">
-                <div className="cl_blog-widget mb-30 h-100 w-100 pose-live-feedback pose-live-right-card pose-live-guide-card pose-video-teaching-card">
-                  <div className="pose-panel-head">
-                    <span className="pose-panel-kicker">Tip</span>
-                    <h4 className="pose-panel-title">{exercise.displayName} Teaching Video</h4>
-                  </div>
-
-                  <div className="pose-tip-card pose-tip-card-light pose-live-section">
-                    {teachingCopy ? (
-                      <>
-                        <div
-                          style={{
-                            borderRadius: 14,
-                            padding: '10px 12px',
-                            border: '1px solid rgba(16, 185, 129, 0.35)',
-                            background: '#ecfdf5',
-                            color: '#065f46',
-                            fontWeight: 900,
-                            lineHeight: 1.35
-                          }}
-                        >
-                          <span style={{ textTransform: 'uppercase', letterSpacing: 0.3 }}>Camera angle:</span> {teachingCopy.cameraAngle}
-                        </div>
-                        <div style={{ marginTop: 10 }}>
-                          <h6 className="sub-title mb-15 pose-section-title">Tips</h6>
-                          <ul className="pose-detail-list pose-detail-list-light" style={{ marginTop: 0, marginBottom: 0 }}>
-                            {teachingCopy.tipsLines.map((line) => (
-                              <li key={line}>{line}</li>
-                            ))}
-                          </ul>
-                        </div>
-                        <div style={{ height: 12 }} />
-                      </>
-                    ) : null}
-                    {tutorialVideoSrc ? (
-                      <div className="pose-video-preview" style={{ marginTop: 0 }}>
-                        <video className="pose-video-preview__media" autoPlay muted loop playsInline controls src={tutorialVideoSrc} />
-                      </div>
-                    ) : (
-                      <div className="pose-muted-copy">&nbsp;</div>
-                    )}
-                  </div>
-                </div>
+                <PoseOfflineTeachingPanel
+                  exerciseDisplayName={exercise.displayName}
+                  teachingCopy={teachingCopy}
+                  tutorialVideoSrc={tutorialVideoSrc}
+                />
               </div>
 
               <div className="col-12">
-                <div className="cl_blog-widget mb-30">
-                  <h4 className="cl_blog-widget-title mb-30">Analysis Report</h4>
-                  <div className="pose-report-overview">
-                    <span className={`pose-status-pill ${taskStatusToneClass}`}>{taskStatusText}</span>
-                    <span className="pose-status-pill pose-status-pill-muted">Video: {offlineFile ? `${Math.round(offlineFile.size / 1024 / 1024)} MB` : 'Not selected'}</span>
-                  </div>
-                  {analysisStarted ? (
-                    <div className="pose-task-checklist">
-                      {checklist.map((item) => (
-                        <div
-                          key={item.label}
-                          className={`pose-task-checklist__item${item.done ? ' is-done' : ''}${item.failed ? ' is-failed' : ''}`}
-                        >
-                          <span className="pose-task-checklist__icon">{item.done ? 'OK' : item.failed ? '!' : item.saving ? '...' : 'o'}</span>
-                          <span>{item.label}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-                  {offlineReport ? (
-                    <>
-                      <div style={{ marginTop: 14 }}>
-                        <ReportVisualization report={offlineReport} />
-                      </div>
-                    </>
-                  ) : (
-                    <div className="pose-report-empty">
-                      <strong>No report yet</strong>
-                      <p>{offlineFile ? 'Click "Analyze Locally" to generate the report.' : 'Select a video file first, then click "Analyze Locally".'}</p>
-                    </div>
-                  )}
-                </div>
+                <PoseOfflineReportPanel
+                  taskStatusToneClass={taskStatusToneClass}
+                  taskStatusText={taskStatusText}
+                  offlineFileSizeMbText={offlineFile ? `${Math.round(offlineFile.size / 1024 / 1024)} MB` : 'Not selected'}
+                  analysisStarted={analysisStarted}
+                  checklist={checklist}
+                  offlineReport={offlineReport}
+                  reportContent={offlineReport ? <ReportVisualization report={offlineReport} /> : null}
+                />
               </div>
             </div>
           )}

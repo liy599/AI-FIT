@@ -103,6 +103,19 @@ export type PoseCapabilities = {
   }
 }
 
+export type PosePolicy = {
+  live: {
+    target_fps: number
+    session_limit_seconds: number
+  }
+  offline: {
+    max_video_bytes: number
+    analysis_limit_seconds: number
+    analysis_target_fps: number
+    allowed_actions: string[]
+  }
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
@@ -247,6 +260,10 @@ export async function uploadPoseVideo(file: File) {
 
 export function getPoseCapabilities() {
   return apiFetch<PoseCapabilities>('/api/pose/capabilities', { auth: false })
+}
+
+export function getPosePolicy() {
+  return apiFetch<PosePolicy>('/api/pose/policy', { auth: false })
 }
 
 export async function submitPoseServerAnalysis(input: {

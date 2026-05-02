@@ -14,7 +14,7 @@ bp = Blueprint("feedback", __name__)
 @jwt_required()
 def list_feedback():
     user_id = int(get_jwt_identity())
-    current_user = User.query.get(user_id)
+    current_user = db.session.get(User, user_id)
     if current_user is None:
         return jsonify({"error": "not found"}), 404
 
@@ -100,15 +100,23 @@ def submit_feedback():
         return jsonify({"error": "content required"}), 400
     if user_id is None and not contact_email:
         return jsonify({"error": "contact_email required for anonymous"}), 400
-    if ftype == "\u8bc4\u4ef7" and rating is None:
-        return jsonify({"error": "rating required"}), 400
+    parsed_rating = None
+    if ftype == "\u8bc4\u4ef7":
+        if rating is None:
+            return jsonify({"error": "rating required"}), 400
+        try:
+            parsed_rating = int(rating)
+        except (TypeError, ValueError):
+            return jsonify({"error": "rating must be an integer"}), 400
+        if parsed_rating < 1 or parsed_rating > 5:
+            return jsonify({"error": "rating must be between 1 and 5"}), 400
 
     fb = UserFeedback(
         user_id=user_id,
         type=ftype,
         content=content,
         contact_email=mask_email(contact_email),
-        rating=int(rating) if rating is not None else None,
+        rating=parsed_rating,
     )
     db.session.add(fb)
     db.session.commit()

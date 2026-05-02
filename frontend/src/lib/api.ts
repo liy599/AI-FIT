@@ -1,4 +1,4 @@
-import { getToken } from './auth'
+import { clearAuth, getToken } from './auth'
 
 export const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://127.0.0.1:5000'
 
@@ -7,6 +7,7 @@ function stripApiSuffix(base: string) {
 }
 
 export type ApiError = { error?: string; msg?: string; message?: string }
+const AUTH_EXPIRED_EVENT = 'aifit:auth-expired'
 
 function buildUrl(path: string) {
   const base = API_BASE.replace(/\/+$/, '')
@@ -79,6 +80,26 @@ function extractErrorMessage(data: unknown, res: Response) {
   return res.statusText || `Request failed (${res.status})`
 }
 
+function isAuthExpiredMessage(message: string) {
+  const normalized = message.toLowerCase()
+  return (
+    normalized.includes('token has expired') ||
+    normalized.includes('signature has expired') ||
+    normalized.includes('jwt expired') ||
+    normalized.includes('authorization required')
+  )
+}
+
+function notifyAuthExpired(message: string) {
+  clearAuth()
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT, { detail: { message } }))
+  const here = `${window.location.pathname}${window.location.search}`
+  if (!window.location.pathname.startsWith('/login')) {
+    window.location.assign(`/login?reason=session_expired&from=${encodeURIComponent(here)}`)
+  }
+}
+
 function parseJsonSafely(text: string) {
   if (!text) return null
   try {
@@ -107,7 +128,12 @@ export async function apiFetch<T>(
   const data = parseJsonSafely(text)
 
   if (!res.ok) {
-    throw new Error(extractErrorMessage(data, res))
+    const message = extractErrorMessage(data, res)
+    const needsAuth = options?.auth !== false
+    if (needsAuth && res.status === 401 && isAuthExpiredMessage(message)) {
+      notifyAuthExpired(message)
+    }
+    throw new Error(message)
   }
 
   return data as T
@@ -131,7 +157,12 @@ export async function apiUpload<T>(
   const data = parseJsonSafely(text)
 
   if (!res.ok) {
-    throw new Error(extractErrorMessage(data, res))
+    const message = extractErrorMessage(data, res)
+    const needsAuth = options?.auth !== false
+    if (needsAuth && res.status === 401 && isAuthExpiredMessage(message)) {
+      notifyAuthExpired(message)
+    }
+    throw new Error(message)
   }
 
   return data as T
@@ -142,7 +173,16 @@ export async function apiFetchBlob(
   options?: RequestInit & { auth?: boolean }
 ): Promise<Blob> {
   const res = await fetch(buildUrl(path), { ...options, headers: buildHeaders(options) })
-  await throwIfNotOk(res)
+  if (!res.ok) {
+    const text = await res.text()
+    const data = parseJsonSafely(text)
+    const message = extractErrorMessage(data, res)
+    const needsAuth = options?.auth !== false
+    if (needsAuth && res.status === 401 && isAuthExpiredMessage(message)) {
+      notifyAuthExpired(message)
+    }
+    throw new Error(message)
+  }
   return res.blob()
 }
 

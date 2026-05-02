@@ -1,10 +1,9 @@
 import { useCallback } from 'react'
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
 import type { PoseAnalysisReport } from '../../../lib/pose/report'
-import type { PoseCapabilities } from '../../../lib/poseApi'
+import type { PoseCapabilities, PosePolicy } from '../../../lib/poseApi'
 import type { SquatTuning } from '../../../lib/pose/realtimeSquatAnalyzer'
 import type { OfflineOverlayTone, OfflineProgress, OfflineReplayData } from './types'
-import { OFFLINE_ANALYSIS_LIMIT_SEC, OFFLINE_ANALYSIS_MAX_FRAMES, OFFLINE_ANALYSIS_TARGET_FPS, OFFLINE_DEDICATED_REPLAY_ACTIONS } from './constants'
 
 type ExerciseMeta = {
   id: string
@@ -17,6 +16,7 @@ type UseOfflinePoseAnalysisArgs = {
   offlineFile: File | null
   offlineProcessingMode: 'local' | 'server'
   poseCapabilities: PoseCapabilities | null
+  posePolicy: PosePolicy | null
   offlineServerConsent: boolean
   offlineViewAngle: 'unknown' | 'front' | 'side' | 'back'
   exercise: ExerciseMeta
@@ -68,6 +68,7 @@ export function useOfflinePoseAnalysis(args: UseOfflinePoseAnalysisArgs) {
       offlineFile,
       offlineProcessingMode,
       poseCapabilities,
+      posePolicy,
       offlineServerConsent,
       offlineViewAngle,
       exercise,
@@ -106,7 +107,8 @@ export function useOfflinePoseAnalysis(args: UseOfflinePoseAnalysisArgs) {
       setOfflineError('Please choose a video file first.')
       return
     }
-    if (!OFFLINE_DEDICATED_REPLAY_ACTIONS.has(exercise.slug)) {
+    const allowedActions = posePolicy?.offline?.allowed_actions ?? ['squat', 'pushup', 'pullup', 'lateral-raise', 'bent-over-row']
+    if (!allowedActions.includes(exercise.slug)) {
       setOfflineError(`Offline analysis for "${exercise.displayName}" is disabled until a dedicated replay analyzer and report builder are implemented.`)
       return
     }
@@ -172,10 +174,13 @@ export function useOfflinePoseAnalysis(args: UseOfflinePoseAnalysisArgs) {
         sizeBytes: offlineFile.size
       }
 
+      const offlineTargetFps = Number(posePolicy?.offline?.analysis_target_fps ?? 40)
+      const offlineAnalysisLimitSec = Number(posePolicy?.offline?.analysis_limit_seconds ?? 120)
+      const offlineAnalysisMaxFrames = Math.max(1, Math.floor(offlineTargetFps * offlineAnalysisLimitSec))
       const extracted = await extractNativePoseFromVideoUrlWithMoveNet(localObjectUrl, {
-        targetFps: OFFLINE_ANALYSIS_TARGET_FPS,
-        maxFrames: OFFLINE_ANALYSIS_MAX_FRAMES,
-        maxDurationSec: OFFLINE_ANALYSIS_LIMIT_SEC,
+        targetFps: offlineTargetFps,
+        maxFrames: offlineAnalysisMaxFrames,
+        maxDurationSec: offlineAnalysisLimitSec,
         detectorVariant: 'lightning',
         preferPlaybackSampling: false,
         onProgress: (p: { stage: string; processed: number; total: number }) => {

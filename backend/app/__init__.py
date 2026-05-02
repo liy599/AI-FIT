@@ -1,38 +1,18 @@
 import os
 
 from flask import Flask, jsonify, request, send_from_directory
-from sqlalchemy import text
 from werkzeug.exceptions import RequestEntityTooLarge
 
 from .config import Config
-from .extensions import cors, db, jwt
+from .extensions import cors, db, jwt, migrate
 from .services.food.catalog_runtime import ensure_food_seed_data
 from .services.pose.server_inference_worker import start_server_inference_worker
 from .utils.upload_access import normalize_upload_path, verify_upload_access_token
 
-DB_INIT_ADVISORY_LOCK_KEY = 42042420
-
-
-def _initialize_database() -> None:
-    """Run app startup DB initialization safely under multi-worker startup."""
-    engine = db.engine
-    if engine.dialect.name != "postgresql":
-        db.create_all()
-        ensure_food_seed_data()
-        return
-
-    with engine.connect() as conn:
-        conn.execute(text("SELECT pg_advisory_lock(:key)"), {"key": DB_INIT_ADVISORY_LOCK_KEY})
-        try:
-            db.create_all()
-            ensure_food_seed_data()
-        finally:
-            conn.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": DB_INIT_ADVISORY_LOCK_KEY})
-
-
 def create_app(config_object=Config):
     app = Flask(__name__)
     app.config.from_object(config_object)
+    _validate_production_config(app)
 
     cors_origins_env = os.environ.get("CORS_ORIGINS", "").strip()
     if cors_origins_env:
@@ -50,6 +30,7 @@ def create_app(config_object=Config):
         intercept_exceptions=True,
     )
     db.init_app(app)
+    migrate.init_app(app, db)
     jwt.init_app(app)
 
     upload_root = os.path.join(app.instance_path, "uploads")
@@ -113,7 +94,36 @@ def create_app(config_object=Config):
         return jsonify({"error": "file too large (max 80MB)"}), 413
 
     with app.app_context():
-        _initialize_database()
+        if bool(app.config.get("DB_AUTO_INIT", True)):
+            ensure_food_seed_data()
         start_server_inference_worker(app)
 
     return app
+
+
+def _validate_production_config(app: Flask) -> None:
+    if str(app.config.get("APP_ENV", "")).lower() != "production":
+        return
+
+    secret_key = str(app.config.get("SECRET_KEY", "")).strip()
+    jwt_secret_key = str(app.config.get("JWT_SECRET_KEY", "")).strip()
+    admin_email = str(app.config.get("ADMIN_EMAIL", "")).strip()
+    password_reset_debug = bool(app.config.get("PASSWORD_RESET_DEBUG_RETURN_LINK", False))
+    if not secret_key or secret_key == "dev-secret-change-me":
+        raise RuntimeError("production requires non-default SECRET_KEY")
+    if not jwt_secret_key or jwt_secret_key == "dev-jwt-secret-change-me":
+        raise RuntimeError("production requires non-default JWT_SECRET_KEY")
+    if len(secret_key) < 32 or len(jwt_secret_key) < 32:
+        raise RuntimeError("production secrets must be at least 32 chars")
+    if not admin_email:
+        raise RuntimeError("production requires ADMIN_EMAIL")
+    if password_reset_debug:
+        raise RuntimeError("production requires PASSWORD_RESET_DEBUG_RETURN_LINK=0")
+    cors_origins = str(app.config.get("CORS_ORIGINS", "")).strip()
+    redis_url = str(app.config.get("REDIS_URL", "")).strip()
+    if not cors_origins:
+        raise RuntimeError("production requires explicit CORS_ORIGINS")
+    if not redis_url:
+        raise RuntimeError("production requires REDIS_URL for distributed rate limiting")
+    if bool(app.config.get("DB_AUTO_INIT", True)):
+        raise RuntimeError("production requires DB_AUTO_INIT=0; run migrations explicitly")

@@ -35,7 +35,7 @@ def _to_bool(value) -> bool:
 
 def _admin_guard() -> tuple[bool, User | None]:
     user_id = int(get_jwt_identity())
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if user is None:
         return False, None
     admin_email = (current_app.config.get("ADMIN_EMAIL") or "").strip().lower()
@@ -142,4 +142,3 @@ def run_cleanup():
         db.session.commit()
 
     return jsonify({"ok": True, "dry_run": dry_run, "retention_days": retention_days, "summary": summary})
-

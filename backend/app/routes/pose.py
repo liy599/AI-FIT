@@ -28,6 +28,27 @@ ALLOWED_VIDEO_MIME_TYPES = {
 }
 ALLOWED_VIEW_ANGLES = {"unknown", "front", "side", "back"}
 ALLOWED_STATUSES = {"uploaded", "running", "succeeded", "failed"}
+
+
+def _pose_policy_from_config() -> dict:
+    actions_raw = str(current_app.config.get("POSE_POLICY_OFFLINE_ALLOWED_ACTIONS", "")).strip()
+    allowed_actions = [x.strip() for x in actions_raw.split(",") if x.strip()]
+    if not allowed_actions:
+        allowed_actions = ["squat", "pushup", "pullup", "lateral-raise", "bent-over-row"]
+    return {
+        "live": {
+            "target_fps": int(current_app.config.get("POSE_POLICY_LIVE_TARGET_FPS", 40)),
+            "session_limit_seconds": int(current_app.config.get("POSE_POLICY_LIVE_SESSION_LIMIT_SECONDS", 120)),
+        },
+        "offline": {
+            "max_video_bytes": int(current_app.config.get("POSE_POLICY_OFFLINE_MAX_VIDEO_BYTES", 50 * 1024 * 1024)),
+            "analysis_limit_seconds": int(current_app.config.get("POSE_POLICY_OFFLINE_ANALYSIS_LIMIT_SECONDS", 120)),
+            "analysis_target_fps": int(current_app.config.get("POSE_POLICY_OFFLINE_ANALYSIS_TARGET_FPS", 40)),
+            "allowed_actions": allowed_actions,
+        },
+    }
+
+
 SQUAT_TUNING_FILENAME = "squat_tuning.json"
 SQUAT_TUNING_DEFAULTS = {
     "kneeForwardWarnRatio": 0.045,
@@ -52,7 +73,7 @@ SQUAT_TUNING_BOUNDS = {
 def _admin_guard(user_id: int) -> bool:
     from ..models import User
 
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if user is None:
         return False
     admin_email = (current_app.config.get("ADMIN_EMAIL") or "").strip().lower()
@@ -288,6 +309,11 @@ def get_pose_capabilities():
             },
         }
     )
+
+
+@bp.get("/policy")
+def get_pose_policy():
+    return jsonify(_pose_policy_from_config())
 
 
 @bp.put("/config/squat-tuning")
@@ -716,6 +742,7 @@ def create_ai_report():
         return False
 
     debug = truthy(data.get("debug")) or request.args.get("debug") == "1"
+    is_production = str(current_app.config.get("APP_ENV", "")).lower() == "production"
 
     enabled = truthy(current_app.config.get("POSE_REPORT_AI_ENABLED"))
     api_url = (current_app.config.get("AI_REPORT_API_URL") or "").strip() or (current_app.config.get("STEPFUN_API_URL") or "").strip()
@@ -752,10 +779,10 @@ def create_ai_report():
         ai_meta["error"] = result.error
         if result.ok and isinstance(result.report, dict):
             payload = {"report": result.report, "meta": {"degraded": False, "ai": ai_meta}}
-            if debug:
+            if debug and not is_production:
                 payload["meta"]["rawText"] = result.raw_text
             return jsonify(payload)
-        if debug:
+        if debug and not is_production:
             ai_meta["rawText"] = result.raw_text
 
     fallback = build_fallback_ai_enhanced_report_v1(base_report, language=language)

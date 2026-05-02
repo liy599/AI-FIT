@@ -48,8 +48,15 @@
 
 ## 7. Latest Governance Update
 
-- Pose tool logic is further decomposed into eatures/pose/tool/* modules and hooks.
-- Added boundary guard script: 
-pm run lint:boundaries to block direct pages/components -> lib imports.
+- Pose tool logic is further decomposed into `features/pose/tool/*` modules and hooks.
+- Added boundary guard script: `npm run lint:boundaries` to block direct `pages/components -> lib` imports.
 - PoseToolPage.tsx is now orchestration-first; heavy workflow logic moved to feature hooks.
+
+## 8. 2026-05-02 Consolidation Update
+
+- Frontend no longer hardcodes pose runtime policy constants; it consumes backend policy from `GET /api/pose/policy`.
+- Pose runtime boundaries are clearer:
+  - frontend owns local inference execution and consent UX,
+  - backend owns policy publication, persistence, and optional server queue processing.
+- This keeps privacy-first behavior by default while enabling centrally managed production policy.
 

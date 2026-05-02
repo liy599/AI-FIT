@@ -37,7 +37,7 @@ def list_comments(blog_id: int):
     identity = get_jwt_identity()
     user_id = int(identity) if identity is not None else None
 
-    blog = Blog.query.get(blog_id)
+    blog = db.session.get(Blog, blog_id)
     if blog is None or not blog.is_published:
         return jsonify({"error": "not found"}), 404
 
@@ -70,7 +70,7 @@ def list_comments(blog_id: int):
 @jwt_required()
 def create_comment(blog_id: int):
     user_id = int(get_jwt_identity())
-    blog = Blog.query.get(blog_id)
+    blog = db.session.get(Blog, blog_id)
     if blog is None or not blog.is_published:
         return jsonify({"error": "not found"}), 404
 
@@ -81,7 +81,7 @@ def create_comment(blog_id: int):
         return jsonify({"error": "content required"}), 400
 
     if parent_id is not None:
-        parent = Comment.query.get(int(parent_id))
+        parent = db.session.get(Comment, int(parent_id))
         if parent is None or parent.blog_id != blog_id:
             return jsonify({"error": "invalid parent"}), 400
 
@@ -95,7 +95,7 @@ def create_comment(blog_id: int):
 @jwt_required()
 def update_comment(comment_id: int):
     user_id = int(get_jwt_identity())
-    c = Comment.query.get(comment_id)
+    c = db.session.get(Comment, comment_id)
     if c is None:
         return jsonify({"error": "not found"}), 404
     if c.user_id != user_id:
@@ -115,11 +115,11 @@ def update_comment(comment_id: int):
 @jwt_required()
 def delete_comment(comment_id: int):
     user_id = int(get_jwt_identity())
-    c = Comment.query.get(comment_id)
+    c = db.session.get(Comment, comment_id)
     if c is None:
         return jsonify({"error": "not found"}), 404
 
-    blog = Blog.query.get(c.blog_id)
+    blog = db.session.get(Blog, c.blog_id)
     if blog is None:
         return jsonify({"error": "not found"}), 404
 
@@ -135,7 +135,7 @@ def delete_comment(comment_id: int):
 @jwt_required()
 def toggle_comment_like(comment_id: int):
     user_id = int(get_jwt_identity())
-    c = Comment.query.get(comment_id)
+    c = db.session.get(Comment, comment_id)
     if c is None:
         return jsonify({"error": "not found"}), 404
 

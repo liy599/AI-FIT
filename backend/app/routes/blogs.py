@@ -125,7 +125,7 @@ def get_blog(blog_id: int):
     identity = get_jwt_identity()
     user_id = int(identity) if identity is not None else None
 
-    blog = Blog.query.get(blog_id)
+    blog = db.session.get(Blog, blog_id)
     if blog is None or not blog.is_published:
         return jsonify({"error": "not found"}), 404
 
@@ -174,7 +174,7 @@ def create_blog():
 @jwt_required()
 def update_blog(blog_id: int):
     user_id = int(get_jwt_identity())
-    blog = Blog.query.get(blog_id)
+    blog = db.session.get(Blog, blog_id)
     if blog is None:
         return jsonify({"error": "not found"}), 404
     if blog.user_id != user_id:
@@ -211,7 +211,7 @@ def update_blog(blog_id: int):
 @jwt_required()
 def delete_blog(blog_id: int):
     user_id = int(get_jwt_identity())
-    blog = Blog.query.get(blog_id)
+    blog = db.session.get(Blog, blog_id)
     if blog is None:
         return jsonify({"error": "not found"}), 404
     if blog.user_id != user_id:
@@ -226,7 +226,7 @@ def delete_blog(blog_id: int):
 @jwt_required()
 def toggle_blog_like(blog_id: int):
     user_id = int(get_jwt_identity())
-    blog = Blog.query.get(blog_id)
+    blog = db.session.get(Blog, blog_id)
     if blog is None or not blog.is_published:
         return jsonify({"error": "not found"}), 404
 

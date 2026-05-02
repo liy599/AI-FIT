@@ -15,6 +15,11 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
+  const qs = new URLSearchParams(loc.search)
+  const reason = qs.get('reason')
+  const fromQuery = qs.get('from')
+  const effectiveFrom = fromQuery || from
+
   function buildResetPath(resetLink?: string) {
     if (!resetLink) return null
     try {
@@ -48,7 +53,7 @@ export default function LoginPage() {
     try {
       const r = await loginByPassword(email, password)
       auth.setAuth(r.access_token, r.user)
-      nav(from, { replace: true })
+      nav(effectiveFrom, { replace: true })
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Login failed')
     } finally {
@@ -104,6 +109,11 @@ export default function LoginPage() {
               <div className="cl_blog_details-reply">
                 <h3 className="cl_blog_details-reply-title">Sign in</h3>
                 <p>Sign in with your email and password (after signing in you can access your profile and more).</p>
+                {reason === 'session_expired' ? (
+                  <div className="cl_blog-widget cl_auth-alert cl_auth-alert--notice mb-30">
+                    Your session has expired. Please sign in again.
+                  </div>
+                ) : null}
                 <form
                   action="#"
                   noValidate

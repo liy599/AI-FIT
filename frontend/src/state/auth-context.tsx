@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useMemo, useState } from 'react'
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { clearAuth, getToken, getUser, setToken, setUser, type AuthUser } from '../lib/auth'
 
 type AuthState = {
@@ -14,6 +14,16 @@ const Ctx = createContext<AuthState | null>(null)
 export function AuthProvider(props: { children: React.ReactNode }) {
   const [tokenValue, setTokenValue] = useState<string | null>(getToken())
   const [userValue, setUserValue] = useState<AuthUser | null>(getUser())
+
+  useEffect(() => {
+    const onExpired = () => {
+      clearAuth()
+      setTokenValue(null)
+      setUserValue(null)
+    }
+    window.addEventListener('aifit:auth-expired', onExpired)
+    return () => window.removeEventListener('aifit:auth-expired', onExpired)
+  }, [])
 
   const value = useMemo<AuthState>(
     () => ({

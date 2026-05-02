@@ -139,3 +139,94 @@ Executed checks repeatedly across refactor stages:
 - Duplicate root documentation copies remain due local permission lock.
 - Canonical docs are now in `frontend/doc`.
 - Root duplicates should be removed once file lock is released.
+
+## I. 2026-05-02 Hardening Addendum (Cross FE/BE)
+
+### I1. Backend-Driven Pose Policy
+
+- Backend added environment-backed policy keys and policy endpoint response composition.
+- Frontend PoseTool now consumes policy from backend and uses fallback defaults only when policy is unavailable.
+- Effect:
+  - Removes scattered frontend magic numbers.
+  - Supports production tuning without frontend redeploy.
+
+### I2. Server Worker Concurrency Safety
+
+- Server inference worker task-claim path updated to atomic status transition (`uploaded -> running`).
+- Effect:
+  - Prevents duplicate claims in multi-worker deployment scenarios.
+
+### I3. Input Validation and Security Hygiene
+
+- Feedback API rating validation hardened:
+  - required for review type,
+  - integer-only,
+  - bounded to `1..5`.
+- `.env.example` secrets replaced with placeholders and pose policy envs documented.
+
+### I4. Backend Documentation Baseline Added
+
+- Added backend docs for production handover:
+  - `backend/doc/ARCHITECTURE.md`
+  - `backend/doc/CONFIG.md`
+  - `backend/doc/SECURITY.md`
+  - `backend/doc/OPERATIONS.md`
+
+### I5. Verification Evidence (2026-05-02)
+
+- Frontend:
+  - `npm run typecheck` passed
+  - `npm run build` passed
+- Backend:
+  - app factory smoke (`create_app`) passed in `backend/.venv`
+  - `pytest -q` passed: `35 passed`
+
+### I6. Known Residuals
+
+- Backend test warnings still include:
+  - weak default JWT key length warnings in test config context,
+  - SQLAlchemy `Query.get()` legacy warnings in older route code paths.
+- Non-blocking, but recommended next cleanup for stricter production baseline.
+
+## J. 2026-05-02 Finalization Addendum
+
+### J1. Further PoseToolPage Decomposition
+
+- Extracted offline replay overlay rendering lifecycle from page into:
+  - `src/features/pose/tool/useOfflineReplayOverlay.ts`
+- Effect:
+  - Page orchestration complexity reduced.
+  - Overlay loop, canvas sync, and event wiring are isolated and reusable.
+
+### J2. Production Guard Strengthening (Cross FE/BE context)
+
+- Production backend startup now enforces:
+  - explicit `CORS_ORIGINS`
+  - `REDIS_URL` present (distributed rate limit baseline)
+  - `ADMIN_EMAIL` present
+  - `PASSWORD_RESET_DEBUG_RETURN_LINK=0`
+- Compose now includes Redis service and backend dependency health checks.
+
+### J3. Migration Baseline Materialized
+
+- Repository now includes `backend/migrations/*` baseline.
+- Deployment workflow is migration-first (`db upgrade`) with `DB_AUTO_INIT=0` in production.
+
+## K. 2026-05-02 Final Closure
+
+### K1. Production Raw Output Guard Unified
+
+- `POST /api/pose/reports/ai` now matches recognition endpoint policy:
+  - `rawText` is suppressed in production even if `debug=1`.
+
+### K2. No Runtime Auto-Create Path
+
+- Backend app startup no longer performs `db.create_all`.
+- Schema lifecycle is migration-only in normal operations.
+
+### K3. PoseToolPage Final UI Split (Offline)
+
+- Extracted offline teaching/report cards into:
+  - `src/features/pose/tool/PoseOfflinePanels.tsx`
+- Result:
+  - route page is further reduced and keeps orchestration focus.

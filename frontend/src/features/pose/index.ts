@@ -26,6 +26,7 @@ export { DEMO_POSE_TRAINING, DEMO_POSE_TRAINING_ID } from '../../lib/poseTrainin
 export { createPoseTraining, getSquatTuningConfig, updateSquatTuningConfig } from '../../lib/poseApi'
 export { listPoseTrainings, type PoseTrainingSession } from '../../lib/poseApi'
 export { getPoseCapabilities, type PoseCapabilities } from '../../lib/poseApi'
+export { getPosePolicy, type PosePolicy } from '../../lib/poseApi'
 export { submitPoseServerAnalysis, cancelPoseServerAnalysis } from '../../lib/poseApi'
 export { normalizeReportForArchive } from '../../lib/report/unified'
 export {

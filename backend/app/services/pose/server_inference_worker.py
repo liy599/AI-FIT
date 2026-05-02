@@ -70,11 +70,9 @@ def _purge_video_payload(video: VideoAsset) -> None:
 
 
 def process_one_server_inference_task(app: Flask) -> bool:
-    from flask import current_app
-
     with app.app_context():
         prefix = 'server_inference_requested_with_explicit_consent:'
-        task = (
+        candidate = (
             AnalysisTask.query.filter(
                 AnalysisTask.status == 'uploaded',
                 AnalysisTask.instruction.isnot(None),
@@ -83,13 +81,28 @@ def process_one_server_inference_task(app: Flask) -> bool:
             .order_by(AnalysisTask.created_at.asc(), AnalysisTask.id.asc())
             .first()
         )
-        if task is None:
+        if candidate is None:
             return False
 
-        task.status = 'running'
-        task.started_at = task.started_at or datetime.utcnow()
+        started_at = datetime.utcnow()
+        claimed = (
+            AnalysisTask.query.filter_by(id=candidate.id, status='uploaded')
+            .update(
+                {
+                    AnalysisTask.status: 'running',
+                    AnalysisTask.started_at: candidate.started_at or started_at,
+                },
+                synchronize_session=False,
+            )
+        )
+        if claimed != 1:
+            db.session.rollback()
+            return False
         db.session.commit()
 
+        task = db.session.get(AnalysisTask, candidate.id)
+        if task is None:
+            return False
         video = VideoAsset.query.filter_by(id=task.video_asset_id, user_id=task.user_id).first()
         try:
             report = _build_fallback_server_report(task, video)

@@ -80,3 +80,4 @@ Reference: `docker-compose.yml`, `Caddyfile`, `frontend/Dockerfile`, `backend/ap
 - Externalize distributed rate limit store (Redis)
 - Add observability baseline (structured logs, metrics, alerts)
 - Harden auth lifecycle (refresh token + token revocation model)
+

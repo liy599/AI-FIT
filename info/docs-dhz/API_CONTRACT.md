@@ -95,3 +95,4 @@ This file is the contract baseline. Any endpoint change must update:
 1. This file
 2. Frontend API caller (`frontend/src/lib/*`)
 3. Test cases in `backend/tests/*`
+

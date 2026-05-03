@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   buildPoseGuidePath,
@@ -12,7 +12,7 @@ import {
   humanizePoseReport,
   listPoseTrainings,
   type PoseTrainingSession
-} from '../features/pose'
+} from '../modules/pose'
 
 export default function PoseTrainingHistoryPage() {
   const params = useParams<{ exerciseSlug: string }>()
@@ -164,3 +164,4 @@ function formatDateTime(value: string) {
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
 }
+

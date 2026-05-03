@@ -1,6 +1,4 @@
-import type { DistanceState } from './distanceTracker'
-// LEGACY (MediaPipe 33 landmarks): not used by current PoseTool chain.
-// import type { NormalizedLandmark } from './mediapipePose'
+﻿import type { DistanceState } from './distanceTracker'
 import type { MoveNetName, StableJoint } from './movenetTracker'
 
 export function drawUpperLimbSkeleton(
@@ -189,91 +187,7 @@ export function drawDistanceGuide(
   }
 }
 
-/*
-const POSE_CONNECTIONS_33: Array<[number, number]> = [
-  [0, 2],
-  [0, 5],
-  [2, 7],
-  [5, 8],
-  [9, 10],
-  [11, 12],
-  [11, 13],
-  [13, 15],
-  [12, 14],
-  [14, 16],
-  [11, 23],
-  [12, 24],
-  [23, 24],
-  [23, 25],
-  [25, 27],
-  [27, 29],
-  [29, 31],
-  [24, 26],
-  [26, 28],
-  [28, 30],
-  [30, 32]
-]
-
-export function drawPoseLandmarks33(
-  ctx: CanvasRenderingContext2D,
-  landmarks: NormalizedLandmark[],
-  width: number,
-  height: number,
-  color: 'ok' | 'warn' | 'bad' = 'ok',
-  opts?: { viewport?: { x: number; y: number; w: number; h: number }; mirror?: boolean; minVisibility?: number }
-) {
-  const viewport = opts?.viewport ?? { x: 0, y: 0, w: width, h: height }
-  const mirror = opts?.mirror ?? false
-  const minVisibility = opts?.minVisibility ?? 0.12
-  const stroke = color === 'bad' ? 'rgba(239, 68, 68, 0.9)' : color === 'warn' ? 'rgba(245, 158, 11, 0.9)' : 'rgba(34, 197, 94, 0.85)'
-
-  const toCanvas = (p: NormalizedLandmark) => ({
-    x: viewport.x + (mirror ? 1 - p.x : p.x) * viewport.w,
-    y: viewport.y + p.y * viewport.h
-  })
-
-  ctx.save()
-  ctx.lineWidth = 3
-  ctx.lineJoin = 'round'
-  ctx.lineCap = 'round'
-  ctx.strokeStyle = stroke
-
-  for (const [a, b] of POSE_CONNECTIONS_33) {
-    const p1 = landmarks[a]
-    const p2 = landmarks[b]
-    const v1 = p1?.visibility ?? 0
-    const v2 = p2?.visibility ?? 0
-    if (!p1 || !p2 || v1 < minVisibility || v2 < minVisibility) continue
-    const c1 = toCanvas(p1)
-    const c2 = toCanvas(p2)
-    ctx.beginPath()
-    ctx.moveTo(c1.x, c1.y)
-    ctx.lineTo(c2.x, c2.y)
-    ctx.stroke()
-  }
-
-  for (const p of landmarks) {
-    const v = p?.visibility ?? 0
-    if (!p || v < minVisibility) continue
-    const c = toCanvas(p)
-    ctx.beginPath()
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)'
-    ctx.arc(c.x, c.y, 4, 0, 2 * Math.PI)
-    ctx.fill()
-    ctx.lineWidth = 1.5
-    ctx.strokeStyle = stroke
-    ctx.stroke()
-  }
-
-  ctx.restore()
-}
-*/
-
 const POSE_CONNECTIONS_17: Array<[MoveNetName, MoveNetName]> = [
-  ['nose', 'left_eye'],
-  ['nose', 'right_eye'],
-  ['left_eye', 'left_ear'],
-  ['right_eye', 'right_ear'],
   ['left_shoulder', 'right_shoulder'],
   ['left_shoulder', 'left_elbow'],
   ['left_elbow', 'left_wrist'],
@@ -339,3 +253,5 @@ export function drawPoseJoints17(
 
   ctx.restore()
 }
+
+

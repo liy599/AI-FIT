@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { getAdminLifecyclePolicy, runAdminLifecycleCleanup } from '../features/user'
+﻿import { useEffect, useState } from 'react'
+import { getAdminLifecyclePolicy, runAdminLifecycleCleanup } from '../modules/user'
 
 type PolicyResponse = { retention_days: Record<string, number> }
 type CleanupResponse = {
@@ -95,3 +95,4 @@ export default function AdminDataLifecyclePage() {
     </div>
   )
 }
+

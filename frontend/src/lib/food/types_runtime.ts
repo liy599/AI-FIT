@@ -1,4 +1,4 @@
-export type FoodCategory =
+﻿export type FoodCategory =
   | '\u4e3b\u98df'
   | '\u852c\u679c'
   | '\u8089\u86cb\u5976'
@@ -61,3 +61,4 @@ export type RecognizeFoodsResponse = {
   foodIds: number[]
   unmatchedNames: string[]
 }
+

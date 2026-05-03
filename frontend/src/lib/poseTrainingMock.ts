@@ -1,4 +1,4 @@
-import type { PoseTrainingSession } from './poseApi'
+﻿import type { PoseTrainingSession } from './poseApi'
 
 export const DEMO_POSE_TRAINING_ID = 0
 
@@ -28,3 +28,4 @@ export const DEMO_POSE_TRAINING: PoseTrainingSession = {
     { id: 1, exercise_type: 'squat', set_order: 1, reps: 12, weight: null, note: 'Bodyweight' }
   ]
 }
+

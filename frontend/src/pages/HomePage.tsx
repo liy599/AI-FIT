@@ -1,11 +1,13 @@
 ﻿import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getBlogs, resolveBlogMediaUrl, type BlogCard } from '../features/blog'
+import { getBlogs, resolveBlogMediaUrl, type BlogCard } from '../modules/blog'
 
+// Resolve media URLs for blog covers (supports relative backend paths)
 function resolveMediaUrl(url: string | null | undefined) {
   return resolveBlogMediaUrl(url)
 }
 
+// Shared CTA arrow icon
 function Arrow15() {
   return (
     <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -17,39 +19,76 @@ function Arrow15() {
   )
 }
 
+const HERO_SLIDES = [
+  { src: '/assets/images/hero/hero_slide_1.jpg', label: 'Outdoor gym equipment' },
+  { src: '/assets/images/hero/hero_slide_2.jpg', label: 'Kettlebell training' },
+  { src: '/assets/images/hero/hero_slide_3.jpg', label: 'Healthy garden salad' },
+  { src: '/assets/images/hero/hero_slide_4.jpg', label: 'Healthy meal' }
+] as const
+
+const DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric'
+})
+
+// Build card image fallback based on card position
+function fallbackBlogImage(index: number) {
+  return `/assets/images/blog/h2_${(index % 9) + 1}.png`
+}
+
+// Main homepage component
 export default function HomePage() {
+  // Blog state for homepage featured section
   const [blogs, setBlogs] = useState<BlogCard[]>([])
+  const [blogsLoading, setBlogsLoading] = useState(true)
+  const [blogsError, setBlogsError] = useState<string | null>(null)
+
+  // Reveal state for staggered row animation
   const [blogReveal, setBlogReveal] = useState<0 | 1 | 2>(0)
   const row1Ref = useRef<HTMLDivElement | null>(null)
   const row2Ref = useRef<HTMLDivElement | null>(null)
-  const heroSlides = [
-    { src: '/assets/images/hero/hero_slide_1.jpg', label: 'Outdoor gym equipment' },
-    { src: '/assets/images/hero/hero_slide_2.jpg', label: 'Kettlebell training' },
-    { src: '/assets/images/hero/hero_slide_3.jpg', label: 'Healthy garden salad' },
-    { src: '/assets/images/hero/hero_slide_4.jpg', label: 'Healthy meal' }
-  ] as const
+
+  // Hero carousel active slide index
   const [heroIndex, setHeroIndex] = useState(0)
 
+  // Load latest blog cards for homepage display
   useEffect(() => {
     let cancelled = false
+    setBlogsLoading(true)
+    setBlogsError(null)
+
     getBlogs({ page: 1, page_size: 8, auth: false })
       .then((r) => {
         if (cancelled) return
         setBlogs(r.items)
       })
-      .catch(() => {})
+      .catch((error: unknown) => {
+        if (cancelled) return
+        setBlogsError(error instanceof Error ? error.message : 'Failed to load blogs')
+      })
+      .finally(() => {
+        if (cancelled) return
+        setBlogsLoading(false)
+      })
+
     return () => {
       cancelled = true
     }
   }, [])
 
+  // Auto-rotate hero slides (respects reduced-motion preference)
   useEffect(() => {
-    const id = window.setInterval(() => {
-      setHeroIndex((i) => (i + 1) % heroSlides.length)
-    }, 6500)
-    return () => window.clearInterval(id)
-  }, [heroSlides.length])
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
+    const id = window.setInterval(() => {
+      setHeroIndex((i) => (i + 1) % HERO_SLIDES.length)
+    }, 6500)
+
+    return () => window.clearInterval(id)
+  }, [])
+
+  // Reveal blog rows when they enter viewport
   useEffect(() => {
     if (blogs.length === 0) return
 
@@ -101,13 +140,43 @@ export default function HomePage() {
   const row1 = featuredBlogs.slice(0, 3)
   const row2 = featuredBlogs.slice(3, 6)
 
+  // Render a single blog card row
+  function renderBlogRow(items: BlogCard[], rowOffset: number) {
+    return items.map((b, idx) => {
+      const tagLabel = b.tags[0]?.name ?? 'AI FitGuard'
+      const img = resolveMediaUrl(b.cover_image_url) ?? fallbackBlogImage(idx + rowOffset)
+      return (
+        <article className="cl_home-blog-card" key={b.id}>
+          <Link to={`/blogs/${b.id}`} className="cl_home-blog-card-media">
+            <img src={img} alt={b.title} loading="lazy" />
+            <span className="cl_home-blog-card-tag">{tagLabel}</span>
+          </Link>
+          <div className="cl_home-blog-card-body">
+            <h3 className="cl_home-blog-card-title">
+              <Link to={`/blogs/${b.id}`}>{b.title}</Link>
+            </h3>
+            <p className="cl_home-blog-card-excerpt">{b.excerpt}</p>
+            <div className="cl_home-blog-card-meta">
+              <span>By {b.author.username}</span>
+              <span>{DATE_FORMATTER.format(new Date(b.created_at))}</span>
+            </div>
+            <Link to={`/blogs/${b.id}`} className="cl_home-blog-card-cta">
+              Read more <Arrow15 />
+            </Link>
+          </div>
+        </article>
+      )
+    })
+  }
+
   return (
     <>
+      {/* Hero section with rotating visual slides */}
       <section className="cl_hero-area">
         <div className="common_width_1">
           <div className="cl_hero-wrap cl_hero-carousel">
             <div className="cl_hero-carousel-slides" aria-hidden="true">
-              {heroSlides.map((s, idx) => (
+              {HERO_SLIDES.map((s, idx) => (
                 <div
                   key={s.src}
                   className={`cl_hero-carousel-slide${idx === heroIndex ? ' is-active' : ''}`}
@@ -129,7 +198,7 @@ export default function HomePage() {
               </div>
             </div>
             <div className="cl_hero-carousel-dots">
-              {heroSlides.map((s, idx) => (
+              {HERO_SLIDES.map((s, idx) => (
                 <button
                   key={s.src}
                   type="button"
@@ -143,6 +212,7 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Featured blogs section */}
       <section className="cl_blog-area home-blogs-section">
         <div className="page-container">
           <div className="cl_home-blogs-header">
@@ -155,7 +225,16 @@ export default function HomePage() {
             </Link>
           </div>
 
-          {blogs.length === 0 ? (
+          {blogsLoading ? (
+            <div className="cl_home-blogs-empty">
+              <h3 className="cl_home-blogs-empty-title">Loading blogs...</h3>
+            </div>
+          ) : blogsError ? (
+            <div className="cl_home-blogs-empty">
+              <h3 className="cl_home-blogs-empty-title">Failed to load blogs</h3>
+              <p className="cl_home-blogs-empty-text">{blogsError}</p>
+            </div>
+          ) : blogs.length === 0 ? (
             <div className="cl_home-blogs-empty">
               <h3 className="cl_home-blogs-empty-title">No posts yet</h3>
               <p className="cl_home-blogs-empty-text">
@@ -168,61 +247,11 @@ export default function HomePage() {
           ) : (
             <div className="cl_home-blogs-grid">
               <div ref={row1Ref} className={`cl_home-blogs-row${blogReveal >= 1 ? ' is-visible' : ''}`}>
-                {row1.map((b, idx) => {
-                  const tagLabel = b.tags[0]?.name ?? 'AI FitGuard'
-                  const img =
-                    resolveMediaUrl(b.cover_image_url) ?? `/assets/images/blog/h2_${(idx % 9) + 1}.png`
-                  return (
-                    <article className="cl_home-blog-card" key={b.id}>
-                      <Link to={`/blogs/${b.id}`} className="cl_home-blog-card-media">
-                        <img src={img} alt={b.title} loading="lazy" />
-                        <span className="cl_home-blog-card-tag">{tagLabel}</span>
-                      </Link>
-                      <div className="cl_home-blog-card-body">
-                        <h3 className="cl_home-blog-card-title">
-                          <Link to={`/blogs/${b.id}`}>{b.title}</Link>
-                        </h3>
-                        <p className="cl_home-blog-card-excerpt">{b.excerpt}</p>
-                        <div className="cl_home-blog-card-meta">
-                          <span>By {b.author.username}</span>
-                          <span>{new Date(b.created_at).toLocaleDateString()}</span>
-                        </div>
-                        <Link to={`/blogs/${b.id}`} className="cl_home-blog-card-cta">
-                          Read more <Arrow15 />
-                        </Link>
-                      </div>
-                    </article>
-                  )
-                })}
+                {renderBlogRow(row1, 0)}
               </div>
               {row2.length > 0 ? (
                 <div ref={row2Ref} className={`cl_home-blogs-row${blogReveal >= 2 ? ' is-visible' : ''}`}>
-                  {row2.map((b, idx) => {
-                    const tagLabel = b.tags[0]?.name ?? 'AI FitGuard'
-                    const img =
-                      resolveMediaUrl(b.cover_image_url) ?? `/assets/images/blog/h2_${((idx + 3) % 9) + 1}.png`
-                    return (
-                      <article className="cl_home-blog-card" key={b.id}>
-                        <Link to={`/blogs/${b.id}`} className="cl_home-blog-card-media">
-                          <img src={img} alt={b.title} loading="lazy" />
-                          <span className="cl_home-blog-card-tag">{tagLabel}</span>
-                        </Link>
-                        <div className="cl_home-blog-card-body">
-                          <h3 className="cl_home-blog-card-title">
-                            <Link to={`/blogs/${b.id}`}>{b.title}</Link>
-                          </h3>
-                          <p className="cl_home-blog-card-excerpt">{b.excerpt}</p>
-                          <div className="cl_home-blog-card-meta">
-                            <span>By {b.author.username}</span>
-                            <span>{new Date(b.created_at).toLocaleDateString()}</span>
-                          </div>
-                          <Link to={`/blogs/${b.id}`} className="cl_home-blog-card-cta">
-                            Read more <Arrow15 />
-                          </Link>
-                        </div>
-                      </article>
-                    )
-                  })}
+                  {renderBlogRow(row2, 3)}
                 </div>
               ) : null}
             </div>

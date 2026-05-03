@@ -1,4 +1,4 @@
-export const MOVENET_NAMES = [
+﻿export const MOVENET_NAMES = [
   'nose',
   'left_eye',
   'right_eye',
@@ -131,4 +131,5 @@ function avgScore(joints: StableJoint[]) {
   if (joints.length === 0) return 0
   return joints.reduce((acc, j) => acc + j.score, 0) / joints.length
 }
+
 

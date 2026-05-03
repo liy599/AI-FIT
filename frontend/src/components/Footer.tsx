@@ -1,9 +1,11 @@
-import { Link } from 'react-router-dom'
+﻿import { Link } from 'react-router-dom'
 
 export default function Footer() {
   return (
-    <footer className="cl_footer-area">
+    // Global site footer
+    <footer className="cl_footer-area" aria-label="Site footer">
       <div className="page-container">
+        {/* Top row: brand and primary contact */}
         <div className="cl_footer-top">
           <div className="footer-top-grid">
             <div>
@@ -25,6 +27,7 @@ export default function Footer() {
             </div>
           </div>
         </div>
+        {/* Main footer content: product intro and quick links */}
         <div className="cl_footer-bottom">
           <div className="footer-bottom-grid">
             <div>
@@ -38,7 +41,7 @@ export default function Footer() {
             <div>
               <div className="cl_footer-widget pb-20">
                 <h5 className="cl_footer-widget-title">Useful Link</h5>
-                <ul>
+                <ul aria-label="Useful links">
                   <li>
                     <Link to="/about">About</Link>
                   </li>
@@ -57,7 +60,7 @@ export default function Footer() {
             <div>
               <div className="cl_footer-widget pb-20">
                 <h5 className="cl_footer-widget-title">Account</h5>
-                <ul>
+                <ul aria-label="Account links">
                   <li>
                     <Link to="/login">Login</Link>
                   </li>
@@ -70,12 +73,9 @@ export default function Footer() {
                 </ul>
               </div>
             </div>
-            <div>
-              <div className="cl_footer-widget pb-20">
-              </div>
-            </div>
           </div>
         </div>
+        {/* Legal and copyright row */}
         <div className="cl_footer-copyright">
           <div className="cl_footer-copyright-text">
             <p>{`Copyright ${String.fromCharCode(169)} ${new Date().getFullYear()} AI FitGuard`}</p>
@@ -83,14 +83,10 @@ export default function Footer() {
           <div className="cl_footer-copyright-menu">
             <ul>
               <li>
-                <button type="button" className="footer-text-btn">
-                  Terms
-                </button>
+                <Link to="/about" className="footer-text-btn">Terms</Link>
               </li>
               <li>
-                <button type="button" className="footer-text-btn">
-                  Privacy
-                </button>
+                <Link to="/profile/privacy" className="footer-text-btn">Privacy</Link>
               </li>
             </ul>
           </div>
@@ -99,3 +95,4 @@ export default function Footer() {
     </footer>
   )
 }
+

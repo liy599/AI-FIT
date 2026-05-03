@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+﻿import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { previewOrDeleteMyData } from '../features/user'
+import { previewOrDeleteMyData } from '../modules/user'
 import { useAuth } from '../state/auth-context'
 
 const TARGETS = [
@@ -132,3 +132,4 @@ export default function UserPrivacyPage() {
     </div>
   )
 }
+

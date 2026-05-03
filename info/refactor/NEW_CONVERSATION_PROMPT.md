@@ -1,80 +1,81 @@
-# 新对话提示词：将 Pull-Up 替换为 Bent-Over Row
+﻿# 鏂板璇濇彁绀鸿瘝锛氬皢 Pull-Up 鏇挎崲涓?Bent-Over Row
 
 ---
 
-## 对话开头提示词（直接复制使用）
+## 瀵硅瘽寮€澶存彁绀鸿瘝锛堢洿鎺ュ鍒朵娇鐢級
 
 ```
-请阅读以下任务说明，完成 Pull-Up 到 Bent-Over Row 的替换：
+璇烽槄璇讳互涓嬩换鍔¤鏄庯紝瀹屾垚 Pull-Up 鍒?Bent-Over Row 鐨勬浛鎹細
 
-## 任务目标
-将 AI-FIT 项目中的 Pull-Up（引体向上）替换为 Bent-Over Row（俯身哑铃划船）。
+## 浠诲姟鐩爣
+灏?AI-FIT 椤圭洰涓殑 Pull-Up锛堝紩浣撳悜涓婏級鏇挎崲涓?Bent-Over Row锛堜刊韬搼閾冨垝鑸癸級銆?
 
-## 具体要求
+## 鍏蜂綋瑕佹眰
 
-### 1. 前端页面 - Pose 选择卡片
-- 文件：`frontend/src/pages/PoseSelectPage.tsx`
-- 将 Pull-Up 卡片改为：
-  - 名称：`Bent-Over Row`
-  - 小标题：`Bodyweight` → `Dumbbell`
-  - 图片：`/assets/images/pose/Bent-Over Row.jpg`
+### 1. 鍓嶇椤甸潰 - Pose 閫夋嫨鍗＄墖
+- 鏂囦欢锛歚frontend/src/pages/PoseSelectPage.tsx`
+- 灏?Pull-Up 鍗＄墖鏀逛负锛?
+  - 鍚嶇О锛歚Bent-Over Row`
+  - 灏忔爣棰橈細`Bodyweight` 鈫?`Dumbbell`
+  - 鍥剧墖锛歚/assets/images/pose/Bent-Over Row.jpg`
 
-### 2. 前端工具页面
-- 文件：`frontend/src/pages/PoseToolPage.tsx`
-- 路由/工具入口参照别的动作（如 Push-Up、Lateral Raise）修改
-- 确保实时和离线模式都能正常跳转
+### 2. 鍓嶇宸ュ叿椤甸潰
+- 鏂囦欢锛歚frontend/src/pages/PoseToolPage.tsx`
+- 璺敱/宸ュ叿鍏ュ彛鍙傜収鍒殑鍔ㄤ綔锛堝 Push-Up銆丩ateral Raise锛変慨鏀?
+- 纭繚瀹炴椂鍜岀绾挎ā寮忛兘鑳芥甯歌烦杞?
 
-### 3. 保留 Pull-Up 代码（注释不删除）
-- 文件：`frontend/src/lib/pose/realtimePullup.ts`
-- **保留全部代码，仅注释掉**，添加注释说明
+### 3. 淇濈暀 Pull-Up 浠ｇ爜锛堟敞閲婁笉鍒犻櫎锛?
+- 鏂囦欢锛歚frontend/src/lib/pose/realtimePullup.ts`
+- **淇濈暀鍏ㄩ儴浠ｇ爜锛屼粎娉ㄩ噴鎺?*锛屾坊鍔犳敞閲婅鏄?
 
-### 4. 实现 Bent-Over Row
+### 4. 瀹炵幇 Bent-Over Row
 
-#### 4.1 新建 analyzer
-- 文件：`frontend/src/lib/pose/realtimeBentOverRow.ts`
-- 参照：`realtimeLateralRaise.ts` 或 `realtimePushup.ts`
-- 动作要点：
-  - 起始：俯身，哑铃下垂，髋角约 45-90°
-  - 发力：哑铃向上拉，肘部贴近身体
-  - 顶峰：哑铃到胸部高度，肩胛骨收缩
-  - 下放：缓慢控制下放，保持张力
-- 关键检测点（17点）：left/right shoulder, elbow, wrist, hip
-- 预期 issues：back_not_flat, elbow_flaring, incomplete_pull, using_momentum
+#### 4.1 鏂板缓 analyzer
+- 鏂囦欢锛歚frontend/src/lib/pose/realtimeBentOverRow.ts`
+- 鍙傜収锛歚realtimeLateralRaise.ts` 鎴?`realtimePushup.ts`
+- 鍔ㄤ綔瑕佺偣锛?
+  - 璧峰锛氫刊韬紝鍝戦搩涓嬪瀭锛岄珛瑙掔害 45-90掳
+  - 鍙戝姏锛氬搼閾冨悜涓婃媺锛岃倶閮ㄨ创杩戣韩浣?
+  - 椤跺嘲锛氬搼閾冨埌鑳搁儴楂樺害锛岃偐鑳涢鏀剁缉
+  - 涓嬫斁锛氱紦鎱㈡帶鍒朵笅鏀撅紝淇濇寔寮犲姏
+- 鍏抽敭妫€娴嬬偣锛?7鐐癸級锛歭eft/right shoulder, elbow, wrist, hip
+- 棰勬湡 issues锛歜ack_not_flat, elbow_flaring, incomplete_pull, using_momentum
 
-#### 4.2 新建报告
-- 文件：`frontend/src/pages/poseTool/helpers/bentOverRowReport.ts`
-- 参照：`lateralRaiseReport.ts` 或 `pushupReport.ts`
+#### 4.2 鏂板缓鎶ュ憡
+- 鏂囦欢锛歚frontend/src/pages/poseTool/helpers/bentOverRowReport.ts`
+- 鍙傜収锛歚lateralRaiseReport.ts` 鎴?`pushupReport.ts`
 
-#### 4.3 修改 Suggestion 映射
-- 文件：`frontend/src/pages/poseTool/helpers/suggestionMap.ts`
-- 添加 Bent-Over Row 的 suggestion 映射
+#### 4.3 淇敼 Suggestion 鏄犲皠
+- 鏂囦欢锛歚frontend/src/pages/poseTool/helpers/suggestionMap.ts`
+- 娣诲姞 Bent-Over Row 鐨?suggestion 鏄犲皠
 
-#### 4.4 修改 createAnalyzer 工厂
-- 文件：`frontend/src/pages/poseTool/helpers/analyzers.ts`
-- 注释掉 `createAnalyzer('pullup')`
-- 添加 `createAnalyzer('bent-over-row')`
+#### 4.4 淇敼 createAnalyzer 宸ュ巶
+- 鏂囦欢锛歚frontend/src/pages/poseTool/helpers/analyzers.ts`
+- 娉ㄩ噴鎺?`createAnalyzer('pullup')`
+- 娣诲姞 `createAnalyzer('bent-over-row')`
 
-## 参考文档
-- 备份清单：`G:\学校\大四下\毕设\AI-FIT\info\refactor\BENT_OVER_ROW_MIGRATION_BACKUP_2026-04-25.md`
-- 17点规范：`G:\学校\大四下\毕设\AI-FIT\info\refactor\POSE_17POINT_ANALYZER_MIGRATION_CHECKLIST.md`
+## 鍙傝€冩枃妗?
+- 澶囦唤娓呭崟锛歚G:\瀛︽牎\澶у洓涓媆姣曡\AI-FIT\info\refactor\BENT_OVER_ROW_MIGRATION_BACKUP_2026-04-25.md`
+- 17鐐硅鑼冿細`G:\瀛︽牎\澶у洓涓媆姣曡\AI-FIT\info\refactor\POSE_17POINT_ANALYZER_MIGRATION_CHECKLIST.md`
 
-## 命名规范
-- Slug：`bent-over-row`（kebab-case）
-- 类名：`RealtimeBentOverRowAnalyzer`
-- 展示名：`Bent-Over Row`
+## 鍛藉悕瑙勮寖
+- Slug锛歚bent-over-row`锛坘ebab-case锛?
+- 绫诲悕锛歚RealtimeBentOverRowAnalyzer`
+- 灞曠ず鍚嶏細`Bent-Over Row`
 
-## 注意事项
-- Bent-Over Row 是双侧动作（双手同时持哑铃）
-- 建议侧视视角
-- 角度阈值需要根据实际测试调整
-- 测试时验证：实时推理 + 离线视频回放
+## 娉ㄦ剰浜嬮」
+- Bent-Over Row 鏄弻渚у姩浣滐紙鍙屾墜鍚屾椂鎸佸搼閾冿級
+- 寤鸿渚ц瑙嗚
+- 瑙掑害闃堝€奸渶瑕佹牴鎹疄闄呮祴璇曡皟鏁?
+- 娴嬭瘯鏃堕獙璇侊細瀹炴椂鎺ㄧ悊 + 绂荤嚎瑙嗛鍥炴斁
 ```
 
 ---
 
-## 使用说明
+## 浣跨敤璇存槑
 
-1. 复制上方提示词
-2. 开启新的 AI 对话
-3. 粘贴提示词开始任务
-4. 如有问题，可参考 `BENT_OVER_ROW_MIGRATION_BACKUP_2026-04-25.md` 获取更多细节
+1. 澶嶅埗涓婃柟鎻愮ず璇?
+2. 寮€鍚柊鐨?AI 瀵硅瘽
+3. 绮樿创鎻愮ず璇嶅紑濮嬩换鍔?
+4. 濡傛湁闂锛屽彲鍙傝€?`BENT_OVER_ROW_MIGRATION_BACKUP_2026-04-25.md` 鑾峰彇鏇村缁嗚妭
+

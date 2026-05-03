@@ -1,26 +1,26 @@
-# POSE Analysis Report 重排与人性化展示备案
+﻿# POSE Analysis Report 閲嶆帓涓庝汉鎬у寲灞曠ず澶囨
 
-日期：2026-04-26
+鏃ユ湡锛?026-04-26
 
-## 目标
+## 鐩爣
 
-- 在不修改动作识别阈值、角度规则、判错逻辑、接口结构的前提下，优化 `Analysis Report` 的阅读顺序与观感。
-- 让用户优先看到结论、问题、改法，再看评分说明与技术细节。
-- 保证 `Training History`、`Detail Report`、历史存档数据继续兼容。
+- 鍦ㄤ笉淇敼鍔ㄤ綔璇嗗埆闃堝€笺€佽搴﹁鍒欍€佸垽閿欓€昏緫銆佹帴鍙ｇ粨鏋勭殑鍓嶆彁涓嬶紝浼樺寲 `Analysis Report` 鐨勯槄璇婚『搴忎笌瑙傛劅銆?
+- 璁╃敤鎴蜂紭鍏堢湅鍒扮粨璁恒€侀棶棰樸€佹敼娉曪紝鍐嶇湅璇勫垎璇存槑涓庢妧鏈粏鑺傘€?
+- 淇濊瘉 `Training History`銆乣Detail Report`銆佸巻鍙插瓨妗ｆ暟鎹户缁吋瀹广€?
 
-## 本次调整范围
+## 鏈璋冩暣鑼冨洿
 
-- 页面：
+- 椤甸潰锛?
   - `frontend/src/pages/poseTool/PoseToolWidgets.tsx`
   - `frontend/src/pages/PoseTrainingReportPage.tsx`
   - `frontend/src/pages/PoseToolPage.tsx`
   - `frontend/src/styles.css`
 
-## 结构调整
+## 缁撴瀯璋冩暣
 
-原顺序偏向“技术报告”阅读路径。
+鍘熼『搴忓亸鍚戔€滄妧鏈姤鍛娾€濋槄璇昏矾寰勩€?
 
-现调整为：
+鐜拌皟鏁翠负锛?
 
 1. `Summary`
 2. `Top Issues`
@@ -29,69 +29,70 @@
 5. `Key Metrics`
 6. `Rep Findings / Timeline`
 
-## 文案与展示调整
+## 鏂囨涓庡睍绀鸿皟鏁?
 
-- `Issues` 改名为 `Top Issues`
-- `Suggestions` 改名为 `What To Fix`
-- `Assessment Criteria` 改名为 `How This Report Scores Your Form`
-- 评分说明改为更短、更人话的 3 条说明：
+- `Issues` 鏀瑰悕涓?`Top Issues`
+- `Suggestions` 鏀瑰悕涓?`What To Fix`
+- `Assessment Criteria` 鏀瑰悕涓?`How This Report Scores Your Form`
+- 璇勫垎璇存槑鏀逛负鏇寸煭銆佹洿浜鸿瘽鐨?3 鏉¤鏄庯細
   - Counted rep
   - Form check
   - Gate note
 
-## 按钮调整
+## 鎸夐挳璋冩暣
 
-- 保留顶部全局 `Training History`
-- 去掉离线 `Analysis Report` 区域内：
+- 淇濈暀椤堕儴鍏ㄥ眬 `Training History`
+- 鍘绘帀绂荤嚎 `Analysis Report` 鍖哄煙鍐咃細
   - `Open Detailed Report`
   - `Go To Training History`
 
-原因：
+鍘熷洜锛?
 
-- 两个按钮在当前页面中属于重复跳转入口
-- 会分散用户对报告本身的关注
-- 当前 Detail Report 与 Analysis Report 内容重叠度较高，暂时不强调该入口
+- 涓や釜鎸夐挳鍦ㄥ綋鍓嶉〉闈腑灞炰簬閲嶅璺宠浆鍏ュ彛
+- 浼氬垎鏁ｇ敤鎴峰鎶ュ憡鏈韩鐨勫叧娉?
+- 褰撳墠 Detail Report 涓?Analysis Report 鍐呭閲嶅彔搴﹁緝楂橈紝鏆傛椂涓嶅己璋冭鍏ュ彛
 
-## 样式调整
+## 鏍峰紡璋冩暣
 
-- 强化 `Summary` 之后的主阅读区层级
-- `Top Issues` 卡片改为更柔和但更明确的浅底块
-- `What To Fix` 提高行高与留白，增强“教练建议”感
-- `How This Report Scores Your Form` 使用浅底说明卡样式，弱化技术说明感
+- 寮哄寲 `Summary` 涔嬪悗鐨勪富闃呰鍖哄眰绾?
+- `Top Issues` 鍗＄墖鏀逛负鏇存煍鍜屼絾鏇存槑纭殑娴呭簳鍧?
+- `What To Fix` 鎻愰珮琛岄珮涓庣暀鐧斤紝澧炲己鈥滄暀缁冨缓璁€濇劅
+- `How This Report Scores Your Form` 浣跨敤娴呭簳璇存槑鍗℃牱寮忥紝寮卞寲鎶€鏈鏄庢劅
 
-## 主报告框架统一
+## 涓绘姤鍛婃鏋剁粺涓€
 
-- `Deep Squat` 与其他动作统一为同一套主报告框架：
+- `Deep Squat` 涓庡叾浠栧姩浣滅粺涓€涓哄悓涓€濂椾富鎶ュ憡妗嗘灦锛?
   - `Summary`
   - `Top Issues`
   - `What To Fix`
   - `How This Report Scores Your Form`
   - `Key Metrics`
   - `Rep Findings / Timeline`
-- 统一的是展示框架与信息顺序，不是强行取消动作本身的分析差异
+- 缁熶竴鐨勬槸灞曠ず妗嗘灦涓庝俊鎭『搴忥紝涓嶆槸寮鸿鍙栨秷鍔ㄤ綔鏈韩鐨勫垎鏋愬樊寮?
 
-## 核心指标精简
+## 鏍稿績鎸囨爣绮剧畝
 
-- 主报告首页的数值卡片精简为 5 张：
+- 涓绘姤鍛婇椤电殑鏁板€煎崱鐗囩簿绠€涓?5 寮狅細
   - `Total Reps`
   - `Effective Reps`
   - `Invalid Reps`
   - `Form Accuracy`
   - `Average Rep Duration`
-- 不再在主报告区域自动补充其它技术型 `keyMetrics`
-- 目的：
-  - 提高答辩展示的直观性
-  - 避免 `Correct/Incorrect/Assessed/FPS` 等重复或过技术化指标分散注意力
-  - 让数值卡片更服务于“问题与改法”的主叙事
+- 涓嶅啀鍦ㄤ富鎶ュ憡鍖哄煙鑷姩琛ュ厖鍏跺畠鎶€鏈瀷 `keyMetrics`
+- 鐩殑锛?
+  - 鎻愰珮绛旇京灞曠ず鐨勭洿瑙傛€?
+  - 閬垮厤 `Correct/Incorrect/Assessed/FPS` 绛夐噸澶嶆垨杩囨妧鏈寲鎸囨爣鍒嗘暎娉ㄦ剰鍔?
+  - 璁╂暟鍊煎崱鐗囨洿鏈嶅姟浜庘€滈棶棰樹笌鏀规硶鈥濈殑涓诲彊浜?
 
-## 兼容性说明
+## 鍏煎鎬ц鏄?
 
-- 不修改 `PoseAnalysisReport` 关键字段结构
-- 不删除 `details / repFindings / timeline` 等细节字段
-- `Training History` 仍读取 `report.summary`
-- `Detail Report` 仍读取 `summary / issues / suggestions / details`
-- 历史数据无需迁移
+- 涓嶄慨鏀?`PoseAnalysisReport` 鍏抽敭瀛楁缁撴瀯
+- 涓嶅垹闄?`details / repFindings / timeline` 绛夌粏鑺傚瓧娈?
+- `Training History` 浠嶈鍙?`report.summary`
+- `Detail Report` 浠嶈鍙?`summary / issues / suggestions / details`
+- 鍘嗗彶鏁版嵁鏃犻渶杩佺Щ
 
-## 结论
+## 缁撹
 
-本次改动属于“展示层重排 + 文案与样式优化”，不影响后端接口、不影响历史存档结构、不影响动作识别逻辑，适合作为答辩演示版的低风险体验提升。
+鏈鏀瑰姩灞炰簬鈥滃睍绀哄眰閲嶆帓 + 鏂囨涓庢牱寮忎紭鍖栤€濓紝涓嶅奖鍝嶅悗绔帴鍙ｃ€佷笉褰卞搷鍘嗗彶瀛樻。缁撴瀯銆佷笉褰卞搷鍔ㄤ綔璇嗗埆閫昏緫锛岄€傚悎浣滀负绛旇京婕旂ず鐗堢殑浣庨闄╀綋楠屾彁鍗囥€?
+

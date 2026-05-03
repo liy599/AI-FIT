@@ -1,6 +1,6 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+﻿import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { getBlogTags, queryBlogs, resolveBlogMediaUrl, type BlogCard, type BlogTag as Tag } from '../features/blog'
+import { getBlogTags, queryBlogs, resolveBlogMediaUrl, type BlogCard, type BlogTag as Tag } from '../modules/blog'
 const OrganicFluidBackground = lazy(() => import('../components/OrganicFluidBackground'))
 
 function resolveMediaUrl(url: string | null | undefined) {
@@ -496,7 +496,7 @@ export default function BlogListPage() {
           <Suspense fallback={null}>
             <OrganicFluidBackground className="absolute inset-0 h-full w-full overflow-hidden rounded-none" />
           </Suspense>
-          <div className="absolute inset-0 bg-gradient-to-b from-neutral-50 via-neutral-50/70 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-b from-neutral-950/70 via-neutral-950/45 to-transparent" />
         </div>
         <div className="blog-list-hero-grid">
           <div className="blog-list-hero-col-main">
@@ -726,4 +726,5 @@ export default function BlogListPage() {
     </main>
   )
 }
+
 

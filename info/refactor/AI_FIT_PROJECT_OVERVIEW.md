@@ -1,157 +1,158 @@
-# AI-FIT 项目全局理解（用于重构/新对话快速上手）
+﻿# AI-FIT 椤圭洰鍏ㄥ眬鐞嗚В锛堢敤浜庨噸鏋?鏂板璇濆揩閫熶笂鎵嬶級
 
-本文用于在开启新对话时快速恢复上下文：项目做什么、前后端职责边界、关键数据流与扩展点。内容以“能定位、能复现、能继续推进重构”为目标，不追求实现细节。
-
----
-
-## 1. 项目目标与核心模块
-
-AI-FIT 是一个健身/饮食结合的 Web 应用，核心能力主要分为：
-
-- 账号与用户资料：登录注册、Profile（性别/身高/体重/目标等）
-- Food 模块：食物库、识别/匹配、餐次记录、当天摄入汇总
-- Pose 模块：浏览器端姿态识别、动作计次与纠错、训练记录与报告
-- 内容/运营：博客、评论、反馈等（从 routes 可见）
+鏈枃鐢ㄤ簬鍦ㄥ紑鍚柊瀵硅瘽鏃跺揩閫熸仮澶嶄笂涓嬫枃锛氶」鐩仛浠€涔堛€佸墠鍚庣鑱岃矗杈圭晫銆佸叧閿暟鎹祦涓庢墿灞曠偣銆傚唴瀹逛互鈥滆兘瀹氫綅銆佽兘澶嶇幇銆佽兘缁х画鎺ㄨ繘閲嶆瀯鈥濅负鐩爣锛屼笉杩芥眰瀹炵幇缁嗚妭銆?
 
 ---
 
-## 2. 技术栈与工程形态
+## 1. 椤圭洰鐩爣涓庢牳蹇冩ā鍧?
+
+AI-FIT 鏄竴涓仴韬?楗缁撳悎鐨?Web 搴旂敤锛屾牳蹇冭兘鍔涗富瑕佸垎涓猴細
+
+- 璐﹀彿涓庣敤鎴疯祫鏂欙細鐧诲綍娉ㄥ唽銆丳rofile锛堟€у埆/韬珮/浣撻噸/鐩爣绛夛級
+- Food 妯″潡锛氶鐗╁簱銆佽瘑鍒?鍖归厤銆侀娆¤褰曘€佸綋澶╂憚鍏ユ眹鎬?
+- Pose 妯″潡锛氭祻瑙堝櫒绔Э鎬佽瘑鍒€佸姩浣滆娆′笌绾犻敊銆佽缁冭褰曚笌鎶ュ憡
+- 鍐呭/杩愯惀锛氬崥瀹€佽瘎璁恒€佸弽棣堢瓑锛堜粠 routes 鍙锛?
+
+---
+
+## 2. 鎶€鏈爤涓庡伐绋嬪舰鎬?
 
 ### 2.1 Frontend
 
-- 位置：`frontend/`
-- 形态：React + TypeScript + Vite（存在 vite.config.ts、tsconfig、main.tsx/App.tsx）
-- 静态资源：`frontend/public/assets/`（包含 UI 静态资源与 MoveNet 模型文件）
-- Pose 推理：浏览器端执行（TFJS MoveNet；MediaPipe tasks-vision 代码存在但不是默认主链路）
+- 浣嶇疆锛歚frontend/`
+- 褰㈡€侊細React + TypeScript + Vite锛堝瓨鍦?vite.config.ts銆乼sconfig銆乵ain.tsx/App.tsx锛?
+- 闈欐€佽祫婧愶細`frontend/public/assets/`锛堝寘鍚?UI 闈欐€佽祫婧愪笌 MoveNet 妯″瀷鏂囦欢锛?
+- Pose 鎺ㄧ悊锛氭祻瑙堝櫒绔墽琛岋紙TFJS MoveNet锛汳ediaPipe tasks-vision 浠ｇ爜瀛樺湪浣嗕笉鏄粯璁や富閾捐矾锛?
 
 ### 2.2 Backend
 
-- 位置：`backend/`
-- 形态：Python Web API（存在 routes、services、models、tests，常见于 Flask/FastAPI 风格；具体框架以 backend/app/__init__.py 与 run.py 为准）
-- 主要职责：
-  - 用户/鉴权/权限/隐私策略
-  - Food/Meals 数据读写与当天汇总
-  - Pose 训练记录的存储、报告结构校验、（可选）AI 增强报告
+- 浣嶇疆锛歚backend/`
+- 褰㈡€侊細Python Web API锛堝瓨鍦?routes銆乻ervices銆乵odels銆乼ests锛屽父瑙佷簬 Flask/FastAPI 椋庢牸锛涘叿浣撴鏋朵互 backend/app/__init__.py 涓?run.py 涓哄噯锛?
+- 涓昏鑱岃矗锛?
+  - 鐢ㄦ埛/閴存潈/鏉冮檺/闅愮绛栫暐
+  - Food/Meals 鏁版嵁璇诲啓涓庡綋澶╂眹鎬?
+  - Pose 璁粌璁板綍鐨勫瓨鍌ㄣ€佹姤鍛婄粨鏋勬牎楠屻€侊紙鍙€夛級AI 澧炲己鎶ュ憡
 
 ---
 
-## 3. 目录与关键入口（理解用）
+## 3. 鐩綍涓庡叧閿叆鍙ｏ紙鐞嗚В鐢級
 
-### 3.1 Backend 关键区域
+### 3.1 Backend 鍏抽敭鍖哄煙
 
-- 路由聚合：`backend/app/routes/`
-  - Food/Meals：`food.py`、`foods.py`、`meals.py`
-  - Pose：`pose.py`
-  - Auth/User：`auth.py`、`user.py`
-- 业务服务：`backend/app/services/`
-  - Food 种子数据与运行时补齐：`services/food/catalog_runtime.py`、`seed_foods.json`
-  - Pose AI 报告结构校验：`services/pose/ai_report.py`
-- 测试：`backend/tests/`（有 pose/ai_report 等测试，便于回归）
+- 璺敱鑱氬悎锛歚backend/app/routes/`
+  - Food/Meals锛歚food.py`銆乣foods.py`銆乣meals.py`
+  - Pose锛歚pose.py`
+  - Auth/User锛歚auth.py`銆乣user.py`
+- 涓氬姟鏈嶅姟锛歚backend/app/services/`
+  - Food 绉嶅瓙鏁版嵁涓庤繍琛屾椂琛ラ綈锛歚services/food/catalog_runtime.py`銆乣seed_foods.json`
+  - Pose AI 鎶ュ憡缁撴瀯鏍￠獙锛歚services/pose/ai_report.py`
+- 娴嬭瘯锛歚backend/tests/`锛堟湁 pose/ai_report 绛夋祴璇曪紝渚夸簬鍥炲綊锛?
 
-### 3.2 Frontend 关键区域
+### 3.2 Frontend 鍏抽敭鍖哄煙
 
-- 页面：`frontend/src/pages/`
-  - Pose 相关：`PoseSelectPage.tsx`、`PoseToolPage.tsx`、`PoseTrainingHistoryPage.tsx`、`PoseTrainingReportPage.tsx`
-- Pose 业务库：`frontend/src/lib/pose/`
-  - 实时 provider：`livePoseProvider.ts`
-  - MoveNet 推理/离线抽帧：`movenetPose.ts`
-  - 追踪稳定化：`movenetTracker.ts`、`distanceTracker.ts`
-  - 绘制：`draw.ts`
-  - 通用指标：`poseFrame.ts`、`poseMetrics.ts`、`poseMetricTracker.ts`、`genericMotion.ts`
-  - 动作 analyzers：`realtime*.ts`
-- Pose 页面 helper/报告：`frontend/src/pages/poseTool/poseToolHelpers.ts` 与 `frontend/src/pages/poseTool/helpers/*`
-
----
-
-## 4. Pose：现有全流程（高层抽象）
-
-### 4.1 实时（Live）链路
-
-1) 摄像头采集（前端页面）
-- Pose 工具页请求摄像头流，进入 RAF 循环并按目标 FPS 节流。
-
-2) 姿态推理（模型层）
-- 当前实时推理默认使用 MoveNet（TFJS pose-detection）。
-- 输出包含：
-  - 原生 MoveNet 17 点（x/y/score/name）
-  - 为兼容历史接口而生成的“类 MediaPipe 33 点数组”（只映射部分点，其它为缺失/合成）
-
-3) 稳定化与质量门控（工程层）
-- 使用稳定器/跟踪状态（calibrating/tracking/lost）与距离提示（too close/too far），降低误报与提示抖动。
-
-4) 动作分析（规则/状态机）
-- 每个动作对应一个 Realtime Analyzer（规则 + 状态机），输出：
-  - repCount、correct/incorrect、warnings/issues、lastRepReasonCodes/Corrections 等
-- 页面使用 analyzer 输出生成实时提示、计次 UI、问题统计与 session 总结。
-
-5) 报告与存档
-- 结束时汇总报告结构并提交给后端保存（后端不参与逐帧姿态推理）。
-
-### 4.2 离线（Video）链路
-
-1) 视频输入
-- 用户上传/选择视频（前端本地处理为主）。
-
-2) 抽帧 + 姿态推理
-- 当前默认离线也走 MoveNet：按策略抽帧并估计姿态。
-- 抽帧产物通常同时包含：
-  - frames：用于历史逻辑的 landmarks（当前多为“伪 33 点数组”）
-  - nativeFrames：MoveNet 17 点序列（可用于后续 17-only 迁移）
-
-3) 回放式分析（复用实时 analyzer）
-- 对抽帧序列逐帧回放，喂给同一套 Realtime Analyzer，得到和实时一致的计次/纠错输出。
-- 同时生成离线 overlay（每帧 tone/message）与视频报告。
+- 椤甸潰锛歚frontend/src/pages/`
+  - Pose 鐩稿叧锛歚PoseSelectPage.tsx`銆乣PoseToolPage.tsx`銆乣PoseTrainingHistoryPage.tsx`銆乣PoseTrainingReportPage.tsx`
+- Pose 涓氬姟搴擄細`frontend/src/lib/pose/`
+  - 瀹炴椂 provider锛歚livePoseProvider.ts`
+  - MoveNet 鎺ㄧ悊/绂荤嚎鎶藉抚锛歚movenetPose.ts`
+  - 杩借釜绋冲畾鍖栵細`movenetTracker.ts`銆乣distanceTracker.ts`
+  - 缁樺埗锛歚draw.ts`
+  - 閫氱敤鎸囨爣锛歚poseFrame.ts`銆乣poseMetrics.ts`銆乣poseMetricTracker.ts`銆乣genericMotion.ts`
+  - 鍔ㄤ綔 analyzers锛歚realtime*.ts`
+- Pose 椤甸潰 helper/鎶ュ憡锛歚frontend/src/pages/poseTool/poseToolHelpers.ts` 涓?`frontend/src/pages/poseTool/helpers/*`
 
 ---
 
-## 5. Pose：扩展点（加动作/改规则的地方）
+## 4. Pose锛氱幇鏈夊叏娴佺▼锛堥珮灞傛娊璞★級
 
-### 5.1 新增动作的一般路径
+### 4.1 瀹炴椂锛圠ive锛夐摼璺?
 
-1) 动作元数据与上架
-- `frontend/src/lib/pose/exercises.ts`：动作 slug、展示名、提示文案等
+1) 鎽勫儚澶撮噰闆嗭紙鍓嶇椤甸潰锛?
+- Pose 宸ュ叿椤佃姹傛憚鍍忓ご娴侊紝杩涘叆 RAF 寰幆骞舵寜鐩爣 FPS 鑺傛祦銆?
 
-2) Analyzer 实现
-- `frontend/src/lib/pose/realtime<Exercise>.ts`：规则/状态机实现
+2) 濮挎€佹帹鐞嗭紙妯″瀷灞傦級
+- 褰撳墠瀹炴椂鎺ㄧ悊榛樿浣跨敤 MoveNet锛圱FJS pose-detection锛夈€?
+- 杈撳嚭鍖呭惈锛?
+  - 鍘熺敓 MoveNet 17 鐐癸紙x/y/score/name锛?
+  - 涓哄吋瀹瑰巻鍙叉帴鍙ｈ€岀敓鎴愮殑鈥滅被 MediaPipe 33 鐐规暟缁勨€濓紙鍙槧灏勯儴鍒嗙偣锛屽叾瀹冧负缂哄け/鍚堟垚锛?
 
-3) 接入创建器与报告
-- `frontend/src/pages/poseTool/poseToolHelpers.ts`：`createAnalyzer(slug)`、suggestion 映射、report builder
+3) 绋冲畾鍖栦笌璐ㄩ噺闂ㄦ帶锛堝伐绋嬪眰锛?
+- 浣跨敤绋冲畾鍣?璺熻釜鐘舵€侊紙calibrating/tracking/lost锛変笌璺濈鎻愮ず锛坱oo close/too far锛夛紝闄嶄綆璇姤涓庢彁绀烘姈鍔ㄣ€?
 
-4) 页面展示
-- `PoseSelectPage` 上架与展示（已支持过滤 ready/coming_soon）
-- `PoseToolPage` 实时/离线分支（通常无需新增大量 UI 逻辑）
+4) 鍔ㄤ綔鍒嗘瀽锛堣鍒?鐘舵€佹満锛?
+- 姣忎釜鍔ㄤ綔瀵瑰簲涓€涓?Realtime Analyzer锛堣鍒?+ 鐘舵€佹満锛夛紝杈撳嚭锛?
+  - repCount銆乧orrect/incorrect銆亀arnings/issues銆乴astRepReasonCodes/Corrections 绛?
+- 椤甸潰浣跨敤 analyzer 杈撳嚭鐢熸垚瀹炴椂鎻愮ず銆佽娆?UI銆侀棶棰樼粺璁′笌 session 鎬荤粨銆?
 
-### 5.2 当前 Pose 重构焦点（17-only）
+5) 鎶ュ憡涓庡瓨妗?
+- 缁撴潫鏃舵眹鎬绘姤鍛婄粨鏋勫苟鎻愪氦缁欏悗绔繚瀛橈紙鍚庣涓嶅弬涓庨€愬抚濮挎€佹帹鐞嗭級銆?
 
-项目目前同时存在：
-- “33 索引语义”的 analyzer/指标工具（大量 `landmarks[idx]`）
-- “17 点按 name”的 analyzer（已有 analyzeNative 与 MoveNetKeypoint）
+### 4.2 绂荤嚎锛圴ideo锛夐摼璺?
 
-为了降低口径混乱与伪 33 的风险，计划方向是：
-- analyzer 统一以 MoveNet 17 点（按 name）作为输入语义
-- 离线回放只依赖 17 点序列（nativeFrames）
-- 同步统一 issues.joints 的语义（避免继续使用 MediaPipe 33 索引）
-- 代码命名避免出现 “动作名+数字” 后缀，旧实现迁移到 legacy/classic 命名
+1) 瑙嗛杈撳叆
+- 鐢ㄦ埛涓婁紶/閫夋嫨瑙嗛锛堝墠绔湰鍦板鐞嗕负涓伙級銆?
 
-对应执行清单见：
+2) 鎶藉抚 + 濮挎€佹帹鐞?
+- 褰撳墠榛樿绂荤嚎涔熻蛋 MoveNet锛氭寜绛栫暐鎶藉抚骞朵及璁″Э鎬併€?
+- 鎶藉抚浜х墿閫氬父鍚屾椂鍖呭惈锛?
+  - frames锛氱敤浜庡巻鍙查€昏緫鐨?landmarks锛堝綋鍓嶅涓衡€滀吉 33 鐐规暟缁勨€濓級
+  - nativeFrames锛歁oveNet 17 鐐瑰簭鍒楋紙鍙敤浜庡悗缁?17-only 杩佺Щ锛?
+
+3) 鍥炴斁寮忓垎鏋愶紙澶嶇敤瀹炴椂 analyzer锛?
+- 瀵规娊甯у簭鍒楅€愬抚鍥炴斁锛屽杺缁欏悓涓€濂?Realtime Analyzer锛屽緱鍒板拰瀹炴椂涓€鑷寸殑璁℃/绾犻敊杈撳嚭銆?
+- 鍚屾椂鐢熸垚绂荤嚎 overlay锛堟瘡甯?tone/message锛変笌瑙嗛鎶ュ憡銆?
+
+---
+
+## 5. Pose锛氭墿灞曠偣锛堝姞鍔ㄤ綔/鏀硅鍒欑殑鍦版柟锛?
+
+### 5.1 鏂板鍔ㄤ綔鐨勪竴鑸矾寰?
+
+1) 鍔ㄤ綔鍏冩暟鎹笌涓婃灦
+- `frontend/src/lib/pose/exercises.ts`锛氬姩浣?slug銆佸睍绀哄悕銆佹彁绀烘枃妗堢瓑
+
+2) Analyzer 瀹炵幇
+- `frontend/src/lib/pose/realtime<Exercise>.ts`锛氳鍒?鐘舵€佹満瀹炵幇
+
+3) 鎺ュ叆鍒涘缓鍣ㄤ笌鎶ュ憡
+- `frontend/src/pages/poseTool/poseToolHelpers.ts`锛歚createAnalyzer(slug)`銆乻uggestion 鏄犲皠銆乺eport builder
+
+4) 椤甸潰灞曠ず
+- `PoseSelectPage` 涓婃灦涓庡睍绀猴紙宸叉敮鎸佽繃婊?ready/coming_soon锛?
+- `PoseToolPage` 瀹炴椂/绂荤嚎鍒嗘敮锛堥€氬父鏃犻渶鏂板澶ч噺 UI 閫昏緫锛?
+
+### 5.2 褰撳墠 Pose 閲嶆瀯鐒︾偣锛?7-only锛?
+
+椤圭洰鐩墠鍚屾椂瀛樺湪锛?
+- 鈥?3 绱㈠紩璇箟鈥濈殑 analyzer/鎸囨爣宸ュ叿锛堝ぇ閲?`landmarks[idx]`锛?
+- 鈥?7 鐐规寜 name鈥濈殑 analyzer锛堝凡鏈?analyzeNative 涓?MoveNetKeypoint锛?
+
+涓轰簡闄嶄綆鍙ｅ緞娣蜂贡涓庝吉 33 鐨勯闄╋紝璁″垝鏂瑰悜鏄細
+- analyzer 缁熶竴浠?MoveNet 17 鐐癸紙鎸?name锛変綔涓鸿緭鍏ヨ涔?
+- 绂荤嚎鍥炴斁鍙緷璧?17 鐐瑰簭鍒楋紙nativeFrames锛?
+- 鍚屾缁熶竴 issues.joints 鐨勮涔夛紙閬垮厤缁х画浣跨敤 MediaPipe 33 绱㈠紩锛?
+- 浠ｇ爜鍛藉悕閬垮厤鍑虹幇 鈥滃姩浣滃悕+鏁板瓧鈥?鍚庣紑锛屾棫瀹炵幇杩佺Щ鍒?legacy/classic 鍛藉悕
+
+瀵瑰簲鎵ц娓呭崟瑙侊細
 - `info/refactor/POSE_17POINT_ANALYZER_MIGRATION_CHECKLIST.md`
 
 ---
 
-## 6. Food：关键事实（高层）
+## 6. Food锛氬叧閿簨瀹烇紙楂樺眰锛?
 
-- 后端食物库存在“种子数据 + 运行时补齐”机制：
-  - 种子 JSON：`backend/app/services/food/seed_foods.json`
-  - 启动时补齐：由 catalog_runtime 读取 JSON 并向 foods 表补缺
-- 当天汇总接口当前主要返回“摄入 totals”，不包含营养目标/进度条目标数据（如需目标，需要扩展 profile/接口口径）。
+- 鍚庣椋熺墿搴撳瓨鍦ㄢ€滅瀛愭暟鎹?+ 杩愯鏃惰ˉ榻愨€濇満鍒讹細
+  - 绉嶅瓙 JSON锛歚backend/app/services/food/seed_foods.json`
+  - 鍚姩鏃惰ˉ榻愶細鐢?catalog_runtime 璇诲彇 JSON 骞跺悜 foods 琛ㄨˉ缂?
+- 褰撳ぉ姹囨€绘帴鍙ｅ綋鍓嶄富瑕佽繑鍥炩€滄憚鍏?totals鈥濓紝涓嶅寘鍚惀鍏荤洰鏍?杩涘害鏉＄洰鏍囨暟鎹紙濡傞渶鐩爣锛岄渶瑕佹墿灞?profile/鎺ュ彛鍙ｅ緞锛夈€?
 
 ---
 
-## 7. 新对话快速启动建议（怎么提问最省时间）
+## 7. 鏂板璇濆揩閫熷惎鍔ㄥ缓璁紙鎬庝箞鎻愰棶鏈€鐪佹椂闂达級
 
-- 若要推进“17-only analyzer 重构”：
-  - 先让助手读取 `info/refactor/POSE_17POINT_ANALYZER_MIGRATION_CHECKLIST.md`
-  - 再按“动作优先级”逐个迁移，并在每一步做离线回放视频的回归对比
-- 若要新增动作：
-  - 说明动作 slug、期望视角（侧视/正视）、计次规则（关键角度/阈值）、纠错点列表（要输出哪些提示）
+- 鑻ヨ鎺ㄨ繘鈥?7-only analyzer 閲嶆瀯鈥濓細
+  - 鍏堣鍔╂墜璇诲彇 `info/refactor/POSE_17POINT_ANALYZER_MIGRATION_CHECKLIST.md`
+  - 鍐嶆寜鈥滃姩浣滀紭鍏堢骇鈥濋€愪釜杩佺Щ锛屽苟鍦ㄦ瘡涓€姝ュ仛绂荤嚎鍥炴斁瑙嗛鐨勫洖褰掑姣?
+- 鑻ヨ鏂板鍔ㄤ綔锛?
+  - 璇存槑鍔ㄤ綔 slug銆佹湡鏈涜瑙掞紙渚ц/姝ｈ锛夈€佽娆¤鍒欙紙鍏抽敭瑙掑害/闃堝€硷級銆佺籂閿欑偣鍒楄〃锛堣杈撳嚭鍝簺鎻愮ず锛?
+
 

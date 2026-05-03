@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+﻿import { useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { confirmPasswordReset } from '../features/user'
+import { confirmPasswordReset } from '../modules/user'
 
 export default function ResetPasswordPage() {
   const [sp] = useSearchParams()
@@ -92,7 +92,7 @@ export default function ResetPasswordPage() {
                     {ok ? (
                       <div>
                         <div className="cl_blog-widget cl_auth-alert cl_auth-alert--notice mb-30">
-                          Password updated. Redirecting to login…
+                          Password updated. Redirecting to login鈥?
                         </div>
                       </div>
                     ) : null}
@@ -118,3 +118,4 @@ export default function ResetPasswordPage() {
     </>
   )
 }
+

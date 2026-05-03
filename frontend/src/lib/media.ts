@@ -1,4 +1,4 @@
-function isLocalhostLikeHost(hostname: string) {
+﻿function isLocalhostLikeHost(hostname: string) {
   return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
 }
 
@@ -61,4 +61,5 @@ export async function requestCameraStream(constraints: MediaStreamConstraints) {
     throw new Error(mapGetUserMediaError(error))
   }
 }
+
 

@@ -1,4 +1,4 @@
-import type { RealtimeFeedback } from './realtimeSquat'
+﻿import type { RealtimeFeedback } from './realtimeSquat'
 import type { MoveNetKeypoint, MoveNetName } from './movenetTracker'
 
 const ASSUMED_ANALYZER_FPS = 24
@@ -11,28 +11,41 @@ const REP_COUNT_MIN_BOTTOM_FRAMES = 3
 const REP_COUNT_MIN_ELBOW_ANGLE = 125
 const REP_VALID_MIN_FRAMES = 2
 const REP_VALID_RATIO_MIN = 0.2
-const TRACKING_QUALITY_MIN_FOR_COUNT = 0.22
-const TRACKING_QUALITY_MIN_FOR_ASSESS = 0.3
 
 const S1_ENTER_ELBOW_ANGLE = 150
 const S1_EXIT_ELBOW_ANGLE = 142
 const S3_ENTER_ELBOW_ANGLE = 130
 const S3_EXIT_ELBOW_ANGLE = 138
 
-const DEPTH_REQUIRED_ELBOW_ANGLE = 130
 const DEPTH_GOOD_MIN_FRAMES = 1
 
-const SIDE_VIEW_WARN_DEG = 55
 const SIDE_VIEW_ASSESS_DEG = 85
 const SIDE_VIEW_HARD_DEG = 65
 const SIDE_VIEW_HARD_MIN_FRAMES = 3
 
-const BODY_LINE_FAIL_ANGLE = 145
 const BODY_LINE_FAIL_MIN_FRAMES = 10
-const HIP_SAG_HARD_DEG = 28
 const HIP_SAG_HARD_MIN_FRAMES = 10
-const HIP_PIKE_HARD_DEG = 28
 const HIP_PIKE_HARD_MIN_FRAMES = 10
+
+export type PushupTuning = {
+  trackingQualityMinForCount: number
+  trackingQualityMinForAssess: number
+  sideViewWarnDeg: number
+  depthRequiredElbowAngle: number
+  bodyLineFailAngle: number
+  hipSagHardDeg: number
+  hipPikeHardDeg: number
+}
+
+export const DEFAULT_PUSHUP_TUNING: PushupTuning = {
+  trackingQualityMinForCount: 0.22,
+  trackingQualityMinForAssess: 0.3,
+  sideViewWarnDeg: 55,
+  depthRequiredElbowAngle: 130,
+  bodyLineFailAngle: 145,
+  hipSagHardDeg: 28,
+  hipPikeHardDeg: 28
+}
 
 export class RealtimePushupAnalyzer {
   private repCount = 0
@@ -69,6 +82,14 @@ export class RealtimePushupAnalyzer {
   private repDurationCount = 0
   private fastRepCount = 0
   private slowRepCount = 0
+  private tuning: PushupTuning = { ...DEFAULT_PUSHUP_TUNING }
+
+  setTuning(next: Partial<PushupTuning>) {
+    this.tuning = {
+      ...this.tuning,
+      ...next
+    }
+  }
 
   analyzeNative(keypoints: MoveNetKeypoint[]): RealtimeFeedback {
     const map = this.byName(keypoints)
@@ -103,17 +124,17 @@ export class RealtimePushupAnalyzer {
 
     const warnings: string[] = []
     const issues: Array<{ message: string; joints: MoveNetName[] }> = []
-    const isCountingPaused = trackingQuality < TRACKING_QUALITY_MIN_FOR_COUNT || elbowAngle === null
+    const isCountingPaused = trackingQuality < this.tuning.trackingQualityMinForCount || elbowAngle === null
     const nextState = isCountingPaused || elbowAngle === null ? this.currentState : this.detectState(elbowAngle)
 
-    if (trackingQuality < TRACKING_QUALITY_MIN_FOR_ASSESS) {
+    if (trackingQuality < this.tuning.trackingQualityMinForAssess) {
       warnings.push('Low keypoint confidence. Keep your full body in frame with better lighting.')
     }
-    if (sideAlignment !== null && sideAlignment > SIDE_VIEW_WARN_DEG) {
+    if (sideAlignment !== null && sideAlignment > this.tuning.sideViewWarnDeg) {
       warnings.push('Side view unstable. Rotate to a clearer side view for more stable push-up tracking.')
     }
-    const hipsSaggingNow = torsoTiltSigned !== null && torsoTiltSigned > HIP_SAG_HARD_DEG
-    const bodyLineBadNow = bodyLineAngle !== null && bodyLineAngle < BODY_LINE_FAIL_ANGLE
+    const hipsSaggingNow = torsoTiltSigned !== null && torsoTiltSigned > this.tuning.hipSagHardDeg
+    const bodyLineBadNow = bodyLineAngle !== null && bodyLineAngle < this.tuning.bodyLineFailAngle
     if (hipsSaggingNow || bodyLineBadNow) {
       issues.push({
         message: 'Hips sagging detected. Keep shoulders, hips, and ankles aligned in one line.',
@@ -122,10 +143,10 @@ export class RealtimePushupAnalyzer {
     } else if (bodyLineAngle !== null && bodyLineAngle < 168) {
       warnings.push('Body line not stable. Keep shoulders, hips, and ankles aligned in one line.')
     }
-    if (torsoTiltSigned !== null && torsoTiltSigned < -HIP_PIKE_HARD_DEG) {
+    if (torsoTiltSigned !== null && torsoTiltSigned < -this.tuning.hipPikeHardDeg) {
       warnings.push('Hips too high detected. Lower hips slightly to keep a stable plank line during reps.')
     }
-    if (nextState === 's3' && elbowAngle !== null && elbowAngle > DEPTH_REQUIRED_ELBOW_ANGLE) {
+    if (nextState === 's3' && elbowAngle !== null && elbowAngle > this.tuning.depthRequiredElbowAngle) {
       warnings.push('Depth insufficient. Bend elbows more at the bottom position.')
     }
 
@@ -275,16 +296,16 @@ export class RealtimePushupAnalyzer {
       if (nextState !== 's1') this.repActiveFrames += 1
       if (typeof input.elbowAngle === 'number' && Number.isFinite(input.elbowAngle)) {
         this.repMinElbowAngle = this.repMinElbowAngle === null ? input.elbowAngle : Math.min(this.repMinElbowAngle, input.elbowAngle)
-        if (input.elbowAngle <= DEPTH_REQUIRED_ELBOW_ANGLE) this.repDepthGoodFrames += 1
+        if (input.elbowAngle <= this.tuning.depthRequiredElbowAngle) this.repDepthGoodFrames += 1
       }
       const isReliable =
-        input.trackingQuality >= TRACKING_QUALITY_MIN_FOR_ASSESS && (input.sideAlignment === null || input.sideAlignment <= SIDE_VIEW_ASSESS_DEG)
+        input.trackingQuality >= this.tuning.trackingQualityMinForAssess && (input.sideAlignment === null || input.sideAlignment <= SIDE_VIEW_ASSESS_DEG)
       if (isReliable) this.repReliableFrameCount += 1
       if (input.sideAlignment !== null && input.sideAlignment > SIDE_VIEW_HARD_DEG) this.repSideViewHardFrames += 1
-      if (input.trackingQuality < TRACKING_QUALITY_MIN_FOR_ASSESS) this.repLowConfidenceFrames += 1
-      if (input.bodyLineAngle !== null && input.bodyLineAngle < BODY_LINE_FAIL_ANGLE) this.repBodyLineHardFrames += 1
-      if (input.torsoTiltSigned !== null && input.torsoTiltSigned > HIP_SAG_HARD_DEG) this.repHipSagHardFrames += 1
-      if (input.torsoTiltSigned !== null && input.torsoTiltSigned < -HIP_PIKE_HARD_DEG) this.repHipPikeHardFrames += 1
+      if (input.trackingQuality < this.tuning.trackingQualityMinForAssess) this.repLowConfidenceFrames += 1
+      if (input.bodyLineAngle !== null && input.bodyLineAngle < this.tuning.bodyLineFailAngle) this.repBodyLineHardFrames += 1
+      if (input.torsoTiltSigned !== null && input.torsoTiltSigned > this.tuning.hipSagHardDeg) this.repHipSagHardFrames += 1
+      if (input.torsoTiltSigned !== null && input.torsoTiltSigned < -this.tuning.hipPikeHardDeg) this.repHipPikeHardFrames += 1
     }
 
     if (nextState === 's3') {
@@ -587,3 +608,4 @@ export class RealtimePushupAnalyzer {
     return Math.max(0, Math.min(1, v))
   }
 }
+

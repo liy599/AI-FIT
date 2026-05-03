@@ -69,3 +69,4 @@ Current app startup runs `db.create_all()` and seed bootstrap logic in app init.
 - P0: Add migration framework and remove schema creation from runtime startup path.
 - P1: Add explicit DB index review for hot query endpoints.
 - P1: Add backup/restore runbook and restore drill cadence.
+

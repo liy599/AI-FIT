@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getTodaySummary, type DaySummary, type FoodMealType } from '../features/food'
+import { getTodaySummary, type DaySummary, type FoodMealType } from '../modules/food'
 import { useAuth } from '../state/auth-context'
 import AppButton from '../components/ui/AppButton'
 import '../styles/food-module.css'
@@ -146,7 +146,7 @@ export default function FoodModulePage() {
               </div>
               <div className="food-module-hero-side">
                 <div className="food-module-hero-status-badge">
-                  <div className="food-module-hero-status-icon">{auth.user ? '✅' : '🔒'}</div>
+                  <div className="food-module-hero-status-icon">{auth.user ? 'OK' : 'LOCK'}</div>
                   <div className="food-module-hero-status-copy">
                     <div className="food-module-hero-status-title">{auth.user ? 'Saved Today' : 'Login Required'}</div>
                     <div className="food-module-hero-status-value">{auth.user ? `${completedMeals} meal${completedMeals === 1 ? '' : 's'}` : 'View today summary'}</div>
@@ -225,7 +225,7 @@ export default function FoodModulePage() {
                     <div className="food-module-metrics">
                       <div className="food-module-metric food-module-metric--calories">
                         <div className="food-module-metric-label">
-                          <span className="food-module-metric-icon">🔥</span> Calories
+                          <span className="food-module-metric-icon">馃敟</span> Calories
                         </div>
                         <div className="food-module-metric-value">
                           <span className="food-module-metric-number">{formatMetricParts(totals.kcal, 'kcal').numberText}</span>
@@ -234,7 +234,7 @@ export default function FoodModulePage() {
                       </div>
                       <div className="food-module-metric food-module-metric--protein">
                         <div className="food-module-metric-label">
-                          <span className="food-module-metric-icon">💪</span> Protein
+                          <span className="food-module-metric-icon">馃挭</span> Protein
                         </div>
                         <div className="food-module-metric-value">
                           <span className="food-module-metric-number">{formatMetricParts(totals.protein, 'g').numberText}</span>
@@ -243,7 +243,7 @@ export default function FoodModulePage() {
                       </div>
                       <div className="food-module-metric food-module-metric--fat">
                         <div className="food-module-metric-label">
-                          <span className="food-module-metric-icon">🥑</span> Fat
+                          <span className="food-module-metric-icon">馃</span> Fat
                         </div>
                         <div className="food-module-metric-value">
                           <span className="food-module-metric-number">{formatMetricParts(totals.fat, 'g').numberText}</span>
@@ -252,7 +252,7 @@ export default function FoodModulePage() {
                       </div>
                       <div className="food-module-metric food-module-metric--carbs">
                         <div className="food-module-metric-label">
-                          <span className="food-module-metric-icon">🍚</span> Carbs
+                          <span className="food-module-metric-icon">馃崥</span> Carbs
                         </div>
                         <div className="food-module-metric-value">
                           <span className="food-module-metric-number">{formatMetricParts(totals.carbs, 'g').numberText}</span>
@@ -280,11 +280,11 @@ export default function FoodModulePage() {
                               <div className="food-module-meal-meta">
                                 {hasRecord ? (
                                   <>
-                                    <span className="food-module-badge food-module-badge--success">✅ Saved</span>
+                                    <span className="food-module-badge food-module-badge--success">鉁?Saved</span>
                                     <span className="food-module-badge">{itemCount} items</span>
                                   </>
                                 ) : (
-                                  <span className="food-module-badge food-module-badge--muted">⏳ No record</span>
+                                  <span className="food-module-badge food-module-badge--muted">鈴?No record</span>
                                 )}
                               </div>
                             </div>
@@ -305,3 +305,4 @@ export default function FoodModulePage() {
     </>
   )
 }
+

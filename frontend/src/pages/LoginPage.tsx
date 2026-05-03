@@ -1,6 +1,6 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { loginByPassword, requestPasswordReset } from '../features/user'
+import { loginByPassword, requestPasswordReset } from '../modules/user'
 import { useAuth } from '../state/auth-context'
 
 export default function LoginPage() {
@@ -52,7 +52,7 @@ export default function LoginPage() {
     setBusy(true)
     try {
       const r = await loginByPassword(email, password)
-      auth.setAuth(r.access_token, r.user)
+      auth.setAuth(r.user)
       nav(effectiveFrom, { replace: true })
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Login failed')
@@ -195,3 +195,4 @@ export default function LoginPage() {
     </>
   )
 }
+

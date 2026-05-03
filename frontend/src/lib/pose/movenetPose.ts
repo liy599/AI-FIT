@@ -1,4 +1,4 @@
-import type { MoveNetKeypoint, MoveNetName } from './movenetTracker'
+﻿import type { MoveNetKeypoint, MoveNetName } from './movenetTracker'
 import { MOVENET_NAMES, MoveNetStabilizer } from './movenetTracker'
 
 type MoveNetPoint = { x: number; y: number; score: number; name: string }
@@ -543,3 +543,4 @@ function clamp01(v: number) {
   if (v > 1) return 1
   return v
 }
+

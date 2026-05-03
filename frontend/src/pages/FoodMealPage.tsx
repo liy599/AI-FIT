@@ -10,7 +10,7 @@ import {
   saveMeal,
   type FoodItem,
   type FoodMealType
-} from '../features/food'
+} from '../modules/food'
 import { useAuth } from '../state/auth-context'
 import '../styles/food-module.css'
 
@@ -1006,6 +1006,7 @@ export default function FoodMealPage() {
     </>
   )
 }
+
 
 
 

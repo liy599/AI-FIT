@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   createBlogComment,
@@ -11,7 +11,7 @@ import {
   updateComment,
   type BlogDetail,
   type CommentNode
-} from '../features/blog'
+} from '../modules/blog'
 import { useAuth } from '../state/auth-context'
 
 function resolveMediaUrl(url: string | null | undefined) {
@@ -411,4 +411,5 @@ export default function BlogDetailPage() {
     </>
   )
 }
+
 

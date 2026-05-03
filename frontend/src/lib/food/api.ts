@@ -1,4 +1,4 @@
-import { apiFetch, apiUpload } from '../api'
+﻿import { apiFetch, apiUpload } from '../api'
 import type {
   DaySummary,
   FoodItem,
@@ -115,3 +115,4 @@ export async function recognizeFoods(file: File) {
     auth: false
   })
 }
+

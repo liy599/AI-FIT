@@ -4,14 +4,13 @@ def test_register_login_me(client):
         json={"email": "a@example.com", "username": "alice", "password": "pass1234"},
     )
     assert r.status_code == 200
-    token = r.get_json()["access_token"]
+    assert r.get_json()["user"]["email"] == "a@example.com"
 
     r = client.post("/api/auth/login", json={"email": "a@example.com", "password": "pass1234"})
     assert r.status_code == 200
-    token2 = r.get_json()["access_token"]
-    assert token2
+    assert r.get_json()["user"]["email"] == "a@example.com"
 
-    r = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
+    r = client.get("/api/auth/me")
     assert r.status_code == 200
     assert r.get_json()["email"] == "a@example.com"
 
@@ -41,8 +40,7 @@ def test_forgot_password_requires_email(client):
 
 def test_forgot_password_email_not_found(client):
     r = client.post("/api/auth/forgot-password", json={"email": "noone@example.com"})
-    assert r.status_code == 200
+    assert r.status_code == 404
     payload = r.get_json()
-    assert payload["ok"] is True
-    assert "reset_link" not in payload
+    assert payload["error"] == "email not found"
 

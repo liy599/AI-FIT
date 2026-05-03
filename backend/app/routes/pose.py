@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 import os
@@ -31,20 +31,104 @@ ALLOWED_STATUSES = {"uploaded", "running", "succeeded", "failed"}
 
 
 def _pose_policy_from_config() -> dict:
+    # Build runtime policy from backend config as a single source of truth.
     actions_raw = str(current_app.config.get("POSE_POLICY_OFFLINE_ALLOWED_ACTIONS", "")).strip()
     allowed_actions = [x.strip() for x in actions_raw.split(",") if x.strip()]
     if not allowed_actions:
-        allowed_actions = ["squat", "pushup", "pullup", "lateral-raise", "bent-over-row"]
+        allowed_actions = ["squat", "pushup", "lateral-raise", "bent-over-row"]
+    live_target_fps = max(1, int(current_app.config.get("POSE_POLICY_LIVE_TARGET_FPS", 40)))
+    live_session_limit_seconds = max(30, int(current_app.config.get("POSE_POLICY_LIVE_SESSION_LIMIT_SECONDS", 120)))
+    offline_max_video_bytes = max(5 * 1024 * 1024, int(current_app.config.get("POSE_POLICY_OFFLINE_MAX_VIDEO_BYTES", 50 * 1024 * 1024)))
+    offline_analysis_limit_seconds = max(10, int(current_app.config.get("POSE_POLICY_OFFLINE_ANALYSIS_LIMIT_SECONDS", 120)))
+    offline_analysis_target_fps = max(1, int(current_app.config.get("POSE_POLICY_OFFLINE_ANALYSIS_TARGET_FPS", 40)))
+    policy_version = str(current_app.config.get("POSE_POLICY_VERSION", "2026-05-04.v1")).strip() or "2026-05-04.v1"
+
+    def cfg_float(name: str, default: float, lo: float, hi: float) -> float:
+        try:
+            value = float(current_app.config.get(name, default))
+        except (TypeError, ValueError):
+            value = default
+        return max(lo, min(hi, value))
+
+    def cfg_int(name: str, default: int, lo: int, hi: int) -> int:
+        try:
+            value = int(current_app.config.get(name, default))
+        except (TypeError, ValueError):
+            value = default
+        return max(lo, min(hi, value))
+
     return {
+        "version": policy_version,
         "live": {
-            "target_fps": int(current_app.config.get("POSE_POLICY_LIVE_TARGET_FPS", 40)),
-            "session_limit_seconds": int(current_app.config.get("POSE_POLICY_LIVE_SESSION_LIMIT_SECONDS", 120)),
+            "target_fps": live_target_fps,
+            "session_limit_seconds": live_session_limit_seconds,
         },
         "offline": {
-            "max_video_bytes": int(current_app.config.get("POSE_POLICY_OFFLINE_MAX_VIDEO_BYTES", 50 * 1024 * 1024)),
-            "analysis_limit_seconds": int(current_app.config.get("POSE_POLICY_OFFLINE_ANALYSIS_LIMIT_SECONDS", 120)),
-            "analysis_target_fps": int(current_app.config.get("POSE_POLICY_OFFLINE_ANALYSIS_TARGET_FPS", 40)),
+            "max_video_bytes": offline_max_video_bytes,
+            "analysis_limit_seconds": offline_analysis_limit_seconds,
+            "analysis_target_fps": offline_analysis_target_fps,
             "allowed_actions": allowed_actions,
+        },
+        "rules": {
+            "privacy": {
+                "local_inference_default": True,
+                "server_upload_requires_explicit_consent": True,
+            },
+            "realtime": {
+                "tracking_quality_min": cfg_float("POSE_POLICY_TRACKING_QUALITY_MIN", 0.28, 0.05, 0.95),
+                "tempo_fast_threshold_seconds": cfg_float("POSE_POLICY_TEMPO_FAST_THRESHOLD_SECONDS", 0.4, 0.2, 2.0),
+            },
+            "squat": {
+                "knee_forward_warn_ratio": cfg_float("POSE_POLICY_SQUAT_KNEE_FORWARD_WARN_RATIO", 0.045, 0.01, 0.3),
+                "knee_forward_fail_ratio": cfg_float("POSE_POLICY_SQUAT_KNEE_FORWARD_FAIL_RATIO", 0.058, 0.01, 0.35),
+                "forward_lean_warn_deg": cfg_int("POSE_POLICY_SQUAT_FORWARD_LEAN_WARN_DEG", 40, 10, 80),
+                "forward_lean_fail_deg": cfg_int("POSE_POLICY_SQUAT_FORWARD_LEAN_FAIL_DEG", 55, 15, 90),
+            },
+            "pushup": {
+                "body_line_warn_ratio": cfg_float("POSE_POLICY_PUSHUP_BODY_LINE_WARN_RATIO", 0.20, 0.01, 1.0),
+                "body_line_fail_ratio": cfg_float("POSE_POLICY_PUSHUP_BODY_LINE_FAIL_RATIO", 0.45, 0.01, 1.0),
+                "depth_warn_ratio": cfg_float("POSE_POLICY_PUSHUP_DEPTH_WARN_RATIO", 0.20, 0.01, 1.0),
+                "depth_fail_ratio": cfg_float("POSE_POLICY_PUSHUP_DEPTH_FAIL_RATIO", 0.45, 0.01, 1.0),
+            },
+            "lateral_raise": {
+                "torso_sway_warn_ratio": cfg_float("POSE_POLICY_LATERAL_RAISE_TORSO_SWAY_WARN_RATIO", 0.12, 0.01, 1.0),
+                "torso_sway_fail_ratio": cfg_float("POSE_POLICY_LATERAL_RAISE_TORSO_SWAY_FAIL_RATIO", 0.35, 0.01, 1.0),
+                "symmetry_warn_ratio": cfg_float("POSE_POLICY_LATERAL_RAISE_SYMMETRY_WARN_RATIO", 0.12, 0.01, 1.0),
+                "symmetry_fail_ratio": cfg_float("POSE_POLICY_LATERAL_RAISE_SYMMETRY_FAIL_RATIO", 0.35, 0.01, 1.0),
+            },
+            "bent_over_row": {
+                "back_angle_warn_deg": cfg_int("POSE_POLICY_BENT_OVER_ROW_BACK_ANGLE_WARN_DEG", 35, 5, 90),
+                "back_angle_fail_deg": cfg_int("POSE_POLICY_BENT_OVER_ROW_BACK_ANGLE_FAIL_DEG", 50, 5, 110),
+                "range_warn_ratio": cfg_float("POSE_POLICY_BENT_OVER_ROW_RANGE_WARN_RATIO", 0.12, 0.01, 1.0),
+                "range_fail_ratio": cfg_float("POSE_POLICY_BENT_OVER_ROW_RANGE_FAIL_RATIO", 0.35, 0.01, 1.0),
+            },
+            "analyzer": {
+                "pushup": {
+                    "tracking_quality_min_for_count": cfg_float("POSE_POLICY_PUSHUP_TRACKING_QUALITY_MIN_FOR_COUNT", 0.22, 0.05, 0.95),
+                    "tracking_quality_min_for_assess": cfg_float("POSE_POLICY_PUSHUP_TRACKING_QUALITY_MIN_FOR_ASSESS", 0.30, 0.05, 0.95),
+                    "side_view_warn_deg": cfg_int("POSE_POLICY_PUSHUP_SIDE_VIEW_WARN_DEG", 55, 5, 120),
+                    "depth_required_elbow_angle": cfg_int("POSE_POLICY_PUSHUP_DEPTH_REQUIRED_ELBOW_ANGLE", 130, 60, 170),
+                    "body_line_fail_angle": cfg_int("POSE_POLICY_PUSHUP_BODY_LINE_FAIL_ANGLE", 145, 90, 180),
+                    "hip_sag_hard_deg": cfg_int("POSE_POLICY_PUSHUP_HIP_SAG_HARD_DEG", 28, 1, 80),
+                    "hip_pike_hard_deg": cfg_int("POSE_POLICY_PUSHUP_HIP_PIKE_HARD_DEG", 28, 1, 80),
+                },
+                "lateral_raise": {
+                    "tracking_quality_min": cfg_float("POSE_POLICY_LATERAL_RAISE_TRACKING_QUALITY_MIN", 0.28, 0.05, 0.95),
+                    "torso_sway_warn_deg": cfg_int("POSE_POLICY_LATERAL_RAISE_TORSO_SWAY_WARN_DEG", 20, 1, 80),
+                    "torso_sway_fail_deg": cfg_int("POSE_POLICY_LATERAL_RAISE_TORSO_SWAY_FAIL_DEG", 30, 1, 100),
+                    "symmetry_warn_deg": cfg_int("POSE_POLICY_LATERAL_RAISE_SYMMETRY_WARN_DEG", 22, 1, 80),
+                    "symmetry_fail_deg": cfg_int("POSE_POLICY_LATERAL_RAISE_SYMMETRY_FAIL_DEG", 32, 1, 100),
+                    "top_range_min_deg": cfg_int("POSE_POLICY_LATERAL_RAISE_TOP_RANGE_MIN_DEG", 70, 30, 140),
+                },
+                "bent_over_row": {
+                    "tracking_quality_min": cfg_float("POSE_POLICY_BENT_OVER_ROW_TRACKING_QUALITY_MIN", 0.28, 0.05, 0.95),
+                    "torso_lean_warn_deg": cfg_int("POSE_POLICY_BENT_OVER_ROW_BACK_ANGLE_WARN_DEG", 35, 5, 90),
+                    "torso_lean_fail_deg": cfg_int("POSE_POLICY_BENT_OVER_ROW_BACK_ANGLE_FAIL_DEG", 50, 5, 110),
+                    "symmetry_warn_deg": cfg_int("POSE_POLICY_BENT_OVER_ROW_SYMMETRY_WARN_DEG", 18, 1, 80),
+                    "symmetry_fail_deg": cfg_int("POSE_POLICY_BENT_OVER_ROW_SYMMETRY_FAIL_DEG", 28, 1, 100),
+                    "top_range_min_deg": cfg_int("POSE_POLICY_BENT_OVER_ROW_TOP_RANGE_MIN_DEG", 90, 30, 160),
+                },
+            },
         },
     }
 
@@ -788,3 +872,4 @@ def create_ai_report():
     fallback = build_fallback_ai_enhanced_report_v1(base_report, language=language)
     payload = {"report": fallback, "meta": {"degraded": True, "ai": ai_meta}}
     return jsonify(payload)
+

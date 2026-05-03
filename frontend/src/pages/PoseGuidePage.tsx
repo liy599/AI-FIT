@@ -1,6 +1,6 @@
 ﻿import { Link } from 'react-router-dom'
 import { useParams } from 'react-router-dom'
-import { buildPoseToolPath, buildPoseVideoPath, getPoseExerciseBySlug } from '../features/pose'
+import { buildPoseToolPath, buildPoseVideoPath, getPoseExerciseBySlug } from '../modules/pose'
 
 export default function PoseGuidePage() {
   const params = useParams<{ exerciseSlug: string }>()
@@ -64,3 +64,4 @@ export default function PoseGuidePage() {
     </>
   )
 }
+

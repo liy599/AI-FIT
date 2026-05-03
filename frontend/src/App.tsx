@@ -1,9 +1,10 @@
-import { lazy, Suspense } from 'react'
-import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
+﻿import { lazy, Suspense, type ReactNode } from 'react'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import Layout from './components/Layout'
 import { AuthProvider, useAuth } from './state/auth-context'
 import HomePage from './pages/HomePage'
 
+// Lazy-load pages (code splitting for better performance)
 const AboutPage = lazy(() => import('./pages/AboutPage'))
 const AdminDataLifecyclePage = lazy(() => import('./pages/AdminDataLifecyclePage'))
 const BlogDetailPage = lazy(() => import('./pages/BlogDetailPage'))
@@ -22,67 +23,127 @@ const RegisterPage = lazy(() => import('./pages/RegisterPage'))
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'))
 const UserPrivacyPage = lazy(() => import('./pages/UserPrivacyPage'))
 
-function RequireAuth(props: { children: React.ReactNode }) {
+// Route guard: requires user authentication
+function RequireAuth({ children }: { children: ReactNode }) {
   const auth = useAuth()
   const loc = useLocation()
-  if (!auth.user) return <Navigate to="/login" replace state={{ from: loc.pathname }} />
-  return props.children
+
+  // If user is not logged in, redirect to login page
+  if (!auth.user) {
+    const from = `${loc.pathname}${loc.search}${loc.hash}`
+    return <Navigate to="/login" replace state={{ from }} />
+  }
+
+  return children
 }
 
-function PoseToolLegacyRedirect() {
-  const params = useParams<{ exerciseSlug: string }>()
+// Route guard: requires administrator permission
+function RequireAdmin({ children }: { children: ReactNode }) {
+  const auth = useAuth()
   const loc = useLocation()
-  const slug = params.exerciseSlug || 'squat'
-  const raw = new URLSearchParams(loc.search).get('mode')
-  const target = raw === 'offline' ? `/tools/pose/${slug}/video` : `/tools/pose/${slug}/live`
-  return <Navigate to={target} replace />
+
+  // If user is not logged in, redirect to login page
+  if (!auth.user) {
+    const from = `${loc.pathname}${loc.search}${loc.hash}`
+    return <Navigate to="/login" replace state={{ from }} />
+  }
+
+  // If user is not an admin, redirect to home page
+  if (!auth.user.is_admin) return <Navigate to="/" replace />
+
+  return children
 }
 
-function PoseHistoryLegacyRedirect() {
-  const params = useParams<{ exerciseSlug: string }>()
-  const slug = params.exerciseSlug || 'squat'
-  return <Navigate to={`/tools/pose/${slug}/history`} replace />
+type GuardMode = 'public' | 'auth' | 'admin'
+type AppRoute = {
+  path: string
+  element: ReactNode
+  guard?: GuardMode
 }
 
-function PoseReportLegacyRedirect() {
-  const params = useParams<{ exerciseSlug: string; sessionId: string }>()
-  const slug = params.exerciseSlug || 'squat'
-  const sessionId = params.sessionId || ''
-  return <Navigate to={`/tools/pose/${slug}/history/${sessionId}`} replace />
+// Apply route guards in a single place for consistency
+function applyGuard(route: AppRoute) {
+  if (route.guard === 'auth') return <RequireAuth>{route.element}</RequireAuth>
+  if (route.guard === 'admin') return <RequireAdmin>{route.element}</RequireAdmin>
+  return route.element
 }
 
+// Route registry: grouped by business module for maintainability
+const coreRoutes: AppRoute[] = [
+  { path: '/', element: <HomePage /> },
+  { path: '/about', element: <AboutPage /> }
+]
+
+const foodRoutes: AppRoute[] = [
+  { path: '/food', element: <FoodModulePage /> },
+  { path: '/food/meal/:mealType', element: <FoodMealPage /> }
+]
+
+const poseRoutes: AppRoute[] = [
+  { path: '/tools/pose', element: <PoseSelectPage /> },
+  { path: '/tools/pose/:exerciseSlug', element: <PoseGuidePage /> },
+  { path: '/tools/pose/:exerciseSlug/live', element: <PoseToolPage /> },
+  { path: '/tools/pose/:exerciseSlug/video', element: <PoseToolPage /> },
+  { path: '/tools/pose/:exerciseSlug/history', element: <PoseTrainingHistoryPage />, guard: 'auth' },
+  { path: '/tools/pose/:exerciseSlug/history/:sessionId', element: <PoseTrainingReportPage />, guard: 'auth' }
+]
+
+const blogRoutes: AppRoute[] = [
+  { path: '/blogs', element: <BlogListPage /> },
+  { path: '/blogs/:id', element: <BlogDetailPage /> }
+]
+
+const userRoutes: AppRoute[] = [
+  { path: '/profile', element: <ProfilePage />, guard: 'auth' },
+  { path: '/profile/privacy', element: <UserPrivacyPage />, guard: 'auth' }
+]
+
+const adminRoutes: AppRoute[] = [
+  { path: '/admin/data-lifecycle', element: <AdminDataLifecyclePage />, guard: 'admin' }
+]
+
+const authRoutes: AppRoute[] = [
+  { path: '/login', element: <LoginPage /> },
+  { path: '/register', element: <RegisterPage /> },
+  { path: '/reset-password', element: <ResetPasswordPage /> }
+]
+
+const fallbackRoutes: AppRoute[] = [
+  { path: '*', element: <NotFoundPage /> }
+]
+
+const appRoutes: AppRoute[] = [
+  ...coreRoutes,
+  ...foodRoutes,
+  ...poseRoutes,
+  ...blogRoutes,
+  ...userRoutes,
+  ...adminRoutes,
+  ...authRoutes,
+  ...fallbackRoutes
+]
+
+// Main App component
 export default function App() {
   return (
     <AuthProvider>
+      {/* Provides global authentication state */}
+
       <Layout>
+        {/* Shared layout (header, footer, etc.) */}
+
         <Suspense fallback={<div className="page-loading">Loading...</div>}>
+          {/* Shows fallback UI while lazy components are loading */}
+
           <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/about" element={<AboutPage />} />
-            <Route path="/food" element={<FoodModulePage />} />
-            <Route path="/food/meal/:mealType" element={<FoodMealPage />} />
-            <Route path="/tools/pose" element={<PoseSelectPage />} />
-            <Route path="/tools/pose/:exerciseSlug" element={<PoseGuidePage />} />
-            <Route path="/tools/pose/:exerciseSlug/live" element={<PoseToolPage />} />
-            <Route path="/tools/pose/:exerciseSlug/video" element={<PoseToolPage />} />
-            <Route path="/tools/pose/:exerciseSlug/history" element={<RequireAuth children={<PoseTrainingHistoryPage />} />} />
-            <Route path="/tools/pose/:exerciseSlug/history/:sessionId" element={<RequireAuth children={<PoseTrainingReportPage />} />} />
-            <Route path="/tools/pose/:exerciseSlug/tool" element={<PoseToolLegacyRedirect />} />
-            <Route path="/tools/pose/:exerciseSlug/tool/history" element={<PoseHistoryLegacyRedirect />} />
-            <Route path="/tools/pose/:exerciseSlug/tool/history/:sessionId" element={<PoseReportLegacyRedirect />} />
-            <Route path="/tools/food" element={<Navigate to="/food" replace />} />
-            <Route path="/blogs" element={<BlogListPage />} />
-            <Route path="/blogs/:id" element={<BlogDetailPage />} />
-            <Route path="/profile" element={<RequireAuth children={<ProfilePage />} />} />
-            <Route path="/profile/privacy" element={<RequireAuth children={<UserPrivacyPage />} />} />
-            <Route path="/admin/data-lifecycle" element={<RequireAuth children={<AdminDataLifecyclePage />} />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route path="/reset-password" element={<ResetPasswordPage />} />
-            <Route path="*" element={<NotFoundPage />} />
+            {/* Define all application routes */}
+            {appRoutes.map((route) => (
+              <Route key={route.path} path={route.path} element={applyGuard(route)} />
+            ))}
           </Routes>
         </Suspense>
       </Layout>
     </AuthProvider>
   )
 }
+

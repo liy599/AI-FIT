@@ -1,6 +1,11 @@
-import { clearAuth, getToken } from './auth'
+﻿import { clearAuth } from './auth'
 
-export const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://127.0.0.1:5000'
+function resolveDefaultApiBase() {
+  if (typeof window === 'undefined') return 'http://localhost:5000'
+  return `${window.location.protocol}//${window.location.hostname}:5000`
+}
+
+export const API_BASE = import.meta.env.VITE_API_BASE ?? resolveDefaultApiBase()
 
 function stripApiSuffix(base: string) {
   return base.endsWith('/api') ? base.slice(0, -4) : base
@@ -47,13 +52,19 @@ function buildHeaders(options?: RequestInit & { auth?: boolean }) {
     ...(options?.headers as Record<string, string> | undefined)
   }
 
-  const needsAuth = options?.auth !== false
-  if (needsAuth) {
-    const token = getToken()
-    if (token) headers.Authorization = `Bearer ${token}`
-  }
-
   return headers
+}
+
+function readCookie(name: string) {
+  if (typeof document === 'undefined') return ''
+  const key = `${name}=`
+  const found = document.cookie.split(';').map((v) => v.trim()).find((v) => v.startsWith(key))
+  return found ? decodeURIComponent(found.slice(key.length)) : ''
+}
+
+function isMutationMethod(method: string | undefined) {
+  const upper = (method ?? 'GET').toUpperCase()
+  return upper !== 'GET' && upper !== 'HEAD' && upper !== 'OPTIONS'
 }
 
 async function throwIfNotOk(res: Response) {
@@ -83,6 +94,9 @@ function extractErrorMessage(data: unknown, res: Response) {
 function isAuthExpiredMessage(message: string) {
   const normalized = message.toLowerCase()
   return (
+    normalized.includes('missing cookie "access_token_cookie"') ||
+    normalized.includes("missing cookie 'access_token_cookie'") ||
+    normalized.includes('missing cookie') ||
     normalized.includes('token has expired') ||
     normalized.includes('signature has expired') ||
     normalized.includes('jwt expired') ||
@@ -117,10 +131,14 @@ export async function apiFetch<T>(
     'Content-Type': 'application/json',
     ...buildHeaders(options)
   }
+  if (isMutationMethod(options?.method)) {
+    const csrfToken = readCookie('csrf_access_token')
+    if (csrfToken) headers['X-CSRF-TOKEN'] = csrfToken
+  }
 
   let res: Response
   try {
-    res = await fetch(buildUrl(path), { ...options, headers })
+    res = await fetch(buildUrl(path), { ...options, headers, credentials: 'include' })
   } catch {
     throw new Error('Network request failed. Check API server and CORS configuration.')
   }
@@ -146,10 +164,14 @@ export async function apiUpload<T>(
 ): Promise<T> {
   const headers: Record<string, string> = buildHeaders(options)
   if ('Content-Type' in headers) delete headers['Content-Type']
+  if (isMutationMethod(options?.method ?? 'POST')) {
+    const csrfToken = readCookie('csrf_access_token')
+    if (csrfToken) headers['X-CSRF-TOKEN'] = csrfToken
+  }
 
   let res: Response
   try {
-    res = await fetch(buildUrl(path), { ...options, method: options?.method ?? 'POST', body, headers })
+    res = await fetch(buildUrl(path), { ...options, method: options?.method ?? 'POST', body, headers, credentials: 'include' })
   } catch {
     throw new Error('Upload failed. Check API server availability and file size limits.')
   }
@@ -172,7 +194,12 @@ export async function apiFetchBlob(
   path: string,
   options?: RequestInit & { auth?: boolean }
 ): Promise<Blob> {
-  const res = await fetch(buildUrl(path), { ...options, headers: buildHeaders(options) })
+  const headers: Record<string, string> = buildHeaders(options)
+  if (isMutationMethod(options?.method)) {
+    const csrfToken = readCookie('csrf_access_token')
+    if (csrfToken) headers['X-CSRF-TOKEN'] = csrfToken
+  }
+  const res = await fetch(buildUrl(path), { ...options, headers, credentials: 'include' })
   if (!res.ok) {
     const text = await res.text()
     const data = parseJsonSafely(text)
@@ -185,4 +212,5 @@ export async function apiFetchBlob(
   }
   return res.blob()
 }
+
 

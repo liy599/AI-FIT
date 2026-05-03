@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes } from 'react'
+﻿import type { ButtonHTMLAttributes } from 'react'
 
 type AppButtonVariant = 'brand' | 'neutral' | 'danger'
 type AppButtonSize = 'sm' | 'md' | 'lg'
@@ -34,3 +34,4 @@ export default function AppButton({
     </button>
   )
 }
+

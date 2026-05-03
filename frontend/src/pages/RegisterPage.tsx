@@ -1,6 +1,6 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { registerByPassword } from '../features/user'
+import { registerByPassword } from '../modules/user'
 import { useAuth } from '../state/auth-context'
 
 export default function RegisterPage() {
@@ -31,7 +31,7 @@ export default function RegisterPage() {
     setBusy(true)
     try {
       const r = await registerByPassword(email, username, password)
-      auth.setAuth(r.access_token, r.user)
+      auth.setAuth(r.user)
       nav('/profile', { replace: true })
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Registration failed')
@@ -127,3 +127,4 @@ export default function RegisterPage() {
     </>
   )
 }
+

@@ -7,11 +7,13 @@ def register_and_token(client, email="pose-ai@example.com", username="pose-ai-us
         json={"email": email, "username": username, "password": password},
     )
     assert response.status_code == 200
-    return response.get_json()["access_token"]
+    return response.get_json()["user"]["id"]
 
 
-def auth_header(token: str):
-    return {"Authorization": f"Bearer {token}"}
+def auth_headers(client):
+    csrf_cookie = client.get_cookie("csrf_access_token")
+    csrf_token = csrf_cookie.value if csrf_cookie is not None else ""
+    return {"X-CSRF-TOKEN": csrf_token} if csrf_token else {}
 
 
 def test_pose_ai_report_requires_jwt(client):
@@ -21,6 +23,7 @@ def test_pose_ai_report_requires_jwt(client):
 
 def test_pose_ai_report_degrades_when_not_configured(client):
     token = register_and_token(client)
+    _ = token
     base_report = {
         "version": 3,
         "status": "ok",
@@ -29,7 +32,7 @@ def test_pose_ai_report_degrades_when_not_configured(client):
         "issues": [{"code": "knee_in", "severity": "warning", "message": "knee caves in", "atFrame": 12}],
         "suggestions": ["keep knees out"],
     }
-    response = client.post("/api/pose/reports/ai", headers=auth_header(token), json={"report": base_report, "language": "zh-CN"})
+    response = client.post("/api/pose/reports/ai", headers=auth_headers(client), json={"report": base_report, "language": "zh-CN"})
     assert response.status_code == 200
     payload = response.get_json()
     report = payload["report"]
@@ -45,6 +48,7 @@ def test_pose_ai_report_degrades_when_not_configured(client):
 
 def test_pose_ai_report_degrades_on_invalid_ai_json(client, monkeypatch):
     token = register_and_token(client, email="pose-ai2@example.com", username="pose-ai-user-2")
+    _ = token
     app = client.application
     app.config["POSE_REPORT_AI_ENABLED"] = "1"
     app.config["STEPFUN_API_URL"] = "https://example.invalid/v1/chat/completions"
@@ -67,7 +71,7 @@ def test_pose_ai_report_degrades_on_invalid_ai_json(client, monkeypatch):
     monkeypatch.setattr("app.services.pose.ai_report.request.urlopen", fake_urlopen)
 
     base_report = {"version": 3, "status": "ok", "summary": "analysis ok", "keyMetrics": {}, "issues": [], "suggestions": []}
-    response = client.post("/api/pose/reports/ai", headers=auth_header(token), json={"report": base_report, "language": "zh-CN", "debug": True})
+    response = client.post("/api/pose/reports/ai", headers=auth_headers(client), json={"report": base_report, "language": "zh-CN", "debug": True})
     assert response.status_code == 200
     payload = response.get_json()
     assert payload["meta"]["degraded"] is True
@@ -78,6 +82,7 @@ def test_pose_ai_report_degrades_on_invalid_ai_json(client, monkeypatch):
 
 def test_pose_ai_report_degrades_on_timeout(client, monkeypatch):
     token = register_and_token(client, email="pose-ai3@example.com", username="pose-ai-user-3")
+    _ = token
     app = client.application
     app.config["POSE_REPORT_AI_ENABLED"] = "1"
     app.config["STEPFUN_API_URL"] = "https://example.invalid/v1/chat/completions"
@@ -90,7 +95,7 @@ def test_pose_ai_report_degrades_on_timeout(client, monkeypatch):
     monkeypatch.setattr("app.services.pose.ai_report.request.urlopen", fake_urlopen)
 
     base_report = {"version": 3, "status": "ok", "summary": "analysis ok", "keyMetrics": {}, "issues": [], "suggestions": []}
-    response = client.post("/api/pose/reports/ai", headers=auth_header(token), json={"report": base_report, "language": "zh-CN"})
+    response = client.post("/api/pose/reports/ai", headers=auth_headers(client), json={"report": base_report, "language": "zh-CN"})
     assert response.status_code == 200
     payload = response.get_json()
     assert payload["meta"]["degraded"] is True
@@ -101,6 +106,7 @@ def test_pose_ai_report_degrades_on_timeout(client, monkeypatch):
 
 def test_pose_ai_report_returns_ok_when_ai_schema_valid(client, monkeypatch):
     token = register_and_token(client, email="pose-ai4@example.com", username="pose-ai-user-4")
+    _ = token
     app = client.application
     app.config["POSE_REPORT_AI_ENABLED"] = "1"
     app.config["STEPFUN_API_URL"] = "https://example.invalid/v1/chat/completions"
@@ -135,7 +141,7 @@ def test_pose_ai_report_returns_ok_when_ai_schema_valid(client, monkeypatch):
     monkeypatch.setattr("app.services.pose.ai_report.request.urlopen", fake_urlopen)
 
     base_report = {"version": 3, "status": "ok", "summary": "analysis ok", "keyMetrics": {"avgScore": 88}, "issues": [], "suggestions": []}
-    response = client.post("/api/pose/reports/ai", headers=auth_header(token), json={"report": base_report, "language": "zh-CN"})
+    response = client.post("/api/pose/reports/ai", headers=auth_headers(client), json={"report": base_report, "language": "zh-CN"})
     assert response.status_code == 200
     payload = response.get_json()
     assert payload["meta"]["degraded"] is False

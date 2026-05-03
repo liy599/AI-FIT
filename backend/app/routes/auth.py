@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 from flask import Blueprint, current_app, jsonify, request
-from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required
+from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required, set_access_cookies, unset_jwt_cookies
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 from ..extensions import db
@@ -15,8 +15,18 @@ bp = Blueprint("auth", __name__)
 def _serializer() -> URLSafeTimedSerializer:
     return URLSafeTimedSerializer(current_app.config["SECRET_KEY"], salt="password-reset")
 
+def _is_admin_user(u: User) -> bool:
+    admin_email = (current_app.config.get("ADMIN_EMAIL") or "").strip().lower()
+    return bool(admin_email) and u.email.strip().lower() == admin_email
+
 def _auth_user(u: User):
-    return {"id": u.id, "email": u.email, "username": u.username, "avatar_url": u.avatar_url}
+    return {
+        "id": u.id,
+        "email": u.email,
+        "username": u.username,
+        "avatar_url": u.avatar_url,
+        "is_admin": _is_admin_user(u),
+    }
 
 
 @bp.post("/register")
@@ -39,7 +49,9 @@ def register():
     db.session.commit()
 
     access_token = create_access_token(identity=str(user.id), expires_delta=timedelta(days=7))
-    return jsonify({"access_token": access_token, "user": _auth_user(user)})
+    response = jsonify({"user": _auth_user(user)})
+    set_access_cookies(response, access_token)
+    return response
 
 
 @bp.post("/login")
@@ -73,13 +85,17 @@ def login():
         return jsonify({"error": "invalid credentials"}), 401
 
     access_token = create_access_token(identity=str(user.id), expires_delta=timedelta(days=7))
-    return jsonify({"access_token": access_token, "user": _auth_user(user)})
+    response = jsonify({"user": _auth_user(user)})
+    set_access_cookies(response, access_token)
+    return response
 
 
 @bp.post("/logout")
 @jwt_required()
 def logout():
-    return jsonify({"ok": True})
+    response = jsonify({"ok": True})
+    unset_jwt_cookies(response)
+    return response
 
 
 @bp.post("/forgot-password")

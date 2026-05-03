@@ -1,4 +1,4 @@
-export function openPdfPrint(title: string, bodyHtml: string) {
+﻿export function openPdfPrint(title: string, bodyHtml: string) {
   const safeTitle = escapeHtml(title)
   const html = `<!doctype html>
 <html lang="zh-CN">
@@ -65,3 +65,4 @@ function escapeHtml(s: string) {
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#039;')
 }
+

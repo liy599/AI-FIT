@@ -1,4 +1,4 @@
-function pad2(v: number) {
+﻿function pad2(v: number) {
   return String(v).padStart(2, '0')
 }
 
@@ -18,3 +18,4 @@ export function buildTrainingRecordName(input: { startedAt: string | Date; exerc
   const action = input.exerciseName.trim() || 'Training'
   return `${ts} ${action}`
 }
+

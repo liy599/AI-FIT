@@ -30,3 +30,4 @@ This checklist defines the minimum bar for production-grade delivery in AI-FIT.
 - [ ] Smoke test result
 - [ ] Security checklist result
 - [ ] Rollback verification record
+

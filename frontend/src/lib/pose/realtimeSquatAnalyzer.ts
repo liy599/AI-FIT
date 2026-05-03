@@ -1,4 +1,4 @@
-import type { MoveNetKeypoint } from './movenetTracker'
+﻿import type { MoveNetKeypoint } from './movenetTracker'
 import type { RealtimeFeedback } from './realtimeSquat'
 
 const KNEE_FORWARD_WARN_RATIO = 0.048
@@ -719,3 +719,4 @@ export class RealtimeSquatAnalyzer {
     return (frontalLikeDeg + noseOffsetDeg) / 2
   }
 }
+

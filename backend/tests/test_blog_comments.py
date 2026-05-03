@@ -4,8 +4,10 @@ from app.models import Tag
 
 def _auth_headers(client, email="u@example.com", username="u1"):
     r = client.post("/api/auth/register", json={"email": email, "username": username, "password": "pass1234"})
-    token = r.get_json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
+    assert r.status_code == 200
+    csrf_cookie = client.get_cookie("csrf_access_token")
+    csrf_token = csrf_cookie.value if csrf_cookie is not None else ""
+    return {"X-CSRF-TOKEN": csrf_token} if csrf_token else {}
 
 
 def test_blog_list_detail_like_and_comment(client, app):

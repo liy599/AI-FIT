@@ -1,4 +1,4 @@
-import type { InputHTMLAttributes, TextareaHTMLAttributes } from 'react'
+﻿import type { InputHTMLAttributes, TextareaHTMLAttributes } from 'react'
 
 type AppInputProps = InputHTMLAttributes<HTMLInputElement> & {
   as?: 'input'
@@ -19,3 +19,4 @@ export default function AppInput(props: Props) {
   const { className, ...rest } = props
   return <input {...rest} className={['app-input', className].filter(Boolean).join(' ')} />
 }
+

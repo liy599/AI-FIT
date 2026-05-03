@@ -1,4 +1,4 @@
-import type { MoveNetKeypoint, MoveNetName } from './movenetTracker'
+﻿import type { MoveNetKeypoint, MoveNetName } from './movenetTracker'
 
 export type BoxNorm = { x: number; y: number; w: number; h: number }
 export type DistanceLabel = 'too_close' | 'ok' | 'too_far' | 'unknown'
@@ -236,4 +236,5 @@ function byName(keypoints: MoveNetKeypoint[]) {
   for (const p of keypoints) map.set(p.name, p)
   return map
 }
+
 

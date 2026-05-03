@@ -1,4 +1,4 @@
-import type { MoveNetKeypoint } from './movenetTracker'
+﻿import type { MoveNetKeypoint } from './movenetTracker'
 import { createMoveNetDetector, detectMoveNetKeypoints, type MoveNetDetector } from './movenetPose'
 
 export type RealtimePoseProvider = {
@@ -24,4 +24,5 @@ export async function createBestRealtimePoseProvider(): Promise<RealtimePoseProv
     close: () => detector.dispose?.()
   }
 }
+
 

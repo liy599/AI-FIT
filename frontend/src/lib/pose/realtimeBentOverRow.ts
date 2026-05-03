@@ -1,4 +1,4 @@
-import type { RealtimeFeedback } from './realtimeSquat'
+﻿import type { RealtimeFeedback } from './realtimeSquat'
 import type { MoveNetKeypoint, MoveNetName } from './movenetTracker'
 
 const DEFAULT_NATIVE_ANALYZER_FPS = 40
@@ -518,3 +518,4 @@ export class RealtimeBentOverRowAnalyzer {
     return (av + bv) / 2
   }
 }
+

@@ -1,4 +1,4 @@
-import type { MoveNetName } from './movenetTracker'
+﻿import type { MoveNetName } from './movenetTracker'
 
 export type RealtimeFeedback = {
   phase: 'up' | 'descent' | 'bottom' | 'ascent'
@@ -40,3 +40,4 @@ export type RealtimeFeedback = {
     slowRepCount?: number
   }
 }
+

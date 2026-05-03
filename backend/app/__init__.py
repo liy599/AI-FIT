@@ -30,6 +30,7 @@ def create_app(config_object=Config):
         app,
         resources={r"/api/*": {"origins": cors_origins}, r"/uploads/*": {"origins": cors_origins}},
         intercept_exceptions=True,
+        supports_credentials=True,
     )
     db.init_app(app)
     migrate.init_app(app, db)

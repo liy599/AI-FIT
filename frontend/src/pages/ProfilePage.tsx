@@ -11,15 +11,15 @@ import {
   updateMyProfile,
   uploadBlogCover,
   uploadMyAvatar
-} from '../features/user'
+} from '../modules/user'
 import {
   buildPoseHistoryPath,
   buildTrainingRecordName,
   getPoseExerciseByType,
   listPoseTrainings,
   type PoseTrainingSession
-} from '../features/pose'
-import { createBlog as createBlogPost, deleteBlogById, deleteComment as deleteBlogComment, getBlogTags, updateBlog } from '../features/blog'
+} from '../modules/pose'
+import { createBlog as createBlogPost, deleteBlogById, deleteComment as deleteBlogComment, getBlogTags, updateBlog } from '../modules/blog'
 import { useAuth } from '../state/auth-context'
 
 type Profile = {
@@ -92,6 +92,14 @@ export default function ProfilePage() {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const noticeTimerRef = useRef<number | null>(null)
+  const loadedRef = useRef({
+    profile: false,
+    workouts: false,
+    meals: false,
+    blogs: false,
+    comments: false,
+    tags: false
+  })
   const [avatarUploading, setAvatarUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [coverUploading, setCoverUploading] = useState(false)
@@ -305,17 +313,37 @@ export default function ProfilePage() {
 
   useEffect(() => {
     setError(null)
+    loadedRef.current.profile = true
     loadProfile().catch((e: unknown) => setError(e instanceof Error ? e.message : 'Failed to load'))
-    getBlogTags().then(setTags).catch(() => {})
-    loadWorkouts().catch(() => {})
-    loadMeals().catch(() => {})
-    loadMyBlogs().catch(() => {})
-    loadMyComments().catch(() => {})
-
     return () => {
       if (noticeTimerRef.current != null) window.clearTimeout(noticeTimerRef.current)
     }
   }, [])
+
+  useEffect(() => {
+    if ((tab === 'Workouts' || tab === 'Report') && !loadedRef.current.workouts) {
+      loadedRef.current.workouts = true
+      loadWorkouts().catch(() => {})
+    }
+    if ((tab === 'Meals' || tab === 'Report') && !loadedRef.current.meals) {
+      loadedRef.current.meals = true
+      loadMeals().catch(() => {})
+    }
+    if (tab === 'Blogs') {
+      if (!loadedRef.current.tags) {
+        loadedRef.current.tags = true
+        getBlogTags().then(setTags).catch(() => {})
+      }
+      if (!loadedRef.current.blogs) {
+        loadedRef.current.blogs = true
+        loadMyBlogs().catch(() => {})
+      }
+    }
+    if (tab === 'Comments' && !loadedRef.current.comments) {
+      loadedRef.current.comments = true
+      loadMyComments().catch(() => {})
+    }
+  }, [tab])
 
   async function saveProfile() {
     if (!edit) return
@@ -1049,3 +1077,4 @@ function buildMonthCells(monthStart: Date) {
   while (cells.length % 7 !== 0) cells.push(null)
   return cells
 }
+

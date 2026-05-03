@@ -5,6 +5,7 @@ from typing import Optional
 from flask import Blueprint, current_app, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required, verify_jwt_in_request
 from sqlalchemy import or_
+from sqlalchemy.orm import joinedload, selectinload
 from werkzeug.utils import secure_filename
 
 from ..extensions import db
@@ -106,17 +107,36 @@ def list_blogs():
     query_text = (request.args.get("q") or "").strip()
     tag_ids = request.args.getlist("tag")
 
-    q = Blog.query.join(User, Blog.user_id == User.id).filter(Blog.is_published.is_(True))
+    q = Blog.query.filter(Blog.is_published.is_(True))
     if query_text:
         q = q.filter(or_(Blog.title.ilike(f"%{query_text}%"), Blog.content.ilike(f"%{query_text}%")))
     if tag_ids:
-        q = q.join(BlogTag).filter(BlogTag.tag_id.in_([int(t) for t in tag_ids]))
+        q = q.filter(Blog.tags.any(BlogTag.tag_id.in_([int(t) for t in tag_ids])))
 
-    q = q.order_by(Blog.created_at.desc())
-    total = q.order_by(None).distinct().count()
-    items = q.distinct().offset((page - 1) * page_size).limit(page_size).all()
+    total = q.count()
 
-    return jsonify({"items": [_blog_card(b) for b in items], "page": page, "page_size": page_size, "total": total})
+    id_rows = (
+        q.with_entities(Blog.id)
+        .order_by(Blog.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+    ids = [row[0] for row in id_rows]
+    if not ids:
+        return jsonify({"items": [], "page": page, "page_size": page_size, "total": total})
+
+    blogs = (
+        Blog.query.options(
+            joinedload(Blog.author),
+            selectinload(Blog.tags).joinedload(BlogTag.tag),
+        )
+        .filter(Blog.id.in_(ids))
+        .order_by(Blog.created_at.desc())
+        .all()
+    )
+
+    return jsonify({"items": [_blog_card(b) for b in blogs], "page": page, "page_size": page_size, "total": total})
 
 
 @bp.get("/<int:blog_id>")

@@ -1,5 +1,5 @@
-import { Link } from 'react-router-dom'
-import { buildPoseHistoryPath } from '../features/pose'
+﻿import { Link } from 'react-router-dom'
+import { buildPoseHistoryPath } from '../modules/pose'
 
 type PoseExerciseStatus = 'ready' | 'coming_soon'
 
@@ -113,13 +113,19 @@ export default function PoseSelectPage() {
               <div className="cl_blog-widget mb-30">
                 <h5 className="cl_blog-widget-title mb-15">Available Exercises</h5>
                 <div className="pose-select-exercise-grid">
-                  {visibleExercises.map((ex) => {
+                  {visibleExercises.map((ex, imageIndex) => {
                     const imageSrc = POSE_EXERCISE_IMAGES[ex.id]
                     return (
                       <div key={ex.id} className="pose-select-exercise-card">
                         {imageSrc ? (
                           <div className="pose-select-exercise-media">
-                            <img src={imageSrc} alt={ex.name} loading="lazy" />
+                            <img
+                              src={imageSrc}
+                              alt={ex.name}
+                              loading="eager"
+                              decoding="async"
+                              fetchPriority={imageIndex < 2 ? 'high' : 'auto'}
+                            />
                           </div>
                         ) : null}
                         <div className="pose-select-exercise-body">
@@ -143,3 +149,4 @@ export default function PoseSelectPage() {
     </>
   )
 }
+

@@ -1,4 +1,4 @@
-export type PoseExerciseSlug = 'squat' | 'lateral-raise' | 'pushup' | 'pullup' | 'bent-over-row'
+﻿export type PoseExerciseSlug = 'squat' | 'lateral-raise' | 'pushup' | 'bent-over-row'
 
 export type PoseExerciseDefinition = {
   slug: PoseExerciseSlug
@@ -61,27 +61,6 @@ const POSE_EXERCISES: Record<PoseExerciseSlug, PoseExerciseDefinition> = {
       { title: '3) Keep a straight line', content: 'Brace your core and avoid letting the hips sag during reps.' }
     ]
   },
-  pullup: {
-    slug: 'pullup',
-    id: 'pullup',
-    displayName: 'Pull-Up',
-    exerciseType: 'pullup',
-    liveSubtitle: 'Real-time pull-up coaching for range, control, and stability',
-    liveStageTip: 'Current pull-up phase recognized by the analyzer.',
-    completedRepsTip: 'Number of pull-up reps detected in this session.',
-    secondaryMetricLabel: 'Elbow Bend',
-    secondaryMetricTip: 'Estimated elbow flexion angle during the pull-up.',
-    rangeSectionTitle: 'Height Check',
-    rangeAlignmentLabel: 'Camera Front Alignment',
-    rangeAlignmentTip: 'Face the camera so both arms and shoulders remain visible and symmetry checks are stable.',
-    offlineInstructionPlaceholder: 'e.g. Focus on full range, no kipping, and controlled descent',
-    guideTitle: 'Pull-Up Camera Tips',
-    guideTips: [
-      { title: '1) Face the camera', content: 'Stand facing the camera so both arms and shoulders stay visible during the pull.' },
-      { title: '2) Keep bar + head visible', content: 'Keep hands, head, shoulders, and hips in frame so top position can be detected reliably.' },
-      { title: '3) Control the tempo', content: 'Pull up smoothly and lower down under control without swinging.' }
-    ]
-  },
   'lateral-raise': {
     slug: 'lateral-raise',
     id: 'lateral_raise',
@@ -129,7 +108,6 @@ const POSE_EXERCISES: Record<PoseExerciseSlug, PoseExerciseDefinition> = {
 export function getPoseExerciseBySlug(slug: string | undefined): PoseExerciseDefinition {
   if (slug === 'lateral-raise') return POSE_EXERCISES['lateral-raise']
   if (slug === 'pushup') return POSE_EXERCISES.pushup
-  if (slug === 'pullup') return POSE_EXERCISES.pullup
   if (slug === 'bent-over-row') return POSE_EXERCISES['bent-over-row']
   return POSE_EXERCISES.squat
 }
@@ -137,7 +115,6 @@ export function getPoseExerciseBySlug(slug: string | undefined): PoseExerciseDef
 export function getPoseExerciseByType(exerciseType: string | null | undefined): PoseExerciseDefinition {
   if (exerciseType === 'lateral_raise') return POSE_EXERCISES['lateral-raise']
   if (exerciseType === 'pushup') return POSE_EXERCISES.pushup
-  if (exerciseType === 'pullup' || exerciseType === 'pull_up') return POSE_EXERCISES.pullup
   if (exerciseType === 'bent_over_row') return POSE_EXERCISES['bent-over-row']
   return POSE_EXERCISES.squat
 }
@@ -161,3 +138,5 @@ export function buildPoseHistoryPath(slug: PoseExerciseSlug) {
 export function buildPoseReportPath(slug: PoseExerciseSlug, sessionId: string | number) {
   return `/tools/pose/${slug}/history/${sessionId}`
 }
+
+

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 
 type OrganicFluidPalette = {
@@ -163,13 +163,14 @@ const fragmentShader = `
     // Smooth color mapping to prevent harsh blown-out highlights
     vec3 color = mix(uColor1, uColor2, smoothstep(0.0, uShadowWidth + 0.15, t));
     color = mix(color, uColor3, smoothstep(uShadowWidth + 0.05, 0.65, t));
-    color = mix(color, uColor4, smoothstep(0.55, 1.05, t));
+    color = mix(color, uColor4, smoothstep(0.78, 1.2, t));
 
     // High-quality Dithering to eliminate banding
     float grain = fract(sin(dot(uv.xy, vec2(12.9898,78.233))) * 43758.5453);
-    color += (grain - 0.5) * 0.03;
+    color += (grain - 0.5) * 0.01;
+    color *= 0.76;
 
-    gl_FragColor = vec4(color, 0.5);
+    gl_FragColor = vec4(color, 0.32);
   }
 `
 
@@ -184,100 +185,6 @@ const sharedParams = {
   noiseScale: 0.714,
   connections: 0.8715,
   shadowWidth: 0.01,
-}
-
-const presets: Record<string, any> = {
-  'Blue/Cyan': {
-    color1: '#000000', // Shadow (Valley)
-    color2: '#0048ff', // Mid Dark
-    color3: '#0088ff', // Mid Light
-    color4: '#ffffff', // Highlight (Peak)
-    ...sharedParams,
-  },
-  'Purple Flow': {
-    color1: '#0f002b',
-    color2: '#4a00e0',
-    color3: '#d9005a',
-    color4: '#ff80bf',
-    ...sharedParams,
-  },
-  'Dark Ocean': {
-    color1: '#000000',
-    color2: '#0b132b',
-    color3: '#1c2541',
-    color4: '#5bc0be',
-    ...sharedParams,
-  },
-  'Sunset Glow': {
-    color1: '#26001b', // Deep purple/black
-    color2: '#bd0034', // Crimson red
-    color3: '#ff5e00', // Bright orange
-    color4: '#ffcc00', // Golden yellow
-    ...sharedParams,
-  },
-  'Toxic Mint': {
-    color1: '#001a09', // Very dark green
-    color2: '#006633', // Forest green
-    color3: '#00cc66', // Bright mint
-    color4: '#ccffdd', // Pale green white
-    ...sharedParams,
-  },
-  Cyberpunk: {
-    color1: '#12003b', // Deep night purple
-    color2: '#b100e8', // Neon purple
-    color3: '#ff007c', // Neon pink
-    color4: '#00ffff', // Cyan highlight
-    ...sharedParams,
-  },
-  'Liquid Gold': {
-    color1: '#1f1300', // Dark bronze/brown
-    color2: '#8c5900', // Bronze
-    color3: '#d9a300', // Gold
-    color4: '#fff1b8', // Light yellow highlight
-    ...sharedParams,
-  },
-  'Cherry Blossom': {
-    color1: '#2e0014', // Very dark maroon
-    color2: '#b80052', // Deep pink
-    color3: '#ff66a3', // Soft pink
-    color4: '#ffe6f0', // Almost white pink
-    ...sharedParams,
-  },
-  'Volcanic Magma': {
-    color1: '#1a0000', // Cooled dark rock
-    color2: '#8a0a00', // Deep red magma
-    color3: '#ff4d00', // Bright orange fire
-    color4: '#ffea00', // Blinding yellow heat
-    ...sharedParams,
-  },
-  'Aurora Borealis': {
-    color1: '#000a14', // Night sky navy
-    color2: '#00594d', // Deep teal
-    color3: '#00ff88', // Neon aurora green
-    color4: '#aaffff', // Bright cyan glow
-    ...sharedParams,
-  },
-  'Amethyst Dream': {
-    color1: '#10001a', // Obsidian purple
-    color2: '#4e008e', // Rich amethyst
-    color3: '#9933ff', // Vibrant violet
-    color4: '#e6ccff', // Soft lilac highlight
-    ...sharedParams,
-  },
-  'Abyssal Pearl': {
-    color1: '#000f1a', // Deep trench blue
-    color2: '#004d66', // Ocean teal
-    color3: '#00b3b3', // Bright aqua
-    color4: '#ffe6f2', // Pearlescent pink/white
-    ...sharedParams,
-  },
-  'Autumn Ember': {
-    color1: '#260d00', // Dark wood
-    color2: '#8c3a00', // Burnt orange / copper
-    color3: '#d96600', // Vibrant autumn orange
-    color4: '#ffb366', // Soft peach highlight
-    ...sharedParams,
-  },
 }
 
 const defaultPalette: OrganicFluidPalette = {
@@ -296,34 +203,25 @@ export default function OrganicFluidBackground({
   useEffect(() => {
     if (!mountRef.current) return
     const container = mountRef.current
+    const reducedMotion = typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
-    // --------------------------------------------------------
-    // SCENE SETUP
-    // --------------------------------------------------------
+    // Scene setup (full-screen shader on orthographic camera)
     const scene = new THREE.Scene()
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10)
     camera.position.z = 1
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
-    renderer.setSize(container.clientWidth, container.clientHeight)
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-    container.appendChild(renderer.domElement)
-
-    // --------------------------------------------------------
-    // SETTINGS
-    // --------------------------------------------------------
-    const settings = {
-      preset: 'Custom/Image',
-      color1: palette.color1,
-      color2: palette.color2,
-      color3: palette.color3,
-      color4: palette.color4,
-      ...sharedParams,
+    let renderer: THREE.WebGLRenderer
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, powerPreference: 'low-power' })
+    } catch {
+      return
     }
 
-    // --------------------------------------------------------
-    // MATERIAL & MESH
-    // --------------------------------------------------------
+    renderer.setSize(container.clientWidth, container.clientHeight)
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25))
+    container.appendChild(renderer.domElement)
+
+    // Shader material and mesh
     const geometry = new THREE.PlaneGeometry(2, 2)
     const material = new THREE.ShaderMaterial({
       vertexShader,
@@ -331,58 +229,90 @@ export default function OrganicFluidBackground({
       uniforms: {
         uTime: { value: 0 },
         uResolution: { value: new THREE.Vector2(container.clientWidth, container.clientHeight) },
-        uColor1: { value: new THREE.Color(settings.color1) },
-        uColor2: { value: new THREE.Color(settings.color2) },
-        uColor3: { value: new THREE.Color(settings.color3) },
-        uColor4: { value: new THREE.Color(settings.color4) },
-        uDepth: { value: settings.depth },
-        uLightPos: { value: new THREE.Vector3(settings.lightX, settings.lightY, 1.0) },
-        uSpeed: { value: settings.speed },
-        uNoiseScale: { value: settings.noiseScale },
-        uWarpAmount: { value: settings.warpAmount },
-        uFoldFrequency: { value: settings.foldFrequency },
-        uAngle: { value: settings.angle },
-        uConnections: { value: settings.connections },
-        uShadowWidth: { value: settings.shadowWidth },
+        uColor1: { value: new THREE.Color(palette.color1) },
+        uColor2: { value: new THREE.Color(palette.color2) },
+        uColor3: { value: new THREE.Color(palette.color3) },
+        uColor4: { value: new THREE.Color(palette.color4) },
+        uDepth: { value: sharedParams.depth },
+        uLightPos: { value: new THREE.Vector3(sharedParams.lightX, sharedParams.lightY, 1.0) },
+        uSpeed: { value: sharedParams.speed },
+        uNoiseScale: { value: sharedParams.noiseScale },
+        uWarpAmount: { value: sharedParams.warpAmount },
+        uFoldFrequency: { value: sharedParams.foldFrequency },
+        uAngle: { value: sharedParams.angle },
+        uConnections: { value: sharedParams.connections },
+        uShadowWidth: { value: sharedParams.shadowWidth },
       },
     })
 
     const mesh = new THREE.Mesh(geometry, material)
     scene.add(mesh)
 
-    // --------------------------------------------------------
-    // RESIZE & ANIMATION LOOP
-    // --------------------------------------------------------
-    const resizeObserver = new ResizeObserver((entries) => {
-      if (!entries || !entries.length) return
-      const { width, height } = entries[0].contentRect
-      renderer.setSize(width, height)
-      material.uniforms.uResolution.value.set(width, height)
-    })
-    resizeObserver.observe(container)
-
     const clock = new THREE.Clock()
-    let reqId: number
+    let reqId = 0
+    let paused = reducedMotion
 
-    function animate() {
-      reqId = requestAnimationFrame(animate)
+    function renderOnce() {
       material.uniforms.uTime.value = clock.getElapsedTime()
       renderer.render(scene, camera)
     }
 
-    animate()
+    // Keep canvas and resolution uniform in sync with container size
+    const resizeObserver = new ResizeObserver((entries) => {
+      if (!entries || !entries.length) return
+      const { width, height } = entries[0].contentRect
+      if (!width || !height) return
+      renderer.setSize(width, height)
+      material.uniforms.uResolution.value.set(width, height)
+      renderOnce()
+    })
+    resizeObserver.observe(container)
+
+    const intersectionObserver = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0]
+        if (!entry) return
+        paused = reducedMotion || !entry.isIntersecting
+        if (!paused) renderOnce()
+      },
+      { threshold: 0.01 }
+    )
+    intersectionObserver.observe(container)
+
+    // Render loop (time-driven shader animation)
+    function animate() {
+      reqId = requestAnimationFrame(animate)
+      if (paused) return
+      renderOnce()
+    }
+
+    // Pause rendering when tab is hidden to reduce GPU usage
+    const onVisibilityChange = () => {
+      paused = reducedMotion || document.hidden
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
+    renderOnce()
+    if (!reducedMotion) {
+      animate()
+    }
 
     return () => {
       cancelAnimationFrame(reqId)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      intersectionObserver.disconnect()
       resizeObserver.disconnect()
+      scene.remove(mesh)
       renderer.dispose()
+      renderer.forceContextLoss()
       geometry.dispose()
       material.dispose()
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement)
       }
     }
-  }, [])
+  }, [palette.color1, palette.color2, palette.color3, palette.color4])
 
   return <div ref={mountRef} className={className} />
 }
+

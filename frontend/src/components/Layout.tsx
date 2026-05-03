@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import BackToTop from './BackToTop'
-import FeedbackDrawer from './FeedbackDrawer'
 import Footer from './Footer'
 import Navbar from './Navbar'
 
@@ -197,8 +196,6 @@ export default function Layout(props: { children: React.ReactNode }) {
           </div>
         </div>
       </div>
-
-      <FeedbackDrawer />
     </>
   )
 }

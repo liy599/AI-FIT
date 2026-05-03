@@ -1,4 +1,4 @@
-﻿import { API_BASE, apiFetch, apiUpload, resolveBackendUrl } from '../../lib/api'
+import { API_BASE, apiFetch, apiUpload, resolveBackendUrl } from '../../lib/api'
 
 export { API_BASE, resolveBackendUrl }
 
@@ -17,7 +17,7 @@ export function registerByPassword(email: string, username: string, password: st
 }
 
 export function requestPasswordReset(email: string) {
-  return apiFetch<{ reset_link?: string }>('/api/auth/forgot-password', {
+  return apiFetch<{ ok: boolean; reset_link: string }>('/api/auth/forgot-password', {
     method: 'POST',
     auth: false,
     body: JSON.stringify({ email })

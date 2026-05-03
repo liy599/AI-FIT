@@ -1,4 +1,4 @@
-﻿import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { getBlogTags, queryBlogs, resolveBlogMediaUrl, type BlogCard, type BlogTag as Tag } from '../features/blog'
 const OrganicFluidBackground = lazy(() => import('../components/OrganicFluidBackground'))
@@ -635,36 +635,6 @@ export default function BlogListPage() {
                 ))}
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <section
-        ref={categoriesReveal.ref}
-        className={`px-4 pt-16 md:pt-24 reveal${categoriesReveal.visible ? ' visible' : ''}`}
-      >
-        <div className="mx-auto max-w-[1200px]">
-          <h2 className="text-center text-lg font-semibold text-neutral-900">Blog Categories</h2>
-          <div className="mt-8 flex flex-wrap justify-center gap-3">
-            {categoryPills.map((c) => {
-              const active = c.id != null ? tagIds.includes(c.id) : false
-              const interactive = c.id != null
-              return (
-                <button
-                  key={c.name}
-                  type="button"
-                  disabled={!interactive}
-                  onClick={interactive ? () => toggleTag(c.id as number) : undefined}
-                  className={[
-                    'rounded-full px-4 py-2 text-sm font-medium transition-colors',
-                    interactive ? 'border border-neutral-300' : 'border border-neutral-200 opacity-60',
-                    active ? 'bg-neutral-900 text-white border-neutral-900' : 'bg-white text-neutral-900 hover:bg-neutral-50',
-                  ].join(' ')}
-                >
-                  {c.name}
-                </button>
-              )
-            })}
           </div>
         </div>
       </section>

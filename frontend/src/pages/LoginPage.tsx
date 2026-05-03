@@ -75,7 +75,7 @@ export default function LoginPage() {
         nav(path, { replace: true })
         return
       }
-      setNotice('Email not found.')
+      setError('Reset link generation failed.')
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Request failed'
       setError(msg === 'email not found' ? 'Email not found.' : msg)

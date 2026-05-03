@@ -108,15 +108,12 @@ def forgot_password():
             return jsonify({"error": "too many requests", "retry_after": account_result.retry_after_seconds}), 429
 
     user = User.query.filter_by(email=email).first()
-    reset_link = None
-    if user is not None:
-        token = _serializer().dumps({"user_id": user.id, "email": user.email})
-        reset_link = f'{current_app.config["FRONTEND_BASE_URL"].rstrip("/")}/reset-password?token={token}'
+    if user is None:
+        return jsonify({"error": "email not found"}), 404
 
-    response = {"ok": True, "message": "If the email exists, a reset link has been sent."}
-    if reset_link and current_app.config.get("PASSWORD_RESET_DEBUG_RETURN_LINK"):
-        response["reset_link"] = reset_link
-    return jsonify(response)
+    token = _serializer().dumps({"user_id": user.id, "email": user.email})
+    reset_link = f'{current_app.config["FRONTEND_BASE_URL"].rstrip("/")}/reset-password?token={token}'
+    return jsonify({"ok": True, "reset_link": reset_link})
 
 
 @bp.post("/reset-password")

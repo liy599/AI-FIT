@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   createBlogComment,
@@ -400,47 +400,9 @@ export default function BlogDetailPage() {
                       />
                       <h4 className="cl_blog-widget-author-title">{blog.author.username}</h4>
                       <p>Views: {blog.view_count} / Likes: {blog.like_count}</p>
-                      <div className="cl_blog-widget-author-social">
-                        <button type="button" className="footer-icon-btn" aria-label="Facebook link coming soon">
-                          <i className="fa-brands fa-facebook-f"></i>
-                        </button>
-                        <button type="button" className="footer-icon-btn" aria-label="Instagram link coming soon">
-                          <i className="fa-brands fa-instagram"></i>
-                        </button>
-                        <button type="button" className="footer-icon-btn" aria-label="LinkedIn link coming soon">
-                          <i className="fa-brands fa-linkedin-in"></i>
-                        </button>
-                        <button type="button" className="footer-icon-btn" aria-label="YouTube link coming soon">
-                          <i className="fa-brands fa-youtube"></i>
-                        </button>
-                      </div>
                     </div>
                   </div>
                 ) : null}
-
-                <div className="cl_blog-widget section-widget">
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault()
-                    }}
-                  >
-                    <input type="email" placeholder="Search Here" />
-                    <button type="submit">
-                      <i className="fa-sharp fa-light fa-magnifying-glass"></i>
-                    </button>
-                  </form>
-                </div>
-
-                <div className="cl_blog-widget section-widget">
-                  <h4 className="cl_blog-widget-title section-title-spaced">Popular tags</h4>
-                  <div className="cl_blog-widget-tag">
-                    {(blog?.tags ?? []).map((t) => (
-                      <span key={t.id} className="blog-tag-static">
-                        {t.name}
-                      </span>
-                    ))}
-                  </div>
-                </div>
               </div>
             </div>
           </div>

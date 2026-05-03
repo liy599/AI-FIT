@@ -9,7 +9,7 @@
 - UI 框架：React + TypeScript
 - 构建：Vite
 - 路由：react-router-dom
-- 样式：Tailwind + `src/styles/*`（逐步替代历史 CSS）
+- 样式：历史主题 CSS + `src/styles/*` + `utilities-compat.css`
 - AI/姿态：TensorFlow.js / MoveNet / MediaPipe（仅在 pose feature 内）
 
 ## 2. 分层边界（必须遵守）
@@ -46,7 +46,7 @@
 
 1. 清理遗留：删除零引用文件（已完成一项：`realtimePullupLegacy.ts`）
 2. API 统一：页面请求都通过 `lib/api.ts` 或 feature API 封装
-3. 样式收束：新改动仅允许 `Tailwind + src/styles/*`
+3. 样式收束：新改动仅允许 `src/styles/*` 与语义化样式类（不再新增原子类框架依赖）
 4. Pose 模块收束：页面只调用 `poseTool/helpers`，不直接耦合底层实现
 5. 资产收束：按引用审计逐步缩减 `public/assets/images`
 

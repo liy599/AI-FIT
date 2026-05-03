@@ -1,28 +1,3 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-html,
-body {
-  height: 100%;
-}
-
-@layer utilities {
-  .line-clamp-1 {
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 1;
-  }
-
-  .line-clamp-2 {
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-  }
-}
-
 .pose-tool-head {
   display: flex;
   gap: 16px;
@@ -46,6 +21,10 @@ body {
   padding-bottom: 72px !important;
 }
 
+.pose-tool-page .page-container {
+  width: min(1360px, calc(100% - 32px));
+}
+
 .pose-tool-page p,
 .pose-tool-page li {
   font-size: 16px;
@@ -57,7 +36,7 @@ body {
 }
 
 .pose-tool-page .cl_blog-widget {
-  padding: 24px;
+  padding: 30px;
 }
 
 .pose-tool-page .pose-mode-switch {
@@ -74,7 +53,7 @@ body {
   font-size: 15px;
 }
 
-.pose-tool-page .pose-live-layout > [class*='col-'] {
+.pose-tool-page .pose-live-layout > * {
   margin-bottom: 16px;
 }
 
@@ -85,6 +64,48 @@ body {
 .pose-live-layout .pose-live-camera-card,
 .pose-live-layout .pose-live-right-card {
   border-radius: 20px;
+}
+
+@media (min-width: 1025px) and (max-width: 1319px) {
+  .pose-tool-page .pose-tool-live-grid {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    grid-template-areas:
+      'guide guide'
+      'camera feedback';
+    gap: 20px;
+  }
+
+  .pose-tool-page .pose-tool-live-col-guide {
+    grid-area: guide;
+  }
+
+  .pose-tool-page .pose-tool-live-col-camera {
+    grid-area: camera;
+  }
+
+  .pose-tool-page .pose-tool-live-col-feedback {
+    grid-area: feedback;
+  }
+}
+
+@media (min-width: 1320px) {
+  .pose-tool-page .pose-tool-live-grid {
+    grid-template-columns: minmax(260px, 3fr) minmax(420px, 6fr) minmax(320px, 4fr);
+    gap: 20px;
+  }
+}
+
+@media (min-width: 1025px) {
+  .pose-tool-page .pose-tool-video-grid {
+    grid-template-columns: minmax(540px, 8fr) minmax(340px, 4fr);
+    gap: 20px;
+  }
+}
+
+.pose-tool-page .pose-tool-video-grid .pose-tool-video-col-main > .cl_blog-widget,
+.pose-tool-page .pose-tool-video-grid .pose-tool-video-col-teaching > .cl_blog-widget {
+  height: 100%;
+  margin-bottom: 0 !important;
 }
 
 .pose-live-layout .pose-live-camera-card {
@@ -130,7 +151,10 @@ body {
 }
 
 .pose-live-layout .pose-live-metrics-line {
-  white-space: nowrap;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  white-space: normal;
 }
 
 .pose-live-layout .pose-live-metrics-line span {
@@ -625,6 +649,8 @@ body {
 
 .pose-guide-details {
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .pose-guide-details__summary {
@@ -1103,7 +1129,7 @@ body {
   align-items: stretch;
 }
 
-.pose-video-layout > [class*='col-'] {
+.pose-video-layout > * {
   margin-bottom: 16px;
 }
 

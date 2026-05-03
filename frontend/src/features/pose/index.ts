@@ -7,6 +7,7 @@ export { DistanceTracker, type DistanceState } from '../../lib/pose/distanceTrac
 export {
   buildPoseGuidePath,
   buildPoseHistoryPath,
+  buildPoseReportPath,
   buildPoseToolPath,
   buildPoseVideoPath,
   getPoseExerciseBySlug,
@@ -23,7 +24,7 @@ export { type RealtimeFeedback } from '../../lib/pose/realtimeSquat'
 export { REALTIME_DEFAULT_SQUAT_TUNING, type SquatTuning } from '../../lib/pose/realtimeSquatAnalyzer'
 export { humanizePoseReport, mapPoseFeedbackMessage, pickLiveMainTip, poseTierLabel } from '../../lib/pose/feedbackCopy'
 export { DEMO_POSE_TRAINING, DEMO_POSE_TRAINING_ID } from '../../lib/poseTrainingMock'
-export { createPoseTraining, getSquatTuningConfig, updateSquatTuningConfig } from '../../lib/poseApi'
+export { createPoseTraining, getPoseTraining, getSquatTuningConfig, updateSquatTuningConfig } from '../../lib/poseApi'
 export { listPoseTrainings, type PoseTrainingSession } from '../../lib/poseApi'
 export { getPoseCapabilities, type PoseCapabilities } from '../../lib/poseApi'
 export { getPosePolicy, type PosePolicy } from '../../lib/poseApi'

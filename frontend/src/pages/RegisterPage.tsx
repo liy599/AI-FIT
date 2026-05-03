@@ -44,9 +44,9 @@ export default function RegisterPage() {
     <>
       <section className="cl_breadcrumb-area">
         <div className="cl_breadcrumb-wrap" data-background="/assets/images/bg/breadcrumb.png">
-          <div className="container">
-            <div className="row justify-content-center">
-              <div className="col-md-9 col-12">
+          <div className="page-container">
+            <div className="page-row-center">
+              <div className="page-col-breadcrumb">
                 <div className="cl_breadcrumb-content">
                   <h2 className="cl_breadcrumb-content-title">Register</h2>
                   <div className="cl_breadcrumb-content-list">
@@ -61,9 +61,9 @@ export default function RegisterPage() {
       </section>
 
       <section className="pt-100 pb-100">
-        <div className="container">
-          <div className="row justify-content-center">
-            <div className="col-xl-6 col-lg-8">
+        <div className="page-container">
+          <div className="page-row-center">
+            <div className="page-col-auth">
               <div className="cl_blog_details-reply">
                 <h3 className="cl_blog_details-reply-title">Create account</h3>
                 <p>After registration, you will be signed in and redirected to your profile.</p>
@@ -75,8 +75,8 @@ export default function RegisterPage() {
                     submit().catch(() => {})
                   }}
                 >
-                  <div className="row">
-                    <div className="col-12">
+                  <div className="auth-form-grid">
+                    <div>
                       <div className="cl_blog_details-reply-item">
                         <label htmlFor="email">
                           Email<span>*</span>
@@ -84,7 +84,7 @@ export default function RegisterPage() {
                         <input type="email" id="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
                       </div>
                     </div>
-                    <div className="col-12">
+                    <div>
                       <div className="cl_blog_details-reply-item">
                         <label htmlFor="username">
                           Username<span>*</span>
@@ -92,7 +92,7 @@ export default function RegisterPage() {
                         <input id="username" required value={username} onChange={(e) => setUsername(e.target.value)} />
                       </div>
                     </div>
-                    <div className="col-12">
+                    <div>
                       <div className="cl_blog_details-reply-item">
                         <label htmlFor="password">
                           Password<span>*</span>
@@ -101,18 +101,18 @@ export default function RegisterPage() {
                       </div>
                     </div>
                     {error ? (
-                      <div className="col-12">
+                      <div>
                         <div className="cl_blog-widget cl_auth-alert cl_auth-alert--error mb-30">{error}</div>
                       </div>
                     ) : null}
-                    <div className="col-12">
+                    <div>
                       <div className="cl_blog_details-reply-item">
                         <button type="submit">
                           Register
                         </button>
                       </div>
                     </div>
-                    <div className="col-12">
+                    <div>
                       <div className="cl_blog-widget cl_auth-switch">
                         Already have an account? <Link to="/login">Sign in</Link>
                       </div>

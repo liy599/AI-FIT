@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   createBlogComment,
@@ -58,46 +58,46 @@ function CommentItem(props: {
   }
 
   return (
-    <div style={{ marginBottom: 24 }}>
+    <div className="blog-comment-item">
       <div className="cl_blog_details-comment mb-45">
         <img src={resolveMediaUrl(props.node.user.avatar_url) ?? '/assets/images/blog/blog-comment.png'} alt={`${props.node.user.username} avatar`} />
         <div className="cl_blog_details-comment-info">
           <h4 className="cl_blog_details-comment-info-title">{props.node.user.username}</h4>
           {editing ? (
-            <div className="cl_blog_details-reply-item" style={{ marginTop: 10 }}>
+            <div className="cl_blog_details-reply-item blog-comment-edit">
               <textarea value={editText} onChange={(e) => setEditText(e.target.value)} rows={4}></textarea>
             </div>
           ) : (
-            <p className="cl_blog_details-comment-info-text" style={{ whiteSpace: 'pre-wrap' }}>
+            <p className="cl_blog_details-comment-info-text blog-prewrap">
               {props.node.content}
             </p>
           )}
 
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 10 }}>
+          <div className="blog-comment-actions">
             <button
               type="button"
               className="text-link-btn"
-              onClick={(e) => {
+              onClick={() => {
                 if (!auth.user) return
                 like().catch(() => {})
               }}
-              style={!auth.user ? { opacity: 0.6, pointerEvents: 'none' } : undefined}
+              disabled={!auth.user}
               title={auth.user ? '' : 'Sign in to like'}
             >
-              <i className="fa-light fa-thumbs-up" style={{ marginRight: 6 }}></i>
+              <i className="fa-light fa-thumbs-up blog-action-icon"></i>
               {props.node.liked_by_me ? 'Liked' : 'Like'} ({props.node.like_count})
             </button>
             <button
               type="button"
               className="text-link-btn"
-              onClick={(e) => {
+              onClick={() => {
                 if (!auth.user) return
                 setReplying((v) => !v)
               }}
-              style={!auth.user ? { opacity: 0.6, pointerEvents: 'none' } : undefined}
+              disabled={!auth.user}
               title={auth.user ? '' : 'Sign in to reply'}
             >
-              <i className="fa-light fa-reply" style={{ marginRight: 6 }}></i>Reply
+              <i className="fa-light fa-reply blog-action-icon"></i>Reply
             </button>
             {canEdit ? (
               editing ? (
@@ -108,7 +108,7 @@ function CommentItem(props: {
                     saveEdit().catch(() => {})
                   }}
                 >
-                  <i className="fa-light fa-check" style={{ marginRight: 6 }}></i>Save
+                  <i className="fa-light fa-check blog-action-icon"></i>Save
                 </button>
               ) : (
                 <button
@@ -118,7 +118,7 @@ function CommentItem(props: {
                     setEditing(true)
                   }}
                 >
-                  <i className="fa-light fa-pen" style={{ marginRight: 6 }}></i>Edit
+                  <i className="fa-light fa-pen blog-action-icon"></i>Edit
                 </button>
               )
             ) : null}
@@ -130,13 +130,13 @@ function CommentItem(props: {
                   remove().catch(() => {})
                 }}
               >
-                <i className="fa-light fa-trash" style={{ marginRight: 6 }}></i>Delete
+                <i className="fa-light fa-trash blog-action-icon"></i>Delete
               </button>
             ) : null}
           </div>
 
           {replying ? (
-            <div className="cl_blog_details-reply" style={{ marginTop: 18, paddingTop: 0 }}>
+            <div className="cl_blog_details-reply blog-comment-reply-wrap">
               <div className="cl_blog_details-reply-item">
                 <label htmlFor={`reply-${props.node.id}`}>Reply</label>
                 <textarea
@@ -151,7 +151,7 @@ function CommentItem(props: {
                   type="button"
                   onClick={() => submitReply().catch(() => {})}
                   disabled={!replyText.trim()}
-                  style={!replyText.trim() ? { opacity: 0.6, cursor: 'not-allowed' } : undefined}
+                  className={!replyText.trim() ? 'blog-btn-disabled' : undefined}
                 >
                   Send Now
                 </button>
@@ -162,7 +162,7 @@ function CommentItem(props: {
       </div>
 
       {props.node.replies.length ? (
-        <div style={{ marginLeft: 34, paddingLeft: 16, borderLeft: '1px solid rgba(255,255,255,0.15)' }}>
+        <div className="blog-comment-children">
           {props.node.replies.map((r) => (
             <CommentItem
               key={r.id}
@@ -234,9 +234,9 @@ export default function BlogDetailPage() {
     <>
       <section className="cl_breadcrumb-area">
         <div className="cl_breadcrumb-wrap" data-background="/assets/images/bg/breadcrumb.png">
-          <div className="container">
-            <div className="row justify-content-center">
-              <div className="col-md-9 col-12">
+          <div className="page-container">
+            <div className="page-row-center">
+              <div className="page-col-breadcrumb">
                 <div className="cl_breadcrumb-content">
                   <h2 className="cl_breadcrumb-content-title">Blog Details</h2>
                   <div className="cl_breadcrumb-content-list">
@@ -251,25 +251,25 @@ export default function BlogDetailPage() {
         </div>
       </section>
 
-      <section className="cl_blog_details-area pt-100 pb-60">
-        <div className="container">
+      <section className="cl_blog_details-area blog-detail-section">
+        <div className="page-container">
           {error ? (
-            <div className="row">
-              <div className="col-12">
-                <div className="cl_blog-widget mb-30">{error}</div>
+            <div className="blog-detail-error-row">
+              <div>
+                <div className="cl_blog-widget section-widget">{error}</div>
               </div>
             </div>
           ) : null}
 
-          <div className="row">
-            <div className="col-xl-8">
-              <div className="cl_blog_details-left mb-40">
+          <div className="blog-detail-main-grid">
+            <div className="blog-detail-main-col">
+              <div className="cl_blog_details-left section-stack-lg">
                 {!blog ? (
-                  <div className="cl_blog-widget mb-30">Loading…</div>
+                  <div className="cl_blog-widget section-widget">Loading...</div>
                 ) : (
                   <>
                     <div className="cl_blog_details-content">
-                      <div className="cl_blog_details-content-img mb-30">
+                      <div className="cl_blog_details-content-img section-stack-md">
                         <img src={resolveMediaUrl(blog.cover_image_url) ?? '/assets/images/blog/blog-classic-1.png'} alt={blog.title} />
                         {blog.tags[0]?.name ? (
                           <span className="cl_blog_details-content-img-tag">{blog.tags[0].name}</span>
@@ -285,17 +285,17 @@ export default function BlogDetailPage() {
                           <span>{new Date(blog.created_at).toLocaleDateString()}</span>
                         </span>
                       </div>
-                      <h3 className="cl_blog_details-content-title mb-20">{blog.title}</h3>
+                      <h3 className="cl_blog_details-content-title section-stack-sm">{blog.title}</h3>
                       {blog.content
                         .split(/\n{2,}/)
                         .filter((x) => x.trim().length)
                         .map((p, idx) => (
-                          <p className="cl_blog_details-content-text mb-10" key={idx} style={{ whiteSpace: 'pre-wrap' }}>
+                          <p className="cl_blog_details-content-text section-text-block blog-prewrap" key={idx}>
                             {p}
                           </p>
                         ))}
 
-                      <div className="cl_blog_details-content-bottom mb-40">
+                      <div className="cl_blog_details-content-bottom section-stack-lg">
                         <div className="cl_blog-widget-tag">
                           {blog.tags.map((t) => (
                             <span key={t.id} className="blog-tag-static">
@@ -307,11 +307,11 @@ export default function BlogDetailPage() {
                           <button
                             type="button"
                             className="text-link-btn"
-                            onClick={(e) => {
+                            onClick={() => {
                               if (!auth.user) return
                               toggleLike().catch(() => {})
                             }}
-                            style={!auth.user ? { opacity: 0.6, pointerEvents: 'none' } : undefined}
+                            disabled={!auth.user}
                             title={auth.user ? '' : 'Sign in to like'}
                           >
                             <i className="fa-light fa-thumbs-up"></i>
@@ -336,8 +336,8 @@ export default function BlogDetailPage() {
                           submitComment().catch(() => {})
                         }}
                       >
-                        <div className="row">
-                          <div className="col-12">
+                        <div className="blog-detail-form-grid">
+                          <div>
                             <div className="cl_blog_details-reply-item">
                               <label htmlFor="comment">Type Comment here <span>*</span></label>
                               <textarea
@@ -351,16 +351,15 @@ export default function BlogDetailPage() {
                               ></textarea>
                             </div>
                           </div>
-                          <div className="col-12">
+                          <div>
                             <div className="cl_blog_details-reply-item">
                               <button type="submit" disabled={!auth.user || !commentText.trim()}>
                                 Send Now
                               </button>
                               <button
                                 type="button"
-                                className="text-link-btn"
-                                style={{ marginLeft: 14 }}
-                                onClick={(e) => {
+                                className="text-link-btn blog-refresh-btn"
+                                onClick={() => {
                                   load().catch(() => {})
                                 }}
                               >
@@ -372,7 +371,7 @@ export default function BlogDetailPage() {
                       </form>
                     </div>
 
-                    <div style={{ marginTop: 32 }}>
+                    <div className="blog-comments-list">
                       {comments.map((c) => (
                         <CommentItem
                           key={c.id}
@@ -389,10 +388,10 @@ export default function BlogDetailPage() {
               </div>
             </div>
 
-            <div className="col-xl-4">
+            <div className="blog-detail-side-col">
               <div className="cl_blog_details-right pb-10">
                 {blog ? (
-                  <div className="cl_blog-widget mb-30">
+                  <div className="cl_blog-widget section-widget">
                     <div className="cl_blog-widget-author">
                       <img
                         className="cl_blog-widget-author-avatar"
@@ -400,7 +399,7 @@ export default function BlogDetailPage() {
                         alt={`${blog.author.username} avatar`}
                       />
                       <h4 className="cl_blog-widget-author-title">{blog.author.username}</h4>
-                      <p>Views: {blog.view_count} · Likes: {blog.like_count}</p>
+                      <p>Views: {blog.view_count} / Likes: {blog.like_count}</p>
                       <div className="cl_blog-widget-author-social">
                         <button type="button" className="footer-icon-btn" aria-label="Facebook link coming soon">
                           <i className="fa-brands fa-facebook-f"></i>
@@ -419,7 +418,7 @@ export default function BlogDetailPage() {
                   </div>
                 ) : null}
 
-                <div className="cl_blog-widget mb-30">
+                <div className="cl_blog-widget section-widget">
                   <form
                     onSubmit={(e) => {
                       e.preventDefault()
@@ -432,8 +431,8 @@ export default function BlogDetailPage() {
                   </form>
                 </div>
 
-                <div className="cl_blog-widget mb-30">
-                  <h4 className="cl_blog-widget-title mb-35">Popular tags</h4>
+                <div className="cl_blog-widget section-widget">
+                  <h4 className="cl_blog-widget-title section-title-spaced">Popular tags</h4>
                   <div className="cl_blog-widget-tag">
                     {(blog?.tags ?? []).map((t) => (
                       <span key={t.id} className="blog-tag-static">
@@ -450,3 +449,4 @@ export default function BlogDetailPage() {
     </>
   )
 }
+

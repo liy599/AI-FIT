@@ -3,17 +3,17 @@ import { Link } from 'react-router-dom'
 export default function Footer() {
   return (
     <footer className="cl_footer-area">
-      <div className="container">
+      <div className="page-container">
         <div className="cl_footer-top">
-          <div className="row align-items-center">
-            <div className="col-md-4">
+          <div className="footer-top-grid">
+            <div>
               <div className="cl_footer-logo">
                 <Link to="/" className="cl_brand cl_brand--light">
                   AI FitGuard
                 </Link>
               </div>
             </div>
-            <div className="col-md-8">
+            <div>
               <div className="cl_footer-action">
                 <a href="mailto:hello@aifitguard.com">
                   <span>
@@ -26,8 +26,8 @@ export default function Footer() {
           </div>
         </div>
         <div className="cl_footer-bottom">
-          <div className="row justify-content-between">
-            <div className="col-xl-4 col-lg-4 col-md-6 col-sm-6">
+          <div className="footer-bottom-grid">
+            <div>
               <div className="cl_footer-widget mb-40">
                 <h5 className="cl_footer-widget-title">About Us</h5>
                 <p className="cl_footer-widget-text mb-35">
@@ -49,7 +49,7 @@ export default function Footer() {
                 </div>
               </div>
             </div>
-            <div className="col-xl-2 col-lg-2 col-md-6 col-sm-6">
+            <div>
               <div className="cl_footer-widget pb-20">
                 <h5 className="cl_footer-widget-title">Useful Link</h5>
                 <ul>
@@ -68,7 +68,7 @@ export default function Footer() {
                 </ul>
               </div>
             </div>
-            <div className="col-xl-3 col-lg-3 col-md-6 col-sm-6">
+            <div>
               <div className="cl_footer-widget pb-20">
                 <h5 className="cl_footer-widget-title">Account</h5>
                 <ul>
@@ -84,7 +84,7 @@ export default function Footer() {
                 </ul>
               </div>
             </div>
-            <div className="col-xl-3 col-lg-3 col-md-6 col-sm-6">
+            <div>
               <div className="cl_footer-widget pb-20">
                 <h5 className="cl_footer-widget-title">Support</h5>
                 <div className="cl_footer-widget-address">

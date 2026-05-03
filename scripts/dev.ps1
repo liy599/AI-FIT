@@ -9,7 +9,8 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $backendDir = Join-Path $repoRoot 'backend'
 $frontendDir = Join-Path $repoRoot 'frontend'
- $backendHealthUrl = 'http://127.0.0.1:5000/api/health'
+$backendHealthUrl = 'http://127.0.0.1:5000/api/health'
+$defaultRedisUrl = 'redis://redis:6379/0'
 
 if (-not (Test-Path $backendDir)) { throw "Backend directory not found: $backendDir" }
 if (-not (Test-Path $frontendDir)) { throw "Frontend directory not found: $frontendDir" }
@@ -34,14 +35,15 @@ function Start-Db {
     # Provide safe local defaults for required interpolation vars if missing.
     if (-not $env:SECRET_KEY) { $env:SECRET_KEY = 'local-dev-secret-key-please-change-32chars' }
     if (-not $env:JWT_SECRET_KEY) { $env:JWT_SECRET_KEY = 'local-dev-jwt-secret-key-change-32chars' }
-    if (-not $env:REDIS_URL) { $env:REDIS_URL = 'redis://redis:6379/0' }
+    if (-not $env:REDIS_URL) { $env:REDIS_URL = $defaultRedisUrl }
 
-    Write-Host 'Starting PostgreSQL container (docker compose up -d db)...'
+    Write-Host 'Starting PostgreSQL and Redis containers (docker compose up -d db redis)...'
     Set-Location -LiteralPath $repoRoot
-    docker compose up -d db | Out-Host
+    docker compose up -d db redis | Out-Host
     if ($LASTEXITCODE -ne 0) {
-      throw 'Failed to start PostgreSQL container via docker compose.'
+      throw 'Failed to start PostgreSQL/Redis containers via docker compose.'
     }
+    Wait-RedisHealthy
   }
 }
 
@@ -50,6 +52,7 @@ function Start-Backend {
 
   $backendCmd = @"
 Set-Location -LiteralPath '$backendDir'
+`$env:REDIS_URL = '$defaultRedisUrl'
 if (Test-Path '.\\.venv\\Scripts\\python.exe') {
   & '.\\.venv\\Scripts\\python.exe' '.\\run.py'
 } else {
@@ -58,6 +61,26 @@ if (Test-Path '.\\.venv\\Scripts\\python.exe') {
 "@
   Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoExit', '-ExecutionPolicy', 'Bypass', '-Command', $backendCmd)
   Wait-BackendHealthy
+}
+
+function Wait-RedisHealthy {
+  $maxAttempts = 40
+  for ($i = 1; $i -le $maxAttempts; $i++) {
+    Start-Sleep -Milliseconds 500
+    try {
+      $null = docker compose exec -T redis redis-cli ping 2>$null
+      if ($LASTEXITCODE -eq 0) {
+        $pong = docker compose exec -T redis redis-cli ping
+        if ($pong -match 'PONG') {
+          Write-Host 'Redis health check passed.'
+          return
+        }
+      }
+    } catch {
+      # redis still starting
+    }
+  }
+  throw 'Redis health check failed (redis-cli ping did not return PONG).'
 }
 
 function Start-Frontend {

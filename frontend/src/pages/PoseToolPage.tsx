@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../state/auth-context'
 import {
@@ -860,9 +860,9 @@ export default function PoseToolPage() {
     <>
       <section className="cl_breadcrumb-area">
         <div className="cl_breadcrumb-wrap" data-background="/assets/images/bg/breadcrumb.png">
-          <div className="container">
-            <div className="row justify-content-center">
-              <div className="col-md-9 col-12">
+          <div className="page-container">
+            <div className="page-row-center">
+              <div className="page-col-breadcrumb">
                 <div className="cl_breadcrumb-content">
                   <h2 className="cl_breadcrumb-content-title">Pose Tool</h2>
                   <div className="cl_breadcrumb-content-list">
@@ -879,7 +879,7 @@ export default function PoseToolPage() {
       </section>
 
       <section className="pt-100 pb-100 pose-tool-page">
-        <div className="container">
+        <div className="page-container">
           <div className="pose-mode-switch mb-30">
             <button
               className={mode === 'live' ? 'cl_theme-btn' : 'pose-tool-ghost-btn pose-tool-light-btn'}
@@ -901,9 +901,9 @@ export default function PoseToolPage() {
           </div>
 
           {mode === 'live' ? (
-            <div className="row pose-live-layout pose-live-shell">
-              <div className="col-xl-3 col-lg-12">
-                <div className="cl_blog-widget mb-30 pose-live-feedback w-100 pose-live-right-card pose-live-guide-card">
+            <div className="pose-live-layout pose-live-shell pose-tool-live-grid">
+              <div className="pose-tool-live-col pose-tool-live-col-guide">
+                <div className="cl_blog-widget mb-30 pose-live-feedback h-full w-full pose-live-right-card pose-live-guide-card">
                   <div className="pose-panel-head">
                     <span className="pose-panel-kicker">Guide</span>
                     <h4 className="pose-panel-title">{exercise.displayName} Quick Guide</h4>
@@ -936,9 +936,7 @@ export default function PoseToolPage() {
                       <li>Unstable tracking can reduce assessed rep coverage.</li>
                     </ul>
                   </details>
-                </div>
 
-                <div className="cl_blog-widget mb-30 pose-live-feedback w-100 pose-live-right-card pose-live-guide-card">
                   <div className="pose-panel-head">
                     <span className="pose-panel-kicker">Tip</span>
                     <h4 className="pose-panel-title">{exercise.displayName} Teaching Video</h4>
@@ -947,35 +945,22 @@ export default function PoseToolPage() {
                   <div className="pose-tip-card pose-tip-card-light pose-live-section">
                     {teachingCopy ? (
                       <>
-                        <div
-                          style={{
-                            position: 'sticky',
-                            top: 12,
-                            zIndex: 1,
-                            borderRadius: 14,
-                            padding: '10px 12px',
-                            border: '1px solid rgba(16, 185, 129, 0.35)',
-                            background: '#ecfdf5',
-                            color: '#065f46',
-                            fontWeight: 900,
-                            lineHeight: 1.35
-                          }}
-                        >
-                          <span style={{ textTransform: 'uppercase', letterSpacing: 0.3 }}>Camera angle:</span> {teachingCopy.cameraAngle}
+                        <div className="pose-teaching-angle-box pose-teaching-angle-box-sticky">
+                          <span className="pose-teaching-angle-label">Camera angle:</span> {teachingCopy.cameraAngle}
                         </div>
-                        <details className="pose-guide-details" style={{ marginTop: 10 }}>
+                        <details className="pose-guide-details pose-guide-details-top">
                           <summary className="pose-guide-details__summary">Tips</summary>
-                          <ul className="pose-detail-list pose-detail-list-light" style={{ marginTop: 10, marginBottom: 0 }}>
+                          <ul className="pose-detail-list pose-detail-list-light pose-guide-details-list">
                             {teachingCopy.tipsLines.map((line) => (
                               <li key={line}>{line}</li>
                             ))}
                           </ul>
                         </details>
-                        <div style={{ height: 12 }} />
+                        <div className="pose-spacer-sm" />
                       </>
                     ) : null}
                     {tutorialVideoSrc ? (
-                      <div className="pose-video-preview" style={{ marginTop: 0 }}>
+                      <div className="pose-video-preview pose-video-preview-no-top">
                         <video className="pose-video-preview__media" autoPlay muted loop playsInline controls src={tutorialVideoSrc} />
                       </div>
                     ) : (
@@ -985,8 +970,8 @@ export default function PoseToolPage() {
                 </div>
               </div>
 
-              <div className="col-xl-5 col-lg-7 d-flex">
-                <div className="cl_blog-widget mb-30 pose-camera-panel h-100 w-100 pose-live-camera-card">
+              <div className="pose-tool-live-col pose-tool-live-col-camera">
+                <div className="cl_blog-widget mb-30 pose-camera-panel h-full w-full pose-live-camera-card">
                   <div className="pose-tool-head">
                     <div>
                     <h4 className="cl_blog-widget-title mb-15">{exercise.displayName} - Realtime Camera</h4>
@@ -1003,7 +988,7 @@ export default function PoseToolPage() {
                   </div>
 
                   <div className="pose-tip-card pose-tip-card-light pose-live-session-card">
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                    <div className="pose-session-status-head">
                       <strong>
                         {liveSessionStatus === 'running'
                           ? 'Started: Live coaching is in progress'
@@ -1011,34 +996,20 @@ export default function PoseToolPage() {
                             ? 'Terminated: Live coaching has ended'
                             : 'Ready: Click Start to begin live coaching'}
                       </strong>
-                      <span
-                        style={{
-                          borderRadius: 9999,
-                          padding: '4px 10px',
-                          fontSize: 12,
-                          fontWeight: 600,
-                          background: liveSessionStatus === 'running' ? '#dcfce7' : liveSessionStatus === 'ended' ? '#fee2e2' : '#e2e8f0',
-                          color: liveSessionStatus === 'running' ? '#166534' : liveSessionStatus === 'ended' ? '#991b1b' : '#334155'
-                        }}
-                      >
+                      <span className={`pose-session-status-pill pose-session-status-pill-${liveSessionStatus}`}>
                         {liveSessionStatus === 'running' ? 'STARTED' : liveSessionStatus === 'ended' ? 'TERMINATED' : 'IDLE'}
                       </span>
                     </div>
-                    <div style={{ marginTop: 10, height: 8, borderRadius: 9999, background: '#e2e8f0', overflow: 'hidden' }}>
-                      <div
-                        style={{
-                          width: `${Math.min(100, (liveSessionElapsedMs / liveSessionLimitMs) * 100)}%`,
-                          height: '100%',
-                          background: liveSessionStatus === 'ended' ? '#ef4444' : '#10b981',
-                          transition: 'width 0.2s linear'
-                        }}
-                      />
-                    </div>
-                    <div style={{ marginTop: 8, display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#64748b' }}>
+                    <progress
+                      className={`pose-session-progress ${liveSessionStatus === 'ended' ? 'is-ended' : ''}`}
+                      max={100}
+                      value={Math.min(100, (liveSessionElapsedMs / liveSessionLimitMs) * 100)}
+                    />
+                    <div className="pose-session-progress-meta">
                       <span>Time Progress</span>
                       <span>{formatDuration(liveSessionElapsedMs)} / 02:00</span>
                     </div>
-                    <div className="pose-live-metrics-line" style={{ marginTop: 10, display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 13, color: '#475569' }}>
+                    <div className="pose-live-metrics-line pose-live-metrics-line-top">
                       <span title="AI model used for real-time pose estimation.">AI Model: MoveNet</span>
                       <span title="Frames processed per second. Higher means smoother feedback.">Speed (FPS): {effectiveFps ?? '-'}</span>
                       <span title="Current pose keypoint detection stability.">Detection Status: {tracking?.status ?? '-'}</span>
@@ -1090,9 +1061,9 @@ export default function PoseToolPage() {
                 </div>
               </div>
 
-              <div className="col-xl-4 col-lg-5 d-flex">
+              <div className="pose-tool-live-col pose-tool-live-col-feedback">
                 {liveSessionStatus === 'ended' && liveSessionSummary ? (
-                  <div className="cl_blog-widget mb-30 pose-live-feedback h-100 w-100 pose-live-right-card">
+                  <div className="cl_blog-widget mb-30 pose-live-feedback h-full w-full pose-live-right-card">
                     <div className="pose-panel-head">
                       <span className="pose-panel-kicker">Session Closed</span>
                       <h4 className="pose-panel-title">Training Summary</h4>
@@ -1146,7 +1117,7 @@ export default function PoseToolPage() {
                     {saveTrainingMsg ? <div className="pose-inline-note">{saveTrainingMsg}</div> : null}
                   </div>
                 ) : (
-                  <div className="cl_blog-widget mb-30 pose-live-feedback h-100 w-100 pose-live-right-card">
+                  <div className="cl_blog-widget mb-30 pose-live-feedback h-full w-full pose-live-right-card">
                     <div className="pose-panel-head">
                       <span className="pose-panel-kicker">In Session</span>
                       <h4 className="pose-panel-title">Live Feedback</h4>
@@ -1164,7 +1135,7 @@ export default function PoseToolPage() {
 
                     <div className="pose-tip-card pose-tip-card-light pose-live-section pose-live-section-split">
                       <div className="pose-live-tip-head">
-                        <h6 className="sub-title mb-15 pose-section-title" style={{ marginBottom: 0 }}>
+                        <h6 className="sub-title mb-15 pose-section-title pose-section-title-compact">
                           Coaching Tip
                         </h6>
                         <span className={`pose-tier-pill pose-tier-${displayMainTip.tier}`}>{poseTierLabel(displayMainTip.tier)}</span>
@@ -1197,9 +1168,9 @@ export default function PoseToolPage() {
               </div>
             </div>
           ) : (
-            <div className="row pose-video-layout">
-              <div className="col-xl-8 col-lg-7 d-flex">
-                <div className="cl_blog-widget mb-30 h-100 w-100 pose-video-analysis-card">
+            <div className="pose-video-layout pose-tool-video-grid">
+              <div className="pose-tool-video-col pose-tool-video-col-main">
+                <div className="cl_blog-widget mb-30 h-full w-full pose-video-analysis-card">
                   <div className="pose-tool-head">
                     <div>
                       <h4 className="cl_blog-widget-title mb-15">{exercise.displayName} - Video Analysis</h4>
@@ -1217,7 +1188,7 @@ export default function PoseToolPage() {
                   <div className="pose-form-grid pose-form-grid-single">
                     <label className="pose-form-field">
                       <span>Inference Mode</span>
-                      <div className="pose-file-picker" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <div className="pose-file-picker pose-file-picker-row">
                         <button
                           type="button"
                           className={offlineProcessingMode === 'local' ? 'cl_theme-btn' : 'pose-tool-ghost-btn pose-tool-light-btn'}
@@ -1238,8 +1209,8 @@ export default function PoseToolPage() {
                         </button>
                       </div>
                       {offlineProcessingMode === 'server' ? (
-                        <div className="pose-inline-note" style={{ marginTop: 8 }}>
-                          <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+                        <div className="pose-inline-note pose-inline-note-top">
+                          <label className="pose-inline-check">
                             <input
                               type="checkbox"
                               checked={offlineServerConsent}
@@ -1249,7 +1220,7 @@ export default function PoseToolPage() {
                           </label>
                         </div>
                       ) : (
-                        <div className="pose-inline-note" style={{ marginTop: 8 }}>
+                        <div className="pose-inline-note pose-inline-note-top">
                           Local mode keeps video processing on this device.
                         </div>
                       )}
@@ -1364,7 +1335,7 @@ export default function PoseToolPage() {
                 </div>
               </div>
 
-              <div className="col-xl-4 col-lg-5 d-flex">
+              <div className="pose-tool-video-col pose-tool-video-col-teaching">
                 <PoseOfflineTeachingPanel
                   exerciseDisplayName={exercise.displayName}
                   teachingCopy={teachingCopy}
@@ -1372,7 +1343,7 @@ export default function PoseToolPage() {
                 />
               </div>
 
-              <div className="col-12">
+              <div className="pose-tool-video-col pose-tool-video-col-report">
                 <PoseOfflineReportPanel
                   taskStatusToneClass={taskStatusToneClass}
                   taskStatusText={taskStatusText}
@@ -1390,6 +1361,7 @@ export default function PoseToolPage() {
     </>
   )
 }
+
 
 
 

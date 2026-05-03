@@ -1,0 +1,106 @@
+html,
+body {
+  height: 100%;
+}
+
+html {
+  box-sizing: border-box;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: inherit;
+}
+
+.progress-wrap {
+  position: fixed;
+  right: 45px;
+  bottom: 45px;
+  height: 55px;
+  width: 55px;
+  cursor: pointer;
+  display: block;
+  border-radius: 50px;
+  box-shadow: inset 0 0 0 2px rgba(95, 58, 252, 0.2);
+  z-index: 99;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(15px);
+  transition: all 200ms linear;
+  background: #35cc95;
+}
+
+@media only screen and (max-width: 768px) {
+  .progress-wrap {
+    right: 30px;
+    bottom: 30px;
+    width: 45px;
+    height: 45px;
+  }
+}
+
+@media only screen and (max-width: 481px) {
+  .progress-wrap {
+    right: 20px;
+    bottom: 20px;
+  }
+}
+
+.progress-wrap.active-progress {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.progress-wrap::after {
+  position: absolute;
+  content: url('/assets/images/bg/top-arrow.png');
+  text-align: center;
+  line-height: 55px;
+  font-size: 15px;
+  color: #fff;
+  left: 0;
+  top: 0;
+  height: 55px;
+  width: 55px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  transition: all 200ms linear;
+}
+
+@media only screen and (max-width: 768px) {
+  .progress-wrap::after {
+    width: 45px;
+    height: 45px;
+    line-height: 45px;
+  }
+}
+
+.progress-wrap svg path {
+  fill: none;
+}
+
+.progress-wrap svg.progress-circle path {
+  stroke: #fff;
+  stroke-width: 4;
+  box-sizing: border-box;
+  transition: all 200ms linear;
+}
+
+.line-clamp-1 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+
+.line-clamp-2 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+﻿import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   deleteMeal,
@@ -26,26 +26,22 @@ type RecognitionSummary = {
   unmatchedNames: string[]
 }
 
-const mealTitles: Record<FoodMealType, { title: string; note: string; accent: string }> = {
+const mealTitles: Record<FoodMealType, { title: string; note: string }> = {
   breakfast: {
     title: 'Breakfast',
-    note: 'Start with a clean first meal and keep the morning intake visible.',
-    accent: 'linear-gradient(135deg, #f59e0b 0%, #f97316 100%)'
+    note: 'Start with a clean first meal and keep the morning intake visible.'
   },
   lunch: {
     title: 'Lunch',
-    note: 'Build the midday meal with fast selection, image recognition, and formal save.',
-    accent: 'linear-gradient(135deg, #10b981 0%, #0f766e 100%)'
+    note: 'Build the midday meal with fast selection, image recognition, and formal save.'
   },
   dinner: {
     title: 'Dinner',
-    note: 'Review evening intake with a structured draft before saving into today.',
-    accent: 'linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%)'
+    note: 'Review evening intake with a structured draft before saving into today.'
   },
   snack: {
     title: 'Snack',
-    note: 'Track add-on foods separately so the main meals stay clean.',
-    accent: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)'
+    note: 'Track add-on foods separately so the main meals stay clean.'
   }
 }
 
@@ -87,20 +83,20 @@ function formatMacro(value: number, unit: string) {
 
 function emojiForFoodCategory(category: string) {
   const value = category.trim().toLowerCase()
-  if (!value) return '🏷️'
-  if (value.includes('western') || value.includes('西方')) return '🍞'
-  if (value.includes('eastern') || value.includes('东方') || value.includes('chinese') || value.includes('中式')) return '🥟'
-  if (value.includes('fruit') || value.includes('水果')) return '🍎'
-  if (value.includes('veget') || value.includes('蔬')) return '🥬'
-  if (value.includes('meat') || value.includes('肉')) return '🥩'
-  if (value.includes('fish') || value.includes('sea') || value.includes('海鲜')) return '🐟'
-  if (value.includes('egg') || value.includes('蛋')) return '🥚'
-  if (value.includes('milk') || value.includes('dairy') || value.includes('奶')) return '🥛'
-  if (value.includes('grain') || value.includes('rice') || value.includes('bread') || value.includes('谷') || value.includes('米') || value.includes('面')) return '🍚'
-  if (value.includes('snack') || value.includes('零食')) return '🍪'
-  if (value.includes('drink') || value.includes('beverage') || value.includes('饮')) return '🥤'
-  if (value.includes('nut') || value.includes('坚果')) return '🥜'
-  return '🍽️'
+  if (!value) return '🍽️'
+  if (value.includes('western')) return '🍔'
+  if (value.includes('eastern') || value.includes('chinese')) return '🥟'
+  if (value.includes('fruit')) return '🍎'
+  if (value.includes('veget')) return '🥬'
+  if (value.includes('meat')) return '🥩'
+  if (value.includes('fish') || value.includes('sea')) return '🐟'
+  if (value.includes('egg')) return '🥚'
+  if (value.includes('milk') || value.includes('dairy')) return '🥛'
+  if (value.includes('grain') || value.includes('rice') || value.includes('bread')) return '🍚'
+  if (value.includes('snack')) return '🍪'
+  if (value.includes('drink') || value.includes('beverage')) return '🥤'
+  if (value.includes('nut')) return '🥜'
+  return '🥗'
 }
 
 function isAuthErrorMessage(message: string | null) {
@@ -136,6 +132,7 @@ export default function FoodMealPage() {
   const routeMealType = isMealType(params.mealType) ? params.mealType : null
   const mealType = routeMealType ?? 'lunch'
   const meal = mealTitles[mealType]
+  const mealHeroClass = `food-meal-hero food-meal-hero--${mealType}`
 
   const [foods, setFoods] = useState<FoodItem[]>([])
   const [foodCategories, setFoodCategories] = useState<string[]>([])
@@ -481,9 +478,9 @@ export default function FoodMealPage() {
       <>
         <section className="cl_breadcrumb-area">
           <div className="cl_breadcrumb-wrap" data-background="/assets/images/bg/breadcrumb.png">
-            <div className="container">
-              <div className="row justify-content-center">
-                <div className="col-md-9 col-12">
+            <div className="page-container">
+              <div className="page-row-center">
+                <div className="page-col-breadcrumb">
                   <div className="cl_breadcrumb-content">
                     <h2 className="cl_breadcrumb-content-title">Invalid Meal Slot</h2>
                     <div className="cl_breadcrumb-content-list">
@@ -499,16 +496,16 @@ export default function FoodMealPage() {
           </div>
         </section>
 
-        <section className="pt-100 pb-100">
-          <div className="container">
-            <div className="row justify-content-center">
-              <div className="col-xl-8 col-lg-9">
+        <section className="food-meal-section">
+          <div className="page-container">
+            <div className="page-row-center">
+              <div className="page-col-food-editor">
                 <div className="cl_blog-widget">
-                  <h4 className="cl_blog-widget-title mb-20">Route Not Supported</h4>
-                  <p style={{ color: '#64748b', marginBottom: 18 }}>
+                  <h4 className="cl_blog-widget-title section-title-compact">Route Not Supported</h4>
+                  <p className="section-muted-note">
                     This meal route is not part of the formal food flow. Use breakfast, lunch, dinner, or snack.
                   </p>
-                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                  <div className="section-actions-row">
                     <Link to="/food" className="cl_theme-btn">
                       Back to Food
                     </Link>
@@ -529,9 +526,9 @@ export default function FoodMealPage() {
     <>
       <section className="cl_breadcrumb-area">
         <div className="cl_breadcrumb-wrap" data-background="/assets/images/bg/breadcrumb.png">
-          <div className="container">
-            <div className="row justify-content-center">
-              <div className="col-md-9 col-12">
+          <div className="page-container">
+            <div className="page-row-center">
+              <div className="page-col-breadcrumb">
                 <div className="cl_breadcrumb-content">
                   <h2 className="cl_breadcrumb-content-title">{meal.title}</h2>
                   <div className="cl_breadcrumb-content-list">
@@ -547,14 +544,14 @@ export default function FoodMealPage() {
         </div>
       </section>
 
-      <section className="pt-100 pb-100">
-        <div className="container">
+      <section className="food-meal-section">
+        <div className="page-container">
           {!auth.user ? (
-            <div className="row justify-content-center">
-              <div className="col-xl-8 col-lg-9">
+            <div className="page-row-center">
+              <div className="page-col-food-editor">
                 <div className="cl_blog-widget">
-                  <h4 className="cl_blog-widget-title mb-20">{meal.title} Editor</h4>
-                  <p style={{ color: '#64748b', marginBottom: 18 }}>
+                  <h4 className="cl_blog-widget-title section-title-compact">{meal.title} Editor</h4>
+                  <p className="section-muted-note">
                     Meal records are now bound to the formal AI-FIT account. Login first to continue.
                   </p>
                   <Link to="/login" className="cl_theme-btn">
@@ -564,82 +561,53 @@ export default function FoodMealPage() {
               </div>
             </div>
           ) : (
-            <div className="row">
-              <div className="col-xl-8 col-lg-7">
-                <div
-                  className="cl_blog-widget mb-30"
-                  style={{
-                    background: meal.accent,
-                    color: '#fff',
-                    border: 'none',
-                    overflow: 'hidden'
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap' }}>
-                    <div style={{ maxWidth: 620 }}>
-                      <div style={{ fontSize: 13, letterSpacing: '0.08em', textTransform: 'uppercase', opacity: 0.78 }}>
+            <div className="food-meal-main-grid">
+              <div className="food-meal-main-primary">
+                <div className={`cl_blog-widget section-widget ${mealHeroClass}`}>
+                  <div className="food-meal-hero-row">
+                    <div className="food-meal-hero-content">
+                      <div className="food-meal-hero-kicker">
                         Formal Meal Editor
                       </div>
-                      <h3 style={{ fontSize: 34, lineHeight: 1.15, marginTop: 10, marginBottom: 12, fontWeight: 900 }}>
+                      <h3 className="food-meal-hero-title">
                         {meal.title}
                       </h3>
-                      <p style={{ marginBottom: 0, color: 'rgba(255,255,255,0.86)' }}>{meal.note}</p>
+                      <p className="food-meal-hero-note">{meal.note}</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="cl_blog-widget mb-30">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+                <div className="cl_blog-widget section-widget">
+                  <div className="food-meal-head-row">
                     <div>
-                      <h4 className="cl_blog-widget-title mb-15">Select Foods</h4>
-                      <p style={{ color: '#64748b', marginBottom: 0 }}>
+                      <h4 className="cl_blog-widget-title section-title-tight">Select Foods</h4>
+                      <p className="food-meal-subnote">
                         Search the formal food library, filter by category, or add foods from image recognition.
                       </p>
                     </div>
                   </div>
 
-                  <div style={{ display: 'grid', gap: 14, marginTop: 22 }}>
+                  <div className="food-meal-editor-stack">
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
                       disabled={recognizing}
-                      style={{
-                        width: '100%',
-                        borderRadius: 22,
-                        border: '1.5px dashed rgba(15, 118, 110, 0.35)',
-                        background: recognizing ? '#f0fdfa' : 'linear-gradient(180deg, #f8fffd 0%, #ecfdf5 100%)',
-                        padding: '26px 24px',
-                        textAlign: 'left',
-                        display: 'grid',
-                        gap: 10
-                      }}
+                      className={`food-meal-upload-trigger${recognizing ? ' is-recognizing' : ''}`}
                     >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <div className="food-meal-upload-trigger-head">
                         <div>
-                          <div style={{ fontSize: 18, fontWeight: 700, color: '#0f172a' }}>
+                          <div className="food-meal-upload-title">
                             {recognizing ? 'Recognizing image...' : 'Upload an image to recognize foods'}
                           </div>
-                          <div style={{ fontSize: 14, color: '#64748b', marginTop: 6 }}>
+                          <div className="food-meal-upload-note">
                             Click to choose a photo. We will identify foods and add matched items into the current meal draft.
                           </div>
                         </div>
-                        <div
-                          style={{
-                            minHeight: 42,
-                            padding: '0 18px',
-                            borderRadius: 999,
-                            background: '#10b981',
-                            color: '#fff',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontWeight: 700
-                          }}
-                        >
+                        <div className="food-meal-upload-cta">
                           {recognizing ? 'Recognizing...' : 'Choose Image'}
                         </div>
                       </div>
-                      <div style={{ fontSize: 13, color: '#0f766e' }}>
+                      <div className="food-meal-upload-hint">
                         JPG, PNG, or other common image formats are supported.
                       </div>
                     </button>
@@ -647,7 +615,7 @@ export default function FoodMealPage() {
                       ref={fileInputRef}
                       type="file"
                       accept="image/*"
-                      style={{ display: 'none' }}
+                      className="food-hidden-file-input"
                       onChange={(event) => {
                         const file = event.target.files?.[0]
                         event.target.value = ''
@@ -657,12 +625,12 @@ export default function FoodMealPage() {
 
                     {recognitionSummary ? (
                       <div className="food-meal-recognition-card">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                        <div className="food-meal-recognition-head">
                           <div>
-                            <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>Latest Recognition</div>
-                            <div style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>{recognitionSummary.fileName}</div>
+                            <div className="food-meal-recognition-title">Latest Recognition</div>
+                            <div className="food-meal-recognition-file">{recognitionSummary.fileName}</div>
                           </div>
-                          <div style={{ fontSize: 13, color: '#475569' }}>
+                          <div className="food-meal-recognition-stat">
                             {recognitionSummary.matchedNames.length} matched / {recognitionSummary.unmatchedNames.length} unmatched
                           </div>
                         </div>
@@ -675,8 +643,8 @@ export default function FoodMealPage() {
 
                         {recognitionSummary.recognizedNames.length > 0 ? (
                           <div>
-                            <div style={{ fontSize: 12, color: '#64748b', marginBottom: 8 }}>Recognized labels</div>
-                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <div className="food-meal-label-title">Recognized labels</div>
+                            <div className="food-chip-row">
                               {recognitionSummary.recognizedNames.map((name) => (
                                 <span key={`recognized-${name}`} className="food-chip food-chip--neutral">
                                   {name}
@@ -688,8 +656,8 @@ export default function FoodMealPage() {
 
                         {recognitionSummary.matchedNames.length > 0 ? (
                           <div>
-                            <div style={{ fontSize: 12, color: '#64748b', marginBottom: 8 }}>Added to meal draft</div>
-                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <div className="food-meal-label-title">Added to meal draft</div>
+                            <div className="food-chip-row">
                               {recognitionSummary.matchedNames.map((name) => (
                                 <span key={`matched-${name}`} className="food-chip food-chip--success">
                                   {name}
@@ -701,8 +669,8 @@ export default function FoodMealPage() {
 
                         {recognitionSummary.unmatchedNames.length > 0 ? (
                           <div>
-                            <div style={{ fontSize: 12, color: '#64748b', marginBottom: 8 }}>Needs manual selection</div>
-                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <div className="food-meal-label-title">Needs manual selection</div>
+                            <div className="food-chip-row">
                               {recognitionSummary.unmatchedNames.map((name) => (
                                 <button
                                   key={`unmatched-${name}`}
@@ -735,16 +703,10 @@ export default function FoodMealPage() {
                         event.preventDefault()
                         toggleFood(first)
                       }}
-                      style={{
-                        width: '100%',
-                        minHeight: 52,
-                        borderRadius: 16,
-                        border: '1px solid rgba(148, 163, 184, 0.28)',
-                        padding: '0 16px'
-                      }}
+                      className="food-meal-search-input"
                     />
 
-                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    <div className="food-meal-category-row">
                       {categories.map((category) => {
                         const active = selectedCategory === category
                         const emoji = category === 'all' ? '' : `${emojiForFoodCategory(category)} `
@@ -753,16 +715,7 @@ export default function FoodMealPage() {
                             key={category}
                             type="button"
                             onClick={() => setSelectedCategory(category)}
-                            style={{
-                              border: active ? '1px solid #0f766e' : '1px solid rgba(148, 163, 184, 0.24)',
-                              background: active ? '#ecfeff' : '#fff',
-                              color: active ? '#0f766e' : '#475569',
-                              minHeight: 44,
-                              padding: '0 14px',
-                              borderRadius: 999,
-                              fontSize: 14,
-                              fontWeight: 700
-                            }}
+                            className={`food-meal-category-btn${active ? ' is-active' : ''}`}
                           >
                             {category === 'all' ? 'All Categories' : `${emoji}${category}`}
                           </button>
@@ -779,15 +732,9 @@ export default function FoodMealPage() {
                     {error ? (
                       <div className="food-notice food-notice--error">{error}</div>
                     ) : null}
-                    {loading ? <div style={{ color: '#64748b' }}>Loading foods...</div> : null}
+                    {loading ? <div className="food-meal-muted">Loading foods...</div> : null}
 
-                    <div
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                        gap: 14
-                      }}
-                    >
+                    <div className="food-meal-food-grid">
                       {foods.map((food) => {
                         const selected = Boolean(cart[food.id])
                         const categoryEmoji = emojiForFoodCategory(food.category)
@@ -803,36 +750,18 @@ export default function FoodMealPage() {
                             }}
                             role="button"
                             tabIndex={0}
-                            style={{
-                              border: selected ? '1px solid #0f766e' : '1px solid rgba(148, 163, 184, 0.24)',
-                              background: selected ? '#f0fdfa' : '#fff',
-                              borderRadius: 18,
-                              padding: 18,
-                              textAlign: 'left',
-                              display: 'grid',
-                              gap: 10,
-                              boxShadow: selected ? '0 12px 24px rgba(15, 118, 110, 0.08)' : 'none'
-                            }}
+                            className={`food-meal-food-card${selected ? ' is-selected' : ''}`}
                           >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start' }}>
+                            <div className="food-meal-food-head">
                               <div>
-                                <div style={{ fontSize: 20, fontWeight: 800, color: '#0f172a' }}>{food.displayName}</div>
+                                <div className="food-meal-food-name">{food.displayName}</div>
                               </div>
-                              <div
-                                style={{
-                                  minWidth: 72,
-                                  textAlign: 'right',
-                                  color: selected ? '#0f766e' : '#94a3b8',
-                                  fontSize: 13,
-                                  fontWeight: 800,
-                                  letterSpacing: '0.06em'
-                                }}
-                              >
+                              <div className={`food-meal-food-state${selected ? ' is-selected' : ''}`}>
                                 {selected ? 'SELECTED' : 'ADD'}
                               </div>
                             </div>
 
-                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <div className="food-chip-row">
                               <span className="food-chip food-chip--neutral">
                                 {categoryEmoji} {food.category}
                               </span>
@@ -842,13 +771,13 @@ export default function FoodMealPage() {
                         )
                       })}
                       {!loading && foods.length === 0 ? (
-                        <div style={{ color: '#64748b' }}>
+                        <div className="food-meal-muted">
                           The formal food library is currently empty. Check backend seed data and `/api/foods`.
                         </div>
                       ) : null}
                     </div>
 
-                    {foodsLoadingPage ? <div style={{ color: '#64748b', marginTop: 14 }}>Loading...</div> : null}
+                    {foodsLoadingPage ? <div className="food-meal-muted food-meal-muted-top">Loading...</div> : null}
                     {foodsTotalPages > 1 ? (
                       <div className="food-meal-pagination">
                         <button
@@ -878,8 +807,8 @@ export default function FoodMealPage() {
                         >
                           Next
                         </button>
-                        <div style={{ color: '#64748b', fontSize: 13 }}>
-                          Page {foodsPage} / {foodsTotalPages} · {foodsTotal} foods
+                        <div className="food-meal-page-meta">
+                          Page {foodsPage} / {foodsTotalPages} / {foodsTotal} foods
                         </div>
                       </div>
                     ) : null}
@@ -887,15 +816,15 @@ export default function FoodMealPage() {
                 </div>
               </div>
 
-              <div className="col-xl-4 col-lg-5">
+              <div className="food-meal-main-aside">
                 <div className="cl_blog-widget food-meal-draft-sticky">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
-                    <h4 className="cl_blog-widget-title mb-0">Meal Draft</h4>
+                  <div className="food-meal-draft-head">
+                    <h4 className="cl_blog-widget-title section-title-none">Meal Draft</h4>
                     {selectedCount > 0 ? (
                       <button
                         type="button"
                         onClick={clearDraft}
-                        style={{ border: 'none', background: 'transparent', color: '#b91c1c', fontWeight: 700 }}
+                        className="food-meal-clear-btn"
                       >
                         Clear
                       </button>
@@ -903,37 +832,29 @@ export default function FoodMealPage() {
                   </div>
 
                   {selectedCount === 0 ? (
-                    <div style={{ color: '#64748b', marginTop: 18 }}>
+                    <div className="food-meal-muted food-meal-muted-top">
                       No food selected yet. Pick from the library or use image recognition to build the meal draft.
                     </div>
                   ) : (
-                    <div style={{ display: 'grid', gap: 12, marginTop: 18 }}>
+                    <div className="food-meal-draft-list">
                       {selectedItems.map((item) => (
-                        <div
-                          key={item.food.id}
-                          style={{
-                            border: '1px solid rgba(148, 163, 184, 0.18)',
-                            borderRadius: 18,
-                            padding: 16,
-                            background: '#fff'
-                          }}
-                        >
-                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                        <div key={item.food.id} className="food-meal-draft-card">
+                          <div className="food-meal-draft-card-head">
                             <div>
-                              <div style={{ fontWeight: 700, color: '#0f172a' }}>{item.food.displayName}</div>
-                              <div style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>
+                              <div className="food-meal-draft-name">{item.food.displayName}</div>
+                              <div className="food-meal-draft-kcal">
                                 {Math.round((item.food.calories * item.grams) / 100)} kcal current serving
                               </div>
                             </div>
                             <button
                               type="button"
                               onClick={() => removeFood(item.food.id)}
-                              style={{ color: '#b91c1c', background: 'transparent', border: 'none', fontWeight: 700 }}
+                              className="food-meal-remove-btn"
                             >
                               Remove
                             </button>
                           </div>
-                          <div style={{ marginTop: 14, display: 'grid', gap: 10 }}>
+                          <div className="food-meal-draft-controls">
                             <input
                               type="number"
                               min={1}
@@ -945,30 +866,15 @@ export default function FoodMealPage() {
                               ref={(el) => {
                                 gramsInputRefs.current[item.food.id] = el
                               }}
-                              style={{
-                                width: '100%',
-                                minHeight: 46,
-                                borderRadius: 14,
-                                border: '1px solid rgba(148, 163, 184, 0.28)',
-                                padding: '0 12px'
-                              }}
+                              className="food-meal-grams-input"
                             />
-                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <div className="food-chip-row">
                               {quickGramSteps.map((grams) => (
                                 <button
                                   key={grams}
                                   type="button"
                                   onClick={() => updateGrams(item.food.id, grams)}
-                                  style={{
-                                    minHeight: 34,
-                                    padding: '0 12px',
-                                    borderRadius: 999,
-                                    border: item.grams === grams ? '1px solid #0f766e' : '1px solid rgba(148, 163, 184, 0.22)',
-                                    background: item.grams === grams ? '#ecfeff' : '#fff',
-                                    color: item.grams === grams ? '#0f766e' : '#475569',
-                                    fontSize: 12,
-                                    fontWeight: 700
-                                  }}
+                                  className={`food-meal-gram-btn${item.grams === grams ? ' is-active' : ''}`}
                                 >
                                   {grams}g
                                 </button>
@@ -976,16 +882,7 @@ export default function FoodMealPage() {
                               <button
                                 type="button"
                                 onClick={() => updateGrams(item.food.id, item.grams + 25)}
-                                style={{
-                                  minHeight: 34,
-                                  padding: '0 12px',
-                                  borderRadius: 999,
-                                  border: '1px solid rgba(148, 163, 184, 0.22)',
-                                  background: '#fff',
-                                  color: '#475569',
-                                  fontSize: 12,
-                                  fontWeight: 700
-                                }}
+                                className="food-meal-gram-btn"
                               >
                                 +25g
                               </button>
@@ -996,14 +893,14 @@ export default function FoodMealPage() {
                     </div>
                   )}
 
-                  <div style={{ marginTop: 18, paddingTop: 18, borderTop: '1px solid rgba(148, 163, 184, 0.2)' }}>
+                  <div className="food-meal-summary">
                     {authError ? (
                       <div className="food-notice food-notice--warn">
-                        <div style={{ fontWeight: 800 }}>Login expired</div>
-                        <div style={{ marginTop: 6 }}>
+                        <div className="food-meal-notice-title">Login expired</div>
+                        <div className="food-meal-notice-text">
                           Your session is no longer valid for meal records. Re-login before saving or loading this meal.
                         </div>
-                        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 12 }}>
+                        <div className="section-actions-row section-actions-row-tight">
                           <Link to="/login" className="cl_theme-btn">
                             Go Login
                           </Link>
@@ -1015,16 +912,16 @@ export default function FoodMealPage() {
                     ) : null}
                     {successHint ? (
                       <div className="food-notice food-notice--success">
-                        <div style={{ fontWeight: 800 }}>Saved</div>
-                        <div style={{ marginTop: 6 }}>{successHint}</div>
+                        <div className="food-meal-notice-title">Saved</div>
+                        <div className="food-meal-notice-text">{successHint}</div>
                       </div>
                     ) : null}
                     {error && !authError ? (
                       <div className="food-notice food-notice--error">
-                        <div style={{ fontWeight: 800 }}>Action failed</div>
-                        <div style={{ marginTop: 6 }}>{error}</div>
+                        <div className="food-meal-notice-title">Action failed</div>
+                        <div className="food-meal-notice-text">{error}</div>
                         {lastErrorAction === 'save' ? (
-                          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 12 }}>
+                          <div className="section-actions-row section-actions-row-tight">
                             <button
                               type="button"
                               className="cl_theme-btn"
@@ -1076,7 +973,7 @@ export default function FoodMealPage() {
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 18 }}>
+                    <div className="section-actions-row section-actions-row-top">
                       <button
                         type="button"
                         className="cl_theme-btn"
@@ -1109,3 +1006,10 @@ export default function FoodMealPage() {
     </>
   )
 }
+
+
+
+
+
+
+

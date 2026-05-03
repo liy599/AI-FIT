@@ -39,9 +39,9 @@ export default function ResetPasswordPage() {
     <>
       <section className="cl_breadcrumb-area">
         <div className="cl_breadcrumb-wrap" data-background="/assets/images/bg/breadcrumb.png">
-          <div className="container">
-            <div className="row justify-content-center">
-              <div className="col-md-9 col-12">
+          <div className="page-container">
+            <div className="page-row-center">
+              <div className="page-col-breadcrumb">
                 <div className="cl_breadcrumb-content">
                   <h2 className="cl_breadcrumb-content-title">Reset Password</h2>
                   <div className="cl_breadcrumb-content-list">
@@ -56,9 +56,9 @@ export default function ResetPasswordPage() {
       </section>
 
       <section className="pt-100 pb-100">
-        <div className="container">
-          <div className="row justify-content-center">
-            <div className="col-xl-6 col-lg-8">
+        <div className="page-container">
+          <div className="page-row-center">
+            <div className="page-col-auth">
               <div className="cl_blog_details-reply">
                 <h3 className="cl_blog_details-reply-title">Set a new password</h3>
                 <form
@@ -69,8 +69,8 @@ export default function ResetPasswordPage() {
                     submit().catch(() => {})
                   }}
                 >
-                  <div className="row">
-                    <div className="col-12">
+                  <div className="auth-form-grid">
+                    <div>
                       <div className="cl_blog_details-reply-item">
                         <label htmlFor="newPassword">
                           New password<span>*</span>
@@ -85,25 +85,25 @@ export default function ResetPasswordPage() {
                       </div>
                     </div>
                     {error ? (
-                      <div className="col-12">
+                      <div>
                         <div className="cl_blog-widget cl_auth-alert cl_auth-alert--error mb-30">{error}</div>
                       </div>
                     ) : null}
                     {ok ? (
-                      <div className="col-12">
+                      <div>
                         <div className="cl_blog-widget cl_auth-alert cl_auth-alert--notice mb-30">
                           Password updated. Redirecting to login…
                         </div>
                       </div>
                     ) : null}
-                    <div className="col-12">
+                    <div>
                       <div className="cl_blog_details-reply-item">
                         <button type="submit">
                           Confirm
                         </button>
                       </div>
                     </div>
-                    <div className="col-12">
+                    <div>
                       <div className="cl_blog-widget cl_auth-switch">
                         <Link to="/login">Back to login</Link>
                       </div>

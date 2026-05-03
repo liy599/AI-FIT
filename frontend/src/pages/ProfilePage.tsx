@@ -400,21 +400,21 @@ export default function ProfilePage() {
 
   return (
     <div className="mx-auto w-full min-h-[calc(100vh-120px)] max-w-5xl space-y-6 px-4 pt-6 pb-32 text-slate-900 sm:px-6 lg:px-8">
-      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+      <div className="profile-panel">
         <div className="flex items-center justify-between">
           <div>
             <div className="text-lg font-semibold">Account</div>
             <div className="text-sm text-slate-600">{auth.user?.email}</div>
           </div>
           <div className="flex items-center gap-2">
-            <Link to="/profile/privacy" className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+            <Link to="/profile/privacy" className="profile-btn-secondary">
               Privacy
             </Link>
-            <Link to="/admin/data-lifecycle" className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+            <Link to="/admin/data-lifecycle" className="profile-btn-secondary">
               Admin Cleanup
             </Link>
             <button
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              className="profile-btn-secondary"
               onClick={() => {
                 loadProfile().catch(() => {})
                 loadWorkouts().catch(() => {})
@@ -461,13 +461,13 @@ export default function ProfilePage() {
       </div>
 
       {tab === 'Profile' ? (
-        <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+        <div className="profile-panel">
           <div className="text-sm font-semibold">Profile</div>
           {!profile || !edit ? (
-            <div className="mt-3 text-sm text-slate-600">Loading…</div>
+            <div className="mt-3 text-sm text-slate-600">Loading...</div>
           ) : isEditing ? (
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <div className="sm:col-span-2 flex items-center justify-between gap-4">
+            <div className="mt-4 profile-edit-grid">
+              <div className="profile-edit-header-row">
                 <div className="flex items-center gap-4">
                   <div className="h-16 w-16 overflow-hidden rounded-full border border-slate-200 bg-slate-50">
                     {profile.avatar_url ? (
@@ -483,11 +483,11 @@ export default function ProfilePage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                    className="profile-btn-secondary disabled:opacity-50"
                     disabled={avatarUploading}
                     onClick={() => fileInputRef.current?.click()}
                   >
-                    {avatarUploading ? 'Uploading…' : 'Change avatar'}
+                    {avatarUploading ? 'Uploading...' : 'Change avatar'}
                   </button>
                   <input
                     ref={fileInputRef}
@@ -505,7 +505,7 @@ export default function ProfilePage() {
               </div>
 
               <input
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/10"
+                className="profile-input"
                 placeholder="Username"
                 value={edit.username}
                 onChange={(e) => setEdit({ ...edit, username: e.target.value })}
@@ -521,13 +521,13 @@ export default function ProfilePage() {
                 <option value="Other">Other</option>
               </select>
               <input
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/10"
+                className="profile-input"
                 placeholder="Height (cm)"
                 value={edit.height}
                 onChange={(e) => setEdit({ ...edit, height: e.target.value })}
               />
               <input
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/10"
+                className="profile-input"
                 placeholder="Weight (kg)"
                 value={edit.weight}
                 onChange={(e) => setEdit({ ...edit, weight: e.target.value })}
@@ -543,7 +543,7 @@ export default function ProfilePage() {
                 <option value="Stay Healthy">Stay Healthy</option>
               </select>
 
-              <div className="sm:col-span-2 flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <div className="profile-edit-actions-row">
                 <button
                   className="w-full rounded-xl border border-slate-200 bg-white px-6 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 sm:w-auto"
                   onClick={() => {
@@ -584,7 +584,7 @@ export default function ProfilePage() {
                   </div>
                 </div>
                 <button
-                  className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+                  className="profile-btn-primary"
                   onClick={() => {
                     setEdit({
                       username: profile.username,
@@ -600,22 +600,22 @@ export default function ProfilePage() {
                 </button>
               </div>
 
-              <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
+              <div className="profile-meta-grid profile-subpanel">
                 <div className="text-sm">
                   <div className="text-xs text-slate-600">Gender</div>
-                  <div className="mt-1 font-medium">{profile.gender || '—'}</div>
+                  <div className="mt-1 font-medium">{profile.gender || '-'}</div>
                 </div>
                 <div className="text-sm">
                   <div className="text-xs text-slate-600">Fitness Goal</div>
-                  <div className="mt-1 font-medium">{profile.fitness_goal || '—'}</div>
+                  <div className="mt-1 font-medium">{profile.fitness_goal || '-'}</div>
                 </div>
                 <div className="text-sm">
                   <div className="text-xs text-slate-600">Height (cm)</div>
-                  <div className="mt-1 font-medium">{profile.height == null ? '—' : profile.height}</div>
+                  <div className="mt-1 font-medium">{profile.height == null ? '-' : profile.height}</div>
                 </div>
                 <div className="text-sm">
                   <div className="text-xs text-slate-600">Weight (kg)</div>
-                  <div className="mt-1 font-medium">{profile.weight == null ? '—' : profile.weight}</div>
+                  <div className="mt-1 font-medium">{profile.weight == null ? '-' : profile.weight}</div>
                 </div>
               </div>
             </div>
@@ -624,17 +624,17 @@ export default function ProfilePage() {
       ) : null}
 
       {tab === 'Workouts' ? (
-        <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+        <div className="profile-panel">
           <div className="text-sm font-semibold">Workouts</div>
           <div className="mt-4 space-y-3">
             {workouts.map((w) => (
-              <div key={w.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div key={w.id} className="profile-subpanel">
                 <div className="flex items-center justify-between text-sm">
                   <div className="font-semibold">{w.exercise_type}</div>
                   <div className="text-xs text-slate-600">{w.workout_date}</div>
                 </div>
                 <div className="mt-2 text-xs text-slate-600">
-                  Duration: {w.duration ?? '—'}s · Score: {w.form_score ?? '—'} · Burned: {w.calories_burned ?? '—'}kcal
+                  Duration: {w.duration ?? '-'}s / Score: {w.form_score ?? '-'} / Burned: {w.calories_burned ?? '-'}kcal
                 </div>
                 {w.notes ? <div className="mt-2 text-sm text-slate-800">{w.notes}</div> : null}
               </div>
@@ -645,15 +645,15 @@ export default function ProfilePage() {
       ) : null}
 
       {tab === 'Meals' ? (
-        <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+        <div className="profile-panel">
           <div className="text-sm font-semibold">Meals</div>
           <div className="mt-4 space-y-3">
             {meals.map((meal) => (
-              <div key={meal.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div key={meal.id} className="profile-subpanel">
                 <div className="flex items-center justify-between text-sm">
                   <div className="font-semibold">{meal.mealType}</div>
                   <div className="text-xs text-slate-600">
-                    {meal.recordedOn} · {meal.items.length} items
+                    {meal.recordedOn} / {meal.items.length} items
                   </div>
                 </div>
                 <div className="mt-2 text-xs text-slate-600">
@@ -663,7 +663,7 @@ export default function ProfilePage() {
                     .join(' / ')}
                 </div>
                 <div className="mt-2 text-xs text-slate-600">
-                  Calories {meal.totals.kcal.toFixed(1)} kcal · P {meal.totals.protein.toFixed(1)} g · F {meal.totals.fat.toFixed(1)} g · C{' '}
+                  Calories {meal.totals.kcal.toFixed(1)} kcal / P {meal.totals.protein.toFixed(1)} g / F {meal.totals.fat.toFixed(1)} g / C{' '}
                   {meal.totals.carbs.toFixed(1)} g
                 </div>
               </div>
@@ -674,34 +674,34 @@ export default function ProfilePage() {
       ) : null}
 
       {tab === 'Report' ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+        <div className="profile-report-grid">
+          <div className="profile-panel">
             <div className="text-xs text-slate-600">Total training time (7 days)</div>
             <div className="mt-2 text-2xl font-semibold">{report.totalDuration}s</div>
           </div>
-          <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+          <div className="profile-panel">
             <div className="text-xs text-slate-600">Average form score</div>
-            <div className="mt-2 text-2xl font-semibold">{report.avgForm == null ? '—' : report.avgForm.toFixed(2)}</div>
+            <div className="mt-2 text-2xl font-semibold">{report.avgForm == null ? '-' : report.avgForm.toFixed(2)}</div>
           </div>
-          <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+          <div className="profile-panel">
             <div className="text-xs text-slate-600">Avg daily calories</div>
             <div className="mt-2 text-2xl font-semibold">
-              {report.avgCaloriesIn == null ? '—' : report.avgCaloriesIn.toFixed(0)} kcal
+              {report.avgCaloriesIn == null ? '-' : report.avgCaloriesIn.toFixed(0)} kcal
             </div>
           </div>
         </div>
       ) : null}
 
       {tab === 'History' ? (
-        <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="profile-panel">
+          <div className="profile-history-head-row">
             <div>
               <div className="text-sm font-semibold">Training History</div>
               <div className="mt-1 text-xs text-slate-600">Calendar view of your pose training sessions</div>
             </div>
             <Link
               to={buildPoseHistoryPath('squat')}
-              className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              className="inline-flex items-center justify-center profile-btn-secondary"
             >
               Open full history
             </Link>
@@ -709,21 +709,21 @@ export default function ProfilePage() {
 
           {poseError ? <div className="mt-3 text-sm text-rose-700">{poseError}</div> : null}
 
-          <div className="mt-4 grid gap-4 lg:grid-cols-[320px_1fr]">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className="mt-4 profile-history-main-grid">
+            <div className="profile-subpanel">
               <div className="flex items-center justify-between">
                 <button
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                  className="profile-btn-secondary"
                   onClick={() => setPoseMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
                 >
-                  ←
+                  {'<'}
                 </button>
                 <div className="text-sm font-semibold">{poseMonth.toLocaleString(undefined, { year: 'numeric', month: 'long' })}</div>
                 <button
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                  className="profile-btn-secondary"
                   onClick={() => setPoseMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
                 >
-                  →
+                  {'>'}
                 </button>
               </div>
 
@@ -768,7 +768,7 @@ export default function ProfilePage() {
                 <button className="rounded-xl border border-slate-200 bg-white px-3 py-2 hover:bg-slate-50" onClick={() => setPoseMonth(startOfMonth(new Date()))}>
                   This month
                 </button>
-                {poseLoading ? <div>Loading…</div> : <div>{poseSessions.length} sessions</div>}
+                {poseLoading ? <div>Loading...</div> : <div>{poseSessions.length} sessions</div>}
               </div>
             </div>
 
@@ -793,8 +793,8 @@ export default function ProfilePage() {
                     exerciseName: getPoseExerciseByType(exerciseType).displayName
                   })
                   return (
-                    <div key={s.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div key={s.id} className="profile-subpanel">
+                      <div className="profile-history-session-head">
                         <div>
                           <div className="text-sm font-semibold">{recordName}</div>
                           <div className="mt-1 text-xs text-slate-600">
@@ -802,7 +802,7 @@ export default function ProfilePage() {
                             {ended ? ` - ${ended.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
                           </div>
                           <div className="mt-2 text-xs text-slate-600">
-                            {s.sets.length} sets · {totalReps} reps
+                            {s.sets.length} sets / {totalReps} reps
                           </div>
                         </div>
                         <div className="flex gap-2" />
@@ -822,7 +822,7 @@ export default function ProfilePage() {
 
       {tab === 'Blogs' ? (
         <div className="space-y-4">
-          <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+          <div className="profile-panel">
             <div className="flex items-center justify-between gap-3">
               <div className="text-sm font-semibold">My Blogs</div>
               <button
@@ -834,7 +834,7 @@ export default function ProfilePage() {
             </div>
             <div className="mt-4 space-y-3">
               {myBlogs.map((b) => (
-                <div key={b.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div key={b.id} className="profile-subpanel">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-start gap-3">
                       <div className="mt-0.5 h-12 w-20 overflow-hidden rounded-xl border border-slate-200 bg-white">
@@ -849,19 +849,19 @@ export default function ProfilePage() {
                       <div>
                         <div className="text-sm font-semibold">{b.title}</div>
                         <div className="mt-1 text-xs text-slate-600">
-                          {b.is_published ? 'Published' : 'Draft'} · {new Date(b.updated_at).toLocaleString()}
+                          {b.is_published ? 'Published' : 'Draft'} / {new Date(b.updated_at).toLocaleString()}
                         </div>
                       </div>
                     </div>
                     <div className="flex gap-2">
                       <button
-                        className="rounded-xl border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                        className="profile-btn-chip"
                         onClick={() => togglePublish(b).catch(() => {})}
                       >
                         {b.is_published ? 'Move to draft' : 'Publish'}
                       </button>
                       <button
-                        className="rounded-xl border border-slate-200 bg-white px-2 py-1 text-xs text-rose-700 hover:bg-slate-50"
+                        className="profile-btn-chip-danger"
                         onClick={() => deleteBlog(b.id).catch(() => {})}
                       >
                         Delete
@@ -881,7 +881,7 @@ export default function ProfilePage() {
                 <div className="flex items-center justify-between gap-3">
                   <div className="text-sm font-semibold">New blog</div>
                   <button
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                    className="profile-btn-secondary"
                     onClick={() => setCreateOpen(false)}
                   >
                     Close
@@ -907,18 +907,18 @@ export default function ProfilePage() {
                     <div className="flex items-center gap-2">
                       {newBlog.cover_image_url ? (
                         <button
-                          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                          className="profile-btn-secondary"
                           onClick={() => setNewBlog({ ...newBlog, cover_image_url: null })}
                         >
                           Remove
                         </button>
                       ) : null}
                       <button
-                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                        className="profile-btn-secondary disabled:opacity-50"
                         disabled={coverUploading}
                         onClick={() => coverInputRef.current?.click()}
                       >
-                        {coverUploading ? 'Uploading…' : 'Upload cover'}
+                        {coverUploading ? 'Uploading...' : 'Upload cover'}
                       </button>
                       <input
                         ref={coverInputRef}
@@ -936,13 +936,13 @@ export default function ProfilePage() {
                   </div>
 
                   <input
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/10"
+                    className="profile-input"
                     placeholder="Title"
                     value={newBlog.title}
                     onChange={(e) => setNewBlog({ ...newBlog, title: e.target.value })}
                   />
                   <textarea
-                    className="h-32 w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/10"
+                    className="profile-input profile-textarea"
                     placeholder="Content"
                     value={newBlog.content}
                     onChange={(e) => setNewBlog({ ...newBlog, content: e.target.value })}
@@ -997,17 +997,17 @@ export default function ProfilePage() {
       ) : null}
 
       {tab === 'Comments' ? (
-        <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+        <div className="profile-panel">
           <div className="text-sm font-semibold">My Comments</div>
           <div className="mt-4 space-y-3">
             {myComments.map((c) => (
-              <div key={c.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div key={c.id} className="profile-subpanel">
                 <div className="text-xs text-slate-600">Blog #{c.blog_id}</div>
                 <div className="mt-2 text-sm text-slate-900">{c.content}</div>
                 <div className="mt-2 flex items-center justify-between">
                   <div className="text-xs text-slate-600">{new Date(c.created_at).toLocaleString()}</div>
                   <button
-                    className="rounded-xl border border-slate-200 bg-white px-2 py-1 text-xs text-rose-700 hover:bg-slate-50"
+                    className="profile-btn-chip-danger"
                     onClick={() => deleteComment(c.id).catch(() => {})}
                   >
                     Delete

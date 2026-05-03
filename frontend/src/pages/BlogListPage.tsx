@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+﻿import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { getBlogTags, queryBlogs, resolveBlogMediaUrl, type BlogCard, type BlogTag as Tag } from '../features/blog'
 const OrganicFluidBackground = lazy(() => import('../components/OrganicFluidBackground'))
@@ -263,15 +263,12 @@ function TopViewedStackCard({
   return content
 }
 
-function getStackTransform(position: number, count: number) {
-  if (count <= 1) return 'translateX(-50%) translateY(0px) rotate(0deg) scale(1)'
-  if (count === 2) {
-    if (position === 0) return 'translateX(-50%) translateY(0px) translateX(-66px) rotate(0deg) scale(1)'
-    return 'translateX(-50%) translateY(14px) translateX(0px) rotate(5deg) scale(0.95)'
-  }
-  if (position === 0) return 'translateX(-50%) translateY(0px) translateX(-72px) rotate(0deg) scale(1)'
-  if (position === 1) return 'translateX(-50%) translateY(14px) translateX(0px) rotate(5deg) scale(0.95)'
-  return 'translateX(-50%) translateY(27px) translateX(72px) rotate(10deg) scale(0.92)'
+function getStackClass(position: number, count: number) {
+  if (count <= 1) return 'blog-stack-pos-single'
+  if (count === 2) return position === 0 ? 'blog-stack-pos-two-top' : 'blog-stack-pos-two-bottom'
+  if (position === 0) return 'blog-stack-pos-top'
+  if (position === 1) return 'blog-stack-pos-mid'
+  return 'blog-stack-pos-back'
 }
 
 function TopViewedStack({ blogs, loading }: { blogs: BlogCard[]; loading: boolean }) {
@@ -320,7 +317,7 @@ function TopViewedStack({ blogs, loading }: { blogs: BlogCard[]; loading: boolea
   return (
     <div className="relative mx-auto h-[285px] w-full max-w-[520px] sm:h-[315px]">
       {loading && blogs.length === 0 ? (
-        <div className="absolute inset-0 flex items-end justify-center pb-2 text-sm text-neutral-500">Loading…</div>
+        <div className="absolute inset-0 flex items-end justify-center pb-2 text-sm text-neutral-500">Loading...</div>
       ) : null}
 
       {visible
@@ -330,20 +327,13 @@ function TopViewedStack({ blogs, loading }: { blogs: BlogCard[]; loading: boolea
           const position = count - 1 - rIndex
           const isTop = position === 0
           const shouldFade = !reducedMotion && fading && isTop && step !== 3 && blogs.length >= 3
-          const baseTransform = getStackTransform(position, count)
-          const transform = shouldFade ? `${baseTransform} translateY(10px)` : baseTransform
+          const stackClass = getStackClass(position, count)
+          const fadeClass = shouldFade ? 'blog-stack-card-fading' : ''
 
           return (
             <div
               key={blog?.id ?? `placeholder-${position}`}
-              className="absolute bottom-0 left-1/2 transition-[transform,opacity] duration-700 ease-out"
-              style={{
-                transform,
-                transformOrigin: '50% 100%',
-                opacity: shouldFade ? 0 : 1,
-                zIndex: 30 - position * 10,
-                pointerEvents: shouldFade ? 'none' : undefined,
-              }}
+              className={`blog-stack-card absolute bottom-0 left-1/2 transition-[transform,opacity] duration-700 ease-out ${stackClass} ${fadeClass}`}
             >
               <TopViewedStackCard
                 blog={blog}
@@ -508,9 +498,9 @@ export default function BlogListPage() {
           </Suspense>
           <div className="absolute inset-0 bg-gradient-to-b from-neutral-50 via-neutral-50/70 to-transparent" />
         </div>
-        <div className="relative mx-auto grid max-w-[1200px] grid-cols-1 gap-10 lg:grid-cols-12 lg:items-center">
-          <div className="lg:col-span-6">
-            <div className="flex min-h-[165px] items-center lg:min-h-[315px]">
+        <div className="blog-list-hero-grid">
+          <div className="blog-list-hero-col-main">
+            <div className="blog-list-hero-title-wrap">
               <h1 className="text-[44px] font-semibold leading-[1.02] tracking-tight text-neutral-900 sm:text-[56px] md:text-[64px]">
                 Fitness / Nutrition
                 <br />
@@ -519,8 +509,8 @@ export default function BlogListPage() {
             </div>
           </div>
 
-          <div className="lg:col-span-6">
-            <div className="flex items-end justify-center lg:justify-end">
+          <div className="blog-list-hero-col-side">
+            <div className="blog-list-hero-media-wrap">
               <TopViewedStack blogs={topViewed} loading={loading} />
             </div>
           </div>
@@ -538,8 +528,8 @@ export default function BlogListPage() {
 
           {error ? <div className="mt-6 text-sm text-red-600">{error}</div> : null}
 
-          <div className="mt-10 grid grid-cols-1 gap-10 lg:grid-cols-12 lg:items-start">
-            <div className="lg:col-span-7">
+          <div className="mt-10 blog-list-recent-grid">
+            <div className="blog-list-recent-col-main">
               {recent[0] ? (
                 <article>
                   <div className="relative overflow-hidden rounded-3xl bg-neutral-100 aspect-[16/9]">
@@ -587,12 +577,12 @@ export default function BlogListPage() {
                 </article>
               ) : (
                 <div className="rounded-3xl bg-neutral-50 p-8 text-sm text-neutral-500">
-                  {loading ? 'Loading…' : 'No content'}
+                  {loading ? 'Loading...' : 'No content'}
                 </div>
               )}
             </div>
 
-            <div className="lg:col-span-5">
+            <div className="blog-list-recent-col-side">
               <div className="grid grid-cols-1 gap-8">
                 {recent.slice(1, 4).map((b, idx) => (
                   <article key={b.id} className="rounded-3xl p-3 hover:bg-neutral-50">
@@ -636,7 +626,7 @@ export default function BlogListPage() {
                             className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-neutral-300 bg-white px-5 text-xs font-medium text-neutral-900"
                           >
                             Read more
-                            <span className="text-base leading-none">→</span>
+                            <span className="text-base leading-none">{'>'}</span>
                           </Link>
                         </div>
                       </div>
@@ -687,9 +677,7 @@ export default function BlogListPage() {
 
           <div
             ref={featuredGridReveal.ref}
-            className={`mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 reveal-stagger${
-              featuredGridReveal.visible ? ' visible' : ''
-            }`}
+            className={`mt-8 blog-list-featured-grid reveal-stagger${featuredGridReveal.visible ? ' visible' : ''}`}
           >
             {featured.slice(0, 3).map((b, idx) => (
               <FeaturedBlogGridCard
@@ -707,13 +695,13 @@ export default function BlogListPage() {
         className={`px-4 pt-16 md:pt-24 pb-16 reveal${joinReveal.visible ? ' visible' : ''}`}
       >
         <div className="mx-auto max-w-[1200px]">
-          <div className="relative grid grid-cols-1 gap-8 rounded-3xl px-6 py-[60px] text-white shadow-xl md:px-10 lg:grid-cols-12 lg:items-center">
+          <div className="relative blog-list-join-grid rounded-3xl px-6 py-[60px] text-white shadow-xl md:px-10">
             <Suspense fallback={null}>
               <OrganicFluidBackground />
             </Suspense>
-            <div className="relative z-10 lg:col-span-7">
+            <div className="relative z-10 blog-list-join-col-main">
               <h2 className="text-2xl font-semibold leading-tight tracking-tight md:text-3xl">
-                Join the community –
+                Join the community -
                 <br />
                 Get Updates and Tips
               </h2>
@@ -722,7 +710,7 @@ export default function BlogListPage() {
               </p>
 
               <form
-                className="mt-6 flex max-w-[520px] flex-col gap-3 sm:flex-row"
+                className="mt-6 blog-list-join-form"
                 onSubmit={(e) => {
                   e.preventDefault()
                 }}
@@ -743,7 +731,7 @@ export default function BlogListPage() {
               </form>
             </div>
 
-            <div className="relative z-10 lg:col-span-5">
+            <div className="relative z-10 blog-list-join-col-side">
               {hero ? (
                 <div className="rounded-3xl bg-white p-3 text-neutral-900">
                   <div className="relative overflow-hidden rounded-3xl bg-neutral-100 aspect-[16/9]">
@@ -768,3 +756,4 @@ export default function BlogListPage() {
     </main>
   )
 }
+

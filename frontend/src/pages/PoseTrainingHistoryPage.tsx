@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import {
   buildPoseGuidePath,
   buildPoseToolPath,
+  buildPoseReportPath,
   buildTrainingRecordName,
   DEMO_POSE_TRAINING,
   DEMO_POSE_TRAINING_ID,
@@ -55,9 +56,9 @@ export default function PoseTrainingHistoryPage() {
     <>
       <section className="cl_breadcrumb-area">
         <div className="cl_breadcrumb-wrap" data-background="/assets/images/bg/breadcrumb.png">
-          <div className="container">
-            <div className="row justify-content-center">
-              <div className="col-md-9 col-12">
+          <div className="page-container">
+            <div className="page-row-center">
+              <div className="page-col-breadcrumb">
                 <div className="cl_breadcrumb-content">
                   <h2 className="cl_breadcrumb-content-title">Training History</h2>
                   <div className="cl_breadcrumb-content-list">
@@ -75,9 +76,9 @@ export default function PoseTrainingHistoryPage() {
       </section>
 
       <section className="pt-100 pb-100">
-        <div className="container">
-          <div className="row justify-content-center">
-            <div className="col-xl-10 col-lg-11">
+        <div className="page-container">
+          <div className="page-row-center">
+            <div className="page-col-pose-select">
               <div className="cl_blog-widget mb-30">
                 <div className="pose-history-head">
                   <h4 className="cl_blog-widget-title mb-0">Saved Training Records</h4>
@@ -100,7 +101,7 @@ export default function PoseTrainingHistoryPage() {
                   </button>
                 </div>
 
-                <div className="pose-inline-note" style={{ marginTop: 0, marginBottom: 12 }}>
+                <div className="pose-inline-note pose-inline-note-tight">
                   You can open a demo record any time to preview the report page UI.
                 </div>
 
@@ -129,7 +130,7 @@ export default function PoseTrainingHistoryPage() {
                       })
                       const sessionName = item.id === DEMO_POSE_TRAINING_ID ? 'Demo Session' : (item.note?.trim() || derivedName)
                       return (
-                        <div key={item.id} className="pose-history-item pose-history-item-static">
+                        <Link key={item.id} className="pose-history-item" to={buildPoseReportPath(exercise.slug, item.id)}>
                           <div className="pose-history-item-top">
                             <strong>{sessionName}</strong>
                             <span>{formatDateTime(item.started_at)}</span>
@@ -140,7 +141,7 @@ export default function PoseTrainingHistoryPage() {
                             <span>Ended: {item.ended_at ? formatDateTime(item.ended_at) : 'In progress'}</span>
                           </div>
                           <p className="pose-history-summary">{reportSummary}</p>
-                        </div>
+                        </Link>
                       )
                     })}
                   </div>

@@ -20,7 +20,7 @@ export function PoseOfflineTeachingPanel(props: {
 }) {
   const { exerciseDisplayName, teachingCopy, tutorialVideoSrc } = props
   return (
-    <div className="cl_blog-widget mb-30 h-100 w-100 pose-live-feedback pose-live-right-card pose-live-guide-card pose-video-teaching-card">
+    <div className="cl_blog-widget mb-30 h-full w-full pose-live-feedback pose-live-right-card pose-live-guide-card pose-video-teaching-card">
       <div className="pose-panel-head">
         <span className="pose-panel-kicker">Tip</span>
         <h4 className="pose-panel-title">{exerciseDisplayName} Teaching Video</h4>
@@ -29,32 +29,22 @@ export function PoseOfflineTeachingPanel(props: {
       <div className="pose-tip-card pose-tip-card-light pose-live-section">
         {teachingCopy ? (
           <>
-            <div
-              style={{
-                borderRadius: 14,
-                padding: '10px 12px',
-                border: '1px solid rgba(16, 185, 129, 0.35)',
-                background: '#ecfdf5',
-                color: '#065f46',
-                fontWeight: 900,
-                lineHeight: 1.35
-              }}
-            >
-              <span style={{ textTransform: 'uppercase', letterSpacing: 0.3 }}>Camera angle:</span> {teachingCopy.cameraAngle}
+            <div className="pose-teaching-angle-box">
+              <span className="pose-teaching-angle-label">Camera angle:</span> {teachingCopy.cameraAngle}
             </div>
-            <div style={{ marginTop: 10 }}>
+            <div className="pose-teaching-tips-wrap">
               <h6 className="sub-title mb-15 pose-section-title">Tips</h6>
-              <ul className="pose-detail-list pose-detail-list-light" style={{ marginTop: 0, marginBottom: 0 }}>
+              <ul className="pose-detail-list pose-detail-list-light pose-teaching-tips-list">
                 {teachingCopy.tipsLines.map((line) => (
                   <li key={line}>{line}</li>
                 ))}
               </ul>
             </div>
-            <div style={{ height: 12 }} />
+            <div className="pose-spacer-sm" />
           </>
         ) : null}
         {tutorialVideoSrc ? (
-          <div className="pose-video-preview" style={{ marginTop: 0 }}>
+          <div className="pose-video-preview pose-video-preview-no-top">
             <video className="pose-video-preview__media" autoPlay muted loop playsInline controls src={tutorialVideoSrc} />
           </div>
         ) : (
@@ -76,7 +66,7 @@ export function PoseOfflineReportPanel(props: {
 }) {
   const { taskStatusToneClass, taskStatusText, offlineFileSizeMbText, analysisStarted, checklist, offlineReport, reportContent } = props
   return (
-    <div className="cl_blog-widget mb-30">
+    <div className="cl_blog-widget mb-30 w-100">
       <h4 className="cl_blog-widget-title mb-30">Analysis Report</h4>
       <div className="pose-report-overview">
         <span className={`pose-status-pill ${taskStatusToneClass}`}>{taskStatusText}</span>
@@ -96,7 +86,7 @@ export function PoseOfflineReportPanel(props: {
         </div>
       ) : null}
       {offlineReport ? (
-        <div style={{ marginTop: 14 }}>{reportContent}</div>
+        <div className="pose-report-content-top">{reportContent}</div>
       ) : (
         <div className="pose-report-empty">
           <strong>No report yet</strong>

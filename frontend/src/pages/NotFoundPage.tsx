@@ -5,9 +5,9 @@ export default function NotFoundPage() {
     <>
       <section className="cl_breadcrumb-area">
         <div className="cl_breadcrumb-wrap" data-background="/assets/images/bg/breadcrumb.png">
-          <div className="container">
-            <div className="row justify-content-center">
-              <div className="col-md-9 col-12">
+          <div className="page-container">
+            <div className="page-row-center">
+              <div className="page-col-breadcrumb">
                 <div className="cl_breadcrumb-content">
                   <h2 className="cl_breadcrumb-content-title">404 Error</h2>
                   <div className="cl_breadcrumb-content-list">
@@ -22,9 +22,9 @@ export default function NotFoundPage() {
       </section>
 
       <section className="cl_error-area pt-100 pb-100">
-        <div className="container">
-          <div className="row justify-content-center">
-            <div className="col-xl-8 col-lg-9 col-md-11">
+        <div className="page-container">
+          <div className="page-row-center">
+            <div className="page-col-notfound">
               <div className="cl_error-content">
                 <div className="cl_error-content-img">
                   <img src="/assets/images/bg/404.png" alt="404 illustration" />

@@ -21,9 +21,9 @@ export function MetricCard(props: { label: ReactNode; value: string | number; un
 
 export function LabelWithTip(props: { label: string; tip: string }) {
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+    <span className="pose-inline-tip">
       <span>{props.label}</span>
-      <span title={props.tip} style={{ cursor: 'help', color: '#64748b', fontSize: 12 }}>
+      <span title={props.tip} className="pose-inline-tip-mark">
         ?
       </span>
     </span>

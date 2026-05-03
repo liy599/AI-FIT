@@ -280,6 +280,22 @@
   margin-bottom: 16px;
 }
 
+.food-module-meal-accent--breakfast {
+  background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
+}
+
+.food-module-meal-accent--lunch {
+  background: linear-gradient(135deg, #10b981 0%, #0f766e 100%);
+}
+
+.food-module-meal-accent--dinner {
+  background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+}
+
+.food-module-meal-accent--snack {
+  background: linear-gradient(135deg, #ec4899 0%, #db2777 100%);
+}
+
 .food-module-meal-head {
   display: flex;
   justify-content: space-between;

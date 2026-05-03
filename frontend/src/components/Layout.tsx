@@ -122,19 +122,19 @@ export default function Layout(props: { children: React.ReactNode }) {
         >
           <i className="fa-sharp fa-light fa-xmark"></i>
         </button>
-        <div className="container">
-          <div className="row">
-            <div className="col-lg-2">
+        <div className="page-container">
+          <div className="mobile-menu-grid">
+            <div>
               <div className="menu-text">
                 <div className="text">
                   <h2 id="mobile-menu-title">Menu</h2>
                 </div>
               </div>
             </div>
-            <div className="col-lg-7">
+            <div>
               <Navbar variant="mobile" onNavigate={() => setMobileOpen(false)} />
             </div>
-            <div className="col-lg-3">
+            <div>
               <div className="cont-info">
                 <div className="item mb-40">
                   <h6 className="sub-title mb-15">Contact</h6>

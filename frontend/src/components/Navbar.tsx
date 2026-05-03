@@ -81,7 +81,7 @@ export default function Navbar(props: NavbarProps) {
   return (
     <header className="cl_header-area">
       <div className="common_width_1">
-        <div className="container-fluid p-0">
+        <div className="cl_header-shell">
           <div className="cl_header-wrap">
             <div className="cl_header-left">
               <div className="cl_header-logo">
@@ -97,7 +97,7 @@ export default function Navbar(props: NavbarProps) {
             </div>
             <div className="cl_header-right">
               {auth.user ? (
-                <div className="cl_header-account d-none d-xxl-flex">
+                <div className="cl_header-account cl_header-account-desktop-xl">
                   <Link to="/profile" className="cl_header-action-btn" aria-label="Open profile menu">
                     {auth.user.avatar_url ? (
                       <img
@@ -126,7 +126,7 @@ export default function Navbar(props: NavbarProps) {
                 </div>
               ) : null}
               {auth.user ? (
-                <Link to="/profile" className="cl_header-btn d-none d-md-flex">
+                <Link to="/profile" className="cl_header-btn cl_header-btn-desktop">
                   My Profile
                   <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path
@@ -137,7 +137,7 @@ export default function Navbar(props: NavbarProps) {
                 </Link>
               ) : (
                 <>
-                  <Link to="/login" className="cl_header-btn d-none d-md-flex">
+                  <Link to="/login" className="cl_header-btn cl_header-btn-desktop">
                     Login
                     <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <path
@@ -146,7 +146,7 @@ export default function Navbar(props: NavbarProps) {
                       />
                     </svg>
                   </Link>
-                  <Link to="/register" className="cl_header-btn d-none d-md-flex">
+                  <Link to="/register" className="cl_header-btn cl_header-btn-desktop">
                     Register
                     <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <path
@@ -158,7 +158,7 @@ export default function Navbar(props: NavbarProps) {
                 </>
               )}
               <span
-                className="cl_header-menubar cl_menubar d-xl-none"
+                className="cl_header-menubar cl_menubar cl_header-menubar-mobile"
                 role="button"
                 tabIndex={0}
                 onClick={(e) => props.onOpenMobile?.(e.currentTarget)}

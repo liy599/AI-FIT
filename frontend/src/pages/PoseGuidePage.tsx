@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+﻿import { Link } from 'react-router-dom'
 import { useParams } from 'react-router-dom'
 import { buildPoseToolPath, buildPoseVideoPath, getPoseExerciseBySlug } from '../features/pose'
 
@@ -12,9 +12,9 @@ export default function PoseGuidePage() {
     <>
       <section className="cl_breadcrumb-area">
         <div className="cl_breadcrumb-wrap" data-background="/assets/images/bg/breadcrumb.png">
-          <div className="container">
-            <div className="row justify-content-center">
-              <div className="col-md-9 col-12">
+          <div className="page-container">
+            <div className="page-row-center">
+              <div className="page-col-breadcrumb">
                 <div className="cl_breadcrumb-content">
                   <h2 className="cl_breadcrumb-content-title">Pose Guidance</h2>
                   <div className="cl_breadcrumb-content-list">
@@ -30,17 +30,17 @@ export default function PoseGuidePage() {
       </section>
 
       <section className="pt-100 pb-100">
-        <div className="container">
-          <div className="row justify-content-center">
-            <div className="col-xl-8 col-lg-10">
+        <div className="page-container">
+          <div className="page-row-center">
+            <div className="page-col-pose-guide">
               <div className="cl_blog-widget mb-30">
                 <h3 className="cl_blog-widget-title mb-30">{exercise.guideTitle}</h3>
                 
-                <div className="pose-tip-card pose-tip-card-light mb-30" style={{ padding: '30px' }}>
-                  <ul className="pose-detail-list pose-detail-list-light" style={{ fontSize: '16px', lineHeight: '2' }}>
+                <div className="pose-tip-card pose-tip-card-light mb-30 pose-guide-tip-card">
+                  <ul className="pose-detail-list pose-detail-list-light pose-guide-tip-list">
                     {exercise.guideTips.map((tip) => (
                       <li key={tip.title}>
-                        <strong style={{ color: '#0f766e' }}>{tip.title}:</strong> {tip.content}
+                        <strong className="pose-guide-tip-title">{tip.title}:</strong> {tip.content}
                       </li>
                     ))}
                   </ul>
@@ -48,11 +48,11 @@ export default function PoseGuidePage() {
 
                 <div className="pose-tool-actions pose-guide-actions mt-40">
                   <Link to={livePath} className="cl_theme-btn pose-guide-cta">
-                    <span className="pose-guide-cta-title">📷 Live Coaching</span>
+                    <span className="pose-guide-cta-title">Live Coaching</span>
                     <span className="pose-guide-cta-sub">Real-time feedback using your camera</span>
                   </Link>
                   <Link to={videoPath} className="pose-tool-ghost-btn pose-tool-light-btn pose-guide-cta">
-                    <span className="pose-guide-cta-title">🎞️ Video Analysis</span>
+                    <span className="pose-guide-cta-title">Video Analysis</span>
                     <span className="pose-guide-cta-sub pose-guide-cta-sub-light">Upload a clip and get a report</span>
                   </Link>
                 </div>

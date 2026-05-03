@@ -78,9 +78,9 @@ export default function PoseSelectPage() {
     <>
       <section className="cl_breadcrumb-area">
         <div className="cl_breadcrumb-wrap" data-background="/assets/images/bg/breadcrumb.png">
-          <div className="container">
-            <div className="row justify-content-center">
-              <div className="col-md-9 col-12">
+          <div className="page-container">
+            <div className="page-row-center">
+              <div className="page-col-breadcrumb">
                 <div className="cl_breadcrumb-content">
                   <h2 className="cl_breadcrumb-content-title">Select an Exercise</h2>
                   <div className="cl_breadcrumb-content-list">
@@ -95,17 +95,17 @@ export default function PoseSelectPage() {
       </section>
 
       <section className="pt-100 pb-100 pose-select-page">
-        <div className="container">
-          <div className="row justify-content-center">
-            <div className="col-xl-10 col-lg-11">
+        <div className="page-container">
+          <div className="page-row-center">
+            <div className="page-col-pose-select">
               <div className="cl_blog-widget mb-30 pose-select-hero">
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                <div className="pose-select-hero-head">
                   <h4 className="cl_blog-widget-title mb-0">Choose what you want to train</h4>
                   <Link to={buildPoseHistoryPath('squat')} className="pose-tool-ghost-btn pose-tool-light-btn">
                     Training History
                   </Link>
                 </div>
-                <p className="pose-tool-subtitle" style={{ marginTop: 14 }}>
+                <p className="pose-tool-subtitle pose-select-hero-subtitle">
                   Pick an exercise first, review the camera guidance, then start real-time form correction.
                 </p>
               </div>

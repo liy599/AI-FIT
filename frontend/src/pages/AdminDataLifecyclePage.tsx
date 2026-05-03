@@ -47,7 +47,7 @@ export default function AdminDataLifecyclePage() {
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
         {loading ? <div className="text-sm text-slate-600">Loading policy...</div> : null}
         {!loading ? (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="admin-lifecycle-grid">
             {Object.entries(retention).map(([key, value]) => (
               <label key={key} className="text-sm">
                 <div className="mb-1 font-medium">{key}</div>

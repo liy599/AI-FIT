@@ -91,9 +91,9 @@ export default function AboutPage() {
     <>
       <section className="cl_breadcrumb-area">
         <div className="cl_breadcrumb-wrap" data-background="/assets/images/bg/breadcrumb.png">
-          <div className="container">
-            <div className="row justify-content-center">
-              <div className="col-md-9 col-12">
+          <div className="page-container">
+            <div className="page-row-center">
+              <div className="page-col-breadcrumb">
                 <div className="cl_breadcrumb-content">
                   <h2 className="cl_breadcrumb-content-title">About Us</h2>
                   <div className="cl_breadcrumb-content-list">
@@ -108,10 +108,10 @@ export default function AboutPage() {
       </section>
 
       <section className="cl_about-area pt-100 pb-100">
-        <div className="container">
+        <div className="page-container">
           <div className="cl_about-wrap">
-            <div className="row align-items-center">
-              <div className="col-xl-6">
+            <div className="about-two-col">
+              <div>
                 <div className="cl_about-img">
                   <div className={`cl_about-visual-stack ${aboutVisual === 'food' ? 'is-food' : 'is-gym'}`}>
                     <div className="cl_about-visual-label" aria-hidden="true">
@@ -147,8 +147,8 @@ export default function AboutPage() {
                   </div>
                 </div>
               </div>
-              <div className="col-xl-6">
-                <div className="cl_about-content mr-80 ml-10">
+              <div>
+                <div className="cl_about-content about-content-offset">
                   <div className="cl_section-area mb-35">
                     <span className="cl_section-subtitle cl_section-subtitle-about">AI FitGuard</span>
                     <h2 className="cl_section-title cl_section-title-small mb-25">A privacy-first fitness and nutrition assistant</h2>
@@ -187,24 +187,24 @@ export default function AboutPage() {
 
       <section className="cl_team-area pl-30 pr-30">
         <div className="cl_team-wrap pt-100 pb-100">
-          <div className="container">
-            <div className="row justify-content-center">
-              <div className="col-xl-8">
+          <div className="page-container">
+            <div className="page-row-center">
+              <div className="page-col-team-head">
                 <div className="cl_section-area text-center mb-30 pb-2">
                   <span className="cl_section-subtitle">Our Team</span>
                   <h2 className="cl_section-title cl_section-title-white mb-0">Team</h2>
                 </div>
               </div>
             </div>
-            <div className="row justify-content-center">
+            <div className="team-grid">
               {members.map((m, idx) => (
-                <div className="col-xl-4 col-lg-4 col-md-4 col-sm-6" key={m.name}>
-                    <div className="cl_team-item" style={{ marginBottom: 30 }}>
+                <div className="team-grid-col" key={m.name}>
+                    <div className="cl_team-item about-team-item">
                       <div className="cl_team-item-img">
                         <img 
                           src={m.image || `/assets/images/team/h1_${(idx % 4) + 1}.png`} 
                           alt={`${m.name} portrait`} 
-                          style={{ aspectRatio: '302 / 350', objectFit: 'cover', objectPosition: '50% 12%' }} 
+                          className="about-team-item-image"
                           onError={(e) => {
                             const img = e.currentTarget
                             if (img.dataset.fallbackTried) return
@@ -241,21 +241,11 @@ export default function AboutPage() {
 
       {active ? (
         <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 9999,
-            background: 'rgba(0,0,0,0.65)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 16
-          }}
+          className="about-member-modal-overlay"
           onClick={() => setActive(null)}
         >
           <div
-            className="cl_blog-widget"
-            style={{ maxWidth: 680, width: '100%', margin: 0 }}
+            className="cl_blog-widget about-member-modal-card"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
@@ -265,8 +255,8 @@ export default function AboutPage() {
               {active.name}
             </h4>
             <p>{active.role}</p>
-            <p style={{ marginTop: 12 }}>{active.details}</p>
-            <div style={{ marginTop: 18 }}>
+            <p className="about-member-modal-details">{active.details}</p>
+            <div className="about-member-modal-actions">
               <button type="button" className="text-link-btn" onClick={() => setActive(null)} ref={closeRef}>
                 Close
               </button>

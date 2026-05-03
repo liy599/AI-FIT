@@ -86,6 +86,6 @@ export function buildOfflineTaskUi(input: {
 export function getTutorialVideoSrc(exerciseSlug: string, displayName: string) {
   const hasTutorialVideo =
     exerciseSlug === 'squat' || exerciseSlug === 'pushup' || exerciseSlug === 'lateral-raise' || exerciseSlug === 'bent-over-row'
-  return hasTutorialVideo ? `/assets/images/vedios/${encodeURIComponent(displayName)}.mp4` : null
+  return hasTutorialVideo ? `/assets/images/videos/${encodeURIComponent(displayName)}.mp4` : null
 }
 

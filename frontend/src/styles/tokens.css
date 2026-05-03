@@ -41,13 +41,17 @@
   --font-size-xl: 24px;
 }
 
-:where(a, button, input, select, textarea, [role='button'], [tabindex]):focus {
-  outline: none;
+:where(button, [role='button']) {
+  border: 0;
 }
 
-:where(a, button, input, select, textarea, [role='button'], [tabindex]):focus-visible {
+:where(a, button, input, select, textarea, [role='button'], [tabindex]):focus {
   outline: 2px solid var(--color-brand);
   outline-offset: 2px;
+}
+
+:where(a, button, input, select, textarea, [role='button'], [tabindex]):focus:not(:focus-visible) {
+  outline: none;
 }
 
 :where(button):disabled,

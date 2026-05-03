@@ -116,9 +116,9 @@ export default function FoodModulePage() {
     <>
       <section className="cl_breadcrumb-area">
         <div className="cl_breadcrumb-wrap" data-background="/assets/images/bg/breadcrumb.png">
-          <div className="container">
-            <div className="row justify-content-center">
-              <div className="col-md-9 col-12">
+          <div className="page-container">
+            <div className="page-row-center">
+              <div className="page-col-breadcrumb">
                 <div className="cl_breadcrumb-content">
                   <h2 className="cl_breadcrumb-content-title">Food Module</h2>
                   <div className="cl_breadcrumb-content-list">
@@ -133,7 +133,7 @@ export default function FoodModulePage() {
       </section>
 
       <section className="pt-100 pb-100">
-        <div className="container">
+        <div className="page-container">
           <div className="cl_blog-widget mb-30 food-module-hero">
             <div className="food-module-hero-grid">
               <div className="food-module-hero-copy">
@@ -167,9 +167,7 @@ export default function FoodModulePage() {
             </div>
           </div>
 
-          <div className="row">
-            <div className="col-12">
-              <div className="cl_blog-widget mb-30">
+          <div className="cl_blog-widget mb-30">
                 <div className="food-module-overview-head">
                   <div>
                     <h4 className="cl_blog-widget-title mb-15">Today Overview</h4>
@@ -270,7 +268,7 @@ export default function FoodModulePage() {
                         const itemCount = currentMeal?.items.length ?? 0
                         return (
                           <div key={meal.type} className="food-module-meal-card">
-                            <div className="food-module-meal-accent" style={{ background: meal.accent }} />
+                            <div className={`food-module-meal-accent food-module-meal-accent--${meal.type}`} />
                             <div className="food-module-meal-visual" aria-hidden="true">
                               <img className="food-module-meal-image" src={meal.imageSrc} alt={meal.label} loading="lazy" />
                             </div>
@@ -302,8 +300,6 @@ export default function FoodModulePage() {
                   </>
                 )}
               </div>
-            </div>
-          </div>
         </div>
       </section>
     </>

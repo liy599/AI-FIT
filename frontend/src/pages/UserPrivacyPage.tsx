@@ -72,7 +72,7 @@ export default function UserPrivacyPage() {
 
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="text-sm font-semibold">Delete Targets</div>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <div className="mt-3 privacy-grid-two-col">
           {TARGETS.map((item) => (
             <label key={item.key} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
               <input type="checkbox" checked={selected.includes(item.key)} onChange={() => toggleTarget(item.key)} />

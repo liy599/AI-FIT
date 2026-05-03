@@ -86,9 +86,9 @@ export default function LoginPage() {
     <>
       <section className="cl_breadcrumb-area">
         <div className="cl_breadcrumb-wrap" data-background="/assets/images/bg/breadcrumb.png">
-          <div className="container">
-            <div className="row justify-content-center">
-              <div className="col-md-9 col-12">
+          <div className="page-container">
+            <div className="page-row-center">
+              <div className="page-col-breadcrumb">
                 <div className="cl_breadcrumb-content">
                   <h2 className="cl_breadcrumb-content-title">Login</h2>
                   <div className="cl_breadcrumb-content-list">
@@ -103,9 +103,9 @@ export default function LoginPage() {
       </section>
 
       <section className="pt-100 pb-100">
-        <div className="container">
-          <div className="row justify-content-center">
-            <div className="col-xl-6 col-lg-8">
+        <div className="page-container">
+          <div className="page-row-center">
+            <div className="page-col-auth">
               <div className="cl_blog_details-reply">
                 <h3 className="cl_blog_details-reply-title">Sign in</h3>
                 <p>Sign in with your email and password (after signing in you can access your profile and more).</p>
@@ -122,8 +122,8 @@ export default function LoginPage() {
                     submit().catch(() => {})
                   }}
                 >
-                  <div className="row">
-                    <div className="col-12">
+                  <div className="auth-form-grid">
+                    <div>
                       <div className="cl_blog_details-reply-item">
                         <label htmlFor="email">
                           Email<span>*</span>
@@ -137,7 +137,7 @@ export default function LoginPage() {
                         />
                       </div>
                     </div>
-                    <div className="col-12">
+                    <div>
                       <div className="cl_blog_details-reply-item">
                         <label htmlFor="password">
                           Password<span>*</span>
@@ -152,23 +152,23 @@ export default function LoginPage() {
                       </div>
                     </div>
                     {error ? (
-                      <div className="col-12">
+                      <div>
                         <div className="cl_blog-widget cl_auth-alert cl_auth-alert--error mb-30">{error}</div>
                       </div>
                     ) : null}
                     {notice ? (
-                      <div className="col-12">
+                      <div>
                         <div className="cl_blog-widget cl_auth-alert cl_auth-alert--notice mb-30">{notice}</div>
                       </div>
                     ) : null}
-                    <div className="col-12">
+                    <div>
                       <div className="cl_blog_details-reply-item">
                         <button type="submit">
                           Login
                         </button>
                       </div>
                     </div>
-                    <div className="col-12">
+                    <div>
                       <div className="cl_blog_details-reply-item">
                         <button
                           type="button"
@@ -180,7 +180,7 @@ export default function LoginPage() {
                         </button>
                       </div>
                     </div>
-                    <div className="col-12">
+                    <div>
                       <div className="cl_blog-widget cl_auth-switch">
                         No account yet? <Link to="/register">Create one</Link>
                       </div>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getBlogs, resolveBlogMediaUrl, type BlogCard } from '../features/blog'
 
@@ -111,8 +111,9 @@ export default function HomePage() {
                 <div
                   key={s.src}
                   className={`cl_hero-carousel-slide${idx === heroIndex ? ' is-active' : ''}`}
-                  style={{ backgroundImage: `url(${s.src})` }}
-                />
+                >
+                  <img className="cl_hero-carousel-slide-image" src={s.src} alt={s.label} loading="lazy" />
+                </div>
               ))}
             </div>
             <div className="cl_hero-carousel-overlay" aria-hidden="true" />
@@ -142,8 +143,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="cl_blog-area pt-100 pb-70">
-        <div className="container">
+      <section className="cl_blog-area home-blogs-section">
+        <div className="page-container">
           <div className="cl_home-blogs-header">
             <div className="cl_section-area mb-0 pb-0">
               <span className="cl_section-subtitle">Our Blogs</span>
@@ -231,3 +232,4 @@ export default function HomePage() {
     </>
   )
 }
+

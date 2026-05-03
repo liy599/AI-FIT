@@ -66,7 +66,7 @@ export function PoseOfflineReportPanel(props: {
 }) {
   const { taskStatusToneClass, taskStatusText, offlineFileSizeMbText, analysisStarted, checklist, offlineReport, reportContent } = props
   return (
-    <div className="cl_blog-widget mb-30 w-100">
+    <div className="cl_blog-widget mb-30 h-full w-full pose-video-report-card">
       <h4 className="cl_blog-widget-title mb-30">Analysis Report</h4>
       <div className="pose-report-overview">
         <span className={`pose-status-pill ${taskStatusToneClass}`}>{taskStatusText}</span>

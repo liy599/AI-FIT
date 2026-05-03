@@ -66,28 +66,6 @@
   border-radius: 20px;
 }
 
-@media (min-width: 1025px) and (max-width: 1319px) {
-  .pose-tool-page .pose-tool-live-grid {
-    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
-    grid-template-areas:
-      'guide guide'
-      'camera feedback';
-    gap: 20px;
-  }
-
-  .pose-tool-page .pose-tool-live-col-guide {
-    grid-area: guide;
-  }
-
-  .pose-tool-page .pose-tool-live-col-camera {
-    grid-area: camera;
-  }
-
-  .pose-tool-page .pose-tool-live-col-feedback {
-    grid-area: feedback;
-  }
-}
-
 @media (min-width: 1320px) {
   .pose-tool-page .pose-tool-live-grid {
     grid-template-columns: minmax(260px, 3fr) minmax(420px, 6fr) minmax(320px, 4fr);
@@ -621,30 +599,102 @@
 
 .pose-guide-actions {
   justify-content: center;
+  align-items: stretch;
+  gap: 14px;
 }
 
 .pose-guide-cta {
-  display: inline-flex;
+  display: flex;
+  flex: 1 1 260px;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 2px;
   text-align: center;
-  min-width: 220px;
+  min-width: 260px;
+  min-height: 64px;
+  padding: 10px 16px;
+  line-height: 1.2;
 }
 
 .pose-guide-cta-title {
-  font-weight: 800;
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 1.2;
 }
 
 .pose-guide-cta-sub {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.3;
   color: rgba(255, 255, 255, 0.82);
 }
 
 .pose-guide-cta-sub-light {
-  color: #475569;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.pose-guide-actions .cl_theme-btn.pose-guide-cta,
+.pose-guide-actions .pose-tool-ghost-btn.pose-guide-cta {
+  border-width: 1px;
+  border-style: solid;
+  border-color: transparent;
+  background: var(--color-brand);
+  color: #fff;
+  box-shadow: var(--shadow-brand);
+  transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pose-guide-actions .cl_theme-btn.pose-guide-cta:hover,
+.pose-guide-actions .pose-tool-ghost-btn.pose-guide-cta:hover {
+  background: var(--color-brand-hover);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.pose-guide-actions .cl_theme-btn.pose-guide-cta:active,
+.pose-guide-actions .pose-tool-ghost-btn.pose-guide-cta:active {
+  background: var(--color-brand-active);
+  transform: translateY(0);
+}
+
+.cl_hero-content-btn {
+  align-items: stretch;
+  gap: 14px;
+}
+
+.cl_hero-content-btn .cl_hero-btn,
+.cl_hero-content-btn .cl_hero-btn-2 {
+  flex: 1 1 260px;
+  min-width: 260px;
+  min-height: 50px;
+  padding: 10px 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  line-height: 1;
+  font-size: 16px;
+  font-weight: 700;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: var(--color-brand);
+  color: #fff;
+  box-shadow: var(--shadow-brand);
+  transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cl_hero-content-btn .cl_hero-btn:hover,
+.cl_hero-content-btn .cl_hero-btn-2:hover {
+  background: var(--color-brand-hover);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.cl_hero-content-btn .cl_hero-btn:active,
+.cl_hero-content-btn .cl_hero-btn-2:active {
+  background: var(--color-brand-active);
+  transform: translateY(0);
 }
 
 .pose-guide-details {
@@ -686,6 +736,25 @@
 .pose-tool-light-btn {
   border-color: rgba(15, 23, 42, 0.14);
   color: #0f172a;
+}
+
+.pose-tool-page .cl_theme-btn,
+.pose-tool-page .pose-tool-ghost-btn {
+  border-width: 1px;
+  border-style: solid;
+  box-shadow: none;
+}
+
+.pose-tool-page .cl_theme-btn {
+  border-color: transparent;
+}
+
+.pose-tool-page .cl_theme-btn:focus,
+.pose-tool-page .cl_theme-btn:focus-visible,
+.pose-tool-page .pose-tool-ghost-btn:focus,
+.pose-tool-page .pose-tool-ghost-btn:focus-visible {
+  outline: 2px solid rgba(53, 204, 149, 0.55);
+  outline-offset: 2px;
 }
 
 .pose-stage {
@@ -1221,8 +1290,14 @@
 }
 
 .pose-video-analysis-card,
-.pose-video-teaching-card {
+.pose-video-teaching-card,
+.pose-video-report-card {
   border-radius: 20px;
+}
+
+.pose-tool-page .pose-tool-video-col-report > .cl_blog-widget {
+  min-height: 520px;
+  margin-bottom: 0 !important;
 }
 
 .pose-video-analysis-card .pose-tool-head {
@@ -1875,6 +1950,10 @@
 .pose-history-item {
   display: grid;
   gap: 10px;
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+  cursor: pointer;
   text-decoration: none;
   color: inherit;
   border: 1px solid rgba(148, 163, 184, 0.2);

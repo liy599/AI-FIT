@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 
-import { getPoseCapabilities, getPosePolicy, type PoseCapabilities, type PosePolicy } from '../../pose'
+import { getPosePolicy, type PosePolicy } from '../../pose'
 import { LIVE_TARGET_FPS, LIVE_SESSION_LIMIT_MS, MAX_VIDEO_BYTES } from './constants'
 import type { PoseToolMode } from './types'
 
 type UsePoseRuntimePolicyResult = {
-  poseCapabilities: PoseCapabilities | null
-  poseCapabilitiesLoading: boolean
   posePolicy: PosePolicy | null
   liveTargetFps: number
   liveTargetFrameMs: number
@@ -14,32 +12,8 @@ type UsePoseRuntimePolicyResult = {
   maxVideoBytes: number
 }
 
-export function usePoseRuntimePolicy(mode: PoseToolMode): UsePoseRuntimePolicyResult {
-  const [poseCapabilities, setPoseCapabilities] = useState<PoseCapabilities | null>(null)
-  const [poseCapabilitiesLoading, setPoseCapabilitiesLoading] = useState(false)
+export function usePoseRuntimePolicy(_mode: PoseToolMode): UsePoseRuntimePolicyResult {
   const [posePolicy, setPosePolicy] = useState<PosePolicy | null>(null)
-
-  useEffect(() => {
-    if (mode !== 'offline') return
-    let active = true
-    setPoseCapabilitiesLoading(true)
-    getPoseCapabilities()
-      .then((cap) => {
-        if (!active) return
-        setPoseCapabilities(cap)
-      })
-      .catch(() => {
-        if (!active) return
-        setPoseCapabilities(null)
-      })
-      .finally(() => {
-        if (!active) return
-        setPoseCapabilitiesLoading(false)
-      })
-    return () => {
-      active = false
-    }
-  }, [mode])
 
   useEffect(() => {
     let active = true
@@ -63,8 +37,6 @@ export function usePoseRuntimePolicy(mode: PoseToolMode): UsePoseRuntimePolicyRe
   const maxVideoBytes = Number(posePolicy?.offline?.max_video_bytes ?? MAX_VIDEO_BYTES)
 
   return {
-    poseCapabilities,
-    poseCapabilitiesLoading,
     posePolicy,
     liveTargetFps,
     liveTargetFrameMs,
@@ -72,4 +44,3 @@ export function usePoseRuntimePolicy(mode: PoseToolMode): UsePoseRuntimePolicyRe
     maxVideoBytes
   }
 }
-

@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
 import type { PoseAnalysisReport } from '../../../lib/pose/report'
-import type { PoseCapabilities, PosePolicy } from '../../../lib/poseApi'
+import type { PosePolicy } from '../../../lib/poseApi'
 import type { SquatTuning } from '../../../lib/pose/realtimeSquatAnalyzer'
 import type { OfflineOverlayTone, OfflineProgress, OfflineReplayData } from './types'
 
@@ -14,10 +14,7 @@ type ExerciseMeta = {
 
 type UseOfflinePoseAnalysisArgs = {
   offlineFile: File | null
-  offlineProcessingMode: 'local' | 'server'
-  poseCapabilities: PoseCapabilities | null
   posePolicy: PosePolicy | null
-  offlineServerConsent: boolean
   offlineViewAngle: 'unknown' | 'front' | 'side' | 'back'
   exercise: ExerciseMeta
   liveSquatTuning: SquatTuning
@@ -36,13 +33,6 @@ type UseOfflinePoseAnalysisArgs = {
   setOfflineOverlayTone: Dispatch<SetStateAction<OfflineOverlayTone | null>>
   setOfflineOverlayMessage: Dispatch<SetStateAction<string | null>>
   setOfflineOverlayReady: Dispatch<SetStateAction<boolean>>
-  setOfflineServerTaskId: Dispatch<SetStateAction<number | null>>
-  submitPoseServerAnalysis: (input: {
-    file: File
-    exercise_type: string
-    view_angle: 'unknown' | 'front' | 'side' | 'back'
-    consent: boolean
-  }) => Promise<{ task: { id: number } }>
   extractNativePoseFromVideoUrlWithMoveNet: (url: string, options: Record<string, unknown>) => Promise<{ nativeFrames: any[]; fps: number }>
   buildSquatVideoLiveStyleReport: (input: any) => any
   buildPullupVideoLiveStyleReport: (input: any) => any
@@ -66,10 +56,7 @@ export function useOfflinePoseAnalysis(args: UseOfflinePoseAnalysisArgs) {
   return useCallback(async () => {
     const {
       offlineFile,
-      offlineProcessingMode,
-      poseCapabilities,
       posePolicy,
-      offlineServerConsent,
       offlineViewAngle,
       exercise,
       liveSquatTuning,
@@ -88,8 +75,6 @@ export function useOfflinePoseAnalysis(args: UseOfflinePoseAnalysisArgs) {
       setOfflineOverlayTone,
       setOfflineOverlayMessage,
       setOfflineOverlayReady,
-      setOfflineServerTaskId,
-      submitPoseServerAnalysis,
       extractNativePoseFromVideoUrlWithMoveNet,
       buildSquatVideoLiveStyleReport,
       buildPullupVideoLiveStyleReport,
@@ -110,36 +95,6 @@ export function useOfflinePoseAnalysis(args: UseOfflinePoseAnalysisArgs) {
     const allowedActions = posePolicy?.offline?.allowed_actions ?? ['squat', 'pushup', 'pullup', 'lateral-raise', 'bent-over-row']
     if (!allowedActions.includes(exercise.slug)) {
       setOfflineError(`Offline analysis for "${exercise.displayName}" is disabled until a dedicated replay analyzer and report builder are implemented.`)
-      return
-    }
-
-    if (offlineProcessingMode === 'server') {
-      if (!poseCapabilities?.server_inference?.enabled) {
-        setOfflineError('Server-side inference is currently disabled by the system administrator.')
-        return
-      }
-      if (!offlineServerConsent) {
-        setOfflineError('Please confirm consent before enabling server-side inference upload.')
-        return
-      }
-      try {
-        setOfflineBusy(true)
-        setOfflineError(null)
-        setOfflineStatusMsg('Submitting encrypted upload for server inference...')
-        const result = await submitPoseServerAnalysis({
-          file: offlineFile,
-          exercise_type: exercise.exerciseType,
-          view_angle: offlineViewAngle,
-          consent: true
-        })
-        setOfflineServerTaskId(result.task.id)
-        setOfflineStatusMsg('Server task queued. You can switch back to Local mode anytime for on-device processing.')
-        setOfflineLocalStatus('idle')
-      } catch (e: unknown) {
-        setOfflineError(e instanceof Error ? e.message : 'Server submission failed')
-      } finally {
-        setOfflineBusy(false)
-      }
       return
     }
 

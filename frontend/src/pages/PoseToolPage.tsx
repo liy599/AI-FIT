@@ -27,7 +27,6 @@ import {
   buildLateralRaiseVideoLiveStyleReport,
   collectLiveFrameIssueMessages,
   collectLiveIssueMessages,
-  cancelPoseServerAnalysis,
   createAnalyzer,
   createBestRealtimePoseProvider,
   createPoseTraining,
@@ -52,7 +51,6 @@ import {
   prewarmMoveNet,
   poseTierLabel,
   requestCameraStream,
-  submitPoseServerAnalysis,
   toIssueCode,
   type MoveNetNativeFrame,
   type PoseAnalysisReport,
@@ -148,9 +146,6 @@ export default function PoseToolPage() {
   const [squatTuningConfigMsg, setSquatTuningConfigMsg] = useState<string | null>(null)
 
   const [offlineFile, setOfflineFile] = useState<File | null>(null)
-  const [offlineProcessingMode, setOfflineProcessingMode] = useState<'local' | 'server'>('local')
-  const [offlineServerConsent, setOfflineServerConsent] = useState(false)
-  const [offlineServerTaskId, setOfflineServerTaskId] = useState<number | null>(null)
   const [offlinePreviewUrl, setOfflinePreviewUrl] = useState<string | null>(null)
   const [offlineViewAngle, setOfflineViewAngle] = useState<'unknown' | 'front' | 'side' | 'back'>(
     exercise.slug === 'lateral-raise' || exercise.slug === 'pullup' ? 'front' : 'side'
@@ -197,8 +192,7 @@ export default function PoseToolPage() {
     return () => globalThis.clearTimeout(timer)
   }, [])
 
-  const { poseCapabilities, poseCapabilitiesLoading, posePolicy, liveTargetFps, liveTargetFrameMs, liveSessionLimitMs, maxVideoBytes } =
-    usePoseRuntimePolicy(mode)
+  const { posePolicy, liveTargetFps, liveTargetFrameMs, liveSessionLimitMs, maxVideoBytes } = usePoseRuntimePolicy(mode)
   useOfflineReplayOverlay({
     mode,
     drawMode,
@@ -807,10 +801,7 @@ export default function PoseToolPage() {
 
   const runOfflineAnalysis = useOfflinePoseAnalysis({
     offlineFile,
-    offlineProcessingMode,
-    poseCapabilities,
     posePolicy,
-    offlineServerConsent,
     offlineViewAngle,
     exercise: { id: exercise.id, slug: exercise.slug, displayName: exercise.displayName, exerciseType: exercise.exerciseType },
     liveSquatTuning,
@@ -829,8 +820,6 @@ export default function PoseToolPage() {
     setOfflineOverlayTone,
     setOfflineOverlayMessage,
     setOfflineOverlayReady,
-    setOfflineServerTaskId,
-    submitPoseServerAnalysis,
     extractNativePoseFromVideoUrlWithMoveNet,
     buildSquatVideoLiveStyleReport,
     buildPullupVideoLiveStyleReport,
@@ -1175,9 +1164,7 @@ export default function PoseToolPage() {
                     <div>
                       <h4 className="cl_blog-widget-title mb-15">{exercise.displayName} - Video Analysis</h4>
                       <p className="pose-tool-subtitle pose-tool-subtitle-dark">
-                        {offlineProcessingMode === 'local'
-                          ? 'Local mode (privacy-first): pose extraction and analysis run in your browser. Video files are not uploaded.'
-                          : 'Server mode: video or keyframes may be uploaded for server-side inference. Explicit consent is required.'}
+                        Local mode (privacy-first): pose extraction and analysis run in your browser. Video files are not uploaded.
                       </p>
                       <p className="pose-tool-subtitle pose-tool-subtitle-dark">
                         Limit: 2 minutes. If your video is longer than 2 minutes, only the first 2 minutes will be analyzed.
@@ -1185,46 +1172,10 @@ export default function PoseToolPage() {
                     </div>
                   </div>
 
-                  <div className="pose-form-grid pose-form-grid-single">
-                    <label className="pose-form-field">
-                      <span>Inference Mode</span>
-                      <div className="pose-file-picker pose-file-picker-row">
-                        <button
-                          type="button"
-                          className={offlineProcessingMode === 'local' ? 'cl_theme-btn' : 'pose-tool-ghost-btn pose-tool-light-btn'}
-                          onClick={() => {
-                            setOfflineProcessingMode('local')
-                            setOfflineServerConsent(false)
-                          }}
-                        >
-                          Local (Privacy First)
-                        </button>
-                        <button
-                          type="button"
-                          className={offlineProcessingMode === 'server' ? 'cl_theme-btn' : 'pose-tool-ghost-btn pose-tool-light-btn'}
-                          onClick={() => setOfflineProcessingMode('server')}
-                          disabled={poseCapabilitiesLoading}
-                        >
-                          Server (Performance Mode)
-                        </button>
-                      </div>
-                      {offlineProcessingMode === 'server' ? (
-                        <div className="pose-inline-note pose-inline-note-top">
-                          <label className="pose-inline-check">
-                            <input
-                              type="checkbox"
-                              checked={offlineServerConsent}
-                              onChange={(e) => setOfflineServerConsent(e.target.checked)}
-                            />
-                            <span>I understand this mode may upload video or keyframes and I explicitly consent.</span>
-                          </label>
-                        </div>
-                      ) : (
-                        <div className="pose-inline-note pose-inline-note-top">
-                          Local mode keeps video processing on this device.
-                        </div>
-                      )}
-                    </label>
+                <div className="pose-form-grid pose-form-grid-single">
+                    <div className="pose-inline-note pose-inline-note-top">
+                      Local mode keeps video processing on this device.
+                    </div>
                     <label className="pose-form-field">
                       <span>Video File</span>
                       <input
@@ -1251,22 +1202,6 @@ export default function PoseToolPage() {
                     <button className="cl_theme-btn" disabled={offlineBusy} onClick={() => void runOfflineAnalysis()} type="button">
                       {offlineBusy ? 'Analyzing...' : 'Analyze Locally'}
                     </button>
-                    {offlineProcessingMode === 'server' && offlineServerTaskId ? (
-                      <button
-                        className="pose-tool-ghost-btn pose-tool-light-btn"
-                        type="button"
-                        onClick={() => {
-                          void cancelPoseServerAnalysis(offlineServerTaskId)
-                            .then(() => {
-                              setOfflineServerTaskId(null)
-                              setOfflineStatusMsg('Server task cancelled and uploaded video removed.')
-                            })
-                            .catch((e: unknown) => setOfflineError(e instanceof Error ? e.message : 'Cancel failed'))
-                        }}
-                      >
-                        Cancel Server Task
-                      </button>
-                    ) : null}
                   </div>
 
                   {offlinePreviewUrl ? (
@@ -1361,7 +1296,6 @@ export default function PoseToolPage() {
     </>
   )
 }
-
 
 
 

@@ -57,6 +57,7 @@ services:
       - web
     environment:
       SITE_ADDRESS: ${SITE_ADDRESS:-localhost}
+      ORIGIN_IP: ${ORIGIN_IP:-}
     ports:
       - "${HTTP_PORT:-80}:80"
       - "${HTTPS_PORT:-443}:443"

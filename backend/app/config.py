@@ -30,6 +30,7 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     FRONTEND_BASE_URL = os.environ.get("FRONTEND_BASE_URL", "http://localhost:5173")
+    CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "").strip()
     DB_AUTO_INIT = _env_bool("DB_AUTO_INIT", True)
     REDIS_URL = os.environ.get("REDIS_URL", "").strip()
     ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "")

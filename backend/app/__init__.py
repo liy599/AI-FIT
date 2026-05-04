@@ -11,8 +11,10 @@ from .services.pose.server_inference_worker import start_server_inference_worker
 from .utils.upload_access import normalize_upload_path, verify_upload_access_token
 
 def _is_cli_migration() -> bool:
-    argv = [str(a).lower() for a in sys.argv]
-    return "flask" in argv and "db" in argv
+    argv = [str(a) for a in sys.argv]
+    argv_lower = [a.lower() for a in argv]
+    has_flask = any(os.path.basename(a).lower() == "flask" or a.lower() == "flask" for a in argv)
+    return has_flask and ("db" in argv_lower)
 
 def create_app(config_object=Config):
     app = Flask(__name__)

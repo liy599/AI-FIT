@@ -1,4 +1,5 @@
 import os
+import sys
 
 from flask import Flask, jsonify, request, send_from_directory
 from werkzeug.exceptions import RequestEntityTooLarge
@@ -7,6 +8,12 @@ from .config import Config
 from .extensions import cors, db, jwt, migrate
 from .services.food.catalog_runtime import ensure_food_seed_data
 from .utils.upload_access import normalize_upload_path, verify_upload_access_token
+
+def _is_cli_migration() -> bool:
+    argv = [str(a) for a in sys.argv]
+    argv_lower = [a.lower() for a in argv]
+    has_flask = any(os.path.basename(a).lower() == "flask" or a.lower() == "flask" for a in argv)
+    return has_flask and ("db" in argv_lower)
 
 def create_app(config_object=Config):
     app = Flask(__name__)
@@ -96,8 +103,10 @@ def create_app(config_object=Config):
         return jsonify({"error": "file too large (max 80MB)"}), 413
 
     with app.app_context():
-        if bool(app.config.get("DB_AUTO_INIT", True)):
+        if (not _is_cli_migration()) and bool(app.config.get("DB_AUTO_INIT", True)):
             ensure_food_seed_data()
+        if not _is_cli_migration():
+            start_server_inference_worker(app)
 
     return app
 

@@ -1,9 +1,9 @@
 ﻿import { normalizeReportForArchive } from '../../../lib/report/unified'
-import type { PoseAnalysisReport } from '../../../lib/pose/report'
-import type { RealtimeFeedback } from '../../../lib/pose/realtimeSquat'
-import { RealtimeSquatAnalyzer, VIDEO_DEFAULT_SQUAT_TEMPO } from '../../../lib/pose/realtimeSquatAnalyzer'
-import type { MoveNetKeypoint } from '../../../lib/pose/movenetTracker'
-import { collectLiveFrameIssueMessages } from './live'
+import type { PoseAnalysisReport } from '../reporting/types'
+import type { RealtimeFeedback } from '../analyzer/types'
+import { RealtimeSquatAnalyzer, VIDEO_DEFAULT_SQUAT_TEMPO } from '../analyzer/squat'
+import type { MoveNetKeypoint } from '../vision/movenetTracker'
+import { collectAnalyzerReplayStats } from './replayStats'
 import { computeReportErrorStats, sampleTimelineRows } from './reportBase'
 import { mapSuggestionFromIssue } from './suggestionMap'
 import { VIDEO_DEFAULT_SQUAT_TUNING, type SquatTempo, type SquatTuning, type SquatRepFinding, type SquatTimelineRow } from './types'
@@ -271,61 +271,7 @@ export function buildSquatVideoLiveStyleReport(input: {
   analyzer.setTuning(input.tuning ?? VIDEO_DEFAULT_SQUAT_TUNING)
   analyzer.setTempo(VIDEO_DEFAULT_SQUAT_TEMPO)
   analyzer.setAnalyzerFps(input.fps)
-  let lastFeedback: RealtimeFeedback | null = null
-  let analyzedFrameCount = 0
-  const messageFreq = new Map<string, number>()
-  const trackingQualitySamples: number[] = []
-  const timelineRows: SquatTimelineRow[] = []
-  const repFindings: SquatRepFinding[] = []
-  let lastRepCount = 0
-  const total = input.nativeFrames.length
-
-  for (let i = 0; i < input.nativeFrames.length; i++) {
-    const nativeFrame = input.nativeFrames[i]!
-    if (nativeFrame.keypoints?.length) {
-      const feedback = analyzer.analyzeNative(nativeFrame.keypoints)
-      lastFeedback = feedback
-      analyzedFrameCount += 1
-      if (Number.isFinite(feedback.trackingQuality)) trackingQualitySamples.push(feedback.trackingQuality)
-      for (const message of collectLiveFrameIssueMessages(feedback)) {
-        const text = message.trim()
-        if (!text) continue
-        messageFreq.set(text, (messageFreq.get(text) ?? 0) + 1)
-      }
-      timelineRows.push({
-        frame: i,
-        tMs: nativeFrame.tMs,
-        phase: feedback.phase,
-        trackingQuality: feedback.trackingQuality,
-        kneeAngleDeg: feedback.kneeAngle,
-        hipAngleDeg: feedback.hipAngle,
-        torsoFromVerticalDeg: feedback.torsoAngle
-      })
-      if (feedback.repCount > lastRepCount) {
-        const result: SquatRepFinding['result'] =
-          feedback.lastRepResult === 'correct' ? 'correct' : feedback.lastRepResult === 'incorrect' ? 'incorrect' : 'invalid'
-        const reasons = feedback.lastRepReasonLabels.length > 0 ? [...feedback.lastRepReasonLabels] : []
-        const primaryIssue =
-          reasons[0] ??
-          feedback.lastRepMessage ??
-          (result === 'correct' ? 'Rep passed quality check.' : 'Rep was counted but not valid for quality scoring.')
-        for (let repNo = lastRepCount + 1; repNo <= feedback.repCount; repNo++) {
-          repFindings.push({
-            repNumber: repNo,
-            result,
-            primaryIssue,
-            reasons,
-            atFrame: i,
-            tMs: nativeFrame.tMs
-          })
-        }
-        lastRepCount = feedback.repCount
-      }
-    }
-    if (input.onProgress && ((i + 1) % 20 === 0 || i === input.nativeFrames.length - 1)) {
-      input.onProgress(i + 1, total)
-    }
-  }
+  const stats = collectAnalyzerReplayStats({ analyzer, nativeFrames: input.nativeFrames, onProgress: input.onProgress })
   return buildSquatAlignedReport({
     source: 'video',
     taskId: input.taskId,
@@ -333,12 +279,12 @@ export function buildSquatVideoLiveStyleReport(input: {
     exercise: input.exercise,
     video: input.video,
     fps: input.fps,
-    lastFeedback,
-    messageFreq,
-    analyzedFrameCount,
-    trackingQualitySamples,
-    timelineRows,
-    repFindings,
+    lastFeedback: stats.lastFeedback,
+    messageFreq: stats.messageFreq,
+    analyzedFrameCount: stats.analyzedFrameCount,
+    trackingQualitySamples: stats.trackingQualitySamples,
+    timelineRows: stats.timelineRows,
+    repFindings: stats.repFindings,
     tempoFastThresholdSec: input.tempoFastThresholdSec
   })
 }

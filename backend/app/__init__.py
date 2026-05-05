@@ -6,7 +6,6 @@ from werkzeug.exceptions import RequestEntityTooLarge
 from .config import Config
 from .extensions import cors, db, jwt, migrate
 from .services.food.catalog_runtime import ensure_food_seed_data
-from .services.pose.server_inference_worker import start_server_inference_worker
 from .utils.upload_access import normalize_upload_path, verify_upload_access_token
 
 def create_app(config_object=Config):
@@ -41,19 +40,19 @@ def create_app(config_object=Config):
     app.config.setdefault("UPLOAD_FOLDER", upload_root)
     app.config.setdefault("MAX_CONTENT_LENGTH", 80 * 1024 * 1024)
 
-    from .routes.auth import bp as auth_bp
-    from .routes.user import bp as user_bp
-    from .routes.workouts import bp as workouts_bp
-    from .routes.tags import bp as tags_bp
-    from .routes.blogs import bp as blogs_bp
-    from .routes.comments import bp as comments_bp
-    from .routes.feedback import bp as feedback_bp
-    from .routes.food import bp as food_bp
-    from .routes.foods import bp as foods_bp
-    from .routes.meals import bp as meals_bp
-    from .routes.pose import bp as pose_bp
-    from .routes.recognize import bp as recognize_bp
-    from .routes.admin import bp as admin_bp
+    from .routes.account.auth import bp as auth_bp
+    from .routes.account.user import bp as user_bp
+    from .routes.account.workouts import bp as workouts_bp
+    from .routes.account.feedback import bp as feedback_bp
+    from .routes.admin.lifecycle import bp as admin_bp
+    from .routes.blog.blogs import bp as blogs_bp
+    from .routes.blog.comments import bp as comments_bp
+    from .routes.blog.tags import bp as tags_bp
+    from .routes.food.foods import bp as foods_bp
+    from .routes.food.meals import bp as meals_bp
+    from .routes.food.meta import bp as food_bp
+    from .routes.food.recognize import bp as recognize_bp
+    from .routes.pose.api import bp as pose_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(user_bp, url_prefix="/api/user")
@@ -99,7 +98,6 @@ def create_app(config_object=Config):
     with app.app_context():
         if bool(app.config.get("DB_AUTO_INIT", True)):
             ensure_food_seed_data()
-        start_server_inference_worker(app)
 
     return app
 

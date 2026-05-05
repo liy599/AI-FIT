@@ -1,4 +1,4 @@
-﻿export {
+export {
   deleteMeal,
   getFoodCategories,
   getFoodModuleMeta,
@@ -9,7 +9,7 @@
   getTodaySummary,
   recognizeFoods,
   saveMeal
-} from '../../lib/food/api'
+} from './api'
 export type {
   DaySummary,
   FoodCategory,
@@ -18,5 +18,4 @@ export type {
   MealItemDraft,
   MealRecord,
   RecognizeFoodsResponse
-} from '../../lib/food/types_runtime'
-
+} from './types'

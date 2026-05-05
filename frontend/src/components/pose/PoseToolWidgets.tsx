@@ -1,5 +1,5 @@
-﻿import type { PoseAnalysisReport } from '../../lib/pose/report'
-import { humanizePoseReport, mapPoseFeedbackMessage, poseTierLabel } from '../../lib/pose/feedbackCopy'
+﻿import type { PoseAnalysisReport } from '../../modules/pose/reporting'
+import { humanizePoseReport, mapPoseFeedbackMessage, poseTierLabel } from '../../modules/pose/reporting'
 import {
   TOP_ISSUE_TIME_DISPLAY,
   asRecord,

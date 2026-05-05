@@ -1,9 +1,9 @@
 ﻿import { normalizeReportForArchive } from '../../../lib/report/unified'
-import type { PoseAnalysisReport } from '../../../lib/pose/report'
-import type { RealtimeFeedback } from '../../../lib/pose/realtimeSquat'
-import { RealtimeLateralRaiseAnalyzer } from '../../../lib/pose/realtimeLateralRaise'
-import type { MoveNetKeypoint } from '../../../lib/pose/movenetTracker'
-import { collectLiveFrameIssueMessages } from './live'
+import type { PoseAnalysisReport } from '../reporting/types'
+import type { RealtimeFeedback } from '../analyzer/types'
+import { RealtimeLateralRaiseAnalyzer } from '../analyzer/lateralRaise'
+import type { MoveNetKeypoint } from '../vision/movenetTracker'
+import { collectAnalyzerReplayStats } from './replayStats'
 import { computeReportErrorStats, sampleTimelineRows, toIssueCode } from './reportBase'
 import { mapSuggestionFromIssue } from './suggestionMap'
 import type { SquatTimelineRow } from './types'
@@ -174,39 +174,7 @@ export function buildLateralRaiseVideoLiveStyleReport(input: {
   onProgress?: (processed: number, total: number) => void
 }): PoseAnalysisReport {
   const analyzer = new RealtimeLateralRaiseAnalyzer()
-  let lastFeedback: RealtimeFeedback | null = null
-  let analyzedFrameCount = 0
-  const messageFreq = new Map<string, number>()
-  const trackingQualitySamples: number[] = []
-  const timelineRows: SquatTimelineRow[] = []
-  const total = input.nativeFrames.length
-
-  for (let i = 0; i < input.nativeFrames.length; i++) {
-    const frame = input.nativeFrames[i]!
-    if (frame.keypoints?.length) {
-      const feedback = analyzer.analyzeNative(frame.keypoints)
-      lastFeedback = feedback
-      analyzedFrameCount += 1
-      if (Number.isFinite(feedback.trackingQuality)) trackingQualitySamples.push(feedback.trackingQuality)
-      for (const message of collectLiveFrameIssueMessages(feedback)) {
-        const text = message.trim()
-        if (!text) continue
-        messageFreq.set(text, (messageFreq.get(text) ?? 0) + 1)
-      }
-      timelineRows.push({
-        frame: i,
-        tMs: frame.tMs,
-        phase: feedback.phase,
-        trackingQuality: feedback.trackingQuality,
-        kneeAngleDeg: feedback.kneeAngle,
-        hipAngleDeg: feedback.hipAngle,
-        torsoFromVerticalDeg: feedback.torsoAngle
-      })
-    }
-    if (input.onProgress && ((i + 1) % 20 === 0 || i === input.nativeFrames.length - 1)) {
-      input.onProgress(i + 1, total)
-    }
-  }
+  const stats = collectAnalyzerReplayStats({ analyzer, nativeFrames: input.nativeFrames, onProgress: input.onProgress })
 
   return buildLateralRaiseAlignedReport({
     source: 'video',
@@ -215,11 +183,11 @@ export function buildLateralRaiseVideoLiveStyleReport(input: {
     exercise: input.exercise,
     video: input.video,
     fps: input.fps,
-    lastFeedback,
-    messageFreq,
-    analyzedFrameCount,
-    trackingQualitySamples,
-    timelineRows,
+    lastFeedback: stats.lastFeedback,
+    messageFreq: stats.messageFreq,
+    analyzedFrameCount: stats.analyzedFrameCount,
+    trackingQualitySamples: stats.trackingQualitySamples,
+    timelineRows: stats.timelineRows,
     rules: input.rules
   })
 }

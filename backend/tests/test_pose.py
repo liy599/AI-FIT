@@ -1,5 +1,3 @@
-﻿from io import BytesIO
-
 
 def register_and_token(client, email="pose@example.com", username="pose-user", password="pass1234"):
     response = client.post(
@@ -15,108 +13,6 @@ def auth_headers(client):
     csrf_cookie = client.get_cookie("csrf_access_token")
     csrf_token = csrf_cookie.value if csrf_cookie is not None else ""
     return {"X-CSRF-TOKEN": csrf_token} if csrf_token else {}
-
-
-def upload_video(client, token: str, filename="sample.mp4", content=b"fake mp4 bytes"):
-    _ = token
-    response = client.post(
-        "/api/pose/videos",
-        headers=auth_headers(client),
-        data={"file": (BytesIO(content), filename, "video/mp4")},
-        content_type="multipart/form-data",
-    )
-    assert response.status_code == 201
-    return response.get_json()["video"]
-
-
-def test_pose_video_upload_list_and_file_access(client):
-    token = register_and_token(client)
-    video = upload_video(client, token)
-
-    response = client.get("/api/pose/videos")
-    assert response.status_code == 200
-    payload = response.get_json()
-    assert payload["total"] == 1
-    assert payload["items"][0]["id"] == video["id"]
-
-    response = client.get(f"/api/pose/videos/{video['id']}/file")
-    assert response.status_code == 200
-    assert response.data == b"fake mp4 bytes"
-    assert response.mimetype == "video/mp4"
-
-    signed = client.get(f"/api/pose/videos/{video['id']}/signed-url")
-    assert signed.status_code == 200
-    signed_url = signed.get_json()["url"]
-    public_fetch = client.get(signed_url)
-    assert public_fetch.status_code == 200
-    assert public_fetch.data == b"fake mp4 bytes"
-
-
-def test_pose_analysis_task_complete_flow(client):
-    token = register_and_token(client)
-    video = upload_video(client, token)
-
-    response = client.post(
-        "/api/pose/analysis/tasks",
-        headers=auth_headers(client),
-        json={
-            "video_asset_id": video["id"],
-            "exercise_type": "squat",
-            "view_angle": "side",
-            "instruction": "keep stable",
-        },
-    )
-    assert response.status_code == 201
-    task = response.get_json()["task"]
-    assert task["status"] == "running"
-    assert task["video"]["id"] == video["id"]
-
-    report = {
-        "version": 3,
-        "status": "ok",
-        "summary": "analysis ok",
-        "keyMetrics": {"avgScore": 88},
-        "issues": [],
-        "suggestions": ["brace harder"],
-    }
-    response = client.post(
-        f"/api/pose/analysis/tasks/{task['id']}/complete",
-        headers=auth_headers(client),
-        json={"report": report},
-    )
-    assert response.status_code == 200
-    completed = response.get_json()["task"]
-    assert completed["status"] == "succeeded"
-    assert completed["result"]["report"]["summary"] == "analysis ok"
-
-    response = client.get(f"/api/pose/analysis/tasks/{task['id']}")
-    assert response.status_code == 200
-    fetched = response.get_json()["task"]
-    assert fetched["status"] == "succeeded"
-    assert fetched["result"]["report"]["keyMetrics"]["avgScore"] == 88
-
-
-def test_pose_analysis_task_fail_flow(client):
-    token = register_and_token(client, email="pose2@example.com", username="pose-user-2")
-    video = upload_video(client, token, filename="sample2.mp4", content=b"another fake mp4")
-
-    response = client.post(
-        "/api/pose/analysis/tasks",
-        headers=auth_headers(client),
-        json={"video_asset_id": video["id"], "exercise_type": "squat", "view_angle": "front"},
-    )
-    assert response.status_code == 201
-    task = response.get_json()["task"]
-
-    response = client.post(
-        f"/api/pose/analysis/tasks/{task['id']}/fail",
-        headers=auth_headers(client),
-        json={"error": "MediaPipe analysis failed"},
-    )
-    assert response.status_code == 200
-    failed = response.get_json()["task"]
-    assert failed["status"] == "failed"
-    assert failed["error_message"] == "MediaPipe analysis failed"
 
 
 def test_pose_training_save(client):
@@ -259,8 +155,7 @@ def test_pose_policy_contract_shape(client):
     bent_over_row = rules.get("bent_over_row") or {}
     analyzer = rules.get("analyzer") or {}
 
-    assert privacy.get("local_inference_default") is True
-    assert privacy.get("server_upload_requires_explicit_consent") is True
+    assert privacy.get("local_inference_only") is True
     assert isinstance(realtime.get("tracking_quality_min"), float)
     assert isinstance(realtime.get("tempo_fast_threshold_seconds"), float)
     assert isinstance(squat.get("knee_forward_warn_ratio"), float)
@@ -279,6 +174,9 @@ def test_pose_policy_contract_shape(client):
     assert isinstance(bent_over_row.get("back_angle_fail_deg"), int)
     assert isinstance(bent_over_row.get("range_warn_ratio"), float)
     assert isinstance(bent_over_row.get("range_fail_ratio"), float)
+    assert isinstance((analyzer.get("squat") or {}).get("knee_forward_fail_min_frames"), int)
+    assert isinstance((analyzer.get("squat") or {}).get("forward_lean_fail_min_frames"), int)
+    assert isinstance((analyzer.get("squat") or {}).get("tracking_quality_min"), float)
     assert isinstance((analyzer.get("pushup") or {}).get("depth_required_elbow_angle"), int)
     assert isinstance((analyzer.get("lateral_raise") or {}).get("torso_sway_warn_deg"), int)
     assert isinstance((analyzer.get("bent_over_row") or {}).get("torso_lean_warn_deg"), int)
@@ -293,52 +191,33 @@ def test_pose_policy_runtime_bounds(client):
     assert payload["offline"]["analysis_target_fps"] >= 1
 
 
-def test_server_analysis_submit_rejects_when_disabled(client):
-    token = register_and_token(client, email="pose5@example.com", username="pose-user-5")
+
+def test_pose_video_upload_and_server_analysis_routes_are_removed(client):
+    token = register_and_token(client, email="pose-local-only@example.com", username="pose-local-only")
     _ = token
-    response = client.post(
-        "/api/pose/server-analysis/submit",
+
+    upload_response = client.post(
+        "/api/pose/videos",
         headers=auth_headers(client),
-        data={"consent": "true", "file": (BytesIO(b"fake mp4 bytes"), "sample.mp4", "video/mp4")},
+        data={},
         content_type="multipart/form-data",
     )
-    assert response.status_code == 403
-    assert response.get_json()["error"] == "server inference disabled"
+    assert upload_response.status_code == 404
 
+    task_response = client.post(
+        "/api/pose/analysis/tasks",
+        headers=auth_headers(client),
+        json={"video_asset_id": 1, "exercise_type": "squat", "view_angle": "side"},
+    )
+    assert task_response.status_code == 404
 
-def test_server_analysis_submit_requires_explicit_consent(client):
-    token = register_and_token(client, email="pose6@example.com", username="pose-user-6")
-    _ = token
-    client.application.config["POSE_SERVER_INFERENCE_ENABLED"] = True
-    response = client.post(
+    server_response = client.post(
         "/api/pose/server-analysis/submit",
         headers=auth_headers(client),
-        data={"file": (BytesIO(b"fake mp4 bytes"), "sample.mp4", "video/mp4")},
+        data={},
         content_type="multipart/form-data",
     )
-    assert response.status_code == 400
-    assert response.get_json()["error"] == "explicit consent required"
+    assert server_response.status_code == 404
 
-
-def test_server_analysis_submit_accepts_with_explicit_consent(client):
-    token = register_and_token(client, email="pose7@example.com", username="pose-user-7")
-    _ = token
-    client.application.config["POSE_SERVER_INFERENCE_ENABLED"] = True
-    response = client.post(
-        "/api/pose/server-analysis/submit",
-        headers=auth_headers(client),
-        data={
-            "consent": "true",
-            "exercise_type": "squat",
-            "view_angle": "side",
-            "file": (BytesIO(b"fake mp4 bytes"), "sample.mp4", "video/mp4"),
-        },
-        content_type="multipart/form-data",
-    )
-    assert response.status_code == 201
-    payload = response.get_json()
-    task = payload["task"]
-    assert payload["queued"] is True
-    assert task["status"] == "uploaded"
-    assert task["instruction"] == "server_inference_requested_with_explicit_consent:v1"
-
+    tuning_response = client.get("/api/pose/config/squat-tuning")
+    assert tuning_response.status_code == 404

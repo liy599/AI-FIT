@@ -121,9 +121,16 @@
 
 ### 已完成的核心能力
 
-#### 后端最小闭环已落地
+#### 后端摘要闭环已落地
 
-已实现接口：
+当前保留接口：
+- `GET /api/pose/policy`
+- `POST /api/pose/trainings`
+- `GET /api/pose/trainings`
+- `GET /api/pose/trainings/<id>`
+- `PUT /api/pose/trainings/<id>/report`
+
+已下线接口：
 - `POST /api/pose/videos`
 - `GET /api/pose/videos`
 - `GET /api/pose/videos/<id>/file`
@@ -131,19 +138,11 @@
 - `GET /api/pose/analysis/tasks/<id>`
 - `POST /api/pose/analysis/tasks/<id>/complete`
 - `POST /api/pose/analysis/tasks/<id>/fail`
-- `POST /api/pose/trainings`
+- `/api/pose/server-analysis*`
 
-已落地模型：
-- `video_assets`
-- `analysis_tasks`
-- `analysis_results`
-- `training_sessions`
-- `training_sets`
-
-同时已完成：
-- 上传上限提升到 `80MB`
-- 视频按用户目录存储
-- 受保护的视频文件访问
+当前边界：
+- Pose 推理只在前端本地执行。
+- 后端只接收训练摘要 JSON 与报告 JSON，不接收 Pose 原视频。
 
 #### 前端统一姿态入口已落地
 
@@ -163,13 +162,7 @@
 
 #### 离线模式已打通
 
-已具备：
-- 上传视频
-- 创建分析任务
-- 浏览器端 MediaPipe 提取关键点
-- 标准模板比对或通用分析
-- complete / fail 回写
-- 报告展示
+已具备：`r`n- 选择本地视频`r`n- 浏览器端 MoveNet 提取关键点`r`n- 本地四动作分析`r`n- 报告展示
 - JSON / PDF 导出
 
 #### 测试与校验状态
@@ -331,7 +324,6 @@
 建议按以下顺序继续推进：
 
 1. 补齐姿态训练历史查询、详情和查看入口。
-2. 补齐分析任务列表 / 历史 / retry。
 3. 将 `frontend/src/lib/report/unified.ts` 替换为 `train` 的真实统一归档实现。
 4. 清理 `PoseToolPage.tsx` 与 `styles.css` 中的历史字符串和 CSS 覆盖兜底。
 5. 再评估是否继续迁移 settings、privacy、dashboard、exercise/category 等外围能力。
@@ -365,6 +357,8 @@ food 方向建议：
 - [`FOOD_MIGRATION_AUDIT_2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/food/FOOD_MIGRATION_AUDIT_2026-04-05.md)
 - [`FOOD_AI-FIT_全量功能比对报告_2026-04-05.md`](/d:/trae/trae_projects/AI-FIT/info/food/FOOD_AI-FIT_全量功能比对报告_2026-04-05.md)
 - [`FOOD_MIGRATION_LOG.md`](/d:/trae/trae_projects/AI-FIT/info/food/FOOD_MIGRATION_LOG.md)
+
+
 
 
 

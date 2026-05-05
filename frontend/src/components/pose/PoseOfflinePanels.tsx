@@ -1,6 +1,6 @@
 ﻿import type { ChangeEvent, ReactNode, Ref } from 'react'
 import type { PoseAnalysisReport } from '../../modules/pose'
-import type { OfflineOverlayTone, OfflineProgress } from '../../modules/pose/tool/types'
+import type { OfflineOverlayTone, OfflineProgress } from '../../modules/pose'
 
 type TeachingCopy = {
   cameraAngle: string
@@ -59,8 +59,7 @@ export function PoseOfflineTeachingPanel(props: {
 export function PoseOfflineAnalysisPanel(props: {
   exerciseDisplayName: string
   posePolicyVersion: string
-  localInferenceDefault: boolean
-  serverConsentRequired: boolean
+  localInferenceOnly: boolean
   offlineFile: File | null
   offlineBusy: boolean
   offlinePreviewUrl: string | null
@@ -82,8 +81,7 @@ export function PoseOfflineAnalysisPanel(props: {
   const {
     exerciseDisplayName,
     posePolicyVersion,
-    localInferenceDefault,
-    serverConsentRequired,
+    localInferenceOnly,
     offlineFile,
     offlineBusy,
     offlinePreviewUrl,
@@ -116,7 +114,7 @@ export function PoseOfflineAnalysisPanel(props: {
             Local mode (privacy-first): pose extraction and analysis run in your browser. Video files are not uploaded.
           </p>
           <p className="pose-tool-subtitle pose-tool-subtitle-dark">
-            Policy {posePolicyVersion}: local inference default {localInferenceDefault ? 'on' : 'off'}, server upload consent {serverConsentRequired ? 'required' : 'optional'}.
+            Policy {posePolicyVersion}: local-only inference {localInferenceOnly ? 'enforced' : 'unavailable'}.
           </p>
           <p className="pose-tool-subtitle pose-tool-subtitle-dark">
             Limit: 2 minutes. If your video is longer than 2 minutes, only the first 2 minutes will be analyzed.

@@ -1,4 +1,4 @@
-﻿import { mapPoseFeedbackMessage } from '../../lib/pose/feedbackCopy'
+﻿import { mapPoseFeedbackMessage } from '../../modules/pose/reporting'
 
 export const TOP_ISSUE_TIME_DISPLAY = {
   maxMoments: 5,

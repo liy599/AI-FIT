@@ -1,4 +1,4 @@
-﻿import type { RealtimeFeedback } from '../../../lib/pose/realtimeSquat'
+﻿import type { RealtimeFeedback } from '../analyzer/types'
 import type { ExerciseSlug, SquatRepFinding } from './types'
 import { mapSuggestionFromIssue } from './suggestionMap'
 

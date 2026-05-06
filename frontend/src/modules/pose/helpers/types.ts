@@ -1,6 +1,6 @@
-﻿import type { RealtimeFeedback } from '../../../lib/pose/realtimeSquat'
-import type { SquatTempo, SquatTuning } from '../../../lib/pose/realtimeSquatAnalyzer'
-import type { MoveNetKeypoint } from '../../../lib/pose/movenetTracker'
+﻿import type { RealtimeFeedback } from '../analyzer/types'
+import type { SquatTempo, SquatTuning } from '../analyzer/squat'
+import type { MoveNetKeypoint } from '../vision/movenetTracker'
 
 export type ExerciseSlug = 'squat' | 'lateral-raise' | 'pushup' | 'bent-over-row'
 

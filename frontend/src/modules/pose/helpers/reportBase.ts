@@ -1,4 +1,4 @@
-﻿import type { PoseAnalysisReport } from '../../../lib/pose/report'
+﻿import type { PoseAnalysisReport } from '../reporting/types'
 
 export function sampleTimelineRows<T>(items: T[], max: number) {
   if (items.length <= max) return items

@@ -48,8 +48,8 @@ def test_recognize_uses_ai_report_env_fallback(client, monkeypatch):
         captured["image_data_url"] = image_data_url
         return StepfunRecognizeResult(ok=True, labels=["banana"], raw_text='["banana"]')
 
-    monkeypatch.setattr("app.routes.recognize.recognize_foods_by_stepfun", fake_recognize)
-    monkeypatch.setattr("app.routes.recognize.match_food_labels", lambda labels, foods: ([1], []))
+    monkeypatch.setattr("app.routes.food.recognize.recognize_foods_by_stepfun", fake_recognize)
+    monkeypatch.setattr("app.routes.food.recognize.match_food_labels", lambda labels, foods: ([1], []))
 
     response = client.post(
         "/api/recognize",

@@ -1,27 +1,27 @@
 ﻿import { lazy, Suspense, type ReactNode } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
-import Layout from './components/Layout'
+import Layout from './components/layout/Layout'
 import { AuthProvider, useAuth } from './state/auth-context'
-import HomePage from './pages/HomePage'
+import HomePage from './pages/public/HomePage'
 
 // Lazy-load pages (code splitting for better performance)
-const AboutPage = lazy(() => import('./pages/AboutPage'))
-const AdminDataLifecyclePage = lazy(() => import('./pages/AdminDataLifecyclePage'))
-const BlogDetailPage = lazy(() => import('./pages/BlogDetailPage'))
-const BlogListPage = lazy(() => import('./pages/BlogListPage'))
-const FoodMealPage = lazy(() => import('./pages/FoodMealPage'))
-const FoodModulePage = lazy(() => import('./pages/FoodModulePage'))
-const LoginPage = lazy(() => import('./pages/LoginPage'))
-const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
-const PoseGuidePage = lazy(() => import('./pages/PoseGuidePage'))
-const PoseSelectPage = lazy(() => import('./pages/PoseSelectPage'))
-const PoseTrainingHistoryPage = lazy(() => import('./pages/PoseTrainingHistoryPage'))
-const PoseTrainingReportPage = lazy(() => import('./pages/PoseTrainingReportPage'))
-const PoseToolPage = lazy(() => import('./pages/PoseToolPage'))
-const ProfilePage = lazy(() => import('./pages/ProfilePage'))
-const RegisterPage = lazy(() => import('./pages/RegisterPage'))
-const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'))
-const UserPrivacyPage = lazy(() => import('./pages/UserPrivacyPage'))
+const AboutPage = lazy(() => import('./pages/public/AboutPage'))
+const AdminDataLifecyclePage = lazy(() => import('./pages/admin/AdminDataLifecyclePage'))
+const BlogDetailPage = lazy(() => import('./pages/blog/BlogDetailPage'))
+const BlogListPage = lazy(() => import('./pages/blog/BlogListPage'))
+const FoodMealPage = lazy(() => import('./pages/food/FoodMealPage'))
+const FoodModulePage = lazy(() => import('./pages/food/FoodModulePage'))
+const LoginPage = lazy(() => import('./pages/auth/LoginPage'))
+const NotFoundPage = lazy(() => import('./pages/public/NotFoundPage'))
+const PoseGuidePage = lazy(() => import('./pages/pose/PoseGuidePage'))
+const PoseSelectPage = lazy(() => import('./pages/pose/PoseSelectPage'))
+const PoseTrainingHistoryPage = lazy(() => import('./pages/pose/PoseTrainingHistoryPage'))
+const PoseTrainingReportPage = lazy(() => import('./pages/pose/PoseTrainingReportPage'))
+const PoseToolPage = lazy(() => import('./pages/pose/PoseToolPage'))
+const ProfilePage = lazy(() => import('./pages/user/ProfilePage'))
+const RegisterPage = lazy(() => import('./pages/auth/RegisterPage'))
+const ResetPasswordPage = lazy(() => import('./pages/auth/ResetPasswordPage'))
+const UserPrivacyPage = lazy(() => import('./pages/user/UserPrivacyPage'))
 
 // Route guard: requires user authentication
 function RequireAuth({ children }: { children: ReactNode }) {

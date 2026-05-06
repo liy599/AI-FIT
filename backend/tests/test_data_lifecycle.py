@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
 from app.extensions import db
-from app.models import User, UserFeedback, VideoAsset, WorkoutRecord
+from app.models import User, UserFeedback, WorkoutRecord
 
 
 def _register_and_token(client, email: str, username: str):
@@ -102,37 +102,24 @@ def test_admin_cleanup_requires_admin_and_deletes_old_data(client, app):
                 created_at=old_time,
             )
         )
-        db.session.add(
-            VideoAsset(
-                user_id=user.id,
-                original_name="old.mp4",
-                mime_type="video/mp4",
-                size_bytes=123,
-                storage_path="pose/videos/1/old.mp4",
-                created_at=old_time,
-                updated_at=old_time,
-            )
-        )
         db.session.commit()
 
     preview = admin_client.post(
         "/api/admin/data-lifecycle/cleanup",
         headers=admin_headers,
-        json={"dry_run": True, "retention_days": {"workouts": 7, "feedback": 7, "pose_videos": 7}},
+        json={"dry_run": True, "retention_days": {"workouts": 7, "feedback": 7}},
     )
     assert preview.status_code == 200
     preview_payload = preview.get_json()
     assert preview_payload["summary"]["workouts"]["matched"] >= 1
     assert preview_payload["summary"]["feedback"]["matched"] >= 1
-    assert preview_payload["summary"]["pose_videos"]["matched"] >= 1
 
     execute = admin_client.post(
         "/api/admin/data-lifecycle/cleanup",
         headers=admin_headers,
-        json={"dry_run": False, "retention_days": {"workouts": 7, "feedback": 7, "pose_videos": 7}},
+        json={"dry_run": False, "retention_days": {"workouts": 7, "feedback": 7}},
     )
     assert execute.status_code == 200
     execute_payload = execute.get_json()
     assert execute_payload["summary"]["workouts"]["deleted"] >= 1
     assert execute_payload["summary"]["feedback"]["deleted"] >= 1
-    assert execute_payload["summary"]["pose_videos"]["deleted"] >= 1

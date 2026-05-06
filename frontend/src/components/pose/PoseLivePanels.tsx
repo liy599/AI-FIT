@@ -1,7 +1,7 @@
 ﻿import type { Ref } from 'react'
 import type { RealtimeFeedback, TrackingState } from '../../modules/pose'
 import { formatDuration, LabelWithTip, MetricCard, poseTierLabel } from '../../modules/pose'
-import type { LiveSessionEndReason, LiveSessionStatus, LiveSessionSummary } from '../../modules/pose/tool/types'
+import type { LiveSessionEndReason, LiveSessionStatus, LiveSessionSummary } from '../../modules/pose'
 
 type TeachingCopy = {
   cameraAngle: string
@@ -303,9 +303,9 @@ function PoseLiveFeedbackPanel(props: Parameters<typeof PoseLiveModePanels>[0]) 
           <MetricCard label={<LabelWithTip label="Effective Reps" tip="Reps that were fully assessed and judged as correct or incorrect." />} value={(props.feedback?.correctCount ?? 0) + (props.feedback?.incorrectCount ?? 0)} />
           <MetricCard label={<LabelWithTip label="Invalid Reps" tip="Completed reps excluded from validity scoring (for example unstable side view or incomplete keypoints)." />} value={props.feedback?.session.unassessedReps ?? Math.max(0, (props.feedback?.repCount ?? 0) - ((props.feedback?.correctCount ?? 0) + (props.feedback?.incorrectCount ?? 0)))} />
           <MetricCard label={<LabelWithTip label="Form Accuracy" tip="Accuracy among assessed reps only: correct / (correct + incorrect)." />} value={props.feedback?.session.accuracyPct ?? 0} unit="%" />
-          <MetricCard label={<LabelWithTip label={props.secondaryMetricLabel} tip={props.secondaryMetricTip} />} value={props.feedback?.kneeAngle ?? '-'} unit={props.feedback?.kneeAngle ? 'deg' : ''} />
-          <MetricCard label={<LabelWithTip label="Hip Bend" tip="Estimated hip joint angle during your movement." />} value={props.feedback?.hipAngle ?? '-'} unit={props.feedback?.hipAngle ? 'deg' : ''} />
-          <MetricCard label={<LabelWithTip label="Torso Lean" tip="Estimated torso angle relative to upright posture." />} value={props.feedback?.torsoAngle ?? '-'} unit={props.feedback?.torsoAngle ? 'deg' : ''} />
+          <MetricCard label={<LabelWithTip label={props.secondaryMetricLabel} tip={props.secondaryMetricTip} />} value={props.feedback?.kneeAngle ?? '-'} unit={props.feedback?.kneeAngle ? '°' : ''} />
+          <MetricCard label={<LabelWithTip label="Hip Bend" tip="Estimated hip joint angle during your movement." />} value={props.feedback?.hipAngle ?? '-'} unit={props.feedback?.hipAngle ? '°' : ''} />
+          <MetricCard label={<LabelWithTip label="Torso Lean" tip="Estimated torso angle relative to upright posture." />} value={props.feedback?.torsoAngle ?? '-'} unit={props.feedback?.torsoAngle ? '°' : ''} />
         </div>
 
         <div className="pose-tip-card pose-tip-card-light pose-live-section pose-live-section-split">

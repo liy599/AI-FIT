@@ -3,6 +3,14 @@ set -eu
 
 ORIGIN_IP="${ORIGIN_IP:-137.43.49.50}"
 
+compose() {
+  if docker compose version >/dev/null 2>&1; then
+    docker compose "$@"
+  else
+    docker-compose "$@"
+  fi
+}
+
 if [ -z "${ACME_EMAIL:-}" ]; then
   echo "Set ACME_EMAIL before running, for example:"
   echo "ACME_EMAIL=admin@example.com ORIGIN_IP=${ORIGIN_IP} sh scripts/vm-bootstrap-ip-https.sh"
@@ -16,9 +24,9 @@ fi
 
 mkdir -p deploy/certbot/www
 
-docker compose -f docker-compose.yml -f deploy/docker-compose.bootstrap.yml up -d --build db redis backend web caddy
+compose -f docker-compose.yml -f deploy/docker-compose.bootstrap.yml up -d --build db redis backend web caddy
 
-docker compose --profile certbot run --rm certbot certonly \
+compose --profile certbot run --rm certbot certonly \
   --webroot \
   --webroot-path /var/www/certbot \
   --ip-address "${ORIGIN_IP}" \
@@ -29,7 +37,7 @@ docker compose --profile certbot run --rm certbot certonly \
   --no-eff-email \
   --non-interactive
 
-docker compose -f docker-compose.yml -f deploy/docker-compose.bootstrap.yml stop caddy
-docker compose up -d --build caddy
+compose -f docker-compose.yml -f deploy/docker-compose.bootstrap.yml stop caddy
+compose up -d --build caddy
 
 echo "HTTPS is configured at https://${ORIGIN_IP}/"

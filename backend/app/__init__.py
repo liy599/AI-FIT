@@ -7,6 +7,11 @@ from werkzeug.exceptions import RequestEntityTooLarge
 from .config import Config
 from .extensions import cors, db, jwt, migrate
 from .services.food.catalog_runtime import ensure_food_seed_data
+try:
+    from .services.pose.server_inference_worker import start_server_inference_worker
+except Exception:
+    def start_server_inference_worker(*args, **kwargs):
+        return None
 from .utils.upload_access import normalize_upload_path, verify_upload_access_token
 
 def _is_cli_migration() -> bool:

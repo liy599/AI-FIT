@@ -1,4 +1,4 @@
-﻿from datetime import timedelta
+from datetime import timedelta
 
 from flask import Blueprint, current_app, jsonify, request
 from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required, set_access_cookies, unset_jwt_cookies
@@ -6,6 +6,7 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 from ...extensions import db
 from ...models import User
+from ...utils.mailer import is_email_delivery_configured, send_password_reset_email
 from ...utils.rate_limit import consume_rate_limit, get_client_ip, subject_fingerprint
 from ...utils.security import hash_password, verify_password
 
@@ -129,7 +130,21 @@ def forgot_password():
 
     token = _serializer().dumps({"user_id": user.id, "email": user.email})
     reset_link = f'{current_app.config["FRONTEND_BASE_URL"].rstrip("/")}/reset-password?token={token}'
-    return jsonify({"ok": True, "reset_link": reset_link})
+
+    email_enabled = is_email_delivery_configured()
+    debug_return_link = bool(current_app.config.get("PASSWORD_RESET_DEBUG_RETURN_LINK", False))
+    if debug_return_link:
+        return jsonify({"ok": True, "reset_link": reset_link, "email_sent": False})
+
+    if not email_enabled:
+        return jsonify({"error": "email delivery not configured"}), 500
+
+    try:
+        send_password_reset_email(to_email=user.email, reset_link=reset_link)
+    except Exception:
+        return jsonify({"error": "email delivery failed"}), 500
+
+    return jsonify({"ok": True, "email_sent": True})
 
 
 @bp.post("/reset-password")

@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { loginByPassword, requestPasswordReset } from '../../modules/user'
 import { useAuth } from '../../state/auth-context'
@@ -75,10 +75,22 @@ export default function LoginPage() {
         nav(path, { replace: true })
         return
       }
-      setError('Reset link generation failed.')
+      setNotice('A password reset link has been sent to your email (if the account exists). Please check your inbox.')
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Request failed'
-      setError(msg === 'email not found' ? 'Email not found.' : msg)
+      if (msg === 'email not found') {
+        setError('Email not found.')
+        return
+      }
+      if (msg === 'email delivery not configured') {
+        setError('Password reset email is not configured on the server yet.')
+        return
+      }
+      if (msg === 'email delivery failed') {
+        setError('Failed to send password reset email. Please try again later.')
+        return
+      }
+      setError(msg)
     }
   }
 

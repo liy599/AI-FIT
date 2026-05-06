@@ -1,11 +1,29 @@
-﻿import { clearAuth } from './auth'
+import { clearAuth } from './auth'
 
 function resolveDefaultApiBase() {
   if (typeof window === 'undefined') return 'http://localhost:5000'
   return `${window.location.protocol}//${window.location.hostname}:5000`
 }
 
-export const API_BASE = import.meta.env.VITE_API_BASE ?? resolveDefaultApiBase()
+function normalizeLoopbackApiBase(base: string) {
+  if (typeof window === 'undefined') return base
+  let parsed: URL
+  try {
+    parsed = new URL(base)
+  } catch {
+    return base
+  }
+  const loopbacks = new Set(['localhost', '127.0.0.1'])
+  const currentHost = window.location.hostname
+  if (loopbacks.has(parsed.hostname) && loopbacks.has(currentHost) && parsed.hostname !== currentHost) {
+    parsed.hostname = currentHost
+    parsed.protocol = window.location.protocol
+    return parsed.toString().replace(/\/$/, '')
+  }
+  return base
+}
+
+export const API_BASE = normalizeLoopbackApiBase(import.meta.env.VITE_API_BASE ?? resolveDefaultApiBase())
 
 function stripApiSuffix(base: string) {
   return base.endsWith('/api') ? base.slice(0, -4) : base

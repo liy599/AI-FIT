@@ -27,6 +27,10 @@ def _env_bool(name: str, default: bool) -> bool:
         return default
     return str(raw).strip().lower() in {"1", "true", "yes", "on"}
 
+def _is_local_url(url: str) -> bool:
+    normalized = (url or "").strip().lower()
+    return normalized.startswith("http://localhost") or normalized.startswith("http://127.0.0.1")
+
 
 class Config:
     APP_ENV = os.environ.get("APP_ENV", "development").strip().lower() or "development"
@@ -85,6 +89,15 @@ class Config:
     DATA_ENCRYPTION_KEY = os.environ.get("DATA_ENCRYPTION_KEY", "")
     PASSWORD_RESET_TOKEN_TTL_SECONDS = _env_int("PASSWORD_RESET_TOKEN_TTL_SECONDS", 60 * 60)
     PASSWORD_RESET_DEBUG_RETURN_LINK = _env_bool("PASSWORD_RESET_DEBUG_RETURN_LINK", False)
+    PASSWORD_RESET_EMAIL_SUBJECT = os.environ.get("PASSWORD_RESET_EMAIL_SUBJECT", "Reset your password")
+
+    SMTP_HOST = os.environ.get("SMTP_HOST", "").strip()
+    SMTP_PORT = _env_int("SMTP_PORT", 587)
+    SMTP_USERNAME = os.environ.get("SMTP_USERNAME", "").strip()
+    SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "").strip()
+    SMTP_USE_TLS = _env_bool("SMTP_USE_TLS", True)
+    SMTP_USE_SSL = _env_bool("SMTP_USE_SSL", False)
+    SMTP_FROM = os.environ.get("SMTP_FROM", "").strip()
     UPLOAD_PUBLIC_PREFIXES = os.environ.get("UPLOAD_PUBLIC_PREFIXES", "avatars,blog_covers")
     UPLOAD_SIGNED_URL_TTL_SECONDS = _env_int("UPLOAD_SIGNED_URL_TTL_SECONDS", 300)
 
@@ -104,7 +117,7 @@ class Config:
 
     # JWT in HttpOnly cookies (preferred for browser-based clients)
     JWT_TOKEN_LOCATION = ["cookies"]
-    JWT_COOKIE_SECURE = _env_bool("JWT_COOKIE_SECURE", APP_ENV == "production")
+    JWT_COOKIE_SECURE = _env_bool("JWT_COOKIE_SECURE", APP_ENV == "production" and not _is_local_url(FRONTEND_BASE_URL))
     JWT_COOKIE_SAMESITE = os.environ.get("JWT_COOKIE_SAMESITE", "Lax")
     JWT_COOKIE_CSRF_PROTECT = _env_bool("JWT_COOKIE_CSRF_PROTECT", True)
     JWT_ACCESS_COOKIE_PATH = "/"

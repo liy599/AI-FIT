@@ -1,4 +1,4 @@
-http://{$ORIGIN_IP} {
+:80 {
   encode gzip zstd
 
   handle /.well-known/acme-challenge/* {

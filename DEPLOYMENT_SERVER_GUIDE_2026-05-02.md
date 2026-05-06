@@ -193,3 +193,8 @@ Fix: open `https://137.43.49.50/`, confirm the certificate is valid, and confirm
 
 Cause: the normal `Caddyfile` loads certificate files from `/etc/letsencrypt/live/137.43.49.50/`.
 Fix: run `scripts/vm-bootstrap-ip-https.sh` first. It uses `deploy/Caddyfile.bootstrap` to complete ACME validation before switching to HTTPS.
+
+### 10.6 TLS alert internal error on the IP address
+
+Cause: Caddy could not present a certificate during the TLS handshake, often because the certificate files are missing, unreadable, or the server was still using an older host-specific `https://IP` site block.
+Fix: use the current `:443` Caddyfile, confirm `/etc/letsencrypt/live/137.43.49.50/fullchain.pem` exists in the container, then restart Caddy.

@@ -1,4 +1,4 @@
-﻿param(
+param(
   [switch]$BackendOnly,
   [switch]$FrontendOnly,
   [switch]$SkipDb
@@ -37,6 +37,23 @@ function Start-Db {
     if (-not $env:JWT_SECRET_KEY) { $env:JWT_SECRET_KEY = 'local-dev-jwt-secret-key-change-32chars' }
     if (-not $env:REDIS_URL) { $env:REDIS_URL = $defaultRedisUrl }
 
+    $backendEnvPath = Join-Path $backendDir '.env'
+    if (-not (Test-Path $backendEnvPath)) {
+      $envText = @(
+        'APP_ENV=development'
+        'DB_AUTO_INIT=1'
+        'SECRET_KEY=local-dev-secret-key-please-change-32chars'
+        'JWT_SECRET_KEY=local-dev-jwt-secret-key-change-32chars'
+        'DATABASE_URL=postgresql+psycopg://aifitguard:aifitguard@localhost:5432/aifitguard'
+        'REDIS_URL='
+        'FRONTEND_BASE_URL=http://localhost:5173'
+        'CORS_ORIGINS=http://localhost:5173'
+        'ADMIN_EMAIL=dev@example.com'
+      ) -join "`n"
+      Set-Content -LiteralPath $backendEnvPath -Value $envText -Encoding utf8
+      Write-Host "Created missing backend env file: $backendEnvPath"
+    }
+
     Write-Host 'Starting PostgreSQL and Redis containers (docker compose up -d db redis)...'
     Set-Location -LiteralPath $repoRoot
     docker compose up -d db redis | Out-Host
@@ -53,6 +70,13 @@ function Start-Backend {
   $backendCmd = @"
 Set-Location -LiteralPath '$backendDir'
 `$env:REDIS_URL = '$defaultRedisUrl'
+if (-not (Test-Path '.\\.venv\\Scripts\\python.exe')) {
+  python -m venv .venv
+  if (`$LASTEXITCODE -ne 0) { throw 'Failed to create backend virtualenv (.venv). Ensure Python is installed and on PATH.' }
+  & '.\\.venv\\Scripts\\python.exe' -m pip install --upgrade pip
+  & '.\\.venv\\Scripts\\python.exe' -m pip install -r '.\\requirements.txt'
+  if (`$LASTEXITCODE -ne 0) { throw 'Failed to install backend dependencies (pip install -r requirements.txt).' }
+}
 if (Test-Path '.\\.venv\\Scripts\\python.exe') {
   & '.\\.venv\\Scripts\\python.exe' '.\\run.py'
 } else {
@@ -86,6 +110,21 @@ function Wait-RedisHealthy {
 function Start-Frontend {
   $frontendCmd = @"
 Set-Location -LiteralPath '$frontendDir'
+try {
+  `$null = node --version
+  `$null = npm.cmd --version
+} catch {
+  throw 'Node.js (and npm) is required for frontend startup. Install Node.js 18+ and ensure it is on PATH.'
+}
+
+if (-not (Test-Path '.\\node_modules')) {
+  if (Test-Path '.\\package-lock.json') {
+    npm.cmd ci
+  } else {
+    npm.cmd install
+  }
+  if (`$LASTEXITCODE -ne 0) { throw 'Failed to install frontend dependencies.' }
+}
 npm.cmd run dev
 "@
   Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoExit', '-ExecutionPolicy', 'Bypass', '-Command', $frontendCmd)

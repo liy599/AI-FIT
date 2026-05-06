@@ -1,0 +1,10 @@
+http://{$ORIGIN_IP} {
+  encode gzip zstd
+
+  handle /.well-known/acme-challenge/* {
+    root * /var/www/certbot
+    file_server
+  }
+
+  reverse_proxy web:80
+}

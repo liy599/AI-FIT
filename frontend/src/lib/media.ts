@@ -12,7 +12,7 @@ function buildCameraUnavailableMessage() {
   const secure = window.isSecureContext
 
   if (!secure && protocol === 'http:' && !isLocalhostLikeHost(host)) {
-    return 'Camera access requires HTTPS on this domain. Please open the site with https:// and try again.'
+    return 'Camera access requires HTTPS. Public HTTP IP addresses cannot request camera permission; open this site with https:// and retry.'
   }
 
   return 'Camera API is unavailable in this browser/context. Use a modern browser, enable camera permissions, and retry.'

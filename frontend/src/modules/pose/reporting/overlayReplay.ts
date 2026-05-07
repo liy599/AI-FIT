@@ -1,6 +1,7 @@
-﻿import { mapPoseFeedbackMessage } from './copy'
+import { mapPoseFeedbackMessage, poseTierRank, type PoseHumanFeedback } from './copy'
 import { configureAnalyzer, createAnalyzer } from '../helpers'
 import { type RealtimeFeedback } from '../analyzer/types'
+import { DistanceTracker } from '../vision/distanceTracker'
 import type { MoveNetNativeFrame } from '../vision/movenetPose'
 import type { OfflineOverlayFrame } from '../runtime/types'
 
@@ -18,12 +19,59 @@ export function buildOfflineOverlayFrames(input: {
     return typeof value === 'string' ? value : null
   }
 
+  const getRangeStatusText = (distance: { status: 'calibrating' | 'ready' | 'lost'; label: 'too_close' | 'ok' | 'too_far' | 'unknown' } | null) => {
+    if (!distance) return 'Waiting for detection'
+    if (distance.status === 'calibrating') return 'Calibrating distance'
+    if (distance.status === 'lost') return 'Stable body not detected'
+    if (distance.label === 'too_close') return 'Too close'
+    if (distance.label === 'too_far') return 'Too far'
+    return 'Distance OK'
+  }
+
+  const pickMainOverlayTip = (args: { exerciseSlug: string; feedback: RealtimeFeedback | null; distanceText: string | null }): { main: PoseHumanFeedback | null; gate: PoseHumanFeedback | null } => {
+    const f = args.feedback
+    const candidates: Array<{ sourceRank: number; message: string; isGate: boolean }> = []
+    if (args.distanceText) candidates.push({ sourceRank: 10, message: args.distanceText, isGate: true })
+    for (const reason of f?.lastRepReasonLabels ?? []) candidates.push({ sourceRank: 4, message: reason, isGate: false })
+    if (f?.lastRepMessage) candidates.push({ sourceRank: 3, message: f.lastRepMessage, isGate: false })
+    for (const issue of f?.issues ?? []) candidates.push({ sourceRank: 2, message: issue.message, isGate: false })
+    for (const warn of (f?.warnings as unknown[] | undefined) ?? []) {
+      const msg = getWarningMessage(warn)
+      if (msg) candidates.push({ sourceRank: 1, message: msg, isGate: false })
+    }
+
+    const seen = new Set<string>()
+    const mapped = candidates
+      .map((c) => ({ ...c, message: (c.message ?? '').trim() }))
+      .filter((c) => c.message && !seen.has(c.message) && (seen.add(c.message), true))
+      .map((c) => ({ ...c, human: mapPoseFeedbackMessage({ exerciseSlug: args.exerciseSlug, message: c.message }) }))
+
+    if (mapped.length === 0) return { main: null, gate: null }
+
+    const gateCandidates = mapped.filter((c) => c.isGate || c.human.tier === 'gate')
+    const repCandidates = mapped.filter((c) => !c.isGate && c.human.tier !== 'gate')
+
+    const bestBy = (list: typeof mapped) => {
+      if (list.length === 0) return null
+      const sorted = [...list].sort((a, b) => {
+        const diff = poseTierRank(b.human.tier) - poseTierRank(a.human.tier)
+        if (diff !== 0) return diff
+        return b.sourceRank - a.sourceRank
+      })
+      return sorted[0]!.human
+    }
+
+    return { main: bestBy(repCandidates), gate: bestBy(gateCandidates) }
+  }
+
   const analyzer = createAnalyzer(input.exerciseSlug as never)
   analyzer.resetSession()
   configureAnalyzer(analyzer, input.exerciseSlug as never, 'video', {
     analyzerFps: input.fps,
     tuningOverride: input.analyzerTuning
   })
+
+  const distanceTracker = new DistanceTracker(5000)
 
   const total = input.nativeFrames.length
   const out: OfflineOverlayFrame[] = []
@@ -32,15 +80,31 @@ export function buildOfflineOverlayFrames(input: {
     const hasNative = Array.isArray(native.keypoints) && native.keypoints.length > 0
     const feedback: RealtimeFeedback | null = hasNative ? analyzer.analyzeNative(native.keypoints) : null
 
-    const firstIssueMsg = feedback?.issues?.[0]?.message ?? null
-    const firstWarnMsg = feedback ? getWarningMessage((feedback.warnings as unknown[] | undefined)?.[0]) : null
-    const rawMsg = firstIssueMsg ?? firstWarnMsg
-    const human = rawMsg ? mapPoseFeedbackMessage({ exerciseSlug: input.exerciseSlug, message: rawMsg }) : null
+    const tMs = typeof native.tMs === 'number' ? native.tMs : (i / Math.max(1, input.fps)) * 1000
+    const distance = hasNative ? distanceTracker.ingest({ tMs, keypoints: native.keypoints }) : null
+    const distanceText =
+      distance && distance.status === 'ready' && (distance.label === 'too_close' || distance.label === 'too_far') ? getRangeStatusText(distance) : null
+
+    const { main, gate } = pickMainOverlayTip({ exerciseSlug: input.exerciseSlug, feedback, distanceText })
+
+    const combinedShortHint =
+      gate && main ? `${gate.shortHint} · ${main.shortHint}` : gate?.shortHint ?? main?.shortHint ?? null
 
     out.push({
-      tMs: typeof native.tMs === 'number' ? native.tMs : (i / Math.max(1, input.fps)) * 1000,
-      tone: human ? (human.tier === 'rep_fail' || human.tier === 'issue' ? 'bad' : human.tier === 'warning' || human.tier === 'gate' ? 'warn' : 'ok') : 'ok',
-      message: human?.shortHint ?? null
+      tMs,
+      tone: main
+        ? main.tier === 'rep_fail' || main.tier === 'issue'
+          ? 'bad'
+          : main.tier === 'warning'
+            ? 'warn'
+            : 'ok'
+        : gate
+          ? gate.tier === 'gate'
+            ? 'warn'
+            : 'ok'
+          : 'ok',
+      message: combinedShortHint,
+      distance
     })
     if (input.onProgress && ((i + 1) % 40 === 0 || i === input.nativeFrames.length - 1)) input.onProgress(i + 1, total)
   }

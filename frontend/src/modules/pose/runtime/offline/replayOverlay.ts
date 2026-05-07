@@ -1,6 +1,6 @@
-﻿import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from 'react'
+import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from 'react'
 
-import { drawMidpointSkeleton, drawPoseJoints17 } from '../../vision/draw'
+import { drawDistanceGuide, drawMidpointSkeleton, drawPoseJoints17 } from '../../vision/draw'
 import type { MoveNetNativeFrame } from '../../vision/movenetPose'
 import { computeContainViewport, findClosestTmsIndex } from '../../reporting/overlayReplay'
 import type { OfflineOverlayTone, OfflineReplayData, PoseToolMode } from '../types'
@@ -104,6 +104,7 @@ export function useOfflineReplayOverlay({
       const joints = data.nativeFrames[idx]?.keypoints ?? []
       const tone = frame?.tone ?? 'ok'
       const message = frame?.message ?? null
+      const distance = frame?.distance ?? null
 
       const nextDrawMode = drawModeRef.current
       const prevTone = offlineOverlayUiRef.current.tone
@@ -137,6 +138,9 @@ export function useOfflineReplayOverlay({
 
       ctx.setTransform(metrics.dpr, 0, 0, metrics.dpr, 0, 0)
       ctx.clearRect(0, 0, metrics.cssW, metrics.cssH)
+      if (distance && distance.status === 'ready' && (distance.label === 'too_close' || distance.label === 'too_far')) {
+        drawDistanceGuide(ctx, distance, metrics.cssW, metrics.cssH, { mirror: false, viewport, showTarget: true })
+      }
       if (nextDrawMode === 'midline') {
         drawMidpointSkeleton(
           ctx,

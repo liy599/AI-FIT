@@ -1,4 +1,5 @@
-﻿import type { MoveNetNativeFrame } from '../vision/movenetPose'
+import type { MoveNetNativeFrame } from '../vision/movenetPose'
+import type { DistanceState } from '../vision/distanceTracker'
 import type { SquatRepFinding, SquatTimelineRow } from '../helpers'
 
 export type PoseToolMode = 'live' | 'offline'
@@ -17,7 +18,7 @@ export type LiveSessionSummary = {
 }
 
 export type OfflineOverlayTone = 'ok' | 'warn' | 'bad'
-export type OfflineOverlayFrame = { tMs: number; tone: OfflineOverlayTone; message: string | null }
+export type OfflineOverlayFrame = { tMs: number; tone: OfflineOverlayTone; message: string | null; distance: DistanceState | null }
 export type OfflineReplayData = { fps: number; nativeFrames: MoveNetNativeFrame[]; overlayFrames: OfflineOverlayFrame[] }
 
 export type LiveDedicatedStats = {

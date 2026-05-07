@@ -101,7 +101,11 @@ def create_app(config_object=Config):
             if not verify_upload_access_token(token, normalized, max_age=max_age):
                 return jsonify({"error": "forbidden"}), 403
 
-        return send_from_directory(app.config["UPLOAD_FOLDER"], normalized)
+        response = send_from_directory(app.config["UPLOAD_FOLDER"], normalized)
+        if is_public:
+            response.cache_control.public = True
+            response.cache_control.max_age = 60 * 60 * 24 * 30
+        return response
 
     @app.errorhandler(RequestEntityTooLarge)
     def handle_file_too_large(_: RequestEntityTooLarge):

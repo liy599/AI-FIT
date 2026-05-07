@@ -1,7 +1,6 @@
-﻿import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+﻿import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { getBlogTags, queryBlogs, resolveBlogMediaUrl, type BlogCard, type BlogTag as Tag } from '../../modules/blog'
-const OrganicFluidBackground = lazy(() => import('../../components/layout/OrganicFluidBackground'))
 
 function resolveMediaUrl(url: string | null | undefined) {
   return resolveBlogMediaUrl(url)
@@ -107,7 +106,7 @@ function BlogTeaserCard({
       <div className="p-3">
         <div className={imageWrap}>
           <Link to={`/blogs/${blog.id}`} className="block h-full w-full">
-            <img className="absolute inset-0 h-full w-full object-cover" src={cover} alt={blog.title} />
+            <img className="absolute inset-0 h-full w-full object-cover" src={cover} alt={blog.title} loading="lazy" decoding="async" />
           </Link>
           <div className="absolute left-4 top-4">
             <span className="inline-flex items-center rounded-full bg-white/95 px-3 py-1 text-[11px] font-medium text-neutral-900 shadow-sm">
@@ -159,6 +158,8 @@ function FeaturedBlogGridCard({
               className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
               src={cover}
               alt={blog.title}
+              loading="lazy"
+              decoding="async"
             />
           </Link>
           <div className="absolute left-4 top-4">
@@ -215,10 +216,10 @@ function TopViewedStackCard({
       <div className="relative overflow-hidden rounded-[28px] bg-neutral-100 aspect-[16/10]">
         {blog ? (
           <Link to={`/blogs/${blog.id}`} className="block h-full w-full">
-            <img className="absolute inset-0 h-full w-full object-cover" src={cover} alt={title} />
+            <img className="absolute inset-0 h-full w-full object-cover" src={cover} alt={title} loading="lazy" decoding="async" />
           </Link>
         ) : (
-          <img className="absolute inset-0 h-full w-full object-cover" src={cover} alt="" />
+          <img className="absolute inset-0 h-full w-full object-cover" src={cover} alt="" loading="lazy" decoding="async" />
         )}
         <div className="absolute left-4 top-4">
           <span className="inline-flex items-center rounded-full bg-white/95 px-3 py-1 text-[11px] font-medium text-neutral-900 shadow-sm">
@@ -490,12 +491,17 @@ export default function BlogListPage() {
         .reveal-stagger.visible > *:nth-child(10) { transition-delay: 900ms; }
         .reveal-stagger.visible > *:nth-child(11) { transition-delay: 1000ms; }
         .reveal-stagger.visible > *:nth-child(12) { transition-delay: 1100ms; }
+        .blog-list-light-bg {
+          position: absolute;
+          inset: 0;
+          background:
+            linear-gradient(135deg, rgba(14, 85, 60, 0.92), rgba(18, 24, 38, 0.9)),
+            url('/assets/images/bg/waves-shape.png') center / cover no-repeat;
+        }
       `}</style>
       <section className="relative overflow-hidden bg-neutral-50 px-4 pb-16 pt-10 md:pb-24 md:pt-16">
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[55%]">
-          <Suspense fallback={null}>
-            <OrganicFluidBackground className="absolute inset-0 h-full w-full overflow-hidden rounded-none" />
-          </Suspense>
+          <div className="blog-list-light-bg" />
           <div className="absolute inset-0 bg-gradient-to-b from-neutral-950/70 via-neutral-950/45 to-transparent" />
         </div>
         <div className="blog-list-hero-grid">
@@ -538,6 +544,8 @@ export default function BlogListPage() {
                         className="absolute inset-0 h-full w-full object-cover"
                         src={resolveMediaUrl(recent[0].cover_image_url) ?? '/figma/recent-1.png'}
                         alt={recent[0].title}
+                        fetchPriority="high"
+                        decoding="async"
                       />
                     </Link>
                     <div className="absolute left-5 top-5">
@@ -596,6 +604,8 @@ export default function BlogListPage() {
                               (idx === 0 ? '/figma/recent-2.png' : idx === 1 ? '/figma/recent-3.png' : '/figma/featured-1.png')
                             }
                             alt={b.title}
+                            loading="lazy"
+                            decoding="async"
                           />
                         </Link>
                         <div className="absolute left-3 top-3">
@@ -666,9 +676,7 @@ export default function BlogListPage() {
       >
         <div className="mx-auto max-w-[1200px]">
           <div className="relative blog-list-join-grid rounded-3xl px-6 py-[60px] text-white shadow-xl md:px-10">
-            <Suspense fallback={null}>
-              <OrganicFluidBackground />
-            </Suspense>
+            <div className="blog-list-light-bg rounded-3xl" />
             <div className="relative z-10 blog-list-join-col-main">
               <h2 className="text-2xl font-semibold leading-tight tracking-tight md:text-3xl">
                 Join the community -
@@ -710,6 +718,8 @@ export default function BlogListPage() {
                         className="absolute inset-0 h-full w-full object-cover"
                         src={resolveMediaUrl(hero.cover_image_url) ?? '/figma/hero-card.png'}
                         alt={hero.title}
+                        loading="lazy"
+                        decoding="async"
                       />
                     </Link>
                   </div>
@@ -726,5 +736,6 @@ export default function BlogListPage() {
     </main>
   )
 }
+
 
 

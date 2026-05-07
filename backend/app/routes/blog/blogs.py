@@ -145,7 +145,14 @@ def get_blog(blog_id: int):
     identity = get_jwt_identity()
     user_id = int(identity) if identity is not None else None
 
-    blog = db.session.get(Blog, blog_id)
+    blog = (
+        Blog.query.options(
+            joinedload(Blog.author),
+            selectinload(Blog.tags).joinedload(BlogTag.tag),
+        )
+        .filter_by(id=blog_id)
+        .first()
+    )
     if blog is None or not blog.is_published:
         return jsonify({"error": "not found"}), 404
 

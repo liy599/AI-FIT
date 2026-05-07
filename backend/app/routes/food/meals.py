@@ -2,6 +2,7 @@
 
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
+from sqlalchemy.orm import selectinload
 
 from ...extensions import db
 from ...models import FoodItem, FoodMealItem, FoodMealRecord
@@ -71,6 +72,7 @@ def get_today():
 
     meals = (
         FoodMealRecord.query.filter_by(user_id=user_id, recorded_on=selected_date)
+        .options(selectinload(FoodMealRecord.items).joinedload(FoodMealItem.food))
         .order_by(FoodMealRecord.id.asc())
         .all()
     )
@@ -103,6 +105,14 @@ def get_history():
     )
     total = query.count()
     meals = query.offset((page - 1) * page_size).limit(page_size).all()
+    meals = (
+        FoodMealRecord.query.options(selectinload(FoodMealRecord.items).joinedload(FoodMealItem.food))
+        .filter(FoodMealRecord.id.in_([meal.id for meal in meals]))
+        .order_by(FoodMealRecord.recorded_on.desc(), FoodMealRecord.id.desc())
+        .all()
+        if meals
+        else []
+    )
 
     return jsonify(
         {
@@ -118,7 +128,11 @@ def get_history():
 @jwt_required()
 def get_meal(meal_id: int):
     user_id = int(get_jwt_identity())
-    meal = FoodMealRecord.query.filter_by(id=meal_id, user_id=user_id).first()
+    meal = (
+        FoodMealRecord.query.options(selectinload(FoodMealRecord.items).joinedload(FoodMealItem.food))
+        .filter_by(id=meal_id, user_id=user_id)
+        .first()
+    )
     if not meal:
         return jsonify({"error": "meal not found"}), 404
     return jsonify(serialize_meal(meal))
@@ -178,7 +192,11 @@ def save_meal():
         db.session.add(FoodMealItem(meal_id=meal.id, food_id=item["foodId"], grams=item["grams"]))
 
     db.session.commit()
-    refreshed = FoodMealRecord.query.filter_by(id=meal.id).first()
+    refreshed = (
+        FoodMealRecord.query.options(selectinload(FoodMealRecord.items).joinedload(FoodMealItem.food))
+        .filter_by(id=meal.id)
+        .first()
+    )
     return jsonify(serialize_meal(refreshed)), 201
 
 

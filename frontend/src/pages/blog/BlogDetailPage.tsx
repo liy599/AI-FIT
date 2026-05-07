@@ -194,8 +194,7 @@ export default function BlogDetailPage() {
     () => async () => {
       if (!Number.isFinite(id)) return
       setError(null)
-      const b = await getBlogDetail(id)
-      const c = await getBlogComments(id, 1, 20)
+      const [b, c] = await Promise.all([getBlogDetail(id), getBlogComments(id, 1, 20)])
       setBlog(b)
       setComments(c.items)
     },
@@ -270,7 +269,7 @@ export default function BlogDetailPage() {
                   <>
                     <div className="cl_blog_details-content">
                       <div className="cl_blog_details-content-img section-stack-md">
-                        <img src={resolveMediaUrl(blog.cover_image_url) ?? '/assets/images/blog/blog-classic-1.png'} alt={blog.title} />
+                        <img src={resolveMediaUrl(blog.cover_image_url) ?? '/assets/images/blog/blog-classic-1.png'} alt={blog.title} fetchPriority="high" decoding="async" />
                         {blog.tags[0]?.name ? (
                           <span className="cl_blog_details-content-img-tag">{blog.tags[0].name}</span>
                         ) : null}

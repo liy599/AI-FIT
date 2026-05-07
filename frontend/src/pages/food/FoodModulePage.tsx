@@ -225,7 +225,7 @@ export default function FoodModulePage() {
                     <div className="food-module-metrics">
                       <div className="food-module-metric food-module-metric--calories">
                         <div className="food-module-metric-label">
-                          <span className="food-module-metric-icon">馃敟</span> Calories
+                          <span className="food-module-metric-icon">🔥</span> Calories
                         </div>
                         <div className="food-module-metric-value">
                           <span className="food-module-metric-number">{formatMetricParts(totals.kcal, 'kcal').numberText}</span>
@@ -234,7 +234,7 @@ export default function FoodModulePage() {
                       </div>
                       <div className="food-module-metric food-module-metric--protein">
                         <div className="food-module-metric-label">
-                          <span className="food-module-metric-icon">馃挭</span> Protein
+                          <span className="food-module-metric-icon">💪</span> Protein
                         </div>
                         <div className="food-module-metric-value">
                           <span className="food-module-metric-number">{formatMetricParts(totals.protein, 'g').numberText}</span>
@@ -243,7 +243,7 @@ export default function FoodModulePage() {
                       </div>
                       <div className="food-module-metric food-module-metric--fat">
                         <div className="food-module-metric-label">
-                          <span className="food-module-metric-icon">馃</span> Fat
+                          <span className="food-module-metric-icon">🥑</span> Fat
                         </div>
                         <div className="food-module-metric-value">
                           <span className="food-module-metric-number">{formatMetricParts(totals.fat, 'g').numberText}</span>
@@ -252,7 +252,7 @@ export default function FoodModulePage() {
                       </div>
                       <div className="food-module-metric food-module-metric--carbs">
                         <div className="food-module-metric-label">
-                          <span className="food-module-metric-icon">馃崥</span> Carbs
+                          <span className="food-module-metric-icon">🍚</span> Carbs
                         </div>
                         <div className="food-module-metric-value">
                           <span className="food-module-metric-number">{formatMetricParts(totals.carbs, 'g').numberText}</span>
@@ -280,11 +280,11 @@ export default function FoodModulePage() {
                               <div className="food-module-meal-meta">
                                 {hasRecord ? (
                                   <>
-                                    <span className="food-module-badge food-module-badge--success">鉁?Saved</span>
+                                    <span className="food-module-badge food-module-badge--success">✓ Saved</span>
                                     <span className="food-module-badge">{itemCount} items</span>
                                   </>
                                 ) : (
-                                  <span className="food-module-badge food-module-badge--muted">鈴?No record</span>
+                                  <span className="food-module-badge food-module-badge--muted">○ No record</span>
                                 )}
                               </div>
                             </div>

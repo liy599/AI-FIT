@@ -1,10 +1,23 @@
-﻿export function PoseReportTimeline(props: { timeline: unknown[]; formatLabel: (key: string) => string }) {
+type TimelineSeriesDef = { key: string; label?: string }
+
+export function PoseReportTimeline(props: {
+  timeline: unknown[]
+  series?: TimelineSeriesDef[]
+  formatLabel: (key: string) => string
+}) {
   const rows = props.timeline.filter((x): x is Record<string, unknown> => typeof x === 'object' && x !== null)
-  const candidates = ['kneeAngleDeg', 'hipAngleDeg', 'torsoFromVerticalDeg', 'kneeFlexDeg', 'centerY']
-  const series = candidates
-    .map((key) => ({
-      key,
-      values: rows.map((row) => row[key]).filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
+  const candidates = ['kneeAngleDeg', 'hipAngleDeg', 'torsoFromVerticalDeg', 'kneeFlexDeg', 'centerY'] as const
+
+  const preferredSeries: TimelineSeriesDef[] =
+    props.series && Array.isArray(props.series) && props.series.length > 0
+      ? props.series.filter((item): item is TimelineSeriesDef => !!item && typeof item.key === 'string' && item.key.trim().length > 0)
+      : candidates.map((key) => ({ key }))
+
+  const series = preferredSeries
+    .map((item) => ({
+      key: item.key,
+      label: typeof item.label === 'string' ? item.label : null,
+      values: rows.map((row) => row[item.key]).filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
     }))
     .filter((item) => item.values.length >= 3)
     .slice(0, 3)
@@ -17,7 +30,7 @@
       <div className="pose-report-line-stack">
         {series.map((item) => (
           <div key={item.key}>
-            <div className="pose-report-label">{props.formatLabel(item.key)}</div>
+            <div className="pose-report-label">{item.label && item.label.trim().length > 0 ? item.label : props.formatLabel(item.key)}</div>
             <MiniLine values={item.values} />
           </div>
         ))}

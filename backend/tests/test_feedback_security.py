@@ -1,3 +1,7 @@
+from app.extensions import db
+from app.models import User
+
+
 def _register_and_token(client, email: str, username: str):
     response = client.post(
         "/api/auth/register",
@@ -11,6 +15,13 @@ def _auth_headers(client):
     csrf_cookie = client.get_cookie("csrf_access_token")
     csrf_token = csrf_cookie.value if csrf_cookie is not None else ""
     return {"X-CSRF-TOKEN": csrf_token} if csrf_token else {}
+
+def _set_admin(app, email: str):
+    with app.app_context():
+        user = User.query.filter_by(email=email).first()
+        assert user is not None
+        user.is_admin = True
+        db.session.commit()
 
 
 def test_feedback_list_requires_auth(client):
@@ -28,6 +39,7 @@ def test_feedback_list_requires_admin(client):
     admin_token = _register_and_token(admin_client, "admin@example.com", "admin-user")
     _ = admin_token
     admin_headers = _auth_headers(admin_client)
+    _set_admin(client.application, "admin@example.com")
 
     submit = admin_client.post(
         "/api/feedback",

@@ -1,4 +1,4 @@
-﻿import { mapPoseFeedbackMessage } from '../../modules/pose/reporting'
+import { mapPoseFeedbackMessage } from '../../modules/pose/reporting'
 
 export const TOP_ISSUE_TIME_DISPLAY = {
   maxMoments: 5,
@@ -195,6 +195,14 @@ export function buildRepQualityHighlight(args: {
     const topIssue = args.issues
       .map((item) => String(item.message ?? item.code ?? '').trim())
       .find(Boolean)
+
+    if (totalReps === 0) {
+      return {
+        tone: 'soft',
+        headline: 'No reps detected',
+        copy: 'The report did not detect a complete rep cycle. Try a clearer camera angle, keep your full body visible, and ensure the whole movement is captured.'
+      } as const
+    }
 
     if (effectiveReps === 0 && totalReps > 0) {
       return {

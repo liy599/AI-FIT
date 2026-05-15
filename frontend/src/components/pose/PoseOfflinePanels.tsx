@@ -1,4 +1,4 @@
-﻿import type { ChangeEvent, ReactNode, Ref } from 'react'
+import type { ChangeEvent, ReactNode, Ref } from 'react'
 import type { PoseAnalysisReport } from '../../modules/pose'
 import type { OfflineOverlayTone, OfflineProgress } from '../../modules/pose'
 
@@ -112,9 +112,6 @@ export function PoseOfflineAnalysisPanel(props: {
           <h4 className="cl_blog-widget-title mb-15">{exerciseDisplayName} - Video Analysis</h4>
           <p className="pose-tool-subtitle pose-tool-subtitle-dark">
             Local mode (privacy-first): pose extraction and analysis run in your browser. Video files are not uploaded.
-          </p>
-          <p className="pose-tool-subtitle pose-tool-subtitle-dark">
-            Policy {posePolicyVersion}: local-only inference {localInferenceOnly ? 'enforced' : 'unavailable'}.
           </p>
           <p className="pose-tool-subtitle pose-tool-subtitle-dark">
             Limit: 2 minutes. If your video is longer than 2 minutes, only the first 2 minutes will be analyzed.
@@ -248,12 +245,46 @@ export function PoseOfflineReportPanel(props: {
       {offlineReport ? (
         <div className="pose-report-content-top">{reportContent}</div>
       ) : (
-        <div className="pose-report-empty">
-          <strong>No report yet</strong>
-          <p>{offlineFileSizeMbText !== 'Not selected' ? 'Click "Analyze Locally" to generate the report.' : 'Select a video file first, then click "Analyze Locally".'}</p>
-        </div>
+        <>
+          <div className="pose-report-empty">
+            <strong>No report yet</strong>
+            <p>{offlineFileSizeMbText !== 'Not selected' ? 'Click "Analyze Locally" to generate the report.' : 'Select a video file first, then click "Analyze Locally".'}</p>
+          </div>
+          <div className="pose-report-card pose-report-card-soft">
+            <div className="pose-report-title">How This Report Scores Your Form</div>
+            <p className="pose-report-intro">
+              Use this quick guide to understand what counts as a valid rep, how form issues are judged, and when camera quality can limit scoring.
+            </p>
+            <ul className="pose-criteria-list pose-criteria-list-soft">
+              <li>
+                <div className="pose-criteria-item-head">
+                  <span className="pose-criteria-icon">01</span>
+                  <span className="pose-criteria-label">Counted rep</span>
+                </div>
+                <span className="pose-criteria-text">A rep is counted only when the analyzer sees a complete movement cycle, not just part of the motion.</span>
+              </li>
+              <li>
+                <div className="pose-criteria-item-head">
+                  <span className="pose-criteria-icon">02</span>
+                  <span className="pose-criteria-label">Form check</span>
+                </div>
+                <span className="pose-criteria-text">
+                  Form issues are judged with rule thresholds plus multi-frame stability, so a single noisy frame does not decide the result.
+                </span>
+              </li>
+              <li>
+                <div className="pose-criteria-item-head">
+                  <span className="pose-criteria-icon">03</span>
+                  <span className="pose-criteria-label">Gate note</span>
+                </div>
+                <span className="pose-criteria-text">
+                  If camera angle or keypoint quality is unstable, that rep may be counted but excluded from valid scoring.
+                </span>
+              </li>
+            </ul>
+          </div>
+        </>
       )}
     </div>
   )
 }
-

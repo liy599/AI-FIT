@@ -1,4 +1,4 @@
-﻿import { apiFetch } from '../../lib/api'
+import { apiFetch } from '../../lib/api'
 
 export type FeedbackItem = {
   id: number
@@ -13,7 +13,9 @@ export type FeedbackItem = {
  * Keep this in the app feature so presentational components do not depend on raw lib APIs.
  */
 export function listRecentFeedback(page = 1, pageSize = 6) {
-  return apiFetch<{ items: FeedbackItem[] }>(`/api/feedback?page=${page}&page_size=${pageSize}`)
+  return apiFetch<{ items: FeedbackItem[]; page: number; page_size: number; total: number }>(
+    `/api/feedback?page=${page}&page_size=${pageSize}`
+  )
 }
 
 /**

@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   buildPoseGuidePath,
@@ -123,7 +123,6 @@ export default function PoseTrainingReportPage() {
                     <span>Started: {formatDateTime(session.started_at)}</span>
                     <span>Ended: {session.ended_at ? formatDateTime(session.ended_at) : 'In progress'}</span>
                     <span>Total Reps: {computed?.reps ?? 0}</span>
-                    <span>Sets: {session.sets.length}</span>
                   </div>
 
                   {computed?.displayReport && isRecord(computed.displayReport) ? (

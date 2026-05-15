@@ -1,4 +1,4 @@
-﻿import { normalizeReportForArchive } from '../../../lib/report/unified'
+import { normalizeReportForArchive } from '../../../lib/report/unified'
 import type { PoseAnalysisReport } from '../reporting/types'
 import type { RealtimeFeedback } from '../analyzer/types'
 import { RealtimeLateralRaiseAnalyzer } from '../analyzer/lateralRaise'
@@ -114,6 +114,11 @@ export function buildLateralRaiseAlignedReport(input: {
 
   const generatedAt = new Date().toISOString()
   const timelineSampled = sampleTimelineRows(input.timelineRows, 180)
+  const timelineSeries = [
+    { key: 'kneeAngleDeg', label: 'Raise Angle' },
+    { key: 'hipAngleDeg', label: 'Elbow Angle' },
+    { key: 'torsoFromVerticalDeg', label: 'Torso Angle' }
+  ]
 
   return normalizeReportForArchive({
     version: 3,
@@ -143,6 +148,7 @@ export function buildLateralRaiseAlignedReport(input: {
       avgTrackingQuality: Math.round(avgTrackingQuality * 100) / 100,
       currentSuggestion,
       warnings: input.lastFeedback?.warnings ?? [],
+      timelineSeries,
       timelineSampled
     },
     sections: {
@@ -157,6 +163,7 @@ export function buildLateralRaiseAlignedReport(input: {
       metrics: keyMetrics,
       errorStats: computeReportErrorStats(issues),
       suggestions,
+      timelineSeries,
       timelineSampled
     }
   })

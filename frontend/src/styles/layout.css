@@ -278,7 +278,7 @@
 
 .profile-btn-primary {
   border-radius: 0.75rem;
-  background: #4f46e5;
+  background: #059669;
   color: #fff;
   font-size: 0.875rem;
   font-weight: 500;
@@ -286,7 +286,7 @@
 }
 
 .profile-btn-primary:hover {
-  background: #6366f1;
+  background: #10b981;
 }
 
 .profile-btn-secondary {

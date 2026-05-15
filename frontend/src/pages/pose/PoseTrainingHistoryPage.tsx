@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   buildPoseGuidePath,
@@ -101,10 +101,6 @@ export default function PoseTrainingHistoryPage() {
                   </button>
                 </div>
 
-                <div className="pose-inline-note pose-inline-note-tight">
-                  You can open a demo record any time to preview the report page UI.
-                </div>
-
                 {loading ? <p className="pose-muted-copy">Loading history...</p> : null}
                 {error ? <div className="pose-error-box pose-error-box-light">{error}</div> : null}
                 {!loading && !error && showDemo ? (
@@ -124,24 +120,29 @@ export default function PoseTrainingHistoryPage() {
                           ? displayReport.summary
                           : 'No summary in report'
                       const sessionExerciseType = item.sets[0]?.exercise_type ?? 'squat'
+                      const sessionSlug = getPoseExerciseByType(sessionExerciseType).slug
                       const derivedName = buildTrainingRecordName({
                         startedAt: item.started_at,
                         exerciseName: getPoseExerciseByType(sessionExerciseType).displayName
                       })
                       const sessionName = item.id === DEMO_POSE_TRAINING_ID ? 'Demo Session' : (item.note?.trim() || derivedName)
                       return (
-                        <Link key={item.id} className="pose-history-item" to={buildPoseReportPath(exercise.slug, item.id)}>
+                        <div key={item.id} className="pose-history-item pose-history-item-static">
                           <div className="pose-history-item-top">
                             <strong>{sessionName}</strong>
                             <span>{formatDateTime(item.started_at)}</span>
                           </div>
                           <div className="pose-history-meta">
                             <span>Total Reps: {reps}</span>
-                            <span>Sets: {item.sets.length}</span>
                             <span>Ended: {item.ended_at ? formatDateTime(item.ended_at) : 'In progress'}</span>
                           </div>
                           <p className="pose-history-summary">{reportSummary}</p>
-                        </Link>
+                          <div className="pose-history-actions">
+                            <Link to={buildPoseReportPath(sessionSlug, item.id)} className="pose-tool-ghost-btn pose-tool-light-btn">
+                              View Report
+                            </Link>
+                          </div>
+                        </div>
                       )
                     })}
                   </div>

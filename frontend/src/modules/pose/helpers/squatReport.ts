@@ -1,4 +1,4 @@
-﻿import { normalizeReportForArchive } from '../../../lib/report/unified'
+import { normalizeReportForArchive } from '../../../lib/report/unified'
 import type { PoseAnalysisReport } from '../reporting/types'
 import type { RealtimeFeedback } from '../analyzer/types'
 import { RealtimeSquatAnalyzer, VIDEO_DEFAULT_SQUAT_TEMPO } from '../analyzer/squat'
@@ -201,6 +201,11 @@ export function buildSquatAlignedReport(input: {
   }
   const generatedAt = new Date().toISOString()
   const timelineSampled = sampleTimelineRows(input.timelineRows, 180)
+  const timelineSeries = [
+    { key: 'kneeAngleDeg', label: 'Knee Angle' },
+    { key: 'hipAngleDeg', label: 'Hip Angle' },
+    { key: 'torsoFromVerticalDeg', label: 'Torso Angle' }
+  ]
   const repFindings = input.repFindings ?? []
 
   return normalizeReportForArchive({
@@ -235,6 +240,7 @@ export function buildSquatAlignedReport(input: {
       currentSuggestion,
       warnings: input.lastFeedback?.warnings ?? [],
       tempo: tempoCheck,
+      timelineSeries,
       timelineSampled,
       repFindings
     },
@@ -250,6 +256,7 @@ export function buildSquatAlignedReport(input: {
       metrics: keyMetrics,
       errorStats: computeReportErrorStats(issues),
       suggestions,
+      timelineSeries,
       timelineSampled,
       repFindings
     }

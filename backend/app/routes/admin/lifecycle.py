@@ -1,8 +1,8 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ...extensions import db
@@ -35,8 +35,7 @@ def _admin_guard() -> tuple[bool, User | None]:
     user = db.session.get(User, user_id)
     if user is None:
         return False, None
-    admin_email = (current_app.config.get("ADMIN_EMAIL") or "").strip().lower()
-    if not admin_email or user.email.strip().lower() != admin_email:
+    if not user.is_admin:
         return False, user
     return True, user
 

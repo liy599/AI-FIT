@@ -1,4 +1,4 @@
-﻿from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required, verify_jwt_in_request
 
 from ...extensions import db
@@ -18,10 +18,7 @@ def list_feedback():
     if current_user is None:
         return jsonify({"error": "not found"}), 404
 
-    admin_email = (current_app.config.get("ADMIN_EMAIL") or "").strip().lower()
-    if not admin_email:
-        return jsonify({"error": "admin email not configured"}), 403
-    if current_user.email.strip().lower() != admin_email:
+    if not current_user.is_admin:
         return jsonify({"error": "forbidden"}), 403
 
     page, page_size = parse_pagination(request.args, default_page_size=6, max_page_size=20)

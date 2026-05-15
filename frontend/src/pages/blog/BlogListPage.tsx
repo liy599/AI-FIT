@@ -1,6 +1,7 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { getBlogTags, queryBlogs, resolveBlogMediaUrl, type BlogCard, type BlogTag as Tag } from '../../modules/blog'
+import { useAuth } from '../../state/auth-context'
 
 function resolveMediaUrl(url: string | null | undefined) {
   return resolveBlogMediaUrl(url)
@@ -354,13 +355,13 @@ function TopViewedStack({ blogs, loading }: { blogs: BlogCard[]; loading: boolea
 }
 
 export default function BlogListPage() {
+  const auth = useAuth()
   const [sp, setSp] = useSearchParams()
   const [tags, setTags] = useState<Tag[]>([])
   const [items, setItems] = useState<BlogCard[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [email, setEmail] = useState('')
 
   const q = sp.get('q') ?? ''
   const tagIds = sp.getAll('tag').map((x) => Number(x)).filter((x) => Number.isFinite(x))
@@ -679,34 +680,19 @@ export default function BlogListPage() {
             <div className="blog-list-light-bg rounded-3xl" />
             <div className="relative z-10 blog-list-join-col-main">
               <h2 className="text-2xl font-semibold leading-tight tracking-tight md:text-3xl">
-                Join the community -
-                <br />
-                Get Updates and Tips
+                Share your training insights
               </h2>
               <p className="mt-4 max-w-[520px] text-sm leading-relaxed text-white md:text-base">
-                Get the latest articles, resources, and insights straight to your inbox.
+                Post your pose training tips, progress notes, and nutrition discoveries to help others stay consistent.
               </p>
-
-              <form
-                className="mt-6 blog-list-join-form"
-                onSubmit={(e) => {
-                  e.preventDefault()
-                }}
-              >
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter your email"
-                  className="h-11 flex-1 rounded-full bg-white/5 px-4 text-sm text-white placeholder:text-white outline-none ring-1 ring-inset ring-white/10 focus:ring-white/25"
-                />
-                <button
-                  type="submit"
-                  className="h-11 rounded-full bg-white px-5 text-sm font-medium text-neutral-900"
+              <div className="mt-6">
+                <Link
+                  to={auth.user ? '/blogs/new' : `/login?from=${encodeURIComponent('/blogs/new')}`}
+                  className="inline-flex h-11 items-center justify-center rounded-full bg-white px-6 text-sm font-medium text-neutral-900"
                 >
-                  Subscribe
-                </button>
-              </form>
+                  {auth.user ? 'Write a post' : 'Login to write'}
+                </Link>
+              </div>
             </div>
 
             <div className="relative z-10 blog-list-join-col-side">

@@ -81,6 +81,9 @@ def test_admin_cleanup_requires_admin_and_deletes_old_data(client, app):
     assert forbidden.status_code == 403
 
     with app.app_context():
+        admin_user = User.query.filter_by(email="admin@example.com").first()
+        assert admin_user is not None
+        admin_user.is_admin = True
         user = User.query.filter_by(email="normal@example.com").first()
         assert user is not None
         old_time = datetime.utcnow() - timedelta(days=30)

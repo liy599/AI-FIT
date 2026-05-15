@@ -51,18 +51,20 @@ export function uploadMyAvatar(file: File) {
   return apiUpload<{ avatar_url: string }>('/api/user/avatar', form)
 }
 
-export function uploadBlogCover(file: File) {
-  const form = new FormData()
-  form.append('file', file)
-  return apiUpload<{ cover_image_url: string }>('/api/blogs/cover', form)
-}
-
 export function getMyWorkouts<T>() {
   return apiFetch<{ items: T[] }>('/api/workouts?page=1&page_size=20')
 }
 
 export function getMyMeals<T>() {
   return apiFetch<{ items: T[] }>('/api/meals/history?page=1&page_size=20')
+}
+
+export function listMyMealHistory<T>(params?: { page?: number; page_size?: number }) {
+  const query = new URLSearchParams()
+  if (params?.page) query.set('page', String(params.page))
+  if (params?.page_size) query.set('page_size', String(params.page_size))
+  const suffix = query.toString()
+  return apiFetch<{ items: T[]; page: number; page_size: number; total: number }>(`/api/meals/history${suffix ? `?${suffix}` : ''}`)
 }
 
 export function getMyBlogs<T>() {

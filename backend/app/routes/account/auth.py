@@ -17,8 +17,7 @@ def _serializer() -> URLSafeTimedSerializer:
     return URLSafeTimedSerializer(current_app.config["SECRET_KEY"], salt="password-reset")
 
 def _is_admin_user(u: User) -> bool:
-    admin_email = (current_app.config.get("ADMIN_EMAIL") or "").strip().lower()
-    return bool(admin_email) and u.email.strip().lower() == admin_email
+    return bool(u.is_admin)
 
 def _auth_user(u: User):
     return {

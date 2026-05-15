@@ -1,4 +1,4 @@
-﻿import { normalizeReportForArchive } from '../../../lib/report/unified'
+import { normalizeReportForArchive } from '../../../lib/report/unified'
 import type { PoseAnalysisReport } from '../reporting/types'
 import type { RealtimeFeedback } from '../analyzer/types'
 import { RealtimeBentOverRowAnalyzer } from '../analyzer/bentOverRow'
@@ -118,6 +118,11 @@ export function buildBentOverRowAlignedReport(input: {
 
   const generatedAt = new Date().toISOString()
   const timelineSampled = sampleTimelineRows(input.timelineRows, 180)
+  const timelineSeries = [
+    { key: 'kneeAngleDeg', label: 'Row Angle' },
+    { key: 'hipAngleDeg', label: 'Elbow Angle' },
+    { key: 'torsoFromVerticalDeg', label: 'Torso Angle' }
+  ]
   const repFindings = input.repFindings ?? []
 
   return normalizeReportForArchive({
@@ -148,6 +153,7 @@ export function buildBentOverRowAlignedReport(input: {
       avgTrackingQuality: Math.round(avgTrackingQuality * 100) / 100,
       currentSuggestion,
       warnings: input.lastFeedback?.warnings ?? [],
+      timelineSeries,
       timelineSampled,
       repFindings
     },
@@ -163,6 +169,7 @@ export function buildBentOverRowAlignedReport(input: {
       metrics: keyMetrics,
       errorStats: computeReportErrorStats(issues),
       suggestions,
+      timelineSeries,
       timelineSampled,
       repFindings
     }

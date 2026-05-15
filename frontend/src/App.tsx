@@ -1,4 +1,4 @@
-﻿import { lazy, Suspense, type ReactNode } from 'react'
+import { lazy, Suspense, type ReactNode } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import Layout from './components/layout/Layout'
 import { AuthProvider, useAuth } from './state/auth-context'
@@ -7,7 +7,10 @@ import HomePage from './pages/public/HomePage'
 // Lazy-load pages (code splitting for better performance)
 const AboutPage = lazy(() => import('./pages/public/AboutPage'))
 const AdminDataLifecyclePage = lazy(() => import('./pages/admin/AdminDataLifecyclePage'))
+const AdminFeedbackPage = lazy(() => import('./pages/admin/AdminFeedbackPage'))
+const AdminUsersPage = lazy(() => import('./pages/admin/AdminUsersPage'))
 const BlogDetailPage = lazy(() => import('./pages/blog/BlogDetailPage'))
+const BlogEditorPage = lazy(() => import('./pages/blog/BlogEditorPage'))
 const BlogListPage = lazy(() => import('./pages/blog/BlogListPage'))
 const FoodMealPage = lazy(() => import('./pages/food/FoodMealPage'))
 const FoodModulePage = lazy(() => import('./pages/food/FoodModulePage'))
@@ -31,7 +34,7 @@ function RequireAuth({ children }: { children: ReactNode }) {
   // If user is not logged in, redirect to login page
   if (!auth.user) {
     const from = `${loc.pathname}${loc.search}${loc.hash}`
-    return <Navigate to="/login" replace state={{ from }} />
+    return <Navigate to={`/login?from=${encodeURIComponent(from)}`} replace state={{ from }} />
   }
 
   return children
@@ -45,7 +48,7 @@ function RequireAdmin({ children }: { children: ReactNode }) {
   // If user is not logged in, redirect to login page
   if (!auth.user) {
     const from = `${loc.pathname}${loc.search}${loc.hash}`
-    return <Navigate to="/login" replace state={{ from }} />
+    return <Navigate to={`/login?from=${encodeURIComponent(from)}`} replace state={{ from }} />
   }
 
   // If user is not an admin, redirect to home page
@@ -90,6 +93,7 @@ const poseRoutes: AppRoute[] = [
 
 const blogRoutes: AppRoute[] = [
   { path: '/blogs', element: <BlogListPage /> },
+  { path: '/blogs/new', element: <BlogEditorPage />, guard: 'auth' },
   { path: '/blogs/:id', element: <BlogDetailPage /> }
 ]
 
@@ -99,7 +103,9 @@ const userRoutes: AppRoute[] = [
 ]
 
 const adminRoutes: AppRoute[] = [
-  { path: '/admin/data-lifecycle', element: <AdminDataLifecyclePage />, guard: 'admin' }
+  { path: '/admin/data-lifecycle', element: <AdminDataLifecyclePage />, guard: 'admin' },
+  { path: '/admin/feedback', element: <AdminFeedbackPage />, guard: 'admin' },
+  { path: '/admin/users', element: <AdminUsersPage />, guard: 'admin' }
 ]
 
 const authRoutes: AppRoute[] = [

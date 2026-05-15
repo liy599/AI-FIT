@@ -1,4 +1,4 @@
-﻿import { useCallback } from 'react'
+import { useCallback } from 'react'
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
 import type { PoseAnalysisReport } from '../../reporting/types'
 import { buildTrainingRecordName } from '../../domain/trainingName'
@@ -13,6 +13,7 @@ import {
   resolveOfflineViewAngle
 } from '../../reporting/offlineReport'
 import { buildOfflineOverlayFrames } from '../../reporting/overlayReplay'
+import { attachRepFindingSnapshots } from './reportSnapshots'
 
 type ExerciseMeta = {
   id: string
@@ -143,15 +144,27 @@ export function useOfflinePoseAnalysis(args: UseOfflinePoseAnalysisArgs) {
       offlineReplayDataRef.current = { fps: extracted.fps, nativeFrames: extracted.nativeFrames, overlayFrames }
       setOfflineOverlayReady(true)
 
+      let reportWithSnapshots = report
+      try {
+        reportWithSnapshots = await attachRepFindingSnapshots({
+          report,
+          offlineFile,
+          replayData: offlineReplayDataRef.current,
+          onProgress: (processed, total) => setOfflineProgress({ stage: 'Building report snapshots', processed, total })
+        })
+      } catch {
+        reportWithSnapshots = report
+      }
+
       setOfflineProgress({ stage: 'Finalizing local report', processed: 1, total: 1 })
-      setOfflineReport(report)
+      setOfflineReport(reportWithSnapshots)
       setOfflineLocalStatus('succeeded')
       setOfflineCompletedStep(4)
       try {
         const archiveGuard = validateOfflineArchiveUser(user)
         if (archiveGuard) throw new Error(archiveGuard)
         setOfflineArchiveStatus('saving')
-        const reps = getRepsFromReport(report)
+        const reps = getRepsFromReport(reportWithSnapshots)
         const startedAt = new Date(Date.now() - Math.max(1000, Math.round((extracted.nativeFrames.length / Math.max(1, extracted.fps)) * 1000))).toISOString()
         const payload = buildOfflineArchivePayload({
           startedAt,
@@ -159,7 +172,7 @@ export function useOfflinePoseAnalysis(args: UseOfflinePoseAnalysisArgs) {
           exerciseType: exercise.exerciseType,
           exerciseDisplayName: exercise.displayName,
           reps,
-          report,
+          report: reportWithSnapshots,
           posePolicyVersion,
           buildTrainingRecordName
         })

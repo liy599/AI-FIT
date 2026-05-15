@@ -17,8 +17,27 @@ from .utils.upload_access import normalize_upload_path, verify_upload_access_tok
 def _is_cli_migration() -> bool:
     argv = [str(a) for a in sys.argv]
     argv_lower = [a.lower() for a in argv]
-    has_flask = any(os.path.basename(a).lower() == "flask" or a.lower() == "flask" for a in argv)
+    has_flask = any("flask" in a for a in argv_lower)
     return has_flask and ("db" in argv_lower)
+
+
+def _ensure_admin_seed(app: Flask) -> None:
+    admin_email = str(app.config.get("ADMIN_EMAIL", "")).strip().lower()
+    if not admin_email:
+        return
+    try:
+        from .models import User
+
+        user = User.query.filter_by(email=admin_email).first()
+        if user is None or user.is_admin:
+            return
+        user.is_admin = True
+        db.session.commit()
+    except Exception:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
 
 def create_app(config_object=Config):
     app = Flask(__name__)
@@ -57,6 +76,7 @@ def create_app(config_object=Config):
     from .routes.account.workouts import bp as workouts_bp
     from .routes.account.feedback import bp as feedback_bp
     from .routes.admin.lifecycle import bp as admin_bp
+    from .routes.admin.users import bp as admin_users_bp
     from .routes.blog.blogs import bp as blogs_bp
     from .routes.blog.comments import bp as comments_bp
     from .routes.blog.tags import bp as tags_bp
@@ -79,6 +99,7 @@ def create_app(config_object=Config):
     app.register_blueprint(pose_bp, url_prefix="/api/pose")
     app.register_blueprint(recognize_bp, url_prefix="/api/recognize")
     app.register_blueprint(admin_bp, url_prefix="/api/admin")
+    app.register_blueprint(admin_users_bp, url_prefix="/api/admin")
 
     @app.get("/api/health")
     def health():
@@ -115,6 +136,8 @@ def create_app(config_object=Config):
         if (not _is_cli_migration()) and bool(app.config.get("DB_AUTO_INIT", True)):
             ensure_food_seed_data()
         if not _is_cli_migration():
+            _ensure_admin_seed(app)
+        if not _is_cli_migration():
             start_server_inference_worker(app)
 
     return app
@@ -126,7 +149,6 @@ def _validate_production_config(app: Flask) -> None:
 
     secret_key = str(app.config.get("SECRET_KEY", "")).strip()
     jwt_secret_key = str(app.config.get("JWT_SECRET_KEY", "")).strip()
-    admin_email = str(app.config.get("ADMIN_EMAIL", "")).strip()
     password_reset_debug = bool(app.config.get("PASSWORD_RESET_DEBUG_RETURN_LINK", False))
     if not secret_key or secret_key == "dev-secret-change-me":
         raise RuntimeError("production requires non-default SECRET_KEY")
@@ -134,8 +156,6 @@ def _validate_production_config(app: Flask) -> None:
         raise RuntimeError("production requires non-default JWT_SECRET_KEY")
     if len(secret_key) < 32 or len(jwt_secret_key) < 32:
         raise RuntimeError("production secrets must be at least 32 chars")
-    if not admin_email:
-        raise RuntimeError("production requires ADMIN_EMAIL")
     if password_reset_debug:
         raise RuntimeError("production requires PASSWORD_RESET_DEBUG_RETURN_LINK=0")
     cors_origins = str(app.config.get("CORS_ORIGINS", "")).strip()

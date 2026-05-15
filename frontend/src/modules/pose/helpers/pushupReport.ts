@@ -1,4 +1,4 @@
-﻿import { normalizeReportForArchive } from '../../../lib/report/unified'
+import { normalizeReportForArchive } from '../../../lib/report/unified'
 import type { PoseAnalysisReport } from '../reporting/types'
 import type { RealtimeFeedback } from '../analyzer/types'
 import { RealtimePushupAnalyzer } from '../analyzer/pushup'
@@ -198,6 +198,11 @@ export function buildPushupAlignedReport(input: {
 
   const generatedAt = new Date().toISOString()
   const timelineSampled = sampleTimelineRows(input.timelineRows, 180)
+  const timelineSeries = [
+    { key: 'kneeAngleDeg', label: 'Elbow Angle' },
+    { key: 'hipAngleDeg', label: 'Body Line Angle' },
+    { key: 'torsoFromVerticalDeg', label: 'Torso Angle' }
+  ]
 
   return normalizeReportForArchive({
     version: 3,
@@ -234,6 +239,7 @@ export function buildPushupAlignedReport(input: {
       currentSuggestion,
       warnings: input.lastFeedback?.warnings ?? [],
       tempo: tempoCheck,
+      timelineSeries,
       timelineSampled,
       repFindings
     },
@@ -249,6 +255,7 @@ export function buildPushupAlignedReport(input: {
       metrics: keyMetrics,
       errorStats: computeReportErrorStats(issues),
       suggestions,
+      timelineSeries,
       timelineSampled,
       repFindings
     }

@@ -1,4 +1,4 @@
-﻿import { apiFetch, resolveBackendUrl } from '../../lib/api'
+import { apiFetch, apiUpload, resolveBackendUrl } from '../../lib/api'
 
 export type BlogTag = { id: number; name: string }
 export type BlogAuthor = { id: number; username: string; avatar_url?: string | null }
@@ -103,5 +103,11 @@ export function deleteBlogById(id: number) {
 
 export function createBlog(payload: Record<string, unknown>) {
   return apiFetch<{ id: number }>('/api/blogs', { method: 'POST', body: JSON.stringify(payload) })
+}
+
+export function uploadBlogCover(file: File) {
+  const form = new FormData()
+  form.append('file', file)
+  return apiUpload<{ cover_image_url: string }>('/api/blogs/cover', form)
 }
 

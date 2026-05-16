@@ -1,7 +1,8 @@
 param(
   [switch]$BackendOnly,
   [switch]$FrontendOnly,
-  [switch]$SkipDb
+  [switch]$SkipDb,
+  [switch]$ResetDb
 )
 
 $ErrorActionPreference = 'Stop'
@@ -54,12 +55,22 @@ function Start-Db {
       Write-Host "Created missing backend env file: $backendEnvPath"
     }
 
+    Set-Location -LiteralPath $repoRoot
+    if ($ResetDb) {
+      Write-Host 'ResetDb enabled: stopping containers and removing volumes (docker compose down -v)...'
+      docker compose down -v | Out-Host
+      if ($LASTEXITCODE -ne 0) {
+        throw 'Failed to reset docker compose volumes.'
+      }
+    }
+
     Write-Host 'Starting PostgreSQL and Redis containers (docker compose up -d db redis)...'
     Set-Location -LiteralPath $repoRoot
     docker compose up -d db redis | Out-Host
     if ($LASTEXITCODE -ne 0) {
       throw 'Failed to start PostgreSQL/Redis containers via docker compose.'
     }
+    Wait-PostgresHealthy
     Wait-RedisHealthy
   }
 }
@@ -78,13 +89,38 @@ if (-not (Test-Path '.\\.venv\\Scripts\\python.exe')) {
   if (`$LASTEXITCODE -ne 0) { throw 'Failed to install backend dependencies (pip install -r requirements.txt).' }
 }
 if (Test-Path '.\\.venv\\Scripts\\python.exe') {
+  & '.\\.venv\\Scripts\\python.exe' -m pip install -r '.\\requirements.txt'
+  if (`$LASTEXITCODE -ne 0) { throw 'Failed to install backend dependencies (pip install -r requirements.txt).' }
+  & '.\\.venv\\Scripts\\python.exe' -m flask --app wsgi db upgrade
+  if (`$LASTEXITCODE -ne 0) { throw 'Database migration failed (flask db upgrade). Check DATABASE_URL and PostgreSQL status.' }
   & '.\\.venv\\Scripts\\python.exe' '.\\run.py'
 } else {
+  python -m pip install -r '.\\requirements.txt'
+  if (`$LASTEXITCODE -ne 0) { throw 'Failed to install backend dependencies (pip install -r requirements.txt).' }
+  python -m flask --app wsgi db upgrade
+  if (`$LASTEXITCODE -ne 0) { throw 'Database migration failed (flask db upgrade). Check DATABASE_URL and PostgreSQL status.' }
   python '.\\run.py'
 }
 "@
   Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoExit', '-ExecutionPolicy', 'Bypass', '-Command', $backendCmd)
   Wait-BackendHealthy
+}
+
+function Wait-PostgresHealthy {
+  $maxAttempts = 40
+  for ($i = 1; $i -le $maxAttempts; $i++) {
+    Start-Sleep -Milliseconds 500
+    try {
+      $out = docker compose exec -T db pg_isready -U aifitguard -d aifitguard 2>$null
+      if ($LASTEXITCODE -eq 0 -and $out -match 'accepting connections') {
+        Write-Host 'PostgreSQL health check passed.'
+        return
+      }
+    } catch {
+      # db still starting
+    }
+  }
+  throw 'PostgreSQL health check failed (pg_isready did not report accepting connections).'
 }
 
 function Wait-RedisHealthy {

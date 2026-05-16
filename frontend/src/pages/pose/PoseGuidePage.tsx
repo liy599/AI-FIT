@@ -8,8 +8,8 @@ export default function PoseGuidePage() {
 
   return (
     <>
-      <section className="cl_breadcrumb-area">
-        <div className="cl_breadcrumb-wrap" data-background="/assets/images/bg/breadcrumb.png">
+      <section className="cl_breadcrumb-area brand-page-theme">
+        <div className="cl_breadcrumb-wrap brand-page-hero" data-background="/assets/images/bg/breadcrumb.png">
           <div className="page-container">
             <div className="page-row-center">
               <div className="page-col-breadcrumb">
@@ -27,7 +27,7 @@ export default function PoseGuidePage() {
         </div>
       </section>
 
-      <section className="pt-100 pb-100">
+      <section className="pt-100 pb-100 brand-page-body">
         <div className="page-container">
           <div className="page-row-center">
             <div className="page-col-pose-guide">

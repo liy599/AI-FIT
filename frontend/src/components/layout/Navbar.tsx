@@ -40,30 +40,23 @@ export default function Navbar(props: NavbarProps) {
         </NavLink>
       </li>
       <li>
-        <NavLink to="/about" onClick={props.onNavigate}>
-          About Us
+        <NavLink to="/tools/pose" onClick={props.onNavigate}>
+          Pose
         </NavLink>
       </li>
-      <li className="menu-has-child">
-        <NavLink to="/tools/pose" onClick={props.onNavigate}>
-          Tools
+      <li>
+        <NavLink to="/food" onClick={props.onNavigate}>
+          Food
         </NavLink>
-        <ul className="submenu">
-          <li>
-            <NavLink to="/tools/pose" onClick={props.onNavigate}>
-              Pose
-            </NavLink>
-          </li>
-          <li>
-            <NavLink to="/food" onClick={props.onNavigate}>
-              Food
-            </NavLink>
-          </li>
-        </ul>
       </li>
       <li>
         <NavLink to="/blogs" onClick={props.onNavigate}>
           Blog
+        </NavLink>
+      </li>
+      <li>
+        <NavLink to="/about" onClick={props.onNavigate}>
+          About Us
         </NavLink>
       </li>
       {props.variant === 'mobile' && auth.user ? (

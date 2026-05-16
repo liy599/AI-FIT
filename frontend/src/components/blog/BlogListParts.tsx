@@ -84,13 +84,13 @@ export function BlogTeaserCard({
   const tag = blog.tags[0]?.name ?? 'Our Blog'
   const minutes = estimateReadMinutes(blog.excerpt)
 
-  const baseCard = 'rounded-3xl border border-neutral-200 bg-white overflow-hidden'
+  const baseCard = 'blog-card-surface rounded-3xl overflow-hidden'
   const imageWrap =
     variant === 'hero'
-      ? 'relative w-full overflow-hidden rounded-3xl bg-neutral-100 aspect-[16/9]'
+      ? 'blog-card-media relative w-full overflow-hidden rounded-3xl aspect-[16/9]'
       : variant === 'recentLarge'
-        ? 'relative w-full overflow-hidden rounded-3xl bg-neutral-100 aspect-[16/10]'
-        : 'relative w-full overflow-hidden rounded-3xl bg-neutral-100 aspect-[16/9]'
+        ? 'blog-card-media relative w-full overflow-hidden rounded-3xl aspect-[16/10]'
+        : 'blog-card-media relative w-full overflow-hidden rounded-3xl aspect-[16/9]'
 
   const titleClass =
     variant === 'hero'
@@ -150,9 +150,9 @@ export function FeaturedBlogGridCard({
   const minutes = estimateReadMinutes(blog.excerpt)
 
   return (
-    <article className="group rounded-xl bg-white shadow-sm ring-1 ring-inset ring-neutral-200 transition-[transform,box-shadow] duration-200 hover:-translate-y-1 hover:shadow-md">
+    <article className="blog-card-surface group rounded-xl transition-[transform,box-shadow] duration-200 hover:-translate-y-1 hover:shadow-md">
       <div className="flex h-full flex-col p-3">
-        <div className="relative overflow-hidden rounded-xl bg-neutral-100 aspect-[16/9]">
+        <div className="blog-card-media relative overflow-hidden rounded-xl aspect-[16/9]">
           <Link to={`/blogs/${blog.id}`} className="block h-full w-full">
             <img
               className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
@@ -187,7 +187,7 @@ export function FeaturedBlogGridCard({
         <div className="mt-auto pt-5">
           <Link
             to={`/blogs/${blog.id}`}
-            className="inline-flex h-10 w-full items-center justify-center rounded-full border border-neutral-900 bg-white px-5 text-sm font-medium text-neutral-900 transition-colors hover:bg-neutral-900 hover:text-white"
+            className="blog-theme-btn inline-flex h-10 w-full items-center justify-center rounded-full border border-neutral-900 bg-white px-5 text-sm font-medium text-neutral-900 transition-colors hover:bg-neutral-900 hover:text-white"
           >
             Read more
           </Link>
@@ -212,8 +212,8 @@ function TopViewedStackCard({
   const minutes = blog ? estimateReadMinutes(blog.excerpt) : null
 
   return (
-    <div className="w-[320px] sm:w-[380px] md:w-[420px] scale-75 origin-bottom rounded-[28px] border border-neutral-200 bg-white p-3 shadow-[0_22px_70px_rgba(0,0,0,0.12)]">
-      <div className="relative overflow-hidden rounded-[28px] bg-neutral-100 aspect-[16/10]">
+    <div className="blog-card-surface w-[320px] sm:w-[380px] md:w-[420px] scale-75 origin-bottom rounded-[28px] p-3 shadow-[0_22px_70px_rgba(0,0,0,0.12)]">
+      <div className="blog-card-media relative overflow-hidden rounded-[28px] aspect-[16/10]">
         {blog ? (
           <Link to={`/blogs/${blog.id}`} className="block h-full w-full">
             <img className="absolute inset-0 h-full w-full object-cover" src={cover} alt={title} loading="lazy" decoding="async" />
@@ -250,7 +250,7 @@ function TopViewedStackCard({
             <div className="mt-4">
               <Link
                 to={`/blogs/${blog.id}`}
-                className="inline-flex h-11 items-center justify-center rounded-full border border-neutral-900 bg-white px-6 text-sm font-medium text-neutral-900"
+                className="blog-theme-btn inline-flex h-11 items-center justify-center rounded-full border border-neutral-900 bg-white px-6 text-sm font-medium text-neutral-900"
               >
                 Read more
               </Link>

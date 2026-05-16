@@ -154,15 +154,13 @@ export default function BlogListPage() {
         .blog-list-light-bg {
           position: absolute;
           inset: 0;
-          background:
-            linear-gradient(135deg, rgba(14, 85, 60, 0.92), rgba(18, 24, 38, 0.9)),
-            url('/assets/images/bg/waves-shape.png') center / cover no-repeat;
+          background: linear-gradient(135deg, #e7f8f1 0%, #ffffff 46%, rgba(53, 204, 149, 0.24) 100%);
         }
       `}</style>
-      <section className="relative overflow-hidden bg-neutral-50 px-4 pb-16 pt-10 md:pb-24 md:pt-16">
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[55%]">
+      <section className="relative overflow-hidden px-4 pb-16 pt-10 md:pb-24 md:pt-16">
+        <div className="pointer-events-none absolute inset-0">
           <div className="blog-list-light-bg" />
-          <div className="absolute inset-0 bg-gradient-to-b from-neutral-950/70 via-neutral-950/45 to-transparent" />
+          <div className="blog-list-soft-overlay absolute inset-0" />
         </div>
         <div className="blog-list-hero-grid">
           <div className="blog-list-hero-col-main">
@@ -198,7 +196,7 @@ export default function BlogListPage() {
             <div className="blog-list-recent-col-main">
               {recent[0] ? (
                 <article>
-                  <div className="relative overflow-hidden rounded-3xl bg-neutral-100 aspect-[16/9]">
+                  <div className="blog-card-media relative overflow-hidden rounded-3xl aspect-[16/9]">
                     <Link to={`/blogs/${recent[0].id}`} className="block h-full w-full">
                       <img
                         className="absolute inset-0 h-full w-full object-cover"
@@ -237,14 +235,14 @@ export default function BlogListPage() {
                   <div className="mt-6">
                     <Link
                       to={`/blogs/${recent[0].id}`}
-                      className="inline-flex h-11 items-center justify-center rounded-full bg-neutral-900 px-6 text-sm font-medium text-white"
+                      className="blog-theme-btn inline-flex h-11 items-center justify-center rounded-full bg-neutral-900 px-6 text-sm font-medium text-white"
                     >
                       Read more
                     </Link>
                   </div>
                 </article>
               ) : (
-                <div className="rounded-3xl bg-neutral-50 p-8 text-sm text-neutral-500">
+                <div className="blog-card-surface rounded-3xl p-8 text-sm text-neutral-500">
                   {loading ? 'Loading...' : 'No content'}
                 </div>
               )}
@@ -253,9 +251,9 @@ export default function BlogListPage() {
             <div className="blog-list-recent-col-side">
               <div className="grid grid-cols-1 gap-8">
                 {recent.slice(1, 4).map((b, idx) => (
-                  <article key={b.id} className="rounded-3xl p-3 hover:bg-neutral-50">
+                  <article key={b.id} className="blog-card-surface rounded-3xl p-3">
                     <div className="flex items-start gap-[13px]">
-                      <div className="relative h-[110px] w-[150px] flex-none overflow-hidden rounded-2xl bg-neutral-100 sm:h-[120px] sm:w-[170px]">
+                      <div className="blog-card-media relative h-[110px] w-[150px] flex-none overflow-hidden rounded-2xl sm:h-[120px] sm:w-[170px]">
                         <Link to={`/blogs/${b.id}`} className="block h-full w-full">
                           <img
                             className="absolute inset-0 h-full w-full object-cover"
@@ -293,7 +291,7 @@ export default function BlogListPage() {
                         <div className="mt-4">
                           <Link
                             to={`/blogs/${b.id}`}
-                            className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-neutral-300 bg-white px-5 text-xs font-medium text-neutral-900"
+                            className="blog-theme-btn inline-flex h-10 items-center justify-center gap-2 rounded-full border border-neutral-300 bg-white px-5 text-xs font-medium text-neutral-900"
                           >
                             Read more
                             <span className="text-base leading-none">{'>'}</span>
@@ -335,19 +333,19 @@ export default function BlogListPage() {
         className={`px-4 pt-16 md:pt-24 pb-16 reveal${joinReveal.visible ? ' visible' : ''}`}
       >
         <div className="mx-auto max-w-[1200px]">
-          <div className="relative blog-list-join-grid rounded-3xl px-6 py-[60px] text-white shadow-xl md:px-10">
+          <div className="relative blog-list-join-grid rounded-3xl px-6 py-[60px] md:px-10">
             <div className="blog-list-light-bg rounded-3xl" />
             <div className="relative z-10 blog-list-join-col-main">
               <h2 className="text-2xl font-semibold leading-tight tracking-tight md:text-3xl">
                 Share your training insights
               </h2>
-              <p className="mt-4 max-w-[520px] text-sm leading-relaxed text-white md:text-base">
+              <p className="mt-4 max-w-[520px] text-sm leading-relaxed md:text-base">
                 Post your pose training tips, progress notes, and nutrition discoveries to help others stay consistent.
               </p>
               <div className="mt-6">
                 <Link
                   to={auth.user ? '/blogs/new' : `/login?from=${encodeURIComponent('/blogs/new')}`}
-                  className="inline-flex h-11 items-center justify-center rounded-full bg-white px-6 text-sm font-medium text-neutral-900"
+                  className="blog-theme-btn inline-flex h-11 items-center justify-center rounded-full bg-white px-6 text-sm font-medium text-neutral-900"
                 >
                   {auth.user ? 'Write a post' : 'Login to write'}
                 </Link>
@@ -356,8 +354,8 @@ export default function BlogListPage() {
 
             <div className="relative z-10 blog-list-join-col-side">
               {hero ? (
-                <div className="rounded-3xl bg-white p-3 text-neutral-900">
-                  <div className="relative overflow-hidden rounded-3xl bg-neutral-100 aspect-[16/9]">
+                <div className="blog-card-surface rounded-3xl p-3 text-neutral-900">
+                  <div className="blog-card-media relative overflow-hidden rounded-3xl aspect-[16/9]">
                     <Link to={`/blogs/${hero.id}`} className="block h-full w-full">
                       <img
                         className="absolute inset-0 h-full w-full object-cover"

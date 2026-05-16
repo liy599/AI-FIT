@@ -380,8 +380,8 @@ export default function FoodMealPage() {
   if (!routeMealType) {
     return (
       <>
-        <section className="cl_breadcrumb-area">
-          <div className="cl_breadcrumb-wrap" data-background="/assets/images/bg/breadcrumb.png">
+        <section className="cl_breadcrumb-area brand-page-theme">
+          <div className="cl_breadcrumb-wrap brand-page-hero" data-background="/assets/images/bg/breadcrumb.png">
             <div className="page-container">
               <div className="page-row-center">
                 <div className="page-col-breadcrumb">
@@ -400,7 +400,7 @@ export default function FoodMealPage() {
           </div>
         </section>
 
-        <section className="food-meal-section">
+        <section className="food-meal-section brand-page-body">
           <div className="page-container">
             <div className="page-row-center">
               <div className="page-col-food-editor">
@@ -428,8 +428,8 @@ export default function FoodMealPage() {
 
   return (
     <>
-      <section className="cl_breadcrumb-area">
-        <div className="cl_breadcrumb-wrap" data-background="/assets/images/bg/breadcrumb.png">
+      <section className="cl_breadcrumb-area brand-page-theme">
+        <div className="cl_breadcrumb-wrap brand-page-hero" data-background="/assets/images/bg/breadcrumb.png">
           <div className="page-container">
             <div className="page-row-center">
               <div className="page-col-breadcrumb">
@@ -448,7 +448,7 @@ export default function FoodMealPage() {
         </div>
       </section>
 
-      <section className="food-meal-section">
+      <section className="food-meal-section brand-page-body">
         <div className="page-container">
           {!auth.user ? (
             <div className="page-row-center">

@@ -19,6 +19,7 @@ import {
 } from '../../modules/pose'
 import { deleteBlogById, deleteComment as deleteBlogComment, updateBlog } from '../../modules/blog'
 import { useAuth } from '../../state/auth-context'
+import defaultAvatarImage from '../../static/assets/images/bg/default.jpg'
 
 type Profile = {
   id: number
@@ -758,11 +759,11 @@ export default function ProfilePage() {
               <div className="profile-edit-header-row">
                 <div className="flex items-center gap-4">
                   <div className="h-16 w-16 overflow-hidden rounded-full border border-slate-200 bg-slate-50">
-                    {profile.avatar_url ? (
-                      <img src={resolveAvatarUrl(profile.avatar_url) ?? ''} className="h-full w-full object-cover" alt={`${profile.username} avatar`} />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-xs text-slate-500">No avatar</div>
-                    )}
+                    <img
+                      src={resolveAvatarUrl(profile.avatar_url) ?? defaultAvatarImage}
+                      className="h-full w-full object-cover"
+                      alt={`${profile.username} avatar`}
+                    />
                   </div>
                   <div className="text-sm">
                     <div className="font-medium">{profile.username}</div>
@@ -860,11 +861,11 @@ export default function ProfilePage() {
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <div className="h-16 w-16 overflow-hidden rounded-full border border-slate-200 bg-slate-50">
-                    {profile.avatar_url ? (
-                      <img src={resolveAvatarUrl(profile.avatar_url) ?? ''} className="h-full w-full object-cover" alt={`${profile.username} avatar`} />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-xs text-slate-500">No avatar</div>
-                    )}
+                    <img
+                      src={resolveAvatarUrl(profile.avatar_url) ?? defaultAvatarImage}
+                      className="h-full w-full object-cover"
+                      alt={`${profile.username} avatar`}
+                    />
                   </div>
                   <div className="text-sm">
                     <div className="font-medium">{profile.username}</div>
@@ -1146,4 +1147,3 @@ function buildMonthCells(monthStart: Date) {
   while (cells.length % 7 !== 0) cells.push(null)
   return cells
 }
-

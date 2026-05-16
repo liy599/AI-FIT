@@ -1,48 +1,33 @@
-﻿import { RealtimeSquatAnalyzer } from '../analyzer/squat'
-import { RealtimeLateralRaiseAnalyzer } from '../analyzer/lateralRaise'
-import { RealtimePushupAnalyzer } from '../analyzer/pushup'
-import { RealtimeBentOverRowAnalyzer, REALTIME_DEFAULT_BENT_OVER_ROW_TEMPO } from '../analyzer/bentOverRow'
-import { REALTIME_DEFAULT_LATERAL_RAISE_TEMPO } from '../analyzer/lateralRaise'
-import { REALTIME_DEFAULT_SQUAT_TEMPO, REALTIME_DEFAULT_SQUAT_TUNING } from '../analyzer/squat'
-import type { ExerciseSlug, RealtimeAnalyzer, SquatTempo, SquatTuning } from './types'
-
-export type AnalyzerMode = 'live' | 'video'
+import { SquatVideoAnalyzer, DEFAULT_SQUAT_TUNING, DEFAULT_SQUAT_TEMPO } from '../analyzer/squat'
+import { LateralRaiseVideoAnalyzer, DEFAULT_LATERAL_RAISE_TEMPO } from '../analyzer/lateralRaise'
+import { PushupVideoAnalyzer } from '../analyzer/pushup'
+import { BentOverRowVideoAnalyzer, DEFAULT_BENT_OVER_ROW_TEMPO } from '../analyzer/bentOverRow'
+import type { ExerciseSlug, PoseVideoAnalyzer, SquatTempo, SquatTuning } from './types'
 
 type AnalyzerDefaults = {
   tuning?: Partial<SquatTuning>
   tempo?: Partial<SquatTempo>
 }
 
-const ANALYZER_DEFAULTS_BASE: Partial<Record<ExerciseSlug, AnalyzerDefaults>> = {
-  squat: { tuning: REALTIME_DEFAULT_SQUAT_TUNING, tempo: REALTIME_DEFAULT_SQUAT_TEMPO },
-  'lateral-raise': { tempo: REALTIME_DEFAULT_LATERAL_RAISE_TEMPO },
-  'bent-over-row': { tempo: REALTIME_DEFAULT_BENT_OVER_ROW_TEMPO }
+const ANALYZER_DEFAULTS: Partial<Record<ExerciseSlug, AnalyzerDefaults>> = {
+  squat: { tuning: DEFAULT_SQUAT_TUNING, tempo: DEFAULT_SQUAT_TEMPO },
+  'lateral-raise': { tempo: DEFAULT_LATERAL_RAISE_TEMPO },
+  'bent-over-row': { tempo: DEFAULT_BENT_OVER_ROW_TEMPO }
 }
 
-const ANALYZER_DEFAULTS_OVERRIDES: Record<AnalyzerMode, Partial<Record<ExerciseSlug, AnalyzerDefaults>>> = {
-  live: {},
-  video: {}
-}
-
-export function getAnalyzerDefaults(exerciseSlug: ExerciseSlug, mode: AnalyzerMode): AnalyzerDefaults {
-  const base = ANALYZER_DEFAULTS_BASE[exerciseSlug] ?? {}
-  const override = ANALYZER_DEFAULTS_OVERRIDES[mode]?.[exerciseSlug] ?? {}
-  return {
-    tuning: base.tuning && override.tuning ? { ...base.tuning, ...override.tuning } : override.tuning ?? base.tuning,
-    tempo: base.tempo && override.tempo ? { ...base.tempo, ...override.tempo } : override.tempo ?? base.tempo
-  }
+export function getAnalyzerDefaults(exerciseSlug: ExerciseSlug): AnalyzerDefaults {
+  return ANALYZER_DEFAULTS[exerciseSlug] ?? {}
 }
 
 export function configureAnalyzer(
-  analyzer: RealtimeAnalyzer,
+  analyzer: PoseVideoAnalyzer,
   exerciseSlug: ExerciseSlug,
-  mode: AnalyzerMode,
   options: {
     tuningOverride?: Record<string, number>
     analyzerFps?: number
   } = {}
 ) {
-  const defaults = getAnalyzerDefaults(exerciseSlug, mode)
+  const defaults = getAnalyzerDefaults(exerciseSlug)
   const tuning = options.tuningOverride ?? (defaults.tuning as Record<string, number> | undefined)
   if (tuning) analyzer.setTuning?.(tuning)
   if (defaults.tempo) analyzer.setTempo?.(defaults.tempo)
@@ -50,13 +35,10 @@ export function configureAnalyzer(
   return analyzer
 }
 
-export function createAnalyzer(exerciseSlug: ExerciseSlug): RealtimeAnalyzer {
-  if (exerciseSlug === 'squat') return new RealtimeSquatAnalyzer()
-  if (exerciseSlug === 'lateral-raise') return new RealtimeLateralRaiseAnalyzer()
-  if (exerciseSlug === 'pushup') return new RealtimePushupAnalyzer()
-  if (exerciseSlug === 'bent-over-row') return new RealtimeBentOverRowAnalyzer()
-  return new RealtimeSquatAnalyzer()
+export function createAnalyzer(exerciseSlug: ExerciseSlug): PoseVideoAnalyzer {
+  if (exerciseSlug === 'squat') return new SquatVideoAnalyzer()
+  if (exerciseSlug === 'lateral-raise') return new LateralRaiseVideoAnalyzer()
+  if (exerciseSlug === 'pushup') return new PushupVideoAnalyzer()
+  if (exerciseSlug === 'bent-over-row') return new BentOverRowVideoAnalyzer()
+  return new SquatVideoAnalyzer()
 }
-
-
-

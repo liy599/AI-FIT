@@ -17,6 +17,7 @@ except Exception:  # pragma: no cover
 _LOCK = threading.Lock()
 _BUCKETS: dict[str, deque[float]] = {}
 _REDIS_CLIENT = None
+_REDIS_UNAVAILABLE_URL = ""
 _REDIS_LOCK = threading.Lock()
 
 
@@ -38,7 +39,7 @@ def reset_rate_limits() -> None:
 
 
 def _get_redis_client():
-    global _REDIS_CLIENT
+    global _REDIS_CLIENT, _REDIS_UNAVAILABLE_URL
     if Redis is None:
         return None
     if _REDIS_CLIENT is not None:
@@ -46,15 +47,20 @@ def _get_redis_client():
     redis_url = str(current_app.config.get("REDIS_URL", "")).strip() if has_app_context() else ""
     if not redis_url:
         return None
+    if redis_url == _REDIS_UNAVAILABLE_URL:
+        return None
     with _REDIS_LOCK:
         if _REDIS_CLIENT is not None:
             return _REDIS_CLIENT
+        if redis_url == _REDIS_UNAVAILABLE_URL:
+            return None
         try:
-            client = Redis.from_url(redis_url, decode_responses=True)
+            client = Redis.from_url(redis_url, decode_responses=True, socket_connect_timeout=0.2, socket_timeout=0.2)
             client.ping()
             _REDIS_CLIENT = client
             return _REDIS_CLIENT
         except Exception:
+            _REDIS_UNAVAILABLE_URL = redis_url
             return None
 
 

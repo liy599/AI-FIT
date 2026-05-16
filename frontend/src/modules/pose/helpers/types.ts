@@ -1,4 +1,4 @@
-import type { RealtimeFeedback } from '../analyzer/types'
+import type { PoseAnalyzerFeedback } from '../analyzer/types'
 import type { SquatTempo, SquatTuning } from '../analyzer/squat'
 import type { MoveNetKeypoint } from '../vision/movenetTracker'
 
@@ -25,8 +25,8 @@ export type SquatRepFinding = {
   tMs: number
 }
 
-export type RealtimeAnalyzer = {
-  analyzeNative: (keypoints: MoveNetKeypoint[]) => RealtimeFeedback
+export type PoseVideoAnalyzer = {
+  analyzeNative: (keypoints: MoveNetKeypoint[]) => PoseAnalyzerFeedback
   setTuning?: (next: Record<string, number>) => void
   setTempo?: (next: Partial<SquatTempo>) => void
   setAnalyzerFps?: (fps: number) => void

@@ -1,11 +1,11 @@
-import type { RealtimeFeedback } from '../analyzer/types'
+import type { PoseAnalyzerFeedback } from '../analyzer/types'
 import type { MoveNetKeypoint } from '../vision/movenetTracker'
-import { collectLiveFrameIssueMessages } from './live'
-import type { ExerciseSlug, RealtimeAnalyzer, SquatRepFinding, SquatTimelineRow } from './types'
+import { collectFrameIssueMessages } from './feedbackIssues'
+import type { ExerciseSlug, PoseVideoAnalyzer, SquatRepFinding, SquatTimelineRow } from './types'
 import { mapPoseFeedbackMessage, poseTierRank } from '../reporting/copy'
 
 export type AnalyzerReplayStats = {
-  lastFeedback: RealtimeFeedback | null
+  lastFeedback: PoseAnalyzerFeedback | null
   analyzedFrameCount: number
   messageFreq: Map<string, number>
   messageFirstSeenMs: Map<string, number>
@@ -17,12 +17,12 @@ export type AnalyzerReplayStats = {
 }
 
 export function collectAnalyzerReplayStats(input: {
-  analyzer: RealtimeAnalyzer
+  analyzer: PoseVideoAnalyzer
   exerciseSlug: ExerciseSlug
   nativeFrames: Array<{ tMs: number; keypoints: MoveNetKeypoint[] }>
   onProgress?: (processed: number, total: number) => void
 }): AnalyzerReplayStats {
-  let lastFeedback: RealtimeFeedback | null = null
+  let lastFeedback: PoseAnalyzerFeedback | null = null
   let analyzedFrameCount = 0
   let lastRepCount = 0
   let lastRepFrame = 0
@@ -46,7 +46,7 @@ export function collectAnalyzerReplayStats(input: {
       analyzedFrameCount += 1
       if (Number.isFinite(feedback.trackingQuality)) trackingQualitySamples.push(feedback.trackingQuality)
 
-      const frameMessages = collectLiveFrameIssueMessages(feedback)
+      const frameMessages = collectFrameIssueMessages(feedback)
       for (const message of frameMessages) {
         const text = message.trim()
         if (!text) continue

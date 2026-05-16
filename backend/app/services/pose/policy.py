@@ -22,10 +22,6 @@ def get_pose_policy() -> dict:
 
     return {
         "version": _cfg_str("POSE_POLICY_VERSION", POSE_POLICY_VERSION_DEFAULT),
-        "live": {
-            "target_fps": _cfg_int("POSE_POLICY_LIVE_TARGET_FPS", 40, 1, 120),
-            "session_limit_seconds": _cfg_int("POSE_POLICY_LIVE_SESSION_LIMIT_SECONDS", 120, 30, 600),
-        },
         "offline": {
             "max_video_bytes": _cfg_int("POSE_POLICY_OFFLINE_MAX_VIDEO_BYTES", 50 * 1024 * 1024, 5 * 1024 * 1024, 1024 * 1024 * 1024),
             "analysis_limit_seconds": _cfg_int("POSE_POLICY_OFFLINE_ANALYSIS_LIMIT_SECONDS", 120, 10, 600),
@@ -36,7 +32,7 @@ def get_pose_policy() -> dict:
             "privacy": {
                 "local_inference_only": True,
             },
-            "realtime": {
+            "analyzer_common": {
                 "tracking_quality_min": _cfg_float("POSE_POLICY_TRACKING_QUALITY_MIN", 0.28, 0.05, 0.95),
                 "tempo_fast_threshold_seconds": _cfg_float("POSE_POLICY_TEMPO_FAST_THRESHOLD_SECONDS", 0.4, 0.2, 2.0),
             },

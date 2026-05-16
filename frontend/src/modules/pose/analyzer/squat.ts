@@ -1,5 +1,5 @@
-﻿import type { MoveNetKeypoint } from '../vision/movenetTracker'
-import type { RealtimeFeedback } from './types'
+import type { MoveNetKeypoint } from '../vision/movenetTracker'
+import type { PoseAnalyzerFeedback } from './types'
 
 const KNEE_FORWARD_WARN_RATIO = 0.048
 const KNEE_FORWARD_FAIL_RATIO = 0.053
@@ -7,8 +7,7 @@ const KNEE_FORWARD_FAIL_MIN_FRAMES = 1
 const FORWARD_LEAN_FAIL_ANGLE_FROM_VERTICAL = 32
 const FORWARD_LEAN_FAIL_MIN_FRAMES = 2
 const DEFAULT_ANALYZER_FPS = 40
-const LIVE_REP_FAST_SEC = 1.2
-const LIVE_REP_SLOW_SEC = 4.2
+const REP_FAST_SEC = 1.2
 const VIDEO_REP_FAST_SEC = 1.5
 const VIDEO_REP_SLOW_SEC = 4.2
 const REP_COUNT_MIN_FRAMES = 4
@@ -63,17 +62,17 @@ export const DEFAULT_SQUAT_TUNING: SquatTuning = {
   trackingQualityMin: TRACKING_QUALITY_MIN
 }
 
-export const REALTIME_DEFAULT_SQUAT_TUNING: SquatTuning = { ...DEFAULT_SQUAT_TUNING }
-export const REALTIME_DEFAULT_SQUAT_TEMPO: SquatTempo = {
-  repFastSec: LIVE_REP_FAST_SEC,
-  repSlowSec: LIVE_REP_SLOW_SEC
+export const DEFAULT_SQUAT_TEMPO: SquatTempo = {
+  repFastSec: REP_FAST_SEC,
+  repSlowSec: VIDEO_REP_SLOW_SEC
 }
+
 export const VIDEO_DEFAULT_SQUAT_TEMPO: SquatTempo = {
   repFastSec: VIDEO_REP_FAST_SEC,
   repSlowSec: VIDEO_REP_SLOW_SEC
 }
 
-export class RealtimeSquatAnalyzer {
+export class SquatVideoAnalyzer {
   private repCount = 0
   private correctCount = 0
   private incorrectCount = 0
@@ -108,7 +107,7 @@ export class RealtimeSquatAnalyzer {
   private analyzerFps = DEFAULT_ANALYZER_FPS
   private torsoPeakHoldFrames = torsoPeakHoldFramesForFps(DEFAULT_ANALYZER_FPS)
   private tuning: SquatTuning = { ...DEFAULT_SQUAT_TUNING }
-  private tempo: SquatTempo = { ...REALTIME_DEFAULT_SQUAT_TEMPO }
+  private tempo: SquatTempo = { ...DEFAULT_SQUAT_TEMPO }
 
   setTuning(next: Partial<SquatTuning>) {
     this.tuning = {
@@ -134,7 +133,7 @@ export class RealtimeSquatAnalyzer {
     }
   }
 
-  analyzeNative(keypoints: MoveNetKeypoint[]): RealtimeFeedback {
+  analyzeNative(keypoints: MoveNetKeypoint[]): PoseAnalyzerFeedback {
     const map = this.byName(keypoints)
     const leftBodyVis = this.avgScore(map, ['left_shoulder', 'left_hip', 'left_knee', 'left_ankle'])
     const rightBodyVis = this.avgScore(map, ['right_shoulder', 'right_hip', 'right_knee', 'right_ankle'])
@@ -536,7 +535,7 @@ export class RealtimeSquatAnalyzer {
     return 's3'
   }
 
-  private stateToPhase(state: 's1' | 's2' | 's3' | null): RealtimeFeedback['phase'] {
+  private stateToPhase(state: 's1' | 's2' | 's3' | null): PoseAnalyzerFeedback['phase'] {
     if (state === 's1') return 'up'
     if (state === 's2') return 'descent'
     if (state === 's3') return 'bottom'
@@ -719,4 +718,3 @@ export class RealtimeSquatAnalyzer {
     return (frontalLikeDeg + noseOffsetDeg) / 2
   }
 }
-

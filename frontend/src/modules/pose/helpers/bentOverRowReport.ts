@@ -1,7 +1,7 @@
 import { normalizeReportForArchive } from '../../../lib/report/unified'
 import type { PoseAnalysisReport } from '../reporting/types'
-import type { RealtimeFeedback } from '../analyzer/types'
-import { RealtimeBentOverRowAnalyzer } from '../analyzer/bentOverRow'
+import type { PoseAnalyzerFeedback } from '../analyzer/types'
+import { BentOverRowVideoAnalyzer } from '../analyzer/bentOverRow'
 import type { MoveNetKeypoint } from '../vision/movenetTracker'
 import { collectAnalyzerReplayStats } from './replayStats'
 import { computeReportErrorStats, sampleTimelineRows, toIssueCode } from './reportBase'
@@ -10,13 +10,12 @@ import type { SquatRepFinding, SquatTimelineRow } from './types'
 import { DEFAULT_POSE_RUNTIME_RULES, severityFromRatio, type PoseRuntimeRules } from './policyRules'
 
 export function buildBentOverRowAlignedReport(input: {
-  source: 'live' | 'video'
   taskId: string
   viewAngle: string
   exercise: { id: string; name: string } | null
   video: { id: string; originalName: string; mimeType: string; sizeBytes: number } | null
   fps: number
-  lastFeedback: RealtimeFeedback | null
+  lastFeedback: PoseAnalyzerFeedback | null
   messageFreq: Map<string, number>
   analyzedFrameCount: number
   trackingQualitySamples: number[]
@@ -47,9 +46,7 @@ export function buildBentOverRowAlignedReport(input: {
   const fallbackSuggestion = 'Pull the dumbbells to your hips with a smooth tempo and keep your back flat.'
   const currentSuggestion = input.lastFeedback
     ? input.lastFeedback.issues[0]?.message ?? input.lastFeedback.warnings[0] ?? input.lastFeedback.lastRepMessage ?? fallbackSuggestion
-    : input.source === 'video'
-      ? 'No valid pose frames were detected. Keep your full upper body in frame and try another video.'
-      : 'No valid pose frames were detected in the live session.'
+    : 'No valid pose frames were detected. Keep your full upper body in frame and try another video.'
 
   const issueMessages = sortedIssues
     .filter(([message, count]) => {
@@ -87,12 +84,12 @@ export function buildBentOverRowAlignedReport(input: {
           {
             code: 'NO_OBVIOUS_ISSUES',
             severity: 'info' as const,
-            message: input.source === 'video' ? 'No obvious issues detected during analyzer replay.' : 'No obvious issues detected during live analysis.',
+            message: 'No obvious issues detected during analyzer replay.',
             atFrame: null
           }
         ]
 
-  const summaryPrefix = input.source === 'video' ? 'Video replay analysis' : 'Live analysis'
+  const summaryPrefix = 'Video replay analysis'
   const summary = input.lastFeedback
     ? `${summaryPrefix}: total ${input.lastFeedback.session.totalReps}, correct ${input.lastFeedback.session.correctReps}, accuracy ${input.lastFeedback.session.accuracyPct}%`
     : `${summaryPrefix}: no stable pose frames were detected.`
@@ -137,9 +134,9 @@ export function buildBentOverRowAlignedReport(input: {
     issues,
     suggestions,
     details: {
-      type: input.source === 'video' ? 'video_live_replay_bent_over_row' : 'live_realtime_bent_over_row',
-      modelName: input.source === 'video' ? 'MoveNet Lightning (offline replay)' : 'MoveNet Lightning (realtime)',
-      analyzer: 'RealtimeBentOverRowAnalyzer',
+      type: 'video_replay_bent_over_row',
+      modelName: 'MoveNet Lightning (offline replay)',
+      analyzer: 'BentOverRowVideoAnalyzer',
       effectiveFps: input.fps,
       repCount: input.lastFeedback?.repCount ?? 0,
       correctCount: input.lastFeedback?.correctCount ?? 0,
@@ -176,7 +173,7 @@ export function buildBentOverRowAlignedReport(input: {
   })
 }
 
-export function buildBentOverRowVideoLiveStyleReport(input: {
+export function buildBentOverRowVideoReplayReport(input: {
   taskId: string
   viewAngle: string
   exercise: { id: string; name: string } | null
@@ -186,11 +183,10 @@ export function buildBentOverRowVideoLiveStyleReport(input: {
   rules?: PoseRuntimeRules['bentOverRow']
   onProgress?: (processed: number, total: number) => void
 }): PoseAnalysisReport {
-  const analyzer = new RealtimeBentOverRowAnalyzer()
+  const analyzer = new BentOverRowVideoAnalyzer()
   const stats = collectAnalyzerReplayStats({ analyzer, exerciseSlug: 'bent-over-row', nativeFrames: input.nativeFrames, onProgress: input.onProgress })
 
   return buildBentOverRowAlignedReport({
-    source: 'video',
     taskId: input.taskId,
     viewAngle: input.viewAngle,
     exercise: input.exercise,

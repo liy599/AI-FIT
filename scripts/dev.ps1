@@ -11,7 +11,8 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $backendDir = Join-Path $repoRoot 'backend'
 $frontendDir = Join-Path $repoRoot 'frontend'
 $backendHealthUrl = 'http://127.0.0.1:5000/api/health'
-$defaultRedisUrl = 'redis://redis:6379/0'
+$composeRedisUrl = 'redis://redis:6379/0'
+$hostBackendRedisUrl = ''
 
 if (-not (Test-Path $backendDir)) { throw "Backend directory not found: $backendDir" }
 if (-not (Test-Path $frontendDir)) { throw "Frontend directory not found: $frontendDir" }
@@ -36,7 +37,7 @@ function Start-Db {
     # Provide safe local defaults for required interpolation vars if missing.
     if (-not $env:SECRET_KEY) { $env:SECRET_KEY = 'local-dev-secret-key-please-change-32chars' }
     if (-not $env:JWT_SECRET_KEY) { $env:JWT_SECRET_KEY = 'local-dev-jwt-secret-key-change-32chars' }
-    if (-not $env:REDIS_URL) { $env:REDIS_URL = $defaultRedisUrl }
+    if (-not $env:REDIS_URL) { $env:REDIS_URL = $composeRedisUrl }
 
     $backendEnvPath = Join-Path $backendDir '.env'
     if (-not (Test-Path $backendEnvPath)) {
@@ -80,7 +81,7 @@ function Start-Backend {
 
   $backendCmd = @"
 Set-Location -LiteralPath '$backendDir'
-`$env:REDIS_URL = '$defaultRedisUrl'
+`$env:REDIS_URL = '$hostBackendRedisUrl'
 if (-not (Test-Path '.\\.venv\\Scripts\\python.exe')) {
   python -m venv .venv
   if (`$LASTEXITCODE -ne 0) { throw 'Failed to create backend virtualenv (.venv). Ensure Python is installed and on PATH.' }

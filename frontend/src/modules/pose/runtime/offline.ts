@@ -6,7 +6,7 @@ import { buildOfflineTaskUi } from './toolUi'
 import { useOfflinePoseAnalysis } from './offline/analysis'
 import { useOfflineFileHandler } from './offline/file'
 import { useOfflineReplayOverlay } from './offline/replayOverlay'
-import type { OfflineOverlayTone, OfflineProgress, OfflineReplayData, PoseToolMode } from './types'
+import type { OfflineOverlayTone, OfflineProgress, OfflineReplayData } from './types'
 
 type PoseExerciseRuntimeMeta = {
   id: string
@@ -19,9 +19,8 @@ export function useOfflinePoseRuntime(args: {
   exercise: PoseExerciseRuntimeMeta
   policy: PosePolicyRuntime
   user: unknown
-  mode: PoseToolMode
 }) {
-  const { exercise, policy, user, mode } = args
+  const { exercise, policy, user } = args
   const offlineFileInputRef = useRef<HTMLInputElement | null>(null)
   const offlineVideoRef = useRef<HTMLVideoElement | null>(null)
   const offlineCanvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -93,7 +92,6 @@ export function useOfflinePoseRuntime(args: {
   }, [])
 
   useOfflineReplayOverlay({
-    mode,
     drawMode,
     drawModeRef,
     offlineOverlayReady,

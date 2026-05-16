@@ -1,4 +1,4 @@
-import type { RealtimeFeedback } from './types'
+import type { PoseAnalyzerFeedback } from './types'
 import type { MoveNetKeypoint, MoveNetName } from '../vision/movenetTracker'
 
 const ASSUMED_ANALYZER_FPS = 24
@@ -47,7 +47,7 @@ export const DEFAULT_PUSHUP_TUNING: PushupTuning = {
   hipPikeHardDeg: 28
 }
 
-export class RealtimePushupAnalyzer {
+export class PushupVideoAnalyzer {
   private repCount = 0
   private correctCount = 0
   private incorrectCount = 0
@@ -91,7 +91,7 @@ export class RealtimePushupAnalyzer {
     }
   }
 
-  analyzeNative(keypoints: MoveNetKeypoint[]): RealtimeFeedback {
+  analyzeNative(keypoints: MoveNetKeypoint[]): PoseAnalyzerFeedback {
     const map = this.byName(keypoints)
     const side = this.chooseSide(map)
     const shoulder = map[side === 'right' ? 'right_shoulder' : 'left_shoulder']
@@ -531,7 +531,7 @@ export class RealtimePushupAnalyzer {
     return 's3'
   }
 
-  private stateToPhase(state: 's1' | 's2' | 's3' | null): RealtimeFeedback['phase'] {
+  private stateToPhase(state: 's1' | 's2' | 's3' | null): PoseAnalyzerFeedback['phase'] {
     if (state === 's1') return 'up'
     if (state === 's2') return 'descent'
     if (state === 's3') return 'bottom'
@@ -608,4 +608,3 @@ export class RealtimePushupAnalyzer {
     return Math.max(0, Math.min(1, v))
   }
 }
-

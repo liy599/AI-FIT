@@ -1,4 +1,4 @@
-﻿import type { RealtimeFeedback } from './types'
+import type { PoseAnalyzerFeedback } from './types'
 import type { MoveNetKeypoint, MoveNetName } from '../vision/movenetTracker'
 
 const DEFAULT_NATIVE_ANALYZER_FPS = 40
@@ -47,7 +47,7 @@ export const DEFAULT_LATERAL_RAISE_TUNING: LateralRaiseTuning = {
   topRangeMinDeg: 70
 }
 
-export const REALTIME_DEFAULT_LATERAL_RAISE_TEMPO: LateralRaiseTempo = {
+export const DEFAULT_LATERAL_RAISE_TEMPO: LateralRaiseTempo = {
   repFastSec: 0.9,
   repSlowSec: 2.6
 }
@@ -59,7 +59,7 @@ export const VIDEO_DEFAULT_LATERAL_RAISE_TEMPO: LateralRaiseTempo = {
 
 type NamedKeypoints = Record<MoveNetName, MoveNetKeypoint | undefined>
 
-export class RealtimeLateralRaiseAnalyzer {
+export class LateralRaiseVideoAnalyzer {
   private repCount = 0
   private correctCount = 0
   private incorrectCount = 0
@@ -94,7 +94,7 @@ export class RealtimeLateralRaiseAnalyzer {
   private viewInvalidRepCount = 0
   private analyzerFps = DEFAULT_NATIVE_ANALYZER_FPS
   private tuning: LateralRaiseTuning = { ...DEFAULT_LATERAL_RAISE_TUNING }
-  private tempo: LateralRaiseTempo = { ...REALTIME_DEFAULT_LATERAL_RAISE_TEMPO }
+  private tempo: LateralRaiseTempo = { ...DEFAULT_LATERAL_RAISE_TEMPO }
   private smoothLeftRaise: number | null = null
   private smoothRightRaise: number | null = null
 
@@ -121,7 +121,7 @@ export class RealtimeLateralRaiseAnalyzer {
     }
   }
 
-  analyzeNative(keypoints: MoveNetKeypoint[]): RealtimeFeedback {
+  analyzeNative(keypoints: MoveNetKeypoint[]): PoseAnalyzerFeedback {
     const map = this.byName(keypoints)
     const lShoulder = map.left_shoulder
     const rShoulder = map.right_shoulder
@@ -465,7 +465,7 @@ export class RealtimeLateralRaiseAnalyzer {
     return 's2'
   }
 
-  private stateToPhase(state: 's1' | 's2' | 's3' | null): RealtimeFeedback['phase'] {
+  private stateToPhase(state: 's1' | 's2' | 's3' | null): PoseAnalyzerFeedback['phase'] {
     if (state === 's1') return 'up'
     if (state === 's3') return 'bottom'
     return this.enteredTop ? 'descent' : 'ascent'
@@ -570,6 +570,3 @@ export class RealtimeLateralRaiseAnalyzer {
     return prev + (next - prev) * alpha
   }
 }
-
-
-

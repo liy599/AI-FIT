@@ -1,7 +1,7 @@
 import { normalizeReportForArchive } from '../../../lib/report/unified'
 import type { PoseAnalysisReport } from '../reporting/types'
-import type { RealtimeFeedback } from '../analyzer/types'
-import { RealtimeLateralRaiseAnalyzer } from '../analyzer/lateralRaise'
+import type { PoseAnalyzerFeedback } from '../analyzer/types'
+import { LateralRaiseVideoAnalyzer } from '../analyzer/lateralRaise'
 import type { MoveNetKeypoint } from '../vision/movenetTracker'
 import { collectAnalyzerReplayStats } from './replayStats'
 import { computeReportErrorStats, sampleTimelineRows, toIssueCode } from './reportBase'
@@ -10,13 +10,12 @@ import type { SquatTimelineRow } from './types'
 import { DEFAULT_POSE_RUNTIME_RULES, severityFromRatio, type PoseRuntimeRules } from './policyRules'
 
 export function buildLateralRaiseAlignedReport(input: {
-  source: 'live' | 'video'
   taskId: string
   viewAngle: string
   exercise: { id: string; name: string } | null
   video: { id: string; originalName: string; mimeType: string; sizeBytes: number } | null
   fps: number
-  lastFeedback: RealtimeFeedback | null
+  lastFeedback: PoseAnalyzerFeedback | null
   messageFreq: Map<string, number>
   analyzedFrameCount: number
   trackingQualitySamples: number[]
@@ -44,9 +43,7 @@ export function buildLateralRaiseAlignedReport(input: {
   const fallbackSuggestion = 'Raise to shoulder level with a smooth tempo and keep torso stable.'
   const currentSuggestion = input.lastFeedback
     ? input.lastFeedback.issues[0]?.message ?? input.lastFeedback.warnings[0] ?? input.lastFeedback.lastRepMessage ?? fallbackSuggestion
-    : input.source === 'video'
-      ? 'No valid pose frames were detected. Keep your full upper body in frame and try another video.'
-      : 'No valid pose frames were detected in the live session.'
+    : 'No valid pose frames were detected. Keep your full upper body in frame and try another video.'
 
   const issueMessages = sortedIssues
     .filter(([message, count]) => {
@@ -83,12 +80,12 @@ export function buildLateralRaiseAlignedReport(input: {
           {
             code: 'NO_OBVIOUS_ISSUES',
             severity: 'info' as const,
-            message: input.source === 'video' ? 'No obvious issues detected during analyzer replay.' : 'No obvious issues detected during live analysis.',
+            message: 'No obvious issues detected during analyzer replay.',
             atFrame: null
           }
         ]
 
-  const summaryPrefix = input.source === 'video' ? 'Video replay analysis' : 'Live analysis'
+  const summaryPrefix = 'Video replay analysis'
   const summary = input.lastFeedback
     ? `${summaryPrefix}: total ${input.lastFeedback.session.totalReps}, correct ${input.lastFeedback.session.correctReps}, accuracy ${input.lastFeedback.session.accuracyPct}%`
     : `${summaryPrefix}: no stable pose frames were detected.`
@@ -132,9 +129,9 @@ export function buildLateralRaiseAlignedReport(input: {
     issues,
     suggestions,
     details: {
-      type: input.source === 'video' ? 'video_live_replay_lateral_raise' : 'live_realtime_lateral_raise',
-      modelName: input.source === 'video' ? 'MoveNet Lightning (offline replay)' : 'MoveNet Lightning (realtime)',
-      analyzer: 'RealtimeLateralRaiseAnalyzer',
+      type: 'video_replay_lateral_raise',
+      modelName: 'MoveNet Lightning (offline replay)',
+      analyzer: 'LateralRaiseVideoAnalyzer',
       effectiveFps: input.fps,
       repCount: input.lastFeedback?.repCount ?? 0,
       correctCount: input.lastFeedback?.correctCount ?? 0,
@@ -169,7 +166,7 @@ export function buildLateralRaiseAlignedReport(input: {
   })
 }
 
-export function buildLateralRaiseVideoLiveStyleReport(input: {
+export function buildLateralRaiseVideoReplayReport(input: {
   taskId: string
   viewAngle: string
   exercise: { id: string; name: string } | null
@@ -180,11 +177,10 @@ export function buildLateralRaiseVideoLiveStyleReport(input: {
   rules?: PoseRuntimeRules['lateralRaise']
   onProgress?: (processed: number, total: number) => void
 }): PoseAnalysisReport {
-  const analyzer = new RealtimeLateralRaiseAnalyzer()
+  const analyzer = new LateralRaiseVideoAnalyzer()
   const stats = collectAnalyzerReplayStats({ analyzer, exerciseSlug: 'lateral-raise', nativeFrames: input.nativeFrames, onProgress: input.onProgress })
 
   return buildLateralRaiseAlignedReport({
-    source: 'video',
     taskId: input.taskId,
     viewAngle: input.viewAngle,
     exercise: input.exercise,
@@ -209,4 +205,3 @@ function buildLateralRaiseReplaySuggestions(sortedIssues: Array<[string, number]
   if (suggestions.size === 0) suggestions.add(fallbackSuggestion.trim())
   return Array.from(suggestions).slice(0, 5)
 }
-

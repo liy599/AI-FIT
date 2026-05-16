@@ -1,12 +1,15 @@
-﻿import React from 'react'
+import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 
-// Import global styles (order matters: base 鈫?layout 鈫?components 鈫?utilities)
+// Import global styles. Order matters: base -> layout -> page styles -> components -> utilities.
 import './styles/legacy-vendor.css'        // Third-party / legacy styles
 import './styles/base.css'                 // Reset & base styles (html, body, typography)
 import './styles/layout.css'               // Layout system (grid, containers, spacing)
+import './styles/blog.css'                 // Blog page styles
+import './styles/profile.css'              // Profile page styles
+import './styles/pose.css'                 // Pose video analysis styles
 import './styles/app.css'                  // App-specific styles
 import './styles/tokens.css'               // Design tokens (colors, spacing, variables)
 import './styles/ui-components.css'        // Reusable UI components styles

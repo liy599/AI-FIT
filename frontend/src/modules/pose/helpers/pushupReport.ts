@@ -1,7 +1,7 @@
 import { normalizeReportForArchive } from '../../../lib/report/unified'
 import type { PoseAnalysisReport } from '../reporting/types'
-import type { RealtimeFeedback } from '../analyzer/types'
-import { RealtimePushupAnalyzer } from '../analyzer/pushup'
+import type { PoseAnalyzerFeedback } from '../analyzer/types'
+import { PushupVideoAnalyzer } from '../analyzer/pushup'
 import type { MoveNetKeypoint } from '../vision/movenetTracker'
 import { collectAnalyzerReplayStats } from './replayStats'
 import { computeReportErrorStats, sampleTimelineRows, toIssueCode } from './reportBase'
@@ -10,13 +10,12 @@ import type { SquatRepFinding, SquatTimelineRow } from './types'
 import { DEFAULT_POSE_RUNTIME_RULES, severityFromRatio, type PoseRuntimeRules } from './policyRules'
 
 export function buildPushupAlignedReport(input: {
-  source: 'live' | 'video'
   taskId: string
   viewAngle: string
   exercise: { id: string; name: string } | null
   video: { id: string; originalName: string; mimeType: string; sizeBytes: number } | null
   fps: number
-  lastFeedback: RealtimeFeedback | null
+  lastFeedback: PoseAnalyzerFeedback | null
   messageFreq: Map<string, number>
   analyzedFrameCount: number
   trackingQualitySamples: number[]
@@ -57,9 +56,7 @@ export function buildPushupAlignedReport(input: {
   const fallbackSuggestion = 'Brace your core. Keep a straight line from shoulders to ankles. Lower under control.'
   const currentSuggestion = input.lastFeedback
     ? input.lastFeedback.issues[0]?.message ?? input.lastFeedback.warnings[0] ?? input.lastFeedback.lastRepMessage ?? fallbackSuggestion
-    : input.source === 'video'
-      ? 'No valid pose frames were detected. Keep your full body in frame and try another video.'
-      : 'No valid pose frames were detected in the live session.'
+    : 'No valid pose frames were detected. Keep your full body in frame and try another video.'
 
   const issueMessages = sortedIssues
     .filter(([message, count]) => {
@@ -150,7 +147,7 @@ export function buildPushupAlignedReport(input: {
     issues.push({
       code: 'NO_OBVIOUS_ISSUES',
       severity: 'info',
-      message: input.source === 'video' ? 'No obvious issues detected during analyzer replay.' : 'No obvious issues detected during live analysis.',
+      message: 'No obvious issues detected during analyzer replay.',
       atFrame: null
     })
   }
@@ -171,7 +168,7 @@ export function buildPushupAlignedReport(input: {
     })
   }
 
-  const summaryPrefix = input.source === 'video' ? 'Video replay analysis' : 'Live analysis'
+  const summaryPrefix = 'Video replay analysis'
   const summary = input.lastFeedback
     ? `${summaryPrefix}: total ${input.lastFeedback.session.totalReps}, correct ${input.lastFeedback.session.correctReps}, accuracy ${input.lastFeedback.session.accuracyPct}%`
     : `${summaryPrefix}: no stable pose frames were detected.`
@@ -216,9 +213,9 @@ export function buildPushupAlignedReport(input: {
     issues,
     suggestions,
     details: {
-      type: input.source === 'video' ? 'video_live_replay_pushup' : 'live_realtime_pushup',
-      modelName: input.source === 'video' ? 'MoveNet Lightning (offline replay)' : 'MoveNet Lightning (realtime)',
-      analyzer: 'RealtimePushupAnalyzer',
+      type: 'video_replay_pushup',
+      modelName: 'MoveNet Lightning (offline replay)',
+      analyzer: 'PushupVideoAnalyzer',
       effectiveFps: input.fps,
       repCount: input.lastFeedback?.repCount ?? 0,
       effectiveRepCount: effectiveReps,
@@ -262,7 +259,7 @@ export function buildPushupAlignedReport(input: {
   })
 }
 
-export function buildPushupVideoLiveStyleReport(input: {
+export function buildPushupVideoReplayReport(input: {
   taskId: string
   viewAngle: string
   exercise: { id: string; name: string } | null
@@ -273,11 +270,10 @@ export function buildPushupVideoLiveStyleReport(input: {
   rules?: PoseRuntimeRules['pushup']
   onProgress?: (processed: number, total: number) => void
 }): PoseAnalysisReport {
-  const analyzer = new RealtimePushupAnalyzer()
+  const analyzer = new PushupVideoAnalyzer()
   const stats = collectAnalyzerReplayStats({ analyzer, exerciseSlug: 'pushup', nativeFrames: input.nativeFrames, onProgress: input.onProgress })
 
   return buildPushupAlignedReport({
-    source: 'video',
     taskId: input.taskId,
     viewAngle: input.viewAngle,
     exercise: input.exercise,
@@ -364,7 +360,7 @@ function analyzePushupTempoFromTimeline(timelineRows: SquatTimelineRow[], tempoF
 }
 
 function buildPushupReplaySuggestions(
-  feedback: RealtimeFeedback | null,
+  feedback: PoseAnalyzerFeedback | null,
   sortedIssues: Array<[string, number]>,
   tempoCheck: { fastDescentCount: number; fastAscentCount: number },
   fallbackSuggestion: string

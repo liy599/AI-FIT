@@ -158,7 +158,7 @@ export default function AboutPage() {
                   </div>
                   <ul className="cl_about-content-list">
                     <li>
-                      <i className="fa-sharp fa-light fa-check"></i>Pose coaching
+                      <i className="fa-sharp fa-light fa-check"></i>Pose video analysis
                     </li>
                     <li>
                       <i className="fa-sharp fa-light fa-check"></i>Food & nutrition tracking

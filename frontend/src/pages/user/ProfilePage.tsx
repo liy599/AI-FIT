@@ -11,66 +11,20 @@ import {
   uploadMyAvatar
 } from '../../modules/user'
 import {
-  buildPoseReportPath,
-  buildTrainingRecordName,
   getPoseExerciseByType,
   listPoseTrainings,
   type PoseTrainingSession
 } from '../../modules/pose'
 import { deleteBlogById, deleteComment as deleteBlogComment, updateBlog } from '../../modules/blog'
 import { useAuth } from '../../state/auth-context'
-import defaultAvatarImage from '../../static/assets/images/bg/default.jpg'
+import type { MealHistory, MyBlog, MyComment, ProfileEditState, UserProfile } from '../../modules/user/profileTypes'
+import { formatYmdLocal, pad2, startOfWeek } from '../../modules/user/profileDate'
+import { ProfileDetailsPanel } from '../../components/user/ProfileDetailsPanel'
+import { DietHistoryPanel } from '../../components/user/DietHistoryPanel'
+import { UserCommunityPanel } from '../../components/user/UserCommunityPanel'
+import { ExerciseDashboardPanel } from '../../components/user/ExerciseDashboardPanel'
 
-type Profile = {
-  id: number
-  username: string
-  email: string
-  avatar_url: string | null
-  gender: string | null
-  height: number | null
-  weight: number | null
-  fitness_goal: string | null
-  created_at: string
-  updated_at: string
-}
-
-type MealHistory = {
-  id: number
-  mealType: string
-  recordedOn: string
-  items: Array<{
-    id: number
-    grams: number
-    foodId: number
-    food: {
-      id: number
-      displayName: string
-      name: string
-    } | null
-  }>
-  totals: {
-    kcal: number
-    protein: number
-    fat: number
-    carbs: number
-  }
-}
-
-type MyBlog = {
-  id: number
-  title: string
-  cover_image_url: string | null
-  is_published: boolean
-  created_at: string
-  updated_at: string
-}
-
-type MyComment = {
-  id: number
-  blog_id: number
-  content: string
-  created_at: string
-}
+const defaultAvatarImage = '/assets/images/bg/default.jpg'
 
 export default function ProfilePage() {
   const auth = useAuth()
@@ -87,7 +41,7 @@ export default function ProfilePage() {
   const [avatarUploading, setAvatarUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
-  const [profile, setProfile] = useState<Profile | null>(null)
+  const [profile, setProfile] = useState<UserProfile | null>(null)
   const [myBlogs, setMyBlogs] = useState<MyBlog[]>([])
   const [myComments, setMyComments] = useState<MyComment[]>([])
 
@@ -119,13 +73,7 @@ export default function ProfilePage() {
   const [dietTotal, setDietTotal] = useState<number | null>(null)
   const [dietReloadKey, setDietReloadKey] = useState(0)
 
-  const [edit, setEdit] = useState<{
-    username: string
-    gender: string
-    height: string
-    weight: string
-    fitness_goal: string
-  } | null>(null)
+  const [edit, setEdit] = useState<ProfileEditState | null>(null)
   const [isEditing, setIsEditing] = useState(false)
 
   const poseSessionsByDay = useMemo(() => {
@@ -334,7 +282,7 @@ export default function ProfilePage() {
   }
 
   async function loadProfile() {
-    const p = await getMyProfile<Profile>()
+    const p = await getMyProfile<UserProfile>()
     setProfile(p)
     setEdit((curr) => {
       if (isEditing && curr) return curr
@@ -414,7 +362,7 @@ export default function ProfilePage() {
     if (!edit) return
     setError(null)
     try {
-      const p = await updateMyProfile<Profile>({
+      const p = await updateMyProfile<UserProfile>({
         username: edit.username,
         gender: edit.gender || null,
         height: edit.height ? Number(edit.height) : null,
@@ -530,620 +478,68 @@ export default function ProfilePage() {
       </div>
 
       {tab === 'Dashboard' ? (
-        <div className="space-y-4">
-          {poseHistoryError ? (
-            <div className="profile-panel">
-              <div className="text-sm font-semibold">Pose</div>
-              <div className="mt-2 text-sm text-rose-700">{poseHistoryError}</div>
-              <button className="mt-3 profile-btn-secondary" onClick={() => setPoseReloadKey((k) => k + 1)}>
-                Retry
-              </button>
-            </div>
-          ) : null}
-
-          {poseRecentLoading || poseRecentTotal == null ? (
-            <div className="profile-panel">
-              <div className="text-sm text-slate-600">Loading pose dashboard...</div>
-            </div>
-          ) : poseRecentTotal === 0 ? (
-            <div className="profile-panel">
-              <div className="text-sm font-semibold">Start your first pose session</div>
-              <div className="mt-2 text-sm text-slate-600">You have no pose training history yet.</div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Link to="/tools/pose" className="profile-btn-primary">
-                  Start Live Coaching
-                </Link>
-                <Link to="/tools/pose" className="profile-btn-secondary">
-                  Analyze Video
-                </Link>
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="profile-panel">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-semibold">Pose History</div>
-                    <div className="mt-1 text-xs text-slate-600">Calendar view of your pose training sessions</div>
-                  </div>
-                </div>
-
-                <div className="mt-4 profile-history-main-grid">
-                  <div className="profile-subpanel">
-                    <div className="flex items-center justify-between">
-                      <button className="profile-btn-secondary" onClick={() => setPoseMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))}>
-                        {'<'}
-                      </button>
-                      <div className="text-sm font-semibold">{poseMonth.toLocaleString(undefined, { year: 'numeric', month: 'long' })}</div>
-                      <button className="profile-btn-secondary" onClick={() => setPoseMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))}>
-                        {'>'}
-                      </button>
-                    </div>
-
-                    <div className="mt-3 grid grid-cols-7 gap-1 text-center text-xs text-slate-600">
-                      {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
-                        <div key={d} className="py-1">
-                          {d}
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="mt-1 grid grid-cols-7 gap-1">
-                      {buildMonthCells(poseMonth).map((cell, idx) => {
-                        if (!cell) return <div key={`empty-${idx}`} className="h-9" />
-                        const ymd = `${cell.year}-${pad2(cell.month + 1)}-${pad2(cell.day)}`
-                        const active = ymd === poseSelectedYmd
-                        const hasItems = poseSessionsByDay.has(ymd)
-                        return (
-                          <button
-                            key={ymd}
-                            className={[
-                              'relative h-9 rounded-xl border text-sm transition',
-                            active ? 'bg-emerald-600 text-white' : 'border-slate-200 bg-white text-slate-800 hover:bg-slate-50'
-                            ].join(' ')}
-                            onClick={() => setPoseSelectedYmd(ymd)}
-                          style={active ? { borderColor: 'rgb(5 150 105)' } : undefined}
-                          >
-                            {cell.day}
-                            {hasItems ? (
-                              <span
-                                className={[
-                                  'absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full',
-                                active ? 'bg-white' : 'bg-emerald-600'
-                                ].join(' ')}
-                              />
-                            ) : null}
-                          </button>
-                        )
-                      })}
-                    </div>
-
-                    <div className="mt-3 flex items-center justify-between text-xs text-slate-600">
-                      <button className="rounded-xl border border-slate-200 bg-white px-3 py-2 hover:bg-slate-50" onClick={() => setPoseMonth(startOfMonth(new Date()))}>
-                        This month
-                      </button>
-                      {poseLoading ? <div>Loading...</div> : <div>{poseSessions.length} sessions</div>}
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <div className="text-sm font-semibold">{poseSelectedYmd}</div>
-                        <div className="mt-1 text-xs text-slate-600">{poseSessionsByDay.get(poseSelectedYmd)?.length ?? 0} sessions</div>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 space-y-3">
-                      {(poseSessionsByDay.get(poseSelectedYmd) ?? []).map((s) => {
-                        const started = new Date(s.started_at)
-                        const ended = s.ended_at ? new Date(s.ended_at) : null
-                        const totalReps = s.sets.reduce((acc, item) => acc + (item.reps ?? 0), 0)
-                        const exerciseType = s.sets[0]?.exercise_type ?? 'squat'
-                        const exercise = getPoseExerciseByType(exerciseType)
-                        const recordName =
-                          s.note?.trim() ||
-                          buildTrainingRecordName({
-                            startedAt: s.started_at,
-                            exerciseName: exercise.displayName
-                          })
-                        return (
-                          <div key={s.id} className="profile-subpanel">
-                            <div className="profile-history-session-head">
-                              <div>
-                                <div className="text-sm font-semibold">{recordName}</div>
-                                <div className="mt-1 text-xs text-slate-600">
-                                  {started.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                  {ended ? ` - ${ended.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
-                                </div>
-                                <div className="mt-2 text-xs text-slate-600">{totalReps} reps</div>
-                              </div>
-                              <div className="flex gap-2">
-                                <Link to={buildPoseReportPath(exercise.slug, s.id)} className="profile-btn-secondary">
-                                  View Report
-                                </Link>
-                              </div>
-                            </div>
-                          </div>
-                        )
-                      })}
-
-                      {(poseSessionsByDay.get(poseSelectedYmd) ?? []).length === 0 && !poseLoading ? (
-                        <div className="text-sm text-slate-600">No sessions on this day</div>
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="profile-panel">
-                <div className="text-sm font-semibold">Pose Summary</div>
-                <div className="mt-1 text-xs text-slate-600">This week and your latest session</div>
-
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  <div className="profile-subpanel">
-                    <div className="text-xs text-slate-600">Sessions (week)</div>
-                    <div className="mt-2 text-2xl font-semibold">{poseWeekLoading ? '...' : poseSummary.weekSessions}</div>
-                    {poseWeekError ? <div className="mt-2 text-xs text-rose-700">{poseWeekError}</div> : null}
-                  </div>
-                  <div className="profile-subpanel">
-                    <div className="text-xs text-slate-600">Total reps (week)</div>
-                    <div className="mt-2 text-2xl font-semibold">{poseWeekLoading ? '...' : poseSummary.weekReps}</div>
-                  </div>
-                  <div className="profile-subpanel">
-                    <div className="text-xs text-slate-600">Latest session</div>
-                    <div className="mt-2 text-sm font-semibold">{latestPoseSession ? new Date(latestPoseSession.started_at).toLocaleString() : '-'}</div>
-                  </div>
-                  <div className="profile-subpanel">
-                    <div className="text-xs text-slate-600">Latest exercise</div>
-                    <div className="mt-2 text-sm font-semibold">{latestPoseSession ? latestPoseExercise.displayName : '-'}</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="profile-panel">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-semibold">Recent Pose Sessions</div>
-                    <div className="mt-1 text-xs text-slate-600">Most recent 5 sessions</div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button className="profile-btn-secondary" onClick={() => setPoseReloadKey((k) => k + 1)}>
-                      Refresh
-                    </button>
-                  </div>
-                </div>
-
-                <div className="mt-4 space-y-3">
-                  {poseRecentSessions.slice(0, 5).map((s) => {
-                    const totalReps = s.sets.reduce((acc, item) => acc + (item.reps ?? 0), 0)
-                    const exerciseType = s.sets[0]?.exercise_type ?? 'squat'
-                    const exercise = getPoseExerciseByType(exerciseType)
-                    const recordName =
-                      s.note?.trim() ||
-                      buildTrainingRecordName({
-                        startedAt: s.started_at,
-                        exerciseName: exercise.displayName
-                      })
-                    return (
-                      <div key={s.id} className="profile-subpanel">
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div>
-                            <div className="text-sm font-semibold">{recordName}</div>
-                            <div className="mt-1 text-xs text-slate-600">{new Date(s.started_at).toLocaleString()}</div>
-                            <div className="mt-2 text-xs text-slate-600">{totalReps} reps</div>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            <Link to={buildPoseReportPath(exercise.slug, s.id)} className="profile-btn-secondary">
-                              View Report
-                            </Link>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            </>
-          )}
-        </div>
+        <ExerciseDashboardPanel
+          poseHistoryError={poseHistoryError}
+          poseRecentLoading={poseRecentLoading}
+          poseRecentTotal={poseRecentTotal}
+          poseRecentSessions={poseRecentSessions}
+          poseMonth={poseMonth}
+          poseSelectedYmd={poseSelectedYmd}
+          poseSessions={poseSessions}
+          poseSessionsByDay={poseSessionsByDay}
+          poseLoading={poseLoading}
+          poseWeekLoading={poseWeekLoading}
+          poseWeekError={poseWeekError}
+          poseSummary={poseSummary}
+          latestPoseSession={latestPoseSession}
+          latestPoseExerciseName={latestPoseExercise.displayName}
+          onReload={() => setPoseReloadKey((k) => k + 1)}
+          onMonthChange={setPoseMonth}
+          onSelectedYmdChange={setPoseSelectedYmd}
+        />
       ) : null}
 
       {tab === 'Profile' ? (
-        <div className="profile-panel">
-          <div className="text-sm font-semibold">Profile</div>
-          {!profile || !edit ? (
-            <div className="mt-3 text-sm text-slate-600">Loading...</div>
-          ) : isEditing ? (
-            <div className="mt-4 profile-edit-grid">
-              <div className="profile-edit-header-row">
-                <div className="flex items-center gap-4">
-                  <div className="h-16 w-16 overflow-hidden rounded-full border border-slate-200 bg-slate-50">
-                    <img
-                      src={resolveAvatarUrl(profile.avatar_url) ?? defaultAvatarImage}
-                      className="h-full w-full object-cover"
-                      alt={`${profile.username} avatar`}
-                    />
-                  </div>
-                  <div className="text-sm">
-                    <div className="font-medium">{profile.username}</div>
-                    <div className="text-xs text-slate-600">{profile.email}</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    className="profile-btn-secondary disabled:opacity-50"
-                    disabled={avatarUploading}
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    {avatarUploading ? 'Uploading...' : 'Change avatar'}
-                  </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    className="hidden"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0]
-                      e.target.value = ''
-                      if (!f) return
-                      onPickAvatar(f).catch(() => {})
-                    }}
-                  />
-                </div>
-              </div>
-
-              <input
-                className="profile-input"
-                placeholder="Username"
-                value={edit.username}
-                onChange={(e) => setEdit({ ...edit, username: e.target.value })}
-              />
-              <select
-                className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/10"
-                value={edit.gender}
-                onChange={(e) => setEdit({ ...edit, gender: e.target.value })}
-              >
-                <option value="">Prefer not to say</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Other">Other</option>
-              </select>
-              <input
-                className="profile-input"
-                placeholder="Height (cm)"
-                value={edit.height}
-                onChange={(e) => setEdit({ ...edit, height: e.target.value })}
-              />
-              <input
-                className="profile-input"
-                placeholder="Weight (kg)"
-                value={edit.weight}
-                onChange={(e) => setEdit({ ...edit, weight: e.target.value })}
-              />
-              <select
-                className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/10"
-                value={edit.fitness_goal}
-                onChange={(e) => setEdit({ ...edit, fitness_goal: e.target.value })}
-              >
-                <option value="">Select a fitness goal</option>
-                <option value="Build Muscle">Build Muscle</option>
-                <option value="Lose Fat">Lose Fat</option>
-                <option value="Stay Healthy">Stay Healthy</option>
-              </select>
-
-              <div className="profile-edit-actions-row">
-                <button
-                  className="w-full rounded-xl border border-slate-200 bg-white px-6 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 sm:w-auto"
-                  onClick={() => {
-                    setIsEditing(false)
-                    setEdit({
-                      username: profile.username,
-                      gender: profile.gender ?? '',
-                      height: profile.height != null ? String(profile.height) : '',
-                      weight: profile.weight != null ? String(profile.weight) : '',
-                      fitness_goal: profile.fitness_goal ?? ''
-                    })
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="w-full rounded-xl bg-emerald-600 px-6 py-2 text-sm font-medium text-white hover:bg-emerald-500 sm:w-auto"
-                  onClick={saveProfile}
-                >
-                  Save
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="mt-4 space-y-4">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="h-16 w-16 overflow-hidden rounded-full border border-slate-200 bg-slate-50">
-                    <img
-                      src={resolveAvatarUrl(profile.avatar_url) ?? defaultAvatarImage}
-                      className="h-full w-full object-cover"
-                      alt={`${profile.username} avatar`}
-                    />
-                  </div>
-                  <div className="text-sm">
-                    <div className="font-medium">{profile.username}</div>
-                    <div className="text-xs text-slate-600">{profile.email}</div>
-                  </div>
-                </div>
-                <button
-                  className="profile-btn-primary"
-                  onClick={() => {
-                    setEdit({
-                      username: profile.username,
-                      gender: profile.gender ?? '',
-                      height: profile.height != null ? String(profile.height) : '',
-                      weight: profile.weight != null ? String(profile.weight) : '',
-                      fitness_goal: profile.fitness_goal ?? ''
-                    })
-                    setIsEditing(true)
-                  }}
-                >
-                  Edit profile
-                </button>
-              </div>
-
-              <div className="profile-meta-grid profile-subpanel">
-                <div className="text-sm">
-                  <div className="text-xs text-slate-600">Gender</div>
-                  <div className="mt-1 font-medium">{profile.gender || '-'}</div>
-                </div>
-                <div className="text-sm">
-                  <div className="text-xs text-slate-600">Fitness Goal</div>
-                  <div className="mt-1 font-medium">{profile.fitness_goal || '-'}</div>
-                </div>
-                <div className="text-sm">
-                  <div className="text-xs text-slate-600">Height (cm)</div>
-                  <div className="mt-1 font-medium">{profile.height == null ? '-' : profile.height}</div>
-                </div>
-                <div className="text-sm">
-                  <div className="text-xs text-slate-600">Weight (kg)</div>
-                  <div className="mt-1 font-medium">{profile.weight == null ? '-' : profile.weight}</div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        <ProfileDetailsPanel
+          profile={profile}
+          edit={edit}
+          isEditing={isEditing}
+          avatarUploading={avatarUploading}
+          fileInputRef={fileInputRef}
+          defaultAvatarImage={defaultAvatarImage}
+          resolveAvatarUrl={resolveAvatarUrl}
+          onEditChange={setEdit}
+          onEditingChange={setIsEditing}
+          onPickAvatar={(file) => onPickAvatar(file).catch(() => {})}
+          onSave={saveProfile}
+        />
       ) : null}
 
       {tab === 'Diet' ? (
-        <div className="profile-panel">
-          <div className="profile-history-head-row">
-            <div>
-              <div className="text-sm font-semibold">Diet History</div>
-              <div className="mt-1 text-xs text-slate-600">Calendar view of your meal records</div>
-            </div>
-            <button className="profile-btn-secondary" onClick={() => setDietReloadKey((k) => k + 1)}>
-              Refresh
-            </button>
-          </div>
-
-          {dietError ? (
-            <div className="mt-3">
-              <div className="text-sm text-rose-700">{dietError}</div>
-              <button className="mt-3 profile-btn-secondary" onClick={() => setDietReloadKey((k) => k + 1)}>
-                Retry
-              </button>
-            </div>
-          ) : null}
-
-          {dietLoading ? <div className="mt-3 text-sm text-slate-600">Loading diet history...</div> : null}
-
-          {dietTotal === 0 && !dietLoading && !dietError ? <div className="mt-4 text-sm text-slate-600">No diet records yet</div> : null}
-
-          {!dietError && dietTotal !== 0 ? (
-            <div className="mt-4 profile-history-main-grid">
-              <div className="profile-subpanel">
-                <div className="flex items-center justify-between">
-                  <button className="profile-btn-secondary" onClick={() => setDietMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))}>
-                    {'<'}
-                  </button>
-                  <div className="text-sm font-semibold">{dietMonth.toLocaleString(undefined, { year: 'numeric', month: 'long' })}</div>
-                  <button className="profile-btn-secondary" onClick={() => setDietMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))}>
-                    {'>'}
-                  </button>
-                </div>
-
-                <div className="mt-3 grid grid-cols-7 gap-1 text-center text-xs text-slate-600">
-                  {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
-                    <div key={d} className="py-1">
-                      {d}
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-1 grid grid-cols-7 gap-1">
-                  {buildMonthCells(dietMonth).map((cell, idx) => {
-                    if (!cell) return <div key={`diet-empty-${idx}`} className="h-9" />
-                    const ymd = `${cell.year}-${pad2(cell.month + 1)}-${pad2(cell.day)}`
-                    const active = ymd === dietSelectedYmd
-                    const hasItems = dietMealsByDay.has(ymd)
-                    return (
-                      <button
-                        key={ymd}
-                        className={[
-                          'relative h-9 rounded-xl border text-sm transition',
-                      active ? 'bg-emerald-600 text-white' : 'border-slate-200 bg-white text-slate-800 hover:bg-slate-50'
-                        ].join(' ')}
-                        onClick={() => setDietSelectedYmd(ymd)}
-                    style={active ? { borderColor: 'rgb(5 150 105)' } : undefined}
-                      >
-                        {cell.day}
-                        {hasItems ? (
-                          <span
-                            className={[
-                              'absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full',
-                          active ? 'bg-white' : 'bg-emerald-600'
-                            ].join(' ')}
-                          />
-                        ) : null}
-                      </button>
-                    )
-                  })}
-                </div>
-
-                <div className="mt-3 flex items-center justify-between text-xs text-slate-600">
-                  <button className="rounded-xl border border-slate-200 bg-white px-3 py-2 hover:bg-slate-50" onClick={() => setDietMonth(startOfMonth(new Date()))}>
-                    This month
-                  </button>
-                  {dietLoading ? <div>Loading...</div> : <div>{dietMeals.length} records</div>}
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-semibold">{dietSelectedYmd}</div>
-                    <div className="mt-1 text-xs text-slate-600">{dietMealsByDay.get(dietSelectedYmd)?.length ?? 0} meals</div>
-                  </div>
-                </div>
-
-                <div className="mt-4 space-y-3">
-                  {(dietMealsByDay.get(dietSelectedYmd) ?? []).map((meal) => {
-                    const foods = meal.items
-                      .map((item) => item.food?.displayName || item.food?.name || `food#${item.foodId}`)
-                      .slice(0, 3)
-                      .join(' / ')
-                    return (
-                      <div key={meal.id} className="profile-subpanel">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <div className="text-sm font-semibold">{meal.mealType}</div>
-                            <div className="mt-1 text-xs text-slate-600">{foods || `${meal.items.length} items`}</div>
-                          </div>
-                          <div className="text-right text-xs text-slate-600">
-                            <div>{meal.totals.kcal.toFixed(0)} kcal</div>
-                            <div>
-                              P {meal.totals.protein.toFixed(1)} / F {meal.totals.fat.toFixed(1)} / C {meal.totals.carbs.toFixed(1)}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-
-                  {(dietMealsByDay.get(dietSelectedYmd) ?? []).length === 0 && !dietLoading ? (
-                    <div className="text-sm text-slate-600">No meals on this day</div>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-          ) : null}
-        </div>
+        <DietHistoryPanel
+          dietMonth={dietMonth}
+          dietSelectedYmd={dietSelectedYmd}
+          dietMeals={dietMeals}
+          dietMealsByDay={dietMealsByDay}
+          dietLoading={dietLoading}
+          dietError={dietError}
+          dietTotal={dietTotal}
+          onReload={() => setDietReloadKey((k) => k + 1)}
+          onMonthChange={setDietMonth}
+          onSelectedYmdChange={setDietSelectedYmd}
+        />
       ) : null}
 
       {tab === 'Community' ? (
-        <div className="space-y-4">
-          <div className="profile-panel">
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-sm font-semibold">My Blogs</div>
-              <Link to="/blogs/new" className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500">
-                + New blog
-              </Link>
-            </div>
-            <div className="mt-4 space-y-3">
-              {myBlogs.map((b) => (
-                <div key={b.id} className="profile-subpanel">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-3">
-                      <div className="mt-0.5 h-12 w-20 overflow-hidden rounded-xl border border-slate-200 bg-white">
-                        {b.cover_image_url ? (
-                          <img
-                            src={resolveAvatarUrl(b.cover_image_url) ?? ''}
-                            className="h-full w-full object-cover"
-                            alt={`${b.title} cover`}
-                          />
-                        ) : null}
-                      </div>
-                      <div>
-                        <div className="text-sm font-semibold">{b.title}</div>
-                        <div className="mt-1 text-xs text-slate-600">
-                          {b.is_published ? 'Published' : 'Draft'} / {new Date(b.updated_at).toLocaleString()}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        className="profile-btn-chip"
-                        onClick={() => togglePublish(b).catch(() => {})}
-                      >
-                        {b.is_published ? 'Move to draft' : 'Publish'}
-                      </button>
-                      <button
-                        className="profile-btn-chip-danger"
-                        onClick={() => deleteBlog(b.id).catch(() => {})}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {myBlogs.length === 0 ? <div className="text-sm text-slate-600">No blogs yet</div> : null}
-            </div>
-          </div>
-
-          <div className="profile-panel">
-            <div className="text-sm font-semibold">My Comments</div>
-            <div className="mt-4 space-y-3">
-              {myComments.map((c) => (
-                <div key={c.id} className="profile-subpanel">
-                  <div className="text-xs text-slate-600">Blog #{c.blog_id}</div>
-                  <div className="mt-2 text-sm text-slate-900">{c.content}</div>
-                  <div className="mt-2 flex items-center justify-between">
-                    <div className="text-xs text-slate-600">{new Date(c.created_at).toLocaleString()}</div>
-                    <button className="profile-btn-chip-danger" onClick={() => deleteComment(c.id).catch(() => {})}>
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
-              {myComments.length === 0 ? <div className="text-sm text-slate-600">No comments yet</div> : null}
-            </div>
-          </div>
-        </div>
+        <UserCommunityPanel
+          myBlogs={myBlogs}
+          myComments={myComments}
+          resolveMediaUrl={resolveAvatarUrl}
+          onTogglePublish={(blog) => togglePublish(blog).catch(() => {})}
+          onDeleteBlog={(blogId) => deleteBlog(blogId).catch(() => {})}
+          onDeleteComment={(commentId) => deleteComment(commentId).catch(() => {})}
+        />
       ) : null}
     </div>
   )
-}
-
-function pad2(value: number) {
-  return String(value).padStart(2, '0')
-}
-
-function formatYmdLocal(date: Date) {
-  const y = date.getFullYear()
-  const m = pad2(date.getMonth() + 1)
-  const d = pad2(date.getDate())
-  return `${y}-${m}-${d}`
-}
-
-function startOfMonth(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), 1)
-}
-
-function startOfWeek(date: Date) {
-  const copy = new Date(date.getTime())
-  const dayIndex = (copy.getDay() + 6) % 7
-  copy.setDate(copy.getDate() - dayIndex)
-  copy.setHours(0, 0, 0, 0)
-  return copy
-}
-
-function buildMonthCells(monthStart: Date) {
-  const year = monthStart.getFullYear()
-  const month = monthStart.getMonth()
-  const daysInMonth = new Date(year, month + 1, 0).getDate()
-  const mondayIndex = (new Date(year, month, 1).getDay() + 6) % 7
-  const cells: Array<{ year: number; month: number; day: number } | null> = []
-  for (let i = 0; i < mondayIndex; i += 1) cells.push(null)
-  for (let day = 1; day <= daysInMonth; day += 1) cells.push({ year, month, day })
-  while (cells.length % 7 !== 0) cells.push(null)
-  return cells
 }

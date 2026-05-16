@@ -21,13 +21,13 @@ export function PoseOfflineTeachingPanel(props: {
 }) {
   const { exerciseDisplayName, teachingCopy, tutorialVideoSrc } = props
   return (
-    <div className="cl_blog-widget mb-30 h-full w-full pose-live-feedback pose-live-right-card pose-live-guide-card pose-video-teaching-card">
+    <div className="cl_blog-widget mb-30 h-full w-full pose-video-side-card pose-video-guide-card pose-video-teaching-card">
       <div className="pose-panel-head">
         <span className="pose-panel-kicker">Tip</span>
         <h4 className="pose-panel-title">{exerciseDisplayName} Teaching Video</h4>
       </div>
 
-      <div className="pose-tip-card pose-tip-card-light pose-live-section">
+      <div className="pose-tip-card pose-tip-card-light pose-video-section">
         {teachingCopy ? (
           <>
             <div className="pose-teaching-angle-box">

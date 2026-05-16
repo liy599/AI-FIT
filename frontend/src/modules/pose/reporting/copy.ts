@@ -203,46 +203,6 @@ export function mapPoseFeedbackMessage(args: { exerciseSlug: string; message: st
   return { tier: 'warning', label: raw, shortHint: raw.length > 48 ? `${raw.slice(0, 45)}...` : raw }
 }
 
-export function pickLiveMainTip(args: {
-  exerciseSlug: string
-  feedback: {
-    warnings: string[]
-    issues: Array<{ message: string }>
-    lastRepMessage: string | null
-    lastRepReasonLabels: string[]
-  } | null
-}): PoseHumanFeedback {
-  if (!args.feedback) {
-    return { tier: 'gate', label: 'Start the camera to receive live form coaching.', shortHint: 'Start the camera.' }
-  }
-
-  const candidates: Array<{ source: 'rep_reason' | 'rep_message' | 'issue' | 'warning'; message: string }> = []
-  for (const reason of args.feedback.lastRepReasonLabels ?? []) candidates.push({ source: 'rep_reason', message: reason })
-  if (args.feedback.lastRepMessage) candidates.push({ source: 'rep_message', message: args.feedback.lastRepMessage })
-  for (const issue of args.feedback.issues ?? []) candidates.push({ source: 'issue', message: issue.message })
-  for (const warn of args.feedback.warnings ?? []) candidates.push({ source: 'warning', message: warn })
-
-  const seen = new Set<string>()
-  const mapped = candidates
-    .map((c) => ({ ...c, message: (c.message ?? '').trim() }))
-    .filter((c) => c.message && !seen.has(c.message) && (seen.add(c.message), true))
-    .map((c) => ({ ...c, human: mapPoseFeedbackMessage({ exerciseSlug: args.exerciseSlug, message: c.message }) }))
-
-  if (mapped.length === 0) {
-    return { tier: 'gate', label: "I can't detect a stable pose yet - improve lighting and keep your full body in frame.", shortHint: 'Full body in frame.' }
-  }
-
-  const sourceRank = (s: typeof mapped[number]['source']) => (s === 'rep_reason' ? 4 : s === 'rep_message' ? 3 : s === 'issue' ? 2 : 1)
-
-  mapped.sort((a, b) => {
-    const diff = poseTierRank(b.human.tier) - poseTierRank(a.human.tier)
-    if (diff !== 0) return diff
-    return sourceRank(b.source) - sourceRank(a.source)
-  })
-
-  return mapped[0]!.human
-}
-
 export function buildCoachSummaryFromReport(input: {
   exerciseSlug: string
   exerciseName: string | null

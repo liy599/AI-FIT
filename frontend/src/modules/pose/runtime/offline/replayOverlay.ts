@@ -3,7 +3,7 @@ import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } 
 import { drawDistanceGuide, drawMidpointSkeleton, drawPoseJoints17 } from '../../vision/draw'
 import type { MoveNetNativeFrame } from '../../vision/movenetPose'
 import { computeContainViewport, findClosestTmsIndex } from '../../reporting/overlayReplay'
-import type { OfflineOverlayTone, OfflineReplayData, PoseToolMode } from '../types'
+import type { OfflineOverlayTone, OfflineReplayData } from '../types'
 
 type OverlayUiRef = {
   tone: OfflineOverlayTone | null
@@ -20,7 +20,6 @@ type OverlayUiRef = {
 }
 
 type UseOfflineReplayOverlayParams = {
-  mode: PoseToolMode
   drawMode: 'midline' | 'full17'
   drawModeRef: MutableRefObject<'midline' | 'full17'>
   offlineOverlayReady: boolean
@@ -36,7 +35,6 @@ type UseOfflineReplayOverlayParams = {
 }
 
 export function useOfflineReplayOverlay({
-  mode,
   drawMode,
   drawModeRef,
   offlineOverlayReady,
@@ -52,10 +50,9 @@ export function useOfflineReplayOverlay({
 }: UseOfflineReplayOverlayParams): void {
   useEffect(() => {
     offlineDrawNowRef.current?.()
-  }, [drawMode, offlineOverlayReady, offlinePreviewUrl, mode, offlineDrawNowRef])
+  }, [drawMode, offlineOverlayReady, offlinePreviewUrl, offlineDrawNowRef])
 
   useEffect(() => {
-    if (mode !== 'offline') return
     const video = offlineVideoRef.current
     const canvas = offlineCanvasRef.current
     if (!video || !canvas) return
@@ -281,7 +278,6 @@ export function useOfflineReplayOverlay({
       if (offlineDrawNowRef.current === drawNow) offlineDrawNowRef.current = null
     }
   }, [
-    mode,
     offlinePreviewUrl,
     drawModeRef,
     offlineVideoRef,

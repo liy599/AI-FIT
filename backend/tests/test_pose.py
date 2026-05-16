@@ -25,10 +25,10 @@ def test_pose_training_save(client):
             "started_at": "2026-04-05T12:00:00Z",
             "ended_at": "2026-04-05T12:05:00Z",
             "exercise_type": "squat",
-            "note": "saved from live page",
-            "sets": [{"reps": 12, "note": "live coaching"}],
+            "note": "saved from video analysis",
+            "sets": [{"reps": 12, "note": "video analysis"}],
             "report": {
-                "summary": "live report",
+                "summary": "video report",
                 "details": {"policy": {"version": "2026-05-04.v1"}},
                 "sections": {"overview": {"policyVersion": "2026-05-04.v1"}},
             },
@@ -36,8 +36,8 @@ def test_pose_training_save(client):
     )
     assert response.status_code == 201
     session = response.get_json()["session"]
-    assert session["note"] == "saved from live page"
-    assert session["report"]["summary"] == "live report"
+    assert session["note"] == "saved from video analysis"
+    assert session["report"]["summary"] == "video report"
     assert session["report"]["details"]["policy"]["version"] == "2026-05-04.v1"
     assert session["report"]["sections"]["overview"]["policyVersion"] == "2026-05-04.v1"
     assert len(session["sets"]) == 1
@@ -135,10 +135,6 @@ def test_pose_policy_contract_shape(client):
     payload = response.get_json()
     assert isinstance(payload.get("version"), str) and payload["version"]
 
-    live = payload.get("live") or {}
-    assert isinstance(live.get("target_fps"), int)
-    assert isinstance(live.get("session_limit_seconds"), int)
-
     offline = payload.get("offline") or {}
     assert isinstance(offline.get("max_video_bytes"), int)
     assert isinstance(offline.get("analysis_limit_seconds"), int)
@@ -148,7 +144,7 @@ def test_pose_policy_contract_shape(client):
 
     rules = payload.get("rules") or {}
     privacy = rules.get("privacy") or {}
-    realtime = rules.get("realtime") or {}
+    analyzer_common = rules.get("analyzer_common") or {}
     squat = rules.get("squat") or {}
     pushup = rules.get("pushup") or {}
     lateral_raise = rules.get("lateral_raise") or {}
@@ -156,8 +152,8 @@ def test_pose_policy_contract_shape(client):
     analyzer = rules.get("analyzer") or {}
 
     assert privacy.get("local_inference_only") is True
-    assert isinstance(realtime.get("tracking_quality_min"), float)
-    assert isinstance(realtime.get("tempo_fast_threshold_seconds"), float)
+    assert isinstance(analyzer_common.get("tracking_quality_min"), float)
+    assert isinstance(analyzer_common.get("tempo_fast_threshold_seconds"), float)
     assert isinstance(squat.get("knee_forward_warn_ratio"), float)
     assert isinstance(squat.get("knee_forward_fail_ratio"), float)
     assert isinstance(squat.get("forward_lean_warn_deg"), int)
@@ -184,8 +180,6 @@ def test_pose_policy_contract_shape(client):
 
 def test_pose_policy_runtime_bounds(client):
     payload = client.get("/api/pose/policy").get_json()
-    assert payload["live"]["target_fps"] >= 1
-    assert payload["live"]["session_limit_seconds"] >= 30
     assert payload["offline"]["max_video_bytes"] >= 5 * 1024 * 1024
     assert payload["offline"]["analysis_limit_seconds"] >= 10
     assert payload["offline"]["analysis_target_fps"] >= 1

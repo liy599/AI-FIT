@@ -1,7 +1,7 @@
 import { normalizeReportForArchive } from '../../../lib/report/unified'
 import type { PoseAnalysisReport } from '../reporting/types'
-import type { RealtimeFeedback } from '../analyzer/types'
-import { RealtimeSquatAnalyzer, VIDEO_DEFAULT_SQUAT_TEMPO } from '../analyzer/squat'
+import type { PoseAnalyzerFeedback } from '../analyzer/types'
+import { SquatVideoAnalyzer, VIDEO_DEFAULT_SQUAT_TEMPO } from '../analyzer/squat'
 import type { MoveNetKeypoint } from '../vision/movenetTracker'
 import { collectAnalyzerReplayStats } from './replayStats'
 import { computeReportErrorStats, sampleTimelineRows } from './reportBase'
@@ -12,13 +12,12 @@ export { VIDEO_DEFAULT_SQUAT_TEMPO }
 export type { SquatTuning, SquatTempo }
 
 export function buildSquatAlignedReport(input: {
-  source: 'live' | 'video'
   taskId: string
   viewAngle: string
   exercise: { id: string; name: string } | null
   video: { id: string; originalName: string; mimeType: string; sizeBytes: number } | null
   fps: number
-  lastFeedback: RealtimeFeedback | null
+  lastFeedback: PoseAnalyzerFeedback | null
   messageFreq: Map<string, number>
   analyzedFrameCount: number
   trackingQualitySamples: number[]
@@ -47,9 +46,7 @@ export function buildSquatAlignedReport(input: {
   const fallbackSuggestion = 'Keep a steady tempo and align your knees with your toes.'
   const currentSuggestion = input.lastFeedback
     ? input.lastFeedback.issues[0]?.message ?? input.lastFeedback.warnings[0] ?? input.lastFeedback.lastRepMessage ?? fallbackSuggestion
-    : input.source === 'video'
-      ? 'No valid pose frames were detected. Keep your full body in frame and try another video.'
-      : 'No valid pose frames were detected in the live session.'
+    : 'No valid pose frames were detected. Keep your full body in frame and try another video.'
   const tempoCheck = analyzeSquatTempoFromTimeline(input.timelineRows, input.tempoFastThresholdSec)
   const highQualitySample =
     (input.lastFeedback?.session.accuracyPct ?? 0) >= 95 && (input.lastFeedback?.session.incorrectReps ?? 0) === 0
@@ -175,12 +172,12 @@ export function buildSquatAlignedReport(input: {
     issues.push({
       code: 'NO_OBVIOUS_ISSUES',
       severity: 'info',
-      message: input.source === 'video' ? 'No obvious issues detected during analyzer replay.' : 'No obvious issues detected during live analysis.',
+      message: 'No obvious issues detected during analyzer replay.',
       atFrame: null
     })
   }
 
-  const summaryPrefix = input.source === 'video' ? 'Video replay analysis' : 'Live analysis'
+  const summaryPrefix = 'Video replay analysis'
   const summary = input.lastFeedback
     ? `${summaryPrefix}: total ${totalReps}, effective ${effectiveReps}, unassessed ${unassessedReps}, correct ${correctReps}, incorrect ${incorrectReps}, accuracy ${input.lastFeedback.session.accuracyPct}%, avg rep ${input.lastFeedback.session.avgRepDurationSec ?? '-'}s.`
     : `${summaryPrefix}: no stable pose frames were detected.`
@@ -220,9 +217,9 @@ export function buildSquatAlignedReport(input: {
     issues,
     suggestions,
     details: {
-      type: input.source === 'video' ? 'video_live_replay_squat' : 'live_realtime_squat',
-      modelName: input.source === 'video' ? 'MoveNet Lightning (offline replay)' : 'MoveNet Lightning (realtime)',
-      analyzer: 'RealtimeSquatAnalyzer',
+      type: 'video_replay_squat',
+      modelName: 'MoveNet Lightning (offline replay)',
+      analyzer: 'SquatVideoAnalyzer',
       effectiveFps: input.fps,
       repCount: input.lastFeedback?.repCount ?? 0,
       effectiveRepCount: effectiveReps,
@@ -263,7 +260,7 @@ export function buildSquatAlignedReport(input: {
   })
 }
 
-export function buildSquatVideoLiveStyleReport(input: {
+export function buildSquatVideoReplayReport(input: {
   taskId: string
   viewAngle: string
   exercise: { id: string; name: string } | null
@@ -274,13 +271,12 @@ export function buildSquatVideoLiveStyleReport(input: {
   tempoFastThresholdSec?: number
   onProgress?: (processed: number, total: number) => void
 }): PoseAnalysisReport {
-  const analyzer = new RealtimeSquatAnalyzer()
+  const analyzer = new SquatVideoAnalyzer()
   analyzer.setTuning(input.tuning ?? VIDEO_DEFAULT_SQUAT_TUNING)
   analyzer.setTempo(VIDEO_DEFAULT_SQUAT_TEMPO)
   analyzer.setAnalyzerFps(input.fps)
   const stats = collectAnalyzerReplayStats({ analyzer, exerciseSlug: 'squat', nativeFrames: input.nativeFrames, onProgress: input.onProgress })
   return buildSquatAlignedReport({
-    source: 'video',
     taskId: input.taskId,
     viewAngle: input.viewAngle,
     exercise: input.exercise,
@@ -297,7 +293,7 @@ export function buildSquatVideoLiveStyleReport(input: {
 }
 
 function buildSquatReplaySuggestions(
-  feedback: RealtimeFeedback | null,
+  feedback: PoseAnalyzerFeedback | null,
   issues: Array<{ code: string; severity: 'info' | 'warning' | 'error'; message: string; atFrame: null }>,
   fallbackSuggestion: string
 ) {
@@ -423,4 +419,3 @@ function analyzeSquatTempoFromTimeline(timelineRows: SquatTimelineRow[], tempoFa
 
   return { fastDescentCount, fastAscentCount }
 }
-

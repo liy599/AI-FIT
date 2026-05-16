@@ -85,7 +85,6 @@ const foodRoutes: AppRoute[] = [
 const poseRoutes: AppRoute[] = [
   { path: '/tools/pose', element: <PoseSelectPage /> },
   { path: '/tools/pose/:exerciseSlug', element: <PoseGuidePage /> },
-  { path: '/tools/pose/:exerciseSlug/live', element: <PoseToolPage /> },
   { path: '/tools/pose/:exerciseSlug/video', element: <PoseToolPage /> },
   { path: '/tools/pose/:exerciseSlug/history', element: <PoseTrainingHistoryPage />, guard: 'auth' },
   { path: '/tools/pose/:exerciseSlug/history/:sessionId', element: <PoseTrainingReportPage />, guard: 'auth' }

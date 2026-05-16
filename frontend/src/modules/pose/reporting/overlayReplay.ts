@@ -1,6 +1,6 @@
 import { mapPoseFeedbackMessage, poseTierRank, type PoseHumanFeedback } from './copy'
 import { configureAnalyzer, createAnalyzer } from '../helpers'
-import { type RealtimeFeedback } from '../analyzer/types'
+import { type PoseAnalyzerFeedback } from '../analyzer/types'
 import { DistanceTracker } from '../vision/distanceTracker'
 import type { MoveNetNativeFrame } from '../vision/movenetPose'
 import type { OfflineOverlayFrame } from '../runtime/types'
@@ -42,7 +42,7 @@ export function buildOfflineOverlayFrames(input: {
     return 'Distance OK'
   }
 
-  const pickMainOverlayTip = (args: { exerciseSlug: string; feedback: RealtimeFeedback | null; distanceText: string | null }): { main: PoseHumanFeedback | null; gate: PoseHumanFeedback | null } => {
+  const pickMainOverlayTip = (args: { exerciseSlug: string; feedback: PoseAnalyzerFeedback | null; distanceText: string | null }): { main: PoseHumanFeedback | null; gate: PoseHumanFeedback | null } => {
     const f = args.feedback
     const candidates: Array<{ sourceRank: number; message: string; isGate: boolean }> = []
     if (args.distanceText) candidates.push({ sourceRank: 10, message: args.distanceText, isGate: true })
@@ -80,7 +80,7 @@ export function buildOfflineOverlayFrames(input: {
 
   const analyzer = createAnalyzer(input.exerciseSlug as never)
   analyzer.resetSession()
-  configureAnalyzer(analyzer, input.exerciseSlug as never, 'video', {
+  configureAnalyzer(analyzer, input.exerciseSlug as never, {
     analyzerFps: input.fps,
     tuningOverride: input.analyzerTuning
   })
@@ -92,7 +92,7 @@ export function buildOfflineOverlayFrames(input: {
   for (let i = 0; i < input.nativeFrames.length; i++) {
     const native = input.nativeFrames[i]!
     const hasNative = Array.isArray(native.keypoints) && native.keypoints.length > 0
-    const feedback: RealtimeFeedback | null = hasNative ? analyzer.analyzeNative(native.keypoints) : null
+    const feedback: PoseAnalyzerFeedback | null = hasNative ? analyzer.analyzeNative(native.keypoints) : null
 
     const tMs = typeof native.tMs === 'number' ? native.tMs : (i / Math.max(1, input.fps)) * 1000
     const distance = hasNative ? distanceTracker.ingest({ tMs, keypoints: native.keypoints }) : null
@@ -102,7 +102,7 @@ export function buildOfflineOverlayFrames(input: {
     const { main, gate } = pickMainOverlayTip({ exerciseSlug: input.exerciseSlug, feedback, distanceText })
 
     const combinedShortHint =
-      gate && main ? `${gate.shortHint} · ${main.shortHint}` : gate?.shortHint ?? main?.shortHint ?? null
+      gate && main ? `${gate.shortHint} 路 ${main.shortHint}` : gate?.shortHint ?? main?.shortHint ?? null
 
     out.push({
       tMs,
@@ -179,4 +179,3 @@ export function drawCameraFrame(
 
   return { x: offsetX, y: offsetY, w: drawWidth, h: drawHeight }
 }
-

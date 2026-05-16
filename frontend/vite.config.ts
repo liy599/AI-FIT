@@ -5,8 +5,6 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   // Enable React support (JSX, Fast Refresh, etc.)
   plugins: [react()],
-  // Keep stable root URL assets while storing them under src/
-  publicDir: 'src/static',
 
   build: {
     rollupOptions: {

@@ -1,20 +1,11 @@
-﻿import type { DistanceState } from '../vision/distanceTracker'
-import type { PoseToolMode } from './types'
-
-export const LIVE_TARGET_FPS = 40
-export const LIVE_TARGET_FRAME_MS = 1000 / LIVE_TARGET_FPS
 export const MAX_VIDEO_BYTES = 50 * 1024 * 1024
 export const OFFLINE_ANALYSIS_LIMIT_SEC = 2 * 60
 export const OFFLINE_ANALYSIS_TARGET_FPS = 40
 export const OFFLINE_ANALYSIS_MAX_FRAMES = OFFLINE_ANALYSIS_LIMIT_SEC * OFFLINE_ANALYSIS_TARGET_FPS
-export const LIVE_SESSION_LIMIT_MS = 2 * 60 * 1000
 export const OFFLINE_DEDICATED_REPLAY_ACTIONS = new Set(['squat', 'pushup', 'lateral-raise', 'bent-over-row'])
 
 export const POSE_TOOL_MESSAGES = {
-  loginRequiredForLiveSave: 'Please log in to save training records.',
   loginRequiredForOfflineArchive: 'Please log in if you want to save this local report to training history.',
-  noLiveRepsToSave: 'No reps to save yet.',
-  liveTrainingSaveFailed: 'Failed to save training record',
   offlineArchiveSaved: 'Local video analysis completed and archived. You can open the detailed report or training history.',
   offlineArchiveSaveFailed: 'Local video analysis completed. Report is ready; training archive save failed this time.'
 } as const
@@ -68,29 +59,16 @@ const TEACHING_COPY_BY_SLUG: Record<string, PoseTeachingCopy> = {
   }
 }
 
-/**
- * Keeps route mode resolution deterministic while preserving legacy query support.
- */
-export function resolvePoseToolMode(pathname: string, search: string): PoseToolMode {
-  const lowerPath = pathname.toLowerCase()
-  if (lowerPath.endsWith('/video')) return 'offline'
-  if (lowerPath.endsWith('/live')) return 'live'
-  const raw = new URLSearchParams(search).get('mode')
-  return raw === 'offline' ? 'offline' : 'live'
+const TUTORIAL_VIDEO_BY_SLUG: Record<string, string> = {
+  squat: '/assets/images/videos/deep-squat.mp4',
+  pushup: '/assets/images/videos/push-up.mp4',
+  'lateral-raise': '/assets/images/videos/lateral-raise.mp4',
+  'bent-over-row': '/assets/images/videos/bent-over-row.mp4'
 }
 
 export function poseToolErrorMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message) return error.message
   return fallback
-}
-
-export function getRangeStatusText(distance: DistanceState | null) {
-  if (!distance) return 'Waiting for detection'
-  if (distance.status === 'calibrating') return 'Calibrating distance'
-  if (distance.status === 'lost') return 'Stable body not detected'
-  if (distance.label === 'too_close') return 'Too close'
-  if (distance.label === 'too_far') return 'Too far'
-  return 'Distance OK'
 }
 
 export function buildOfflineTaskUi(input: {
@@ -145,9 +123,8 @@ export function buildOfflineTaskUi(input: {
 }
 
 export function getTutorialVideoSrc(exerciseSlug: string, displayName: string) {
-  const hasTutorialVideo =
-    exerciseSlug === 'squat' || exerciseSlug === 'pushup' || exerciseSlug === 'lateral-raise' || exerciseSlug === 'bent-over-row'
-  return hasTutorialVideo ? `/assets/images/videos/${encodeURIComponent(displayName)}.mp4` : null
+  void displayName
+  return TUTORIAL_VIDEO_BY_SLUG[exerciseSlug] ?? null
 }
 
 export function getPoseTeachingCopy(exerciseSlug: string): PoseTeachingCopy | null {

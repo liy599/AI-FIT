@@ -1,4 +1,4 @@
-﻿import type { RealtimeFeedback } from './types'
+import type { PoseAnalyzerFeedback } from './types'
 import type { MoveNetKeypoint, MoveNetName } from '../vision/movenetTracker'
 
 const DEFAULT_NATIVE_ANALYZER_FPS = 40
@@ -44,8 +44,8 @@ export const DEFAULT_BENT_OVER_ROW_TUNING: BentOverRowTuning = {
   topRangeMinDeg: 90
 }
 
-export const REALTIME_DEFAULT_BENT_OVER_ROW_TEMPO: BentOverRowTempo = {
-  repFastSec: 0.8,
+export const DEFAULT_BENT_OVER_ROW_TEMPO: BentOverRowTempo = {
+  repFastSec: REP_FAST_SEC,
   repSlowSec: 3.0
 }
 
@@ -56,7 +56,7 @@ export const VIDEO_DEFAULT_BENT_OVER_ROW_TEMPO: BentOverRowTempo = {
 
 type NamedKeypoints = Record<MoveNetName, MoveNetKeypoint | undefined>
 
-export class RealtimeBentOverRowAnalyzer {
+export class BentOverRowVideoAnalyzer {
   private repCount = 0
   private correctCount = 0
   private incorrectCount = 0
@@ -88,7 +88,7 @@ export class RealtimeBentOverRowAnalyzer {
   private viewInvalidRepCount = 0
   private analyzerFps = DEFAULT_NATIVE_ANALYZER_FPS
   private tuning: BentOverRowTuning = { ...DEFAULT_BENT_OVER_ROW_TUNING }
-  private tempo: BentOverRowTempo = { ...REALTIME_DEFAULT_BENT_OVER_ROW_TEMPO }
+  private tempo: BentOverRowTempo = { ...DEFAULT_BENT_OVER_ROW_TEMPO }
 
   setTuning(next: Partial<BentOverRowTuning>) {
     this.tuning = {
@@ -113,7 +113,7 @@ export class RealtimeBentOverRowAnalyzer {
     }
   }
 
-  analyzeNative(keypoints: MoveNetKeypoint[]): RealtimeFeedback {
+  analyzeNative(keypoints: MoveNetKeypoint[]): PoseAnalyzerFeedback {
     const map = this.byName(keypoints)
     const lShoulder = map.left_shoulder
     const rShoulder = map.right_shoulder
@@ -427,7 +427,7 @@ export class RealtimeBentOverRowAnalyzer {
     return 's2'
   }
 
-  private stateToPhase(state: 's1' | 's2' | 's3' | null): RealtimeFeedback['phase'] {
+  private stateToPhase(state: 's1' | 's2' | 's3' | null): PoseAnalyzerFeedback['phase'] {
     if (state === 's1') return 'up'
     if (state === 's3') return 'bottom'
     return this.enteredTop ? 'descent' : 'ascent'
@@ -518,4 +518,3 @@ export class RealtimeBentOverRowAnalyzer {
     return (av + bv) / 2
   }
 }
-

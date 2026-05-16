@@ -5,15 +5,8 @@ export type PoseExerciseDefinition = {
   id: string
   displayName: string
   exerciseType: string
-  liveSubtitle: string
-  liveStageTip: string
-  completedRepsTip: string
   secondaryMetricLabel: string
   secondaryMetricTip: string
-  rangeSectionTitle: string
-  rangeAlignmentLabel: string
-  rangeAlignmentTip: string
-  offlineInstructionPlaceholder: string
   guideTitle: string
   guideTips: Array<{ title: string; content: string }>
 }
@@ -24,15 +17,8 @@ const POSE_EXERCISES: Record<PoseExerciseSlug, PoseExerciseDefinition> = {
     id: 'squat',
     displayName: 'Deep Squat',
     exerciseType: 'squat',
-    liveSubtitle: 'Real-time squatting movement guidance - Your personal trainer',
-    liveStageTip: 'Current squat phase recognized by the analyzer.',
-    completedRepsTip: 'Number of squat reps detected in this session.',
     secondaryMetricLabel: 'Knee Bend',
     secondaryMetricTip: 'Estimated knee joint angle during your movement.',
-    rangeSectionTitle: 'Rep Validity Check',
-    rangeAlignmentLabel: 'Side-View Angle',
-    rangeAlignmentTip: 'This is your view alignment angle (°). Lower is better for squat validity; keep your body profile to the camera.',
-    offlineInstructionPlaceholder: 'e.g. Focus on squat bottom stability and torso lean',
     guideTitle: 'Squat Camera Tips',
     guideTips: [
       { title: '1) Full body in frame', content: 'Make sure your entire body is visible in the camera view.' },
@@ -45,15 +31,8 @@ const POSE_EXERCISES: Record<PoseExerciseSlug, PoseExerciseDefinition> = {
     id: 'pushup',
     displayName: 'Push-Up',
     exerciseType: 'pushup',
-    liveSubtitle: 'Real-time push-up coaching for depth, rhythm, and body alignment',
-    liveStageTip: 'Current push-up phase recognized by the analyzer.',
-    completedRepsTip: 'Number of push-up reps detected in this session.',
     secondaryMetricLabel: 'Elbow Bend',
     secondaryMetricTip: 'Estimated elbow flexion angle during the push-up.',
-    rangeSectionTitle: 'Depth Check',
-    rangeAlignmentLabel: 'Camera Side Alignment',
-    rangeAlignmentTip: 'Use a side-view so shoulder, hip, and elbow alignment can be tracked clearly.',
-    offlineInstructionPlaceholder: 'e.g. Focus on push-up depth and keeping the trunk rigid',
     guideTitle: 'Push-Up Camera Tips',
     guideTips: [
       { title: '1) Side view works best', content: 'Set the camera to your side so elbow depth is easier to evaluate.' },
@@ -66,15 +45,8 @@ const POSE_EXERCISES: Record<PoseExerciseSlug, PoseExerciseDefinition> = {
     id: 'lateral_raise',
     displayName: 'Lateral Raise',
     exerciseType: 'lateral_raise',
-    liveSubtitle: 'Real-time lateral raise coaching for shoulder control and symmetry',
-    liveStageTip: 'Current lateral raise phase recognized by the analyzer.',
-    completedRepsTip: 'Number of lateral raise reps detected in this session.',
     secondaryMetricLabel: 'Arm Raise Angle',
     secondaryMetricTip: 'Estimated shoulder abduction angle during the raise.',
-    rangeSectionTitle: 'Form Check',
-    rangeAlignmentLabel: 'Camera Front Alignment',
-    rangeAlignmentTip: 'Face the camera directly so both shoulders and arms are visible at the same time.',
-    offlineInstructionPlaceholder: 'e.g. Focus on shoulder symmetry and minimizing torso sway',
     guideTitle: 'Lateral Raise Camera Tips',
     guideTips: [
       { title: '1) Face the camera', content: 'Stand facing the camera so both arms are visible throughout the rep.' },
@@ -87,15 +59,8 @@ const POSE_EXERCISES: Record<PoseExerciseSlug, PoseExerciseDefinition> = {
     id: 'bent_over_row',
     displayName: 'Bent-Over Row',
     exerciseType: 'bent_over_row',
-    liveSubtitle: 'Real-time bent-over row coaching for back strength and form',
-    liveStageTip: 'Current bent-over row phase recognized by the analyzer.',
-    completedRepsTip: 'Number of bent-over row reps detected in this session.',
     secondaryMetricLabel: 'Elbow Bend',
     secondaryMetricTip: 'Estimated elbow flexion angle during the row.',
-    rangeSectionTitle: 'Form Check',
-    rangeAlignmentLabel: 'Camera Side Alignment',
-    rangeAlignmentTip: 'Use a side-view so elbow bend and back alignment can be tracked clearly.',
-    offlineInstructionPlaceholder: 'e.g. Focus on keeping back flat and pulling to the hips',
     guideTitle: 'Bent-Over Row Camera Tips',
     guideTips: [
       { title: '1) Side view works best', content: 'Stand sideways to the camera so elbow bend is easier to evaluate.' },
@@ -121,10 +86,6 @@ export function getPoseExerciseByType(exerciseType: string | null | undefined): 
 
 export function buildPoseGuidePath(slug: PoseExerciseSlug) {
   return `/tools/pose/${slug}`
-}
-
-export function buildPoseToolPath(slug: PoseExerciseSlug) {
-  return `/tools/pose/${slug}/live`
 }
 
 export function buildPoseVideoPath(slug: PoseExerciseSlug) {

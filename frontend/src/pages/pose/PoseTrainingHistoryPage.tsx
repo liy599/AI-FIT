@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   buildPoseGuidePath,
-  buildPoseToolPath,
+  buildPoseVideoPath,
   buildPoseReportPath,
   buildTrainingRecordName,
   DEMO_POSE_TRAINING,
@@ -65,7 +65,7 @@ export default function PoseTrainingHistoryPage() {
                     <Link to="/">Home</Link>
                     <span><Link to="/tools/pose">Pose</Link></span>
                     <span><Link to={buildPoseGuidePath(exercise.slug)}>{exercise.displayName}</Link></span>
-                    <span><Link to={buildPoseToolPath(exercise.slug)}>Live</Link></span>
+                    <span><Link to={buildPoseVideoPath(exercise.slug)}>Video Analysis</Link></span>
                     <span>History</span>
                   </div>
                 </div>
@@ -82,8 +82,8 @@ export default function PoseTrainingHistoryPage() {
               <div className="cl_blog-widget mb-30">
                 <div className="pose-history-head">
                   <h4 className="cl_blog-widget-title mb-0">Saved Training Records</h4>
-                  <Link to={buildPoseToolPath(exercise.slug)} className="pose-tool-ghost-btn pose-tool-light-btn">
-                    Back to Live
+                  <Link to={buildPoseVideoPath(exercise.slug)} className="pose-tool-ghost-btn pose-tool-light-btn">
+                    Back to Video Analysis
                   </Link>
                 </div>
 

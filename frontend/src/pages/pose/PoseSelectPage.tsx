@@ -57,10 +57,10 @@ const POSE_CATEGORIES: PoseCategory[] = [
 ]
 
 const POSE_EXERCISE_IMAGES: Record<string, string> = {
-  pushup: '/assets/images/pose/Push-Up.jpg',
-  'bent-over-row': '/assets/images/pose/Bent-Over Row.jpg',
-  lateral_raise: '/assets/images/pose/Lateral%20Raise.jpg',
-  squat: '/assets/images/pose/Deep%20Squat.jpg'
+  pushup: '/assets/images/pose/push-up.jpg',
+  'bent-over-row': '/assets/images/pose/bent-over-row.jpg',
+  lateral_raise: '/assets/images/pose/lateral-raise.jpg',
+  squat: '/assets/images/pose/deep-squat.jpg'
 }
 
 export default function PoseSelectPage() {
@@ -106,7 +106,7 @@ export default function PoseSelectPage() {
                   </Link>
                 </div>
                 <p className="pose-tool-subtitle pose-select-hero-subtitle">
-                  Pick an exercise first, review the camera guidance, then start real-time form correction.
+                  Pick an exercise first, review the camera guidance, then analyze a local training video.
                 </p>
               </div>
 

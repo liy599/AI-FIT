@@ -20,10 +20,6 @@ export type PoseTrainingSession = {
 
 export type PosePolicy = {
   version: string
-  live: {
-    target_fps: number
-    session_limit_seconds: number
-  }
   offline: {
     max_video_bytes: number
     analysis_limit_seconds: number
@@ -34,7 +30,7 @@ export type PosePolicy = {
     privacy: {
       local_inference_only: boolean
     }
-    realtime: {
+    analyzer_common: {
       tracking_quality_min: number
       tempo_fast_threshold_seconds: number
     }

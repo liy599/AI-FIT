@@ -2,14 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { getPosePolicy, type PosePolicy } from './api'
 import { DEFAULT_POSE_RUNTIME_RULES, resolveAnalyzerTuning, severityFromRatio, type PoseRuntimeRules } from './helpers/policyRules'
-import { LIVE_SESSION_LIMIT_MS, LIVE_TARGET_FPS, MAX_VIDEO_BYTES } from './runtime/toolUi'
+import { MAX_VIDEO_BYTES } from './runtime/toolUi'
 
 export type PosePolicyRuntime = {
   posePolicy: PosePolicy | null
   posePolicyVersion: string
-  liveTargetFps: number
-  liveTargetFrameMs: number
-  liveSessionLimitMs: number
   maxVideoBytes: number
   localInferenceOnly: boolean
   tempoFastThresholdSec: number
@@ -42,15 +39,10 @@ export function usePosePolicyRuntime(): PosePolicyRuntime {
     }
   }, [])
 
-  // Runtime safety: always clamp remote policy values before applying to runtime loops.
-  const liveTargetFps = clampNumber(Number(posePolicy?.live?.target_fps ?? LIVE_TARGET_FPS), 1, 120)
-  const liveTargetFrameMs = useMemo(() => 1000 / Math.max(1, liveTargetFps), [liveTargetFps])
-  const liveSessionLimitMs =
-    clampNumber(Number(posePolicy?.live?.session_limit_seconds ?? LIVE_SESSION_LIMIT_MS / 1000), 30, 10 * 60) * 1000
   const maxVideoBytes = clampNumber(Number(posePolicy?.offline?.max_video_bytes ?? MAX_VIDEO_BYTES), 5 * 1024 * 1024, 1024 * 1024 * 1024)
   const posePolicyVersion = posePolicy?.version ?? 'local-default'
   const localInferenceOnly = Boolean(posePolicy?.rules?.privacy?.local_inference_only ?? true)
-  const tempoFastThresholdSec = clampNumber(Number(posePolicy?.rules?.realtime?.tempo_fast_threshold_seconds ?? 0.4), 0.2, 2.0)
+  const tempoFastThresholdSec = clampNumber(Number(posePolicy?.rules?.analyzer_common?.tempo_fast_threshold_seconds ?? 0.4), 0.2, 2.0)
   const poseRuntimeRules: PoseRuntimeRules = useMemo(
     () => ({
       tempoFastThresholdSec,
@@ -80,7 +72,7 @@ export function usePosePolicyRuntime(): PosePolicyRuntime {
           forwardLeanWarnDeg: clampNumber(Number(posePolicy?.rules?.analyzer?.squat?.forward_lean_warn_deg ?? posePolicy?.rules?.squat?.forward_lean_warn_deg ?? DEFAULT_POSE_RUNTIME_RULES.analyzerTuning.squat.forwardLeanWarnDeg), 10, 80),
           forwardLeanFailDeg: clampNumber(Number(posePolicy?.rules?.analyzer?.squat?.forward_lean_fail_deg ?? posePolicy?.rules?.squat?.forward_lean_fail_deg ?? DEFAULT_POSE_RUNTIME_RULES.analyzerTuning.squat.forwardLeanFailDeg), 15, 90),
           forwardLeanFailMinFrames: clampNumber(Number(posePolicy?.rules?.analyzer?.squat?.forward_lean_fail_min_frames ?? DEFAULT_POSE_RUNTIME_RULES.analyzerTuning.squat.forwardLeanFailMinFrames), 1, 60),
-          trackingQualityMin: clampNumber(Number(posePolicy?.rules?.analyzer?.squat?.tracking_quality_min ?? posePolicy?.rules?.realtime?.tracking_quality_min ?? DEFAULT_POSE_RUNTIME_RULES.analyzerTuning.squat.trackingQualityMin), 0.05, 0.95)
+          trackingQualityMin: clampNumber(Number(posePolicy?.rules?.analyzer?.squat?.tracking_quality_min ?? posePolicy?.rules?.analyzer_common?.tracking_quality_min ?? DEFAULT_POSE_RUNTIME_RULES.analyzerTuning.squat.trackingQualityMin), 0.05, 0.95)
         },
         pushup: {
           trackingQualityMinForCount: clampNumber(Number(posePolicy?.rules?.analyzer?.pushup?.tracking_quality_min_for_count ?? DEFAULT_POSE_RUNTIME_RULES.analyzerTuning.pushup.trackingQualityMinForCount), 0.05, 0.95),
@@ -115,9 +107,6 @@ export function usePosePolicyRuntime(): PosePolicyRuntime {
   return {
     posePolicy,
     posePolicyVersion,
-    liveTargetFps,
-    liveTargetFrameMs,
-    liveSessionLimitMs,
     maxVideoBytes,
     localInferenceOnly,
     tempoFastThresholdSec,

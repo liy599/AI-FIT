@@ -1,6 +1,6 @@
 ﻿import type { MoveNetName } from '../vision/movenetTracker'
 
-export type RealtimeFeedback = {
+export type PoseAnalyzerFeedback = {
   phase: 'up' | 'descent' | 'bottom' | 'ascent'
   state: 's1' | 's2' | 's3' | null
   mode: 'beginner' | 'pro'

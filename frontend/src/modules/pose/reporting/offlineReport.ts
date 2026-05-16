@@ -3,10 +3,10 @@ import { extractNativePoseFromVideoUrlWithMoveNet, type MoveNetNativeFrame } fro
 import type { PoseAnalysisReport } from './types'
 import type { PosePolicy } from '../api'
 import type { PoseRuntimeRules } from '../policy'
-import { buildBentOverRowVideoLiveStyleReport } from '../helpers/bentOverRowReport'
-import { buildLateralRaiseVideoLiveStyleReport } from '../helpers/lateralRaiseReport'
-import { buildPushupVideoLiveStyleReport } from '../helpers/pushupReport'
-import { buildSquatVideoLiveStyleReport } from '../helpers/squatReport'
+import { buildBentOverRowVideoReplayReport } from '../helpers/bentOverRowReport'
+import { buildLateralRaiseVideoReplayReport } from '../helpers/lateralRaiseReport'
+import { buildPushupVideoReplayReport } from '../helpers/pushupReport'
+import { buildSquatVideoReplayReport } from '../helpers/squatReport'
 import type { OfflineProgress } from '../runtime/types'
 
 const OFFLINE_MOVENET_DETECTOR_VARIANT: 'lightning' | 'thunder' = 'lightning'
@@ -110,30 +110,30 @@ export function buildOfflinePoseReport(args: BuildOfflineReportArgs): PoseAnalys
 
   const rawReport =
     args.exercise.slug === 'squat'
-      ? buildSquatVideoLiveStyleReport({
+      ? buildSquatVideoReplayReport({
           ...baseInput,
           tuning: args.poseRuntimeRules.analyzerTuning.squat,
           tempoFastThresholdSec: args.tempoFastThresholdSec,
-          onProgress: (processed: number, total: number) => args.setOfflineProgress({ stage: 'Replaying real-time squat analyzer', processed, total })
+          onProgress: (processed: number, total: number) => args.setOfflineProgress({ stage: 'Replaying squat video analyzer', processed, total })
         })
-        : args.exercise.slug === 'lateral-raise'
-          ? buildLateralRaiseVideoLiveStyleReport({
+      : args.exercise.slug === 'lateral-raise'
+          ? buildLateralRaiseVideoReplayReport({
               ...baseInput,
               tempoFastThresholdSec: args.tempoFastThresholdSec,
               rules: args.poseRuntimeRules.lateralRaise,
-              onProgress: (processed: number, total: number) => args.setOfflineProgress({ stage: 'Replaying real-time lateral-raise analyzer', processed, total })
+              onProgress: (processed: number, total: number) => args.setOfflineProgress({ stage: 'Replaying lateral-raise video analyzer', processed, total })
             })
-          : args.exercise.slug === 'bent-over-row'
-            ? buildBentOverRowVideoLiveStyleReport({
+        : args.exercise.slug === 'bent-over-row'
+            ? buildBentOverRowVideoReplayReport({
                 ...baseInput,
                 rules: args.poseRuntimeRules.bentOverRow,
-                onProgress: (processed: number, total: number) => args.setOfflineProgress({ stage: 'Replaying real-time bent-over-row analyzer', processed, total })
+                onProgress: (processed: number, total: number) => args.setOfflineProgress({ stage: 'Replaying bent-over-row video analyzer', processed, total })
               })
-            : buildPushupVideoLiveStyleReport({
+            : buildPushupVideoReplayReport({
                 ...baseInput,
                 tempoFastThresholdSec: args.tempoFastThresholdSec,
                 rules: args.poseRuntimeRules.pushup,
-                onProgress: (processed: number, total: number) => args.setOfflineProgress({ stage: 'Replaying real-time push-up analyzer', processed, total })
+                onProgress: (processed: number, total: number) => args.setOfflineProgress({ stage: 'Replaying push-up video analyzer', processed, total })
               })
 
   return humanizePoseReport(rawReport) as PoseAnalysisReport

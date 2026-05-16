@@ -34,7 +34,7 @@ export default function Footer() {
               <div className="cl_footer-widget mb-40">
                 <h5 className="cl_footer-widget-title">About Us</h5>
                 <p className="cl_footer-widget-text mb-35">
-                  AI FitGuard: pose coaching + food & nutrition tracking + community blogs. Video/image processing runs locally in your browser by default.
+                  AI FitGuard: pose video analysis + food & nutrition tracking + community blogs. Video/image processing runs locally in your browser by default.
                 </p>
               </div>
             </div>

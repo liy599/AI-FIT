@@ -166,7 +166,32 @@ export function PoseOfflineAnalysisPanel(props: {
                   {offlineOverlayTone.toUpperCase()}
                 </span>
                 <span className="pose-video-preview__message">
-                  {offlineOverlayMessage ?? (offlineOverlayTone === 'ok' ? 'Good form' : '')}
+                  {(() => {
+                    const text = offlineOverlayMessage ?? (offlineOverlayTone === 'ok' ? 'Good form' : '')
+                    if (!text || !text.trim()) return null
+                    const lines = text.split('\n').map((line) => line.trim())
+                    if (lines.length <= 1) {
+                      const single = (lines[0] ?? '').trim() || null
+                      if (!single) return null
+                      if (offlineOverlayTone !== 'ok') return single
+                      const base = single.endsWith('.') ? single : `${single}.`
+                      return `${base} Nice work.`
+                    }
+                    const gate = (lines[0] ?? '').trim() || null
+                    const mainRaw = lines.slice(1).join(' ').trim()
+                    const main = offlineOverlayTone === 'ok' ? (mainRaw ? `${mainRaw.endsWith('.') ? mainRaw : `${mainRaw}.`} Nice work.` : 'Nice work.') : mainRaw
+                    return (
+                      <span className="pose-video-preview__message-lines">
+                        {gate ? (
+                          <span className="pose-video-preview__gate">
+                            <span className="pose-video-preview__gate-label">CAMERA</span>
+                            <span className="pose-video-preview__gate-text">{gate}</span>
+                          </span>
+                        ) : null}
+                        {main ? <span className="pose-video-preview__message-line">{main}</span> : null}
+                      </span>
+                    )
+                  })()}
                 </span>
               </>
             ) : (

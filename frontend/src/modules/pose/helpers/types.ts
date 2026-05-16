@@ -1,4 +1,4 @@
-﻿import type { RealtimeFeedback } from '../analyzer/types'
+import type { RealtimeFeedback } from '../analyzer/types'
 import type { SquatTempo, SquatTuning } from '../analyzer/squat'
 import type { MoveNetKeypoint } from '../vision/movenetTracker'
 
@@ -18,6 +18,7 @@ export type SquatTimelineRow = {
 export type SquatRepFinding = {
   repNumber: number
   result: 'correct' | 'incorrect' | 'invalid'
+  tier?: 'gate' | 'warning' | 'issue' | 'rep_fail'
   primaryIssue: string
   reasons: string[]
   atFrame: number
@@ -43,6 +44,5 @@ export const VIDEO_DEFAULT_SQUAT_TUNING: SquatTuning = {
   forwardLeanFailMinFrames: 2,
   trackingQualityMin: 0.28
 }
-
 
 

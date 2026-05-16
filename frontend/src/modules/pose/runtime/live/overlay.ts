@@ -1,4 +1,4 @@
-﻿import { drawDistanceGuide, drawMidpointSkeleton, drawPoseJoints17 } from '../../vision/draw'
+﻿﻿﻿﻿import { drawDistanceGuide, drawMidpointSkeleton, drawPoseJoints17 } from '../../vision/draw'
 import type { DistanceState } from '../../vision/distanceTracker'
 import type { TrackingState } from '../../vision/movenetTracker'
 import type { RealtimeFeedback } from '../../analyzer/types'
@@ -19,7 +19,15 @@ type DrawLivePoseOverlayArgs = {
 // Keep drawing rules outside the live processing loop so rendering can evolve
 // without changing camera/model orchestration.
 export function drawLivePoseOverlay(args: DrawLivePoseOverlayArgs) {
-  const overlayColor = args.feedback.issues.length > 0 ? 'bad' : args.feedback.warnings.length > 0 ? 'warn' : 'ok'
+  const OVERLAY_BAD_IF_ISSUES_AT_LEAST = 1
+  const OVERLAY_WARN_IF_WARNINGS_AT_LEAST = 1
+
+  const overlayColor =
+    args.feedback.issues.length >= OVERLAY_BAD_IF_ISSUES_AT_LEAST
+      ? 'bad'
+      : args.feedback.warnings.length >= OVERLAY_WARN_IF_WARNINGS_AT_LEAST
+        ? 'warn'
+        : 'ok'
   const transform = args.viewport ? { viewport: args.viewport, mirror: true } : { mirror: true }
 
   if (args.trackingState && args.drawMode === 'full17' && args.trackingState.joints2d.length > 0) {

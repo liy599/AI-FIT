@@ -278,7 +278,7 @@ export function buildSquatVideoLiveStyleReport(input: {
   analyzer.setTuning(input.tuning ?? VIDEO_DEFAULT_SQUAT_TUNING)
   analyzer.setTempo(VIDEO_DEFAULT_SQUAT_TEMPO)
   analyzer.setAnalyzerFps(input.fps)
-  const stats = collectAnalyzerReplayStats({ analyzer, nativeFrames: input.nativeFrames, onProgress: input.onProgress })
+  const stats = collectAnalyzerReplayStats({ analyzer, exerciseSlug: 'squat', nativeFrames: input.nativeFrames, onProgress: input.onProgress })
   return buildSquatAlignedReport({
     source: 'video',
     taskId: input.taskId,
@@ -423,5 +423,4 @@ function analyzeSquatTempoFromTimeline(timelineRows: SquatTimelineRow[], tempoFa
 
   return { fastDescentCount, fastAscentCount }
 }
-
 

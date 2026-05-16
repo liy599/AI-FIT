@@ -1,4 +1,4 @@
-﻿import type { ExerciseSlug } from './types'
+import type { ExerciseSlug } from './types'
 
 export function mapSuggestionFromIssue(issue: string, exerciseSlug: ExerciseSlug) {
   const text = issue.toLowerCase()
@@ -10,20 +10,20 @@ export function mapSuggestionFromIssue(issue: string, exerciseSlug: ExerciseSlug
   }
   if (exerciseSlug === 'pushup') {
     if (text.includes('rep ignored') || text.includes('range of motion') || text.includes('range too small') || text.includes('move too small')) {
-      return 'Use a full range: lower further, then press back to a stable top position before starting the next rep.'
+      return 'Use full range: lower further, then press back to the top before the next rep.'
     }
     if (text.includes('depth') || text.includes('deeper') || text.includes('elbow')) {
       return 'Lower further until elbows bend clearly, then press back up under control.'
     }
     if ((text.includes('hips') && text.includes('too high')) || text.includes('avoid raising hips') || text.includes('pike')) {
-      return 'Lower hips slightly and keep a stable plank line from shoulders to ankles.'
+      return 'Lower hips slightly. Keep a straight line from shoulders to ankles.'
     }
     if (text.includes('hips sag') || (text.includes('hips') && text.includes('drop')) || text.includes('torso') || text.includes('hips')) {
-      return 'Brace your core and keep shoulders, hips, and ankles in one line.'
+      return 'Brace your core. Keep a straight line from shoulders to ankles.'
     }
-    if (text.includes('side-view') || text.includes('side view')) return 'Rotate to a clearer side-view to improve depth and body-line checks.'
-    if (text.includes('confidence') || text.includes('keypoints') || text.includes('frame')) {
-      return 'Improve lighting and keep shoulders, hips, knees, and ankles visible throughout each rep.'
+    if (text.includes('side-view') || text.includes('side view')) return 'Use a clear side view so depth and body line can be checked.'
+    if (text.includes('confidence') || text.includes('keypoints') || text.includes('frame') || text.includes('tracking')) {
+      return 'Improve lighting. Keep shoulders, hips, knees, and ankles visible.'
     }
   }
   if (exerciseSlug === 'bent-over-row') {

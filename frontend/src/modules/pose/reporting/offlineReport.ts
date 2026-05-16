@@ -1,4 +1,4 @@
-﻿import { humanizePoseReport } from './copy'
+﻿﻿﻿﻿import { humanizePoseReport } from './copy'
 import { extractNativePoseFromVideoUrlWithMoveNet, type MoveNetNativeFrame } from '../vision/movenetPose'
 import type { PoseAnalysisReport } from './types'
 import type { PosePolicy } from '../api'
@@ -8,6 +8,12 @@ import { buildLateralRaiseVideoLiveStyleReport } from '../helpers/lateralRaiseRe
 import { buildPushupVideoLiveStyleReport } from '../helpers/pushupReport'
 import { buildSquatVideoLiveStyleReport } from '../helpers/squatReport'
 import type { OfflineProgress } from '../runtime/types'
+
+const OFFLINE_MOVENET_DETECTOR_VARIANT: 'lightning' | 'thunder' = 'lightning'
+const OFFLINE_PREFER_PLAYBACK_SAMPLING = false
+const OFFLINE_MOVENET_MIN_VISIBILITY = 0.2
+const OFFLINE_ENABLE_STABILIZER = true
+const OFFLINE_ENABLE_ANTISWAP = true
 
 type ExerciseMeta = {
   id: string
@@ -61,8 +67,11 @@ export async function extractOfflinePoseFromLocalVideo(args: ExtractOfflinePoseA
     targetFps: offlineTargetFps,
     maxFrames: offlineAnalysisMaxFrames,
     maxDurationSec: offlineAnalysisLimitSec,
-    detectorVariant: 'lightning',
-    preferPlaybackSampling: false,
+    detectorVariant: OFFLINE_MOVENET_DETECTOR_VARIANT,
+    preferPlaybackSampling: OFFLINE_PREFER_PLAYBACK_SAMPLING,
+    minVisibility: OFFLINE_MOVENET_MIN_VISIBILITY,
+    enableStabilizer: OFFLINE_ENABLE_STABILIZER,
+    enableAntiSwap: OFFLINE_ENABLE_ANTISWAP,
     onProgress: (p: { stage: string; processed: number; total: number }) => {
       args.setOfflineProgress({
         stage: p.stage === 'loading' ? 'Loading MoveNet model' : 'Extracting pose keypoints',

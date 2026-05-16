@@ -5,6 +5,20 @@ import { DistanceTracker } from '../vision/distanceTracker'
 import type { MoveNetNativeFrame } from '../vision/movenetPose'
 import type { OfflineOverlayFrame } from '../runtime/types'
 
+const OVERLAY_TONE_FOR_TIER = {
+  gate: 'ok',
+  warning: 'warn',
+  issue: 'bad',
+  rep_fail: 'bad',
+  info: 'ok'
+} as const
+
+function overlayToneFromHuman(input: { main: PoseHumanFeedback | null; gate: PoseHumanFeedback | null }) {
+  if (input.main) return OVERLAY_TONE_FOR_TIER[input.main.tier] ?? 'ok'
+  if (input.gate) return OVERLAY_TONE_FOR_TIER[input.gate.tier] ?? 'ok'
+  return 'ok'
+}
+
 export function buildOfflineOverlayFrames(input: {
   exerciseSlug: string
   fps: number
@@ -92,18 +106,10 @@ export function buildOfflineOverlayFrames(input: {
 
     out.push({
       tMs,
-      tone: main
-        ? main.tier === 'rep_fail' || main.tier === 'issue'
-          ? 'bad'
-          : main.tier === 'warning'
-            ? 'warn'
-            : 'ok'
-        : gate
-          ? gate.tier === 'gate'
-            ? 'warn'
-            : 'ok'
-          : 'ok',
+      tone: overlayToneFromHuman({ main, gate }),
       message: combinedShortHint,
+      gateHint: gate?.shortHint ?? null,
+      mainHint: main?.shortHint ?? null,
       distance
     })
     if (input.onProgress && ((i + 1) % 40 === 0 || i === input.nativeFrames.length - 1)) input.onProgress(i + 1, total)

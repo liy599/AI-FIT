@@ -18,7 +18,14 @@ export type LiveSessionSummary = {
 }
 
 export type OfflineOverlayTone = 'ok' | 'warn' | 'bad'
-export type OfflineOverlayFrame = { tMs: number; tone: OfflineOverlayTone; message: string | null; distance: DistanceState | null }
+export type OfflineOverlayFrame = {
+  tMs: number
+  tone: OfflineOverlayTone
+  message: string | null
+  gateHint?: string | null
+  mainHint?: string | null
+  distance: DistanceState | null
+}
 export type OfflineReplayData = { fps: number; nativeFrames: MoveNetNativeFrame[]; overlayFrames: OfflineOverlayFrame[] }
 
 export type LiveDedicatedStats = {

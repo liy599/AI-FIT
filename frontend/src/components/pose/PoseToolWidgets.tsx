@@ -37,14 +37,20 @@ export function ReportVisualization(props: { report: PoseAnalysisReport }) {
           .filter((item) => item.key.length > 0)
       : undefined
   const repFindings = details && Array.isArray(details.repFindings) ? (details.repFindings as Array<Record<string, unknown>>) : []
-  const repFindingsFlagged = repFindings.filter((item) => String(item.result ?? 'invalid') !== 'correct')
+  const repFindingsProblem = repFindings.filter((item) => String(item.result ?? 'invalid') !== 'correct')
+  const repFindingsNotable = repFindings.filter((item) => {
+    const result = String(item.result ?? 'invalid')
+    const tier = typeof item.tier === 'string' ? item.tier : null
+    if (result !== 'correct') return true
+    return tier === 'warning' || tier === 'issue' || tier === 'rep_fail'
+  })
   const maxFindingCards = 6
-  const visibleFindings = repFindingsFlagged.slice(0, maxFindingCards)
+  const visibleFindings = repFindingsNotable.slice(0, maxFindingCards)
   const exercise = asRecord(report.exercise)
   const exerciseSlug = String(exercise?.id ?? '').toLowerCase() || 'squat'
   const topIssueCards = buildTopIssueCards({
     issues,
-    repFindings: repFindingsFlagged,
+    repFindings: repFindingsProblem,
     exerciseSlug,
     options: TOP_ISSUE_TIME_DISPLAY
   })
@@ -57,7 +63,7 @@ export function ReportVisualization(props: { report: PoseAnalysisReport }) {
       </div>
 
       {(() => {
-        const highlight = buildRepQualityHighlight({ repFindings: repFindingsFlagged, exerciseSlug, keyMetrics, issues })
+        const highlight = buildRepQualityHighlight({ repFindings: repFindingsProblem, exerciseSlug, keyMetrics, issues })
         return (
           <div className={`pose-report-card pose-report-highlight pose-report-highlight-${highlight.tone}`}>
             <div className="pose-report-title">Rep Quality Highlight</div>
@@ -118,7 +124,7 @@ export function ReportVisualization(props: { report: PoseAnalysisReport }) {
           </div>
         </div>
       ) : repFindings.length > 0 ? (
-        repFindingsFlagged.length > 0 ? (
+        repFindingsNotable.length > 0 ? (
           <div className="pose-report-card">
             <div className="pose-report-title">Rep Findings</div>
             <div className="pose-report-issue-list">
@@ -127,9 +133,18 @@ export function ReportVisualization(props: { report: PoseAnalysisReport }) {
                 const result = String(item.result ?? 'invalid')
                 const primaryIssue = String(item.primaryIssue ?? 'No detail')
                 const reasons = Array.isArray(item.reasons) ? item.reasons.filter((x): x is string => typeof x === 'string') : []
-                const tier: 'rep_fail' | 'gate' = result === 'incorrect' ? 'rep_fail' : 'gate'
+                const tierRaw = typeof item.tier === 'string' ? item.tier : null
                 const tMs = pickMetricNumber(item.tMs)
-                const lead = mapPoseFeedbackMessage({ exerciseSlug, message: primaryIssue }).label
+                const leadHuman = mapPoseFeedbackMessage({ exerciseSlug, message: primaryIssue })
+                const tier =
+                  tierRaw === 'gate' || tierRaw === 'warning' || tierRaw === 'issue' || tierRaw === 'rep_fail'
+                    ? tierRaw
+                    : result === 'incorrect'
+                      ? 'rep_fail'
+                      : result === 'invalid'
+                        ? 'gate'
+                        : leadHuman.tier
+                const lead = leadHuman.label
                 const moreReasons = reasons
                   .map((reason) => mapPoseFeedbackMessage({ exerciseSlug, message: reason }).label)
                   .filter((reason, reasonIndex, all) => !!reason && all.indexOf(reason) === reasonIndex && reason !== lead)
@@ -152,7 +167,9 @@ export function ReportVisualization(props: { report: PoseAnalysisReport }) {
                 )
               })}
             </div>
-            {repFindingsFlagged.length > maxFindingCards ? <div className="pose-muted-copy">{`Showing ${maxFindingCards} of ${repFindingsFlagged.length} findings`}</div> : null}
+            {repFindingsNotable.length > maxFindingCards ? (
+              <div className="pose-muted-copy">{`Showing ${maxFindingCards} of ${repFindingsNotable.length} findings`}</div>
+            ) : null}
           </div>
         ) : (
           <div className="pose-report-card pose-report-highlight pose-report-highlight-good">

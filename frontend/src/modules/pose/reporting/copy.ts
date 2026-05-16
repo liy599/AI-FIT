@@ -1,4 +1,4 @@
-﻿export type PoseFeedbackTier = 'gate' | 'warning' | 'issue' | 'rep_fail'
+export type PoseFeedbackTier = 'gate' | 'warning' | 'issue' | 'rep_fail'
 
 export type PoseHumanFeedback = {
   tier: PoseFeedbackTier
@@ -59,13 +59,42 @@ export function mapPoseFeedbackMessage(args: { exerciseSlug: string; message: st
   if (!raw) {
     return {
       tier: 'gate',
-      label: "I can't get a stable pose yet - improve lighting and keep your full body in frame.",
-      shortHint: 'Keep full body in frame.'
+      label: 'No stable pose detected yet. Improve lighting and keep your full body in frame.',
+      shortHint: 'Full body visible.'
     }
   }
 
+  if (text === 'too close' || text.includes('too close')) {
+    return { tier: 'gate', label: 'You are too close to the camera. Step back so your full body stays visible.', shortHint: 'Step back (too close).' }
+  }
+  if (text === 'too far' || text.includes('too far')) {
+    return { tier: 'gate', label: 'You are too far from the camera. Step closer so key joints stay visible.', shortHint: 'Step closer (too far).' }
+  }
+
   if (text.startsWith('fix camera angle') || text.startsWith("i can't")) {
-    return { tier: 'gate', label: raw, shortHint: raw.length > 56 ? `${raw.slice(0, 53)}...` : raw }
+    if (text.includes('face the camera') || text.includes('front view')) {
+      return { tier: 'gate', label: raw, shortHint: 'Face the camera.' }
+    }
+    if (text.includes('side view') || text.includes('side-view')) {
+      return { tier: 'gate', label: raw, shortHint: 'Turn sideways (about 90°).' }
+    }
+    if (
+      text.includes('low keypoint confidence') ||
+      text.includes('keypoint confidence') ||
+      text.includes('lighting') ||
+      text.includes('visible')
+    ) {
+      return { tier: 'gate', label: raw, shortHint: 'Brighter light; no occlusion.' }
+    }
+    if (
+      text.includes('keypoints were incomplete') ||
+      text.includes('no valid pose frames') ||
+      text.includes('full body') ||
+      text.includes('in frame')
+    ) {
+      return { tier: 'gate', label: raw, shortHint: 'Full body in frame.' }
+    }
+    return { tier: 'gate', label: raw, shortHint: 'Adjust camera setup.' }
   }
   if (text.startsWith('go deeper') || text.startsWith('make the rep bigger') || text.startsWith('slow down') || text.startsWith('keep it moving')) {
     return { tier: 'rep_fail', label: raw, shortHint: raw.length > 56 ? `${raw.slice(0, 53)}...` : raw }
@@ -76,7 +105,13 @@ export function mapPoseFeedbackMessage(args: { exerciseSlug: string; message: st
 
   const isRepFailed = text.startsWith('rep failed')
   const isRepIgnored = text.startsWith('rep ignored')
-  const isRepUnassessed = text.includes('not assessed') || text.includes('excluded from valid assessment') || text.includes('unstable or incomplete keypoints')
+  const isRepUnassessed =
+    text.includes('not assessed') ||
+    text.includes('excluded from valid assessment') ||
+    text.includes('unstable or incomplete keypoints') ||
+    text.includes('unstable keypoints') ||
+    text.includes('incomplete keypoints') ||
+    text.includes('unstable tracking')
   if (isRepFailed || isRepIgnored) {
     if (text.includes('depth was insufficient') || text.includes('range of motion was too small') || text.includes('arms did not reach shoulder height')) {
       return { tier: 'rep_fail', label: 'Go deeper / higher - hit full range of motion, then return with control.', shortHint: 'Full range of motion.' }
@@ -102,14 +137,14 @@ export function mapPoseFeedbackMessage(args: { exerciseSlug: string; message: st
     if (text.includes('too slow')) {
       return { tier: 'rep_fail', label: 'Keep it moving - avoid long stalls and use a smooth rhythm.', shortHint: 'Smooth rhythm.' }
     }
-    return { tier: 'rep_fail', label: 'Fix the rep: keep control and clean form before counting the next one.', shortHint: 'Clean rep.' }
+    return { tier: 'rep_fail', label: 'Redo the rep with control before counting the next one.', shortHint: 'Redo the rep.' }
   }
 
   if (isRepUnassessed) {
     return {
       tier: 'gate',
-      label: "I can't assess quality reliably - keep a stable camera angle and improve lighting.",
-      shortHint: 'Fix camera angle + lighting.'
+      label: "Form quality can't be assessed reliably yet. Keep a stable view and improve lighting.",
+      shortHint: 'Stable view + lighting.'
     }
   }
 
@@ -125,32 +160,32 @@ export function mapPoseFeedbackMessage(args: { exerciseSlug: string; message: st
     text.includes('in frame')
   if (isGate) {
     if (text.includes('face the camera')) {
-      return { tier: 'gate', label: 'Fix camera angle: face the camera so both arms stay visible.', shortHint: 'Face the camera (front view).' }
+      return { tier: 'gate', label: 'Fix camera angle: face the camera so both arms stay visible.', shortHint: 'Face the camera.' }
     }
     if (text.includes('side view') || text.includes('side-view')) {
       return {
         tier: 'gate',
         label: 'Fix camera angle: use a clear side view (about 90°) and keep your full body in frame.',
-        shortHint: 'True side view (90°).'
+        shortHint: 'Turn sideways (about 90°).'
       }
     }
     if (text.includes('low keypoint confidence') || text.includes('keypoint confidence')) {
-      return { tier: 'gate', label: "I can't see you clearly - improve lighting and keep key joints visible.", shortHint: 'Better lighting + keep joints visible.' }
+      return { tier: 'gate', label: "I can't see you clearly - improve lighting and keep key joints visible.", shortHint: 'Brighter light; joints visible.' }
     }
     if (text.includes('keypoints were incomplete')) {
-      return { tier: 'gate', label: "I can't track your full body - step back and keep shoulders, hips, knees, and ankles visible.", shortHint: 'Keep full body in frame.' }
+      return { tier: 'gate', label: "I can't track your full body - step back and keep shoulders, hips, knees, and ankles visible.", shortHint: 'Full body in frame.' }
     }
     if (text.includes('no valid pose frames')) {
       return { tier: 'gate', label: 'No stable pose detected - keep your whole body in frame and try again.', shortHint: 'Full body in frame.' }
     }
-    return { tier: 'gate', label: 'Camera view is not usable yet - adjust angle and keep your full body visible.', shortHint: 'Fix camera view.' }
+    return { tier: 'gate', label: 'Camera view is not usable yet - adjust angle and keep your full body visible.', shortHint: 'Adjust the camera view.' }
   }
 
   if (text.includes('hips dropped') || text.includes('hips sag') || text.includes('body line')) {
-    return { tier: 'issue', label: 'Brace your core - keep head, hips, and heels in one straight line.', shortHint: 'Brace core, straight line.' }
+    return { tier: 'issue', label: 'Brace your core. Keep a straight line from shoulders to ankles.', shortHint: 'Straight line.' }
   }
   if (text.includes('hips were too high') || text.includes('hips too high') || text.includes('pike')) {
-    return { tier: 'issue', label: 'Lower your hips slightly - keep a stable plank line.', shortHint: 'Lower hips, stable line.' }
+    return { tier: 'issue', label: 'Lower hips slightly. Keep a straight line from shoulders to ankles.', shortHint: 'Lower hips.' }
   }
   if (text.includes('excessive forward torso lean') || text.includes('excessive torso lean') || text.includes('torso sway')) {
     return { tier: 'issue', label: 'Keep your torso stable - brace your core and avoid swinging or excessive lean.', shortHint: 'Torso stable.' }

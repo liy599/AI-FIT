@@ -5,7 +5,19 @@ import type { MoveNetNativeFrame } from '../../vision/movenetPose'
 import { computeContainViewport, findClosestTmsIndex } from '../../reporting/overlayReplay'
 import type { OfflineOverlayTone, OfflineReplayData, PoseToolMode } from '../types'
 
-type OverlayUiRef = { tone: OfflineOverlayTone | null; message: string | null }
+type OverlayUiRef = {
+  tone: OfflineOverlayTone | null
+  message: string | null
+  gateHint: string | null
+  mainHint: string | null
+  lastMainAt: number
+  lastGateAt: number
+  lastGateSeenAt: number
+  pendingAt: number
+  pendingTone: OfflineOverlayTone | null
+  pendingGateHint: string | null
+  pendingMainHint: string | null
+}
 
 type UseOfflineReplayOverlayParams = {
   mode: PoseToolMode
@@ -87,6 +99,15 @@ export function useOfflineReplayOverlay({
           offlineOverlayUiRef.current.message = null
           setOfflineOverlayMessage(null)
         }
+        offlineOverlayUiRef.current.gateHint = null
+        offlineOverlayUiRef.current.mainHint = null
+        offlineOverlayUiRef.current.lastMainAt = 0
+        offlineOverlayUiRef.current.lastGateAt = 0
+        offlineOverlayUiRef.current.lastGateSeenAt = 0
+        offlineOverlayUiRef.current.pendingAt = 0
+        offlineOverlayUiRef.current.pendingTone = null
+        offlineOverlayUiRef.current.pendingGateHint = null
+        offlineOverlayUiRef.current.pendingMainHint = null
         return
       }
 
@@ -102,8 +123,69 @@ export function useOfflineReplayOverlay({
       const idx = findClosestTmsIndex(data.overlayFrames, tMs)
       const frame = data.overlayFrames[idx]
       const joints = data.nativeFrames[idx]?.keypoints ?? []
-      const tone = frame?.tone ?? 'ok'
-      const message = frame?.message ?? null
+      const nextGateHint = typeof frame?.gateHint === 'string' ? frame?.gateHint : null
+      const nextMainHint = typeof frame?.mainHint === 'string' ? frame?.mainHint : null
+      const prevGateHint = offlineOverlayUiRef.current.gateHint ?? null
+      const prevMainHint = offlineOverlayUiRef.current.mainHint ?? null
+      const now = performance.now()
+
+      const MAIN_REFRESH_MS = 1000
+      const GATE_STICKY_MS = 5000
+
+      if (nextGateHint) offlineOverlayUiRef.current.lastGateSeenAt = now
+      const gateHint =
+        nextGateHint ? nextGateHint : prevGateHint && now - (offlineOverlayUiRef.current.lastGateSeenAt || 0) < GATE_STICKY_MS ? prevGateHint : null
+
+      const canUpdateMain = now - (offlineOverlayUiRef.current.lastMainAt || 0) >= MAIN_REFRESH_MS
+      const mainHint = canUpdateMain ? nextMainHint : prevMainHint
+      if (canUpdateMain && mainHint !== prevMainHint) offlineOverlayUiRef.current.lastMainAt = now
+      if (gateHint !== prevGateHint) {
+        offlineOverlayUiRef.current.gateHint = gateHint
+        offlineOverlayUiRef.current.lastGateAt = now
+      }
+      if (mainHint !== prevMainHint) offlineOverlayUiRef.current.mainHint = mainHint
+
+      const currentTone: OfflineOverlayTone = frame?.tone ?? 'ok'
+      const pendingTone = offlineOverlayUiRef.current.pendingTone
+      const pendingRank = pendingTone === 'bad' ? 3 : pendingTone === 'warn' ? 2 : pendingTone === 'ok' ? 1 : 0
+      const currentRank = currentTone === 'bad' ? 3 : currentTone === 'warn' ? 2 : 1
+      const refreshDue = now - (offlineOverlayUiRef.current.pendingAt || 0) >= MAIN_REFRESH_MS
+
+      if (!offlineOverlayUiRef.current.pendingAt) offlineOverlayUiRef.current.pendingAt = now
+
+      if (currentRank > pendingRank) {
+        offlineOverlayUiRef.current.pendingTone = currentTone
+        offlineOverlayUiRef.current.pendingGateHint = gateHint
+        offlineOverlayUiRef.current.pendingMainHint = mainHint
+      }
+
+      if (refreshDue) {
+        const decidedTone = offlineOverlayUiRef.current.pendingTone ?? currentTone
+        const decidedGate = offlineOverlayUiRef.current.pendingGateHint ?? gateHint
+        const decidedMain = offlineOverlayUiRef.current.pendingMainHint ?? mainHint
+        offlineOverlayUiRef.current.pendingAt = now
+        offlineOverlayUiRef.current.pendingTone = decidedTone
+        offlineOverlayUiRef.current.pendingGateHint = decidedGate
+        offlineOverlayUiRef.current.pendingMainHint = decidedMain
+
+        const decidedMessage = decidedGate ? `${decidedGate}\n${decidedMain ?? ''}` : decidedMain ?? null
+
+        if (offlineOverlayUiRef.current.tone !== decidedTone) {
+          offlineOverlayUiRef.current.tone = decidedTone
+          setOfflineOverlayTone(decidedTone)
+        }
+        if (offlineOverlayUiRef.current.message !== decidedMessage) {
+          offlineOverlayUiRef.current.message = decidedMessage
+          setOfflineOverlayMessage(decidedMessage)
+        }
+
+        offlineOverlayUiRef.current.pendingTone = null
+        offlineOverlayUiRef.current.pendingGateHint = null
+        offlineOverlayUiRef.current.pendingMainHint = null
+      }
+
+      const tone = offlineOverlayUiRef.current.tone ?? currentTone
+      const message = offlineOverlayUiRef.current.message ?? null
       const distance = frame?.distance ?? null
 
       const nextDrawMode = drawModeRef.current
@@ -118,15 +200,6 @@ export function useOfflineReplayOverlay({
         (canvas.dataset.lastH ? Number(canvas.dataset.lastH) !== metrics.cssH : true) ||
         (canvas.dataset.lastSW ? Number(canvas.dataset.lastSW) !== sourceW : true) ||
         (canvas.dataset.lastSH ? Number(canvas.dataset.lastSH) !== sourceH : true)
-
-      if (offlineOverlayUiRef.current.tone !== tone) {
-        offlineOverlayUiRef.current.tone = tone
-        setOfflineOverlayTone(tone)
-      }
-      if (offlineOverlayUiRef.current.message !== message) {
-        offlineOverlayUiRef.current.message = message
-        setOfflineOverlayMessage(message)
-      }
 
       if (!needsRedraw) return
       canvas.dataset.lastIdx = String(idx)
@@ -221,4 +294,3 @@ export function useOfflineReplayOverlay({
     setOfflineOverlayMessage
   ])
 }
-

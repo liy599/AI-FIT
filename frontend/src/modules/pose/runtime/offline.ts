@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import type { PoseAnalysisReport } from '../reporting/types'
 import type { PosePolicyRuntime } from '../policy'
@@ -27,7 +27,31 @@ export function useOfflinePoseRuntime(args: {
   const offlineCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const offlineReplayDataRef = useRef<OfflineReplayData | null>(null)
   const offlineReplayRafRef = useRef<number | null>(null)
-  const offlineOverlayUiRef = useRef<{ tone: OfflineOverlayTone | null; message: string | null }>({ tone: null, message: null })
+  const offlineOverlayUiRef = useRef<{
+    tone: OfflineOverlayTone | null
+    message: string | null
+    gateHint: string | null
+    mainHint: string | null
+    lastMainAt: number
+    lastGateAt: number
+    lastGateSeenAt: number
+    pendingAt: number
+    pendingTone: OfflineOverlayTone | null
+    pendingGateHint: string | null
+    pendingMainHint: string | null
+  }>({
+    tone: null,
+    message: null,
+    gateHint: null,
+    mainHint: null,
+    lastMainAt: 0,
+    lastGateAt: 0,
+    lastGateSeenAt: 0,
+    pendingAt: 0,
+    pendingTone: null,
+    pendingGateHint: null,
+    pendingMainHint: null
+  })
   const offlineDrawNowRef = useRef<(() => void) | null>(null)
   const previewUrlRef = useRef<string | null>(null)
   const drawModeRef = useRef<'midline' | 'full17'>('full17')

@@ -1190,6 +1190,49 @@
   line-height: 1.3;
 }
 
+.pose-video-preview__message-lines {
+  display: grid;
+  gap: 6px;
+}
+
+.pose-video-preview__message-line {
+  display: block;
+}
+
+.pose-video-preview__gate {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.14);
+  color: #fef3c7;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.pose-video-preview__gate-label {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.22);
+  color: #fef3c7;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.pose-video-preview__gate-text {
+  display: inline-block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .pose-video-preview__message-muted {
   color: #94a3b8;
 }
@@ -1337,11 +1380,6 @@
   color: #fff;
 }
 
-.pose-status-pill-warning {
-  background: #fef3c7;
-  color: #92400e;
-}
-
 .pose-progress-card {
   margin-top: 16px;
   padding: 14px 16px;
@@ -1395,6 +1433,11 @@
 .pose-status-pill-muted {
   background: #e2e8f0;
   color: #334155;
+}
+
+.pose-status-pill.pose-status-pill-warning {
+  background: #fef3c7;
+  color: #92400e;
 }
 
 .pose-report-empty {

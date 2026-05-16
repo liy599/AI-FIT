@@ -181,7 +181,7 @@ export function buildLateralRaiseVideoLiveStyleReport(input: {
   onProgress?: (processed: number, total: number) => void
 }): PoseAnalysisReport {
   const analyzer = new RealtimeLateralRaiseAnalyzer()
-  const stats = collectAnalyzerReplayStats({ analyzer, nativeFrames: input.nativeFrames, onProgress: input.onProgress })
+  const stats = collectAnalyzerReplayStats({ analyzer, exerciseSlug: 'lateral-raise', nativeFrames: input.nativeFrames, onProgress: input.onProgress })
 
   return buildLateralRaiseAlignedReport({
     source: 'video',
@@ -209,5 +209,4 @@ function buildLateralRaiseReplaySuggestions(sortedIssues: Array<[string, number]
   if (suggestions.size === 0) suggestions.add(fallbackSuggestion.trim())
   return Array.from(suggestions).slice(0, 5)
 }
-
 

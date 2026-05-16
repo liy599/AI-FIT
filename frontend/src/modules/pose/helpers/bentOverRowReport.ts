@@ -187,7 +187,7 @@ export function buildBentOverRowVideoLiveStyleReport(input: {
   onProgress?: (processed: number, total: number) => void
 }): PoseAnalysisReport {
   const analyzer = new RealtimeBentOverRowAnalyzer()
-  const stats = collectAnalyzerReplayStats({ analyzer, nativeFrames: input.nativeFrames, onProgress: input.onProgress })
+  const stats = collectAnalyzerReplayStats({ analyzer, exerciseSlug: 'bent-over-row', nativeFrames: input.nativeFrames, onProgress: input.onProgress })
 
   return buildBentOverRowAlignedReport({
     source: 'video',
@@ -244,4 +244,3 @@ function buildBentOverRowReplaySuggestions(sortedIssues: Array<[string, number]>
   if (suggestions.size === 0) suggestions.add(fallbackSuggestion.trim())
   return Array.from(suggestions).slice(0, 5)
 }
-

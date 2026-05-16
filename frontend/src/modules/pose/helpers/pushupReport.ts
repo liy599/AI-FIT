@@ -54,7 +54,7 @@ export function buildPushupAlignedReport(input: {
     minElbowAngle = minElbowAngle === null ? angle : Math.min(minElbowAngle, angle)
   }
 
-  const fallbackSuggestion = 'Brace your core, keep a straight body line, and lower under control.'
+  const fallbackSuggestion = 'Brace your core. Keep a straight line from shoulders to ankles. Lower under control.'
   const currentSuggestion = input.lastFeedback
     ? input.lastFeedback.issues[0]?.message ?? input.lastFeedback.warnings[0] ?? input.lastFeedback.lastRepMessage ?? fallbackSuggestion
     : input.source === 'video'
@@ -119,7 +119,7 @@ export function buildPushupAlignedReport(input: {
     issues.push({
       code: 'REPS_UNASSESSED',
       severity: ratio >= 0.35 ? 'warning' : 'info',
-      message: `${unassessedReps}/${totalReps} reps could not be quality-assessed due to unstable or incomplete keypoints.`,
+      message: `${unassessedReps}/${totalReps} reps could not be quality-assessed due to unstable tracking (lighting/occlusion/partial body).`,
       atFrame: null
     })
   }
@@ -274,7 +274,7 @@ export function buildPushupVideoLiveStyleReport(input: {
   onProgress?: (processed: number, total: number) => void
 }): PoseAnalysisReport {
   const analyzer = new RealtimePushupAnalyzer()
-  const stats = collectAnalyzerReplayStats({ analyzer, nativeFrames: input.nativeFrames, onProgress: input.onProgress })
+  const stats = collectAnalyzerReplayStats({ analyzer, exerciseSlug: 'pushup', nativeFrames: input.nativeFrames, onProgress: input.onProgress })
 
   return buildPushupAlignedReport({
     source: 'video',
@@ -383,22 +383,22 @@ function buildPushupReplaySuggestions(
       suggestions.add('Lower further until elbows bend clearly, then press back up under control.')
     }
     if ((feedback.session.forwardLeanCount ?? 0) > 0) {
-      suggestions.add('Brace your core and keep shoulders, hips, and ankles aligned in one line.')
+      suggestions.add('Brace your core. Keep a straight line from shoulders to ankles.')
     }
     if ((feedback.session.backwardLeanCount ?? 0) > 0) {
-      suggestions.add('Lower hips slightly and keep a stable plank line from shoulders to ankles.')
+      suggestions.add('Lower hips slightly. Keep a straight line from shoulders to ankles.')
     }
     if (unassessedReps > 0 || (feedback.trackingQuality ?? 0) < 0.45) {
-      suggestions.add('Improve lighting and keep shoulders, hips, knees, and ankles visible throughout each rep.')
-      suggestions.add('Rotate to a clearer side-view to improve depth and body-line checks.')
+      suggestions.add('Improve lighting. Keep shoulders, hips, knees, and ankles visible.')
+      suggestions.add('Use a clear side view so depth and body line can be checked.')
     }
     if ((feedback.session.totalReps ?? 0) <= 0) {
-      suggestions.add('Start in a stable plank, lower until elbows bend clearly, then press back to full lockout.')
+      suggestions.add('Start in a stable plank, lower until elbows bend clearly, then press back to a stable top position.')
     }
   }
 
   if (tempoCheck.fastDescentCount > 0 || tempoCheck.fastAscentCount > 0) {
-    suggestions.add('Slow down each rep: control the descent, brief pause, then press up smoothly.')
+    suggestions.add('Slow down each rep: control down, brief pause, then press up smoothly.')
   }
 
   for (const [message] of prioritizedIssues) {
@@ -410,5 +410,3 @@ function buildPushupReplaySuggestions(
   if (suggestions.size === 0) suggestions.add(fallbackSuggestion.trim())
   return Array.from(suggestions).slice(0, 5)
 }
-
-

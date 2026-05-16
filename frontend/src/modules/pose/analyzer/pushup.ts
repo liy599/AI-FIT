@@ -1,4 +1,4 @@
-﻿import type { RealtimeFeedback } from './types'
+import type { RealtimeFeedback } from './types'
 import type { MoveNetKeypoint, MoveNetName } from '../vision/movenetTracker'
 
 const ASSUMED_ANALYZER_FPS = 24
@@ -492,7 +492,7 @@ export class RealtimePushupAnalyzer {
         this.lastRepReasonCodes = reasonCodes
         this.lastRepReasonLabels = reasonLabels
         this.lastRepCorrections = corrections
-        this.lastRepMessage = 'Rep counted, but quality was not assessed due to unstable keypoints.'
+        this.lastRepMessage = 'Rep counted, but quality was not assessed due to unstable tracking.'
       }
 
       this.lastRepFrameCount = this.frameCount

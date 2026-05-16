@@ -1,4 +1,4 @@
-﻿import { Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { buildPoseHistoryPath } from '../../modules/pose'
 
 type PoseExerciseStatus = 'ready' | 'coming_soon'
@@ -124,7 +124,7 @@ export default function PoseSelectPage() {
                               alt={ex.name}
                               loading="eager"
                               decoding="async"
-                              fetchPriority={imageIndex < 2 ? 'high' : 'auto'}
+                              {...({ fetchpriority: imageIndex < 2 ? 'high' : 'auto' } as Record<string, string>)}
                             />
                           </div>
                         ) : null}

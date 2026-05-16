@@ -1,4 +1,4 @@
-﻿import type { MutableRefObject } from 'react'
+import type { MutableRefObject } from 'react'
 import type { RealtimeFeedback } from '../../analyzer/types'
 import type { SquatRepFinding, SquatTimelineRow } from '../../helpers'
 import { collectLiveFrameIssueMessages } from '../../helpers'

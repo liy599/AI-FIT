@@ -1,4 +1,4 @@
-import { createElement } from 'react'
+﻿import { createElement } from 'react'
 import type { ButtonHTMLAttributes, HTMLAttributes } from 'react'
 
 type AppTagButtonProps = {
@@ -22,3 +22,4 @@ export default function AppTag(props: AppTagProps) {
   }
   return createElement('span', { ...(rest as HTMLAttributes<HTMLSpanElement>), className: classes }, children)
 }
+

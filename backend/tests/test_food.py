@@ -4,11 +4,13 @@ def register_and_token(client, email="food@example.com", username="food-user", p
         json={"email": email, "username": username, "password": password},
     )
     assert response.status_code == 200
-    return response.get_json()["access_token"]
+    return response.get_json()["user"]["id"]
 
 
-def auth_header(token: str):
-    return {"Authorization": f"Bearer {token}"}
+def auth_headers(client):
+    csrf_cookie = client.get_cookie("csrf_access_token")
+    csrf_token = csrf_cookie.value if csrf_cookie is not None else ""
+    return {"X-CSRF-TOKEN": csrf_token} if csrf_token else {}
 
 
 def test_foods_list_and_bulk(client):
@@ -33,12 +35,13 @@ def test_foods_list_and_bulk(client):
 
 def test_meals_save_fetch_today_and_delete(client):
     token = register_and_token(client)
+    _ = token
     foods = client.get("/api/foods").get_json()
     assert len(foods) >= 2
 
     response = client.post(
         "/api/meals",
-        headers=auth_header(token),
+        headers=auth_headers(client),
         json={
             "mealType": "lunch",
             "recordedOn": "2026-04-05",
@@ -53,39 +56,40 @@ def test_meals_save_fetch_today_and_delete(client):
     assert meal["mealType"] == "lunch"
     assert len(meal["items"]) == 2
 
-    response = client.get("/api/meals/today?date=2026-04-05", headers=auth_header(token))
+    response = client.get("/api/meals/today?date=2026-04-05")
     assert response.status_code == 200
     summary = response.get_json()
     assert summary["date"] == "2026-04-05"
     assert len(summary["meals"]) == 1
     assert summary["totals"]["kcal"] > 0
 
-    response = client.get(f"/api/meals/{meal['id']}", headers=auth_header(token))
+    response = client.get(f"/api/meals/{meal['id']}")
     assert response.status_code == 200
     fetched = response.get_json()
     assert fetched["id"] == meal["id"]
     assert fetched["items"][0]["food"] is not None
 
-    response = client.get("/api/meals/history?page=1&page_size=10", headers=auth_header(token))
+    response = client.get("/api/meals/history?page=1&page_size=10")
     assert response.status_code == 200
     history = response.get_json()
     assert history["total"] == 1
     assert history["items"][0]["id"] == meal["id"]
 
-    response = client.delete(f"/api/meals/{meal['id']}", headers=auth_header(token))
+    response = client.delete(f"/api/meals/{meal['id']}", headers=auth_headers(client))
     assert response.status_code == 200
 
-    response = client.get("/api/meals/today?date=2026-04-05", headers=auth_header(token))
+    response = client.get("/api/meals/today?date=2026-04-05")
     assert response.status_code == 200
     assert response.get_json()["meals"] == []
 
 
 def test_meals_reject_empty_items(client):
     token = register_and_token(client, email="empty-food@example.com", username="empty-food-user")
+    _ = token
 
     response = client.post(
         "/api/meals",
-        headers=auth_header(token),
+        headers=auth_headers(client),
         json={
             "mealType": "lunch",
             "recordedOn": "2026-04-05",
@@ -99,10 +103,11 @@ def test_meals_reject_empty_items(client):
 
 def test_meals_reject_invalid_food_ids(client):
     token = register_and_token(client, email="invalid-food@example.com", username="invalid-food-user")
+    _ = token
 
     response = client.post(
         "/api/meals",
-        headers=auth_header(token),
+        headers=auth_headers(client),
         json={
             "mealType": "dinner",
             "recordedOn": "2026-04-05",
@@ -116,11 +121,12 @@ def test_meals_reject_invalid_food_ids(client):
 
 def test_meals_reject_invalid_dates(client):
     token = register_and_token(client, email="date-food@example.com", username="date-food-user")
+    _ = token
     foods = client.get("/api/foods").get_json()
 
     response = client.post(
         "/api/meals",
-        headers=auth_header(token),
+        headers=auth_headers(client),
         json={
             "mealType": "breakfast",
             "recordedOn": "2026-13-99",
@@ -130,6 +136,6 @@ def test_meals_reject_invalid_dates(client):
     assert response.status_code == 400
     assert response.get_json()["error"] == "invalid recordedOn, expected YYYY-MM-DD"
 
-    response = client.get("/api/meals/today?date=2026-13-99", headers=auth_header(token))
+    response = client.get("/api/meals/today?date=2026-13-99")
     assert response.status_code == 400
     assert response.get_json()["error"] == "invalid date, expected YYYY-MM-DD"

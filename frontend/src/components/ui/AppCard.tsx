@@ -1,4 +1,4 @@
-import type { HTMLAttributes } from 'react'
+﻿import type { HTMLAttributes } from 'react'
 
 type AppCardProps = HTMLAttributes<HTMLDivElement> & {
   tone?: 'default' | 'soft'
@@ -7,3 +7,4 @@ type AppCardProps = HTMLAttributes<HTMLDivElement> & {
 export default function AppCard({ children, className, tone = 'default', ...rest }: AppCardProps) {
   return <div {...rest} className={['app-card', tone === 'soft' ? 'app-card--soft' : '', className].filter(Boolean).join(' ')}>{children}</div>
 }
+

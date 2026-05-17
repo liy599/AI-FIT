@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -p tsconfig.json && vite build",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.node.json",
+    "lint:boundaries": "node ./scripts/check-boundaries.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -16,7 +17,6 @@
     "@tensorflow/tfjs-backend-webgl": "^4.22.0",
     "@tensorflow/tfjs-converter": "^4.22.0",
     "@tensorflow/tfjs-core": "^4.22.0",
-    "lil-gui": "^0.21.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.2",
@@ -30,7 +30,6 @@
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.41",
-    "tailwindcss": "^3.4.10",
     "typescript": "^5.6.2",
     "vite": "^5.4.2"
   }

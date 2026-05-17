@@ -1,4 +1,4 @@
-export function normalizeReportForArchive<T>(input: T): T {
+﻿export function normalizeReportForArchive<T>(input: T): T {
   return input
 }
 
@@ -30,4 +30,5 @@ export function renderReportPdfBodyHtml(input: Record<string, unknown>, opts?: {
     </div>
   `
 }
+
 

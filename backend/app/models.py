@@ -23,6 +23,7 @@ class User(db.Model, TimestampMixin):
     username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     email: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_admin: Mapped[bool] = mapped_column(db.Boolean, default=False, nullable=False)
 
     avatar_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     gender: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
@@ -40,8 +41,6 @@ class User(db.Model, TimestampMixin):
         back_populates="author", cascade="all, delete-orphan"
     )
     feedback: Mapped[List["UserFeedback"]] = relationship(back_populates="user", cascade="all, delete-orphan")
-    video_assets: Mapped[List["VideoAsset"]] = relationship(back_populates="user", cascade="all, delete-orphan")
-    analysis_tasks: Mapped[List["AnalysisTask"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     training_sessions: Mapped[List["TrainingSession"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
@@ -270,53 +269,6 @@ class UserFeedback(db.Model):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
     user: Mapped[Optional["User"]] = relationship(back_populates="feedback")
-
-
-class VideoAsset(db.Model, TimestampMixin):
-    __tablename__ = "video_assets"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    original_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    mime_type: Mapped[str] = mapped_column(String(100), nullable=False)
-    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
-    storage_path: Mapped[str] = mapped_column(Text, nullable=False)
-    duration_seconds: Mapped[Optional[float]] = mapped_column(Numeric(8, 2), nullable=True)
-
-    user: Mapped["User"] = relationship(back_populates="video_assets")
-    analysis_tasks: Mapped[List["AnalysisTask"]] = relationship(back_populates="video_asset")
-
-
-class AnalysisTask(db.Model, TimestampMixin):
-    __tablename__ = "analysis_tasks"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    video_asset_id: Mapped[int] = mapped_column(
-        ForeignKey("video_assets.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    exercise_type: Mapped[str] = mapped_column(String(50), nullable=False, default="squat")
-    view_angle: Mapped[str] = mapped_column(String(20), nullable=False, default="unknown")
-    instruction: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    status: Mapped[str] = mapped_column(String(20), nullable=False, default="uploaded", index=True)
-    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-
-    user: Mapped["User"] = relationship(back_populates="analysis_tasks")
-    video_asset: Mapped["VideoAsset"] = relationship(back_populates="analysis_tasks")
-    results: Mapped[List["AnalysisResult"]] = relationship(back_populates="task", cascade="all, delete-orphan")
-
-
-class AnalysisResult(db.Model):
-    __tablename__ = "analysis_results"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    task_id: Mapped[int] = mapped_column(ForeignKey("analysis_tasks.id", ondelete="CASCADE"), nullable=False, index=True)
-    report_json: Mapped[dict] = mapped_column(db.JSON, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-
-    task: Mapped["AnalysisTask"] = relationship(back_populates="results")
 
 
 class TrainingSession(db.Model, TimestampMixin):

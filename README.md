@@ -1,118 +1,154 @@
 # AI-FIT
 
-前后端分离的健身/营养 Web 应用：前端 React + Vite，后端 Flask + PostgreSQL。
+AI-FIT 是一个前后端分离的健身与营养应用。
 
-## 先装这些（不会自动安装）
+- 前端：React + TypeScript + Vite
+- 后端：Flask + SQLAlchemy
+- 数据库：PostgreSQL
+- 可选组件：Redis（分布式限流）、AI 服务集成
 
-`dev.ps1`（现已移至 `scripts/`）会自动安装“项目依赖”（Python 包、前端 npm 包）并启动服务，但不会自动安装以下基础软件：
-- Python（建议 3.10+）
-- Node.js（建议 18+）
-- Docker Desktop（必需，用于统一启动 PostgreSQL）
+## 1. 你的问题（直接回答）
 
-### Windows（推荐用 winget）
-以管理员 PowerShell 执行：
-```powershell
-winget install -e --id Python.Python.3.12
-winget install -e --id OpenJS.NodeJS.LTS
-winget install -e --id Docker.DockerDesktop
-```
-
-安装完成后：
-- 重启终端/IDE（确保 PATH 生效）
-- 启动 Docker Desktop（必须处于 Running 状态）
-
-验证：
-```powershell
-python --version
-npm.cmd --version
-docker --version
-docker info
-```
-
-### 手动下载安装（任意系统）
-
-- Python：到官网下载安装并勾选“Add Python to PATH”（Windows）
-- Node.js：安装 LTS 版本
-- Docker Desktop：安装后启动应用并完成首次初始化
-
-## 无脑启动（推荐）
-
-前提：安装 Python（建议 3.10+）、Node.js（建议 18+）以及 Docker Desktop（必需）。脚本会自动创建 Python 虚拟环境、安装后端依赖、安装前端依赖，并通过 Docker 启动 PostgreSQL，保证不同电脑环境一致。
-在仓库根目录执行（PowerShell）：
+本地调试仍然可以使用这条命令：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\dev.ps1
 ```
 
-说明：
-- 首次运行：会创建 `backend/.venv`、安装后端依赖、安装前端依赖、拉起 PostgreSQL（Docker）并启动前后端。
-- 之后每次启动：也可以继续运行同一条命令；脚本会复用已存在的虚拟环境与 `node_modules`，通常只会快速启动服务。
-- 如需“纯启动”（不做依赖检查/安装）：可以分别开两个终端手动运行后端与前端（见下方“手动启动”）。
+当前脚本路径：
 
-启动后：
-- 前端：`http://localhost:5173`
-- 后端健康检查：`http://127.0.0.1:5000/api/health`
+- `scripts/dev.ps1`
 
-## 手动启动
+## 2. 项目目录说明
 
-### 1) 启动数据库（PostgreSQL）
-推荐用 Docker：
+- `frontend/`：前端 UI、浏览器端姿态推理、交互逻辑
+- `backend/`：鉴权、策略下发、数据持久化、可选服务端推理队列
+- `scripts/`：本地开发脚本
+- `backend/doc/`：后端架构/配置/安全/运维文档
+- `frontend/doc/`：前端架构治理与重构追踪文档
+
+## 3. 本地开发（推荐）
+
+### 3.1 前置依赖
+
+- Python 3.10+
+- Node.js 18+
+- Docker Desktop（推荐用于本地 PostgreSQL/Redis）
+
+### 3.2 一键启动
+
+在仓库根目录执行：
+
 ```powershell
-docker compose up -d db
+powershell -ExecutionPolicy Bypass -File .\scripts\dev.ps1
 ```
 
-如不使用 Docker，也可以手动创建数据库，参考 [backend/db_init.sql](backend/db_init.sql)。但这样会引入“每台电脑环境不一致”的问题，不推荐。
+该脚本通常会：
 
-### 2) 启动后端
+- 准备后端虚拟环境并安装依赖
+- 安装前端依赖
+- 启动本地基础服务（如 Docker 中的数据库）
+- 启动前后端开发服务
+
+### 3.3 手动启动（需要时）
+
+1. 启动数据库（和 Redis）：
+
+```powershell
+docker compose up -d db redis
+```
+
+2. 启动后端：
 
 ```powershell
 cd .\backend
 Copy-Item .\.env.example .\.env -ErrorAction SilentlyContinue
-
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe run.py
 ```
 
-### 3) 启动前端
+3. 启动前端：
 
 ```powershell
 cd .\frontend
 Copy-Item .\.env.example .\.env -ErrorAction SilentlyContinue
-
 npm.cmd install
 npm.cmd run dev
 ```
 
-## 配置说明
+## 4. 本地访问地址
 
-后端环境变量示例在 [backend/.env.example](backend/.env.example)：
-- `DATABASE_URL`：默认 `postgresql+psycopg://aifitguard:aifitguard@localhost:5432/aifitguard`
-- `SECRET_KEY` / `JWT_SECRET_KEY`：本地可用示例值，部署时务必改成随机强密码
-- `CORS_ORIGINS`：可选，逗号分隔；不填时默认允许 `http://localhost:5173` 与 `http://127.0.0.1:5173`
+- 前端：`http://localhost:5173`
+- 后端健康检查：`http://127.0.0.1:5000/api/health`
 
-前端环境变量示例在 [frontend/.env.example](frontend/.env.example)：
-- `VITE_API_BASE`：后端基地址（默认 `http://127.0.0.1:5000`）
+## 5. 配置说明
 
-## 快速冒烟验证
+### 5.1 后端环境变量
 
-后端启动后，可以运行：
+参考：
+
+- 本地模板：`backend/.env.example`
+- 生产模板：`backend/.env.production.example`
+
+关键项：
+
+- `APP_ENV`（`development` / `production`）
+- `DB_AUTO_INIT`
+- `SECRET_KEY`、`JWT_SECRET_KEY`
+- `DATABASE_URL`
+- `CORS_ORIGINS`
+- `ADMIN_EMAIL`
+- `REDIS_URL`
+
+### 5.2 前端环境变量
+
+参考 `frontend/.env.example`，重点：
+
+- `VITE_API_BASE`
+
+## 6. 数据库迁移流程（生产级）
+
+当前已采用迁移优先流程。  
+生产环境不要依赖运行时自动建表。
+
+常用命令：
+
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\demo.ps1
+cd .\backend
+.\.venv\Scripts\flask.exe --app run.py db migrate -m "描述本次变更"
+.\.venv\Scripts\flask.exe --app run.py db upgrade
 ```
 
-会依次调用 health、注册、获取当前用户、提交反馈等接口。
+迁移目录：
 
-## 批量生成测试账号
-见 [info/ops/TEST_ACCOUNTS.md](info/ops/TEST_ACCOUNTS.md)。
+- `backend/migrations/`
 
-## 常见问题
+## 7. 生产部署要点
 
-- Docker 相关报错（`failed to connect to the docker API ... dockerDesktopLinuxEngine`）：表示 Docker Desktop 未启动或 Docker daemon 不可用。启动 Docker Desktop 后重试；本项目的一键脚本要求 Docker 以保证环境一致。
-- PowerShell 报 `npm.ps1` 执行策略限制：建议直接使用 `npm.cmd`（本仓库文档与脚本已默认使用），或自行调整当前用户执行策略。
+- 必须使用强密钥，不能用默认值
+- 保持 `PASSWORD_RESET_DEBUG_RETURN_LINK=0`
+- 必须显式配置 `CORS_ORIGINS`
+- 必须配置 `REDIS_URL`（分布式限流）
+- 每次发布后端前先执行 `db upgrade`
 
-## Dependency Note
+完整部署指引见：
 
-When frontend dependencies change, run `npm.cmd install` inside [frontend/package.json](/d:/trae/trae_projects/AI-FIT/frontend/package.json) or rerun `powershell -ExecutionPolicy Bypass -File .\scripts\dev.ps1`.
+- `DEPLOYMENT_SERVER_GUIDE_2026-05-02.md`
 
-This matters for the Pose migration because the realtime page adds browser-side MoveNet / TensorFlow packages, and an existing `node_modules` directory does not guarantee those new packages are present.
+## 8. 质量检查
+
+前端类型检查：
+
+```powershell
+cd .\frontend
+npm.cmd run typecheck
+```
+
+后端测试：
+
+```powershell
+cd .\backend
+.\.venv\Scripts\pytest.exe -q
+```
+

@@ -1,4 +1,10 @@
-export type AuthUser = { id: number; email: string; username: string; avatar_url?: string | null }
+﻿export type AuthUser = {
+  id: number
+  email: string
+  username: string
+  avatar_url?: string | null
+  is_admin?: boolean
+}
 
 const TOKEN_KEY = 'aifitguard_token'
 const USER_KEY = 'aifitguard_user'
@@ -31,4 +37,5 @@ export function clearAuth() {
   setToken(null)
   setUser(null)
 }
+
 

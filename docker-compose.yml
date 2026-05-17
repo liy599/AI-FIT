@@ -15,43 +15,26 @@ services:
       timeout: 3s
       retries: 20
 
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    volumes:
+      - aifitguard_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
   backend:
     build:
       context: ./backend
     env_file:
       - ./backend/.env
-    environment:
-      SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me}
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-jwt-secret-change-me}
-      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://aifitguard:aifitguard@db:5432/aifitguard}
-      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost}
-      CORS_ORIGINS: ${CORS_ORIGINS:-}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
-      DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:-}
-      AI_REPORT_TIMEOUT_SECONDS: ${AI_REPORT_TIMEOUT_SECONDS:-20}
-      POSE_REPORT_AI_ENABLED: ${POSE_REPORT_AI_ENABLED:-1}
-      POSE_REPORT_AI_MODEL: ${POSE_REPORT_AI_MODEL:-}
-      POSE_REPORT_AI_TIMEOUT_SECONDS: ${POSE_REPORT_AI_TIMEOUT_SECONDS:-20}
-      POSE_REPORT_AI_MAX_INPUT_CHARS: ${POSE_REPORT_AI_MAX_INPUT_CHARS:-12000}
-      PASSWORD_RESET_TOKEN_TTL_SECONDS: ${PASSWORD_RESET_TOKEN_TTL_SECONDS:-3600}
-      PASSWORD_RESET_DEBUG_RETURN_LINK: ${PASSWORD_RESET_DEBUG_RETURN_LINK:-0}
-      UPLOAD_PUBLIC_PREFIXES: ${UPLOAD_PUBLIC_PREFIXES:-avatars,blog_covers}
-      UPLOAD_SIGNED_URL_TTL_SECONDS: ${UPLOAD_SIGNED_URL_TTL_SECONDS:-300}
-      RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-1}
-      AUTH_LOGIN_RATE_LIMIT_PER_IP: ${AUTH_LOGIN_RATE_LIMIT_PER_IP:-20}
-      AUTH_LOGIN_RATE_LIMIT_IP_WINDOW_SECONDS: ${AUTH_LOGIN_RATE_LIMIT_IP_WINDOW_SECONDS:-300}
-      AUTH_LOGIN_RATE_LIMIT_PER_ACCOUNT: ${AUTH_LOGIN_RATE_LIMIT_PER_ACCOUNT:-8}
-      AUTH_LOGIN_RATE_LIMIT_ACCOUNT_WINDOW_SECONDS: ${AUTH_LOGIN_RATE_LIMIT_ACCOUNT_WINDOW_SECONDS:-900}
-      AUTH_FORGOT_RATE_LIMIT_PER_IP: ${AUTH_FORGOT_RATE_LIMIT_PER_IP:-10}
-      AUTH_FORGOT_RATE_LIMIT_IP_WINDOW_SECONDS: ${AUTH_FORGOT_RATE_LIMIT_IP_WINDOW_SECONDS:-900}
-      AUTH_FORGOT_RATE_LIMIT_PER_ACCOUNT: ${AUTH_FORGOT_RATE_LIMIT_PER_ACCOUNT:-5}
-      AUTH_FORGOT_RATE_LIMIT_ACCOUNT_WINDOW_SECONDS: ${AUTH_FORGOT_RATE_LIMIT_ACCOUNT_WINDOW_SECONDS:-1800}
-      FEEDBACK_RATE_LIMIT_PER_IP: ${FEEDBACK_RATE_LIMIT_PER_IP:-20}
-      FEEDBACK_RATE_LIMIT_IP_WINDOW_SECONDS: ${FEEDBACK_RATE_LIMIT_IP_WINDOW_SECONDS:-600}
-      FEEDBACK_RATE_LIMIT_PER_SUBJECT: ${FEEDBACK_RATE_LIMIT_PER_SUBJECT:-10}
-      FEEDBACK_RATE_LIMIT_SUBJECT_WINDOW_SECONDS: ${FEEDBACK_RATE_LIMIT_SUBJECT_WINDOW_SECONDS:-600}
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     volumes:
       - aifitguard_uploads:/app/instance/uploads
@@ -73,17 +56,32 @@ services:
     depends_on:
       - web
     environment:
-      SITE_ADDRESS: ${SITE_ADDRESS:-localhost}
+      ORIGIN_IP: ${ORIGIN_IP:-137.43.49.50}
     ports:
       - "${HTTP_PORT:-80}:80"
       - "${HTTPS_PORT:-443}:443"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./deploy/certbot/www:/var/www/certbot:ro
+      - letsencrypt:/etc/letsencrypt:ro
       - caddy_data:/data
       - caddy_config:/config
 
+  certbot:
+    image: certbot/certbot:latest
+    profiles:
+      - certbot
+    environment:
+      ORIGIN_IP: ${ORIGIN_IP:-137.43.49.50}
+      ACME_EMAIL: ${ACME_EMAIL:-admin@example.com}
+    volumes:
+      - ./deploy/certbot/www:/var/www/certbot
+      - letsencrypt:/etc/letsencrypt
+
 volumes:
   aifitguard_postgres_data:
+  aifitguard_redis_data:
   aifitguard_uploads:
+  letsencrypt:
   caddy_data:
   caddy_config:

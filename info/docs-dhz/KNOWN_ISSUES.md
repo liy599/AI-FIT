@@ -36,3 +36,4 @@ This file tracks confirmed engineering gaps that block or risk production-grade 
 ## Tracking Rules
 - Every issue must include owner, target date, and verification evidence in future updates.
 - Close only when code + tests + docs are all updated.
+

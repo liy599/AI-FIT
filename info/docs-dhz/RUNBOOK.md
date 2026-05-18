@@ -2,7 +2,7 @@
 
 ## 1. Environments
 - Local dev: Windows PowerShell + Docker Desktop + Python + Node
-- Container stack: `db`, `backend`, `web`, `caddy` via docker compose
+- Container stack: `db`, `redis`, `backend`, `web` via docker compose
 
 ## 2. Local Startup (Recommended)
 From repo root:
@@ -55,9 +55,9 @@ cd .\backend
 docker compose up -d --build
 ```
 Services:
-- HTTPS/HTTP entry: caddy (`80/443`)
-- API from caddy to backend
-- Static frontend from web container
+- HTTP entry: web nginx container (`80`)
+- API and uploads proxied from web nginx to backend
+- Static frontend served from web container
 
 ## 6. Basic Smoke Checklist
 - `GET /api/health` returns `{ ok: true }`
@@ -68,7 +68,7 @@ Services:
 
 ## 7. Incident Handling (Minimum)
 1. Capture failing route and payload.
-2. Check backend logs and caddy logs.
+2. Check backend logs and web logs.
 3. Verify DB connectivity and migration state.
 4. Roll back to previous stable image/tag if user-facing outage persists.
 

@@ -759,6 +759,18 @@
   word-break: break-word;
 }
 
+.blog-title-one-line,
+.blog-title-one-line a {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
 .blog-card-surface .text-neutral-500 {
   color: rgba(14, 56, 41, 0.72);
 }

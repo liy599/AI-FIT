@@ -5,11 +5,11 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from ...extensions import db
-from ...models import Blog, Comment, FoodMealRecord, TrainingSession, User, WorkoutRecord
+from ...models import Blog, Comment, TrainingSession, User, WorkoutRecord
 from ...utils.upload_access import resolve_upload_file_path
 
 
-ALLOWED_DELETE_TARGETS = {"workouts", "meals", "trainings", "blogs", "comments", "account", "all"}
+ALLOWED_DELETE_TARGETS = {"workouts", "trainings", "blogs", "comments", "account", "all"}
 
 
 def delete_user_data(user_id: int, data: dict) -> tuple[dict, int]:
@@ -27,16 +27,13 @@ def delete_user_data(user_id: int, data: dict) -> tuple[dict, int]:
     if "workouts" in targets:
         _count_and_delete(counts, "workouts", WorkoutRecord.query.filter_by(user_id=user_id), WorkoutRecord, before_dt, dry_run)
 
-    if "meals" in targets:
-        _count_and_delete(counts, "meals", FoodMealRecord.query.filter_by(user_id=user_id), FoodMealRecord, before_dt, dry_run)
-
     if "trainings" in targets:
         _count_and_delete(
             counts, "trainings", TrainingSession.query.filter_by(user_id=user_id), TrainingSession, before_dt, dry_run
         )
 
     if "comments" in targets:
-        _count_and_delete(counts, "comments", Comment.query.filter_by(user_id=user_id), Comment, before_dt, dry_run)
+        _count_and_delete_comments(counts, Comment.query.filter_by(user_id=user_id), before_dt, dry_run)
 
     if "blogs" in targets:
         _count_and_delete(counts, "blogs", Blog.query.filter_by(user_id=user_id), Blog, before_dt, dry_run)
@@ -80,6 +77,24 @@ def _count_and_delete(counts: dict[str, int], name: str, query, model, before_dt
         query.delete(synchronize_session=False)
 
 
+def _count_and_delete_comments(counts: dict[str, int], query, before_dt: Optional[datetime], dry_run: bool) -> None:
+    query = _apply_time_filter(query, Comment, before_dt)
+    counts["comments"] = query.count()
+    if dry_run or not counts["comments"]:
+        return
+
+    comment_ids = [row[0] for row in query.with_entities(Comment.id).order_by(Comment.created_at.asc(), Comment.id.asc()).all()]
+    for comment_id in comment_ids:
+        comment = db.session.get(Comment, comment_id)
+        if comment is None:
+            continue
+        Comment.query.filter_by(parent_id=comment.id).update(
+            {Comment.parent_id: comment.parent_id},
+            synchronize_session=False,
+        )
+        db.session.delete(comment)
+
+
 def _apply_time_filter(query, model, before_dt: Optional[datetime]):
     if before_dt is None:
         return query
@@ -111,7 +126,7 @@ def _to_targets(raw) -> set[str]:
     targets = {target for target in targets if target in ALLOWED_DELETE_TARGETS}
     if "all" in targets:
         targets.discard("all")
-        targets.update({"workouts", "meals", "trainings", "blogs", "comments"})
+        targets.update({"workouts", "trainings", "blogs", "comments"})
     return targets
 
 

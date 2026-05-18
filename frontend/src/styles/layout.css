@@ -24,10 +24,6 @@
   width: min(100%, 860px);
 }
 
-.page-col-food-editor {
-  width: min(100%, 980px);
-}
-
 .page-col-pose-guide {
   width: min(100%, 980px);
 }
@@ -331,6 +327,27 @@
   font-weight: 700;
   line-height: 1.5;
   padding: 10px 12px;
+}
+
+.blog-inline-message {
+  margin-top: 10px;
+  border-radius: 12px;
+  padding: 9px 11px;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.blog-inline-message--success {
+  border: 1px solid rgba(16, 185, 129, 0.24);
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.blog-inline-message--error {
+  border: 1px solid rgba(244, 63, 94, 0.24);
+  background: #fff1f2;
+  color: #be123c;
 }
 
 .blog-comments-list {

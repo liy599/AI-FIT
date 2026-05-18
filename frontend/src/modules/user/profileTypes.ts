@@ -11,28 +11,6 @@ export type UserProfile = {
   updated_at: string
 }
 
-export type MealHistory = {
-  id: number
-  mealType: string
-  recordedOn: string
-  items: Array<{
-    id: number
-    grams: number
-    foodId: number
-    food: {
-      id: number
-      displayName: string
-      name: string
-    } | null
-  }>
-  totals: {
-    kcal: number
-    protein: number
-    fat: number
-    carbs: number
-  }
-}
-
 export type MyBlog = {
   id: number
   title: string

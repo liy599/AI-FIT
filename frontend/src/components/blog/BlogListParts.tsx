@@ -256,7 +256,7 @@ function TopViewedStackCard({
 
       <div className="px-2 pb-2 pt-4">
         <div className="text-[11px] font-medium tracking-wide text-neutral-500">{author}</div>
-        <div className="mt-1 text-base font-semibold leading-snug tracking-tight text-neutral-900 line-clamp-2">
+        <div className="blog-title-one-line mt-1 text-base font-semibold leading-snug tracking-tight text-neutral-900">
           {blog ? <Link to={`/blogs/${blog.id}`}>{title}</Link> : title}
         </div>
 

@@ -23,7 +23,7 @@ const HERO_SLIDES = [
   { src: '/assets/images/hero/hero_slide_1.jpg', label: 'Outdoor gym equipment' },
   { src: '/assets/images/hero/hero_slide_2.jpg', label: 'Kettlebell training' },
   { src: '/assets/images/hero/hero_slide_3.jpg', label: 'Healthy garden salad' },
-  { src: '/assets/images/hero/hero_slide_4.jpg', label: 'Healthy meal' }
+  { src: '/assets/images/hero/hero_slide_4.jpg', label: 'Active recovery' }
 ] as const
 
 const DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
@@ -187,13 +187,13 @@ export default function HomePage() {
             </div>
             <div className="cl_hero-carousel-overlay" aria-hidden="true" />
             <div className="cl_hero-content">
-              <h1>Train smarter. Eat clearer.</h1>
+              <h1>Train smarter.</h1>
               <div className="cl_hero-content-btn">
                 <Link to="/tools/pose" className="cl_theme-btn cl_hero-btn">
                   Start Pose Coaching <Arrow15 />
                 </Link>
-                <Link to="/food" className="cl_hero-btn-2">
-                  Start Food Tracking <Arrow15 />
+                <Link to="/blogs" className="cl_hero-btn-2">
+                  Read Community Posts <Arrow15 />
                 </Link>
               </div>
             </div>

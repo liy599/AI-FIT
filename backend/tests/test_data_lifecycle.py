@@ -1,3 +1,7 @@
+from app.extensions import db
+from app.models import Comment, Tag
+
+
 def _register_and_token(client, email: str, username: str):
     response = client.post(
         "/api/auth/register",
@@ -45,3 +49,50 @@ def test_user_data_delete_workout(client):
     workouts = client.get("/api/workouts?page=1&page_size=20")
     assert workouts.status_code == 200
     assert workouts.get_json()["total"] == 0
+
+
+def test_user_data_delete_comments_preserves_replies(client, app):
+    with app.app_context():
+        t = Tag(name="Training")
+        db.session.add(t)
+        db.session.commit()
+        tag_id = t.id
+
+    _register_and_token(client, "dl-comment-owner@example.com", "dl-comment-owner")
+    owner_headers = _auth_headers(client)
+    create = client.post(
+        "/api/blogs",
+        headers=owner_headers,
+        json={
+            "title": "Lifecycle comment delete post",
+            "content": "Public discussion body.",
+            "tag_ids": [tag_id],
+            "is_published": True,
+        },
+    )
+    assert create.status_code == 201
+    blog_id = create.get_json()["id"]
+
+    commenter = app.test_client()
+    _register_and_token(commenter, "dl-commenter@example.com", "dl-commenter")
+    commenter_headers = _auth_headers(commenter)
+    root = commenter.post(f"/api/blogs/{blog_id}/comments", headers=commenter_headers, json={"content": "Parent"})
+    assert root.status_code == 201
+    root_id = root.get_json()["id"]
+
+    reply = client.post(f"/api/blogs/{blog_id}/comments", headers=owner_headers, json={"content": "Reply", "parent_id": root_id})
+    assert reply.status_code == 201
+    reply_id = reply.get_json()["id"]
+
+    execute = commenter.post(
+        "/api/user/data-lifecycle/delete",
+        headers=commenter_headers,
+        json={"targets": ["comments"], "dry_run": False},
+    )
+    assert execute.status_code == 200
+
+    with app.app_context():
+        assert db.session.get(Comment, root_id) is None
+        preserved = db.session.get(Comment, reply_id)
+        assert preserved is not None
+        assert preserved.parent_id is None

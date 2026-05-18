@@ -266,8 +266,6 @@ export function UserCommunityPanel(props: UserCommunityPanelProps) {
               <option value="updated_at:desc">Recently updated</option>
               <option value="created_at:desc">Newest created</option>
               <option value="created_at:asc">Oldest created</option>
-              <option value="title:asc">Title A-Z</option>
-              <option value="title:desc">Title Z-A</option>
             </select>
             <button type="submit">Search</button>
           </form>
@@ -345,7 +343,6 @@ export function UserCommunityPanel(props: UserCommunityPanelProps) {
           <select value={commentSort} onChange={(event) => { setCommentSort(event.target.value); setCommentPage(1) }}>
             <option value="latest_comment:desc">Latest comment</option>
             <option value="latest_comment:asc">Oldest comment</option>
-            <option value="title:asc">Blog title A-Z</option>
             <option value="comment_count:desc">Most comments</option>
           </select>
           <button type="submit">Search</button>

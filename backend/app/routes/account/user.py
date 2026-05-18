@@ -3,8 +3,8 @@ from typing import Optional
 
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
-from sqlalchemy import and_, or_
-from sqlalchemy.orm import joinedload
+from sqlalchemy import and_, func, or_
+from sqlalchemy.orm import joinedload, load_only
 
 from ...extensions import db
 from ...models import Blog, Comment, Notification, User
@@ -183,70 +183,80 @@ def my_comments():
     sort_by = (request.args.get("sort_by") or "latest_comment").strip()
     sort_dir = (request.args.get("sort_dir") or "desc").strip().lower()
 
-    q = Comment.query.options(joinedload(Comment.blog)).filter_by(user_id=user_id)
+    q = (
+        db.session.query(
+            Blog.id.label("blog_id"),
+            Blog.title.label("blog_title"),
+            Blog.cover_image_url.label("cover_image_url"),
+            Blog.is_published.label("is_published"),
+            Blog.moderation_status.label("moderation_status"),
+            Blog.updated_at.label("blog_updated_at"),
+            func.count(Comment.id).label("comment_count"),
+            func.max(Comment.created_at).label("latest_comment_at"),
+        )
+        .join(Comment, Comment.blog_id == Blog.id)
+        .filter(Comment.user_id == user_id)
+        .group_by(Blog.id, Blog.title, Blog.cover_image_url, Blog.is_published, Blog.moderation_status, Blog.updated_at)
+    )
     if query_text:
-        q = q.join(Blog).filter(or_(Comment.content.ilike(f"%{query_text}%"), Blog.title.ilike(f"%{query_text}%")))
-    comments = q.order_by(Comment.created_at.desc(), Comment.id.desc()).all()
+        q = q.filter(or_(Comment.content.ilike(f"%{query_text}%"), Blog.title.ilike(f"%{query_text}%")))
 
-    grouped = {}
-    for c in comments:
-        blog = c.blog
-        if blog is None:
-            continue
-        entry = grouped.setdefault(
-            blog.id,
-            {
-                "blog": {
-                    "id": blog.id,
-                    "title": blog.title,
-                    "cover_image_url": blog.cover_image_url,
-                    "is_published": blog.is_published,
-                    "updated_at": blog.updated_at.isoformat(),
-                },
-                "comments": [],
-                "comment_count": 0,
-                "latest_comment_at": c.created_at,
-            },
-        )
-        entry["comments"].append(
-            {
-                "id": c.id,
-                "blog_id": c.blog_id,
-                "content": c.content,
-                "created_at": c.created_at.isoformat(),
-                "updated_at": c.updated_at.isoformat(),
-            }
-        )
-        entry["comment_count"] += 1
-        if c.created_at > entry["latest_comment_at"]:
-            entry["latest_comment_at"] = c.created_at
-
-    groups = list(grouped.values())
+    total = db.session.query(func.count()).select_from(q.subquery()).scalar() or 0
     reverse = sort_dir != "asc"
     if sort_by == "title":
-        groups.sort(key=lambda item: item["blog"]["title"].lower(), reverse=reverse)
+        order_expr = Blog.title.desc() if reverse else Blog.title.asc()
     elif sort_by == "comment_count":
-        groups.sort(key=lambda item: item["comment_count"], reverse=reverse)
+        order_expr = func.count(Comment.id).desc() if reverse else func.count(Comment.id).asc()
     else:
-        groups.sort(key=lambda item: item["latest_comment_at"], reverse=reverse)
+        order_expr = func.max(Comment.created_at).desc() if reverse else func.max(Comment.created_at).asc()
+    rows = q.order_by(order_expr, Blog.id.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    blog_ids = [row.blog_id for row in rows]
 
-    total = len(groups)
-    items = groups[(page - 1) * page_size : page * page_size]
+    comments_by_blog: dict[int, list[Comment]] = {blog_id: [] for blog_id in blog_ids}
+    if blog_ids:
+        comments = (
+            Comment.query.options(
+                load_only(Comment.id, Comment.blog_id, Comment.content, Comment.created_at, Comment.updated_at)
+            )
+            .filter(Comment.user_id == user_id, Comment.blog_id.in_(blog_ids))
+            .order_by(Comment.blog_id.asc(), Comment.created_at.desc(), Comment.id.desc())
+            .all()
+        )
+        for comment in comments:
+            comments_by_blog.setdefault(comment.blog_id, []).append(comment)
 
-    return jsonify(
-        {
-            "items": [
-                {
-                    **item,
-                    "latest_comment_at": item["latest_comment_at"].isoformat(),
-                }
-                for item in items
-            ],
-            "page": page,
-            "page_size": page_size,
-            "total": total,
-        }
-    )
+    items = []
+    for row in rows:
+        item_comments = comments_by_blog.get(row.blog_id, [])
+        status = "published" if bool(row.is_published) and row.moderation_status == "active" else "unpublished"
+        if not bool(row.is_published) and row.moderation_status != "unpublished":
+            status = "draft"
+        items.append(
+            {
+                "blog": {
+                    "id": row.blog_id,
+                    "title": row.blog_title,
+                    "cover_image_url": row.cover_image_url,
+                    "is_published": bool(row.is_published),
+                    "status": status,
+                    "updated_at": row.blog_updated_at.isoformat(),
+                },
+                "comments": [
+                    {
+                        "id": c.id,
+                        "blog_id": c.blog_id,
+                        "content": c.content,
+                        "created_at": c.created_at.isoformat(),
+                        "updated_at": c.updated_at.isoformat(),
+                    }
+                    for c in item_comments
+                ],
+                "comment_count": int(row.comment_count),
+                "latest_comment_at": row.latest_comment_at.isoformat(),
+            }
+        )
+
+    return jsonify({"items": items, "page": page, "page_size": page_size, "total": total})
 
 
 def _comment_page_for_root(root: Comment, page_size: int = 10) -> int:
@@ -289,9 +299,17 @@ def my_notifications():
     page, page_size = parse_pagination(request.args, default_page_size=10)
     q = (
         Notification.query.options(
-            joinedload(Notification.actor),
-            joinedload(Notification.blog),
-            joinedload(Notification.root_comment),
+            load_only(
+                Notification.id,
+                Notification.type,
+                Notification.is_read,
+                Notification.created_at,
+                Notification.comment_id,
+                Notification.root_comment_id,
+            ),
+            joinedload(Notification.actor).load_only(User.id, User.username, User.avatar_url),
+            joinedload(Notification.blog).load_only(Blog.id, Blog.title),
+            joinedload(Notification.root_comment).load_only(Comment.id, Comment.blog_id, Comment.created_at),
         )
         .filter_by(recipient_user_id=user_id)
         .order_by(Notification.created_at.desc(), Notification.id.desc())

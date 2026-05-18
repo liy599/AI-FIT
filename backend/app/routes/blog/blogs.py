@@ -7,7 +7,7 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required, verify_jwt_in_request
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import or_
-from sqlalchemy.orm import joinedload, selectinload
+from sqlalchemy.orm import joinedload, load_only, selectinload
 
 from ...extensions import db
 from ...models import Blog, BlogLike, BlogTag, BlogView, Tag, User
@@ -183,6 +183,12 @@ def _record_unique_view(blog: Blog, user_id: Optional[int]) -> None:
     db.session.commit()
 
 
+def _jsonify_public(payload: dict, max_age: int = 30):
+    response = jsonify(payload)
+    response.headers["Cache-Control"] = f"public, max-age={max_age}"
+    return response
+
+
 @bp.route("/cover", methods=["OPTIONS"])
 def cover_options():
     return "", 204
@@ -244,11 +250,27 @@ def list_blogs():
     )
     ids = [row[0] for row in id_rows]
     if not ids:
-        return jsonify({"items": [], "page": page, "page_size": page_size, "total": total})
+        return _jsonify_public({"items": [], "page": page, "page_size": page_size, "total": total})
 
     blogs = (
         Blog.query.options(
-            joinedload(Blog.author),
+            load_only(
+                Blog.id,
+                Blog.title,
+                Blog.content,
+                Blog.cover_image_url,
+                Blog.image_urls,
+                Blog.view_count,
+                Blog.like_count,
+                Blog.is_published,
+                Blog.moderation_status,
+                Blog.visibility,
+                Blog.moderation_restore_requested,
+                Blog.created_at,
+                Blog.updated_at,
+                Blog.user_id,
+            ),
+            joinedload(Blog.author).load_only(User.id, User.username, User.avatar_url),
             selectinload(Blog.tags).joinedload(BlogTag.tag),
         )
         .filter(Blog.id.in_(ids))
@@ -256,7 +278,7 @@ def list_blogs():
         .all()
     )
 
-    return jsonify({"items": [_blog_card(b) for b in blogs], "page": page, "page_size": page_size, "total": total})
+    return _jsonify_public({"items": [_blog_card(b) for b in blogs], "page": page, "page_size": page_size, "total": total})
 
 
 @bp.get("/<int:blog_id>")
@@ -267,7 +289,7 @@ def get_blog(blog_id: int):
 
     blog = (
         Blog.query.options(
-            joinedload(Blog.author),
+            joinedload(Blog.author).load_only(User.id, User.username, User.avatar_url, User.is_admin),
             selectinload(Blog.tags).joinedload(BlogTag.tag),
         )
         .filter_by(id=blog_id)

@@ -19,7 +19,7 @@
 - Cancel endpoint supports purging uploaded media payload.
 
 ## 5. Deployment Hardening Checklist
-- Use HTTPS only.
+- Use HTTPS for public production when browser camera APIs are required; HTTP-only VM deployment is a temporary/simple mode.
 - Keep `http.sslverify` enabled in git/system config.
 - Store secrets in vault/CI secret manager, not repo.
 - Enforce non-default `SECRET_KEY` and `JWT_SECRET_KEY` in production.

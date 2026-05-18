@@ -1,200 +1,157 @@
-# AI-FIT VM IP HTTPS Deployment Guide
+# AI-FIT VM HTTP Deployment Guide
 
-Last updated: 2026-05-06
-Project root: `E:\trae_project\AI-FIT`
+Last updated: 2026-05-18
 
-## 1. Deployment Target
+This guide deploys the current `main` branch to a VM with Docker Compose. The public entry is plain HTTP:
 
-This guide targets VM deployment at:
+- Frontend/API origin: `http://137.43.49.50/`
+- Public port: `80`
+- No Caddy, Certbot, HTTPS redirect, or certificate renewal workflow
 
-- Frontend/API origin: `https://137.43.49.50/`
-- No domain proxy
+## Important Limitation
 
-It keeps:
-- privacy-first defaults (local MoveNet inference)
-- strong secret management
-- explicit database migration workflow
-- hardened compose startup checks
+Browser camera APIs require a secure context. With public HTTP, live camera permission may be blocked by browsers. The HTTP-only deployment is suitable for API, account, blog, food, and non-camera checks. Restore an HTTPS reverse proxy later if live camera mode must work on the public IP.
 
-### Camera permission
+## Prerequisites
 
-Browser camera APIs require a secure context. This deployment uses a publicly trusted IP address certificate for `https://137.43.49.50/` so the browser can show the camera permission prompt without using the old domain proxy.
+- Docker installed
+- Legacy `docker-compose` command available
+- Firewall allows port `80`
+- Repository cloned on the VM
 
-## 2. Prerequisites
+## Prepare Environment Files
 
-- Docker + Docker Compose plugin installed
-- PostgreSQL and Redis reachable (or compose local services)
-- Firewall allows 80 and 443
-- Certbot image supports Let's Encrypt IP address certificates. Use `certbot/certbot:latest`, or any Certbot version that supports `--ip-address` and `--preferred-profile shortlived`.
-
-## 3. Prepare Environment Files
-
-### 3.1 Backend runtime env
-
-1. Copy template:
-
-```bash
-cp backend/.env.example backend/.env
-```
-
-2. Edit `backend/.env` and replace placeholders:
-- `SECRET_KEY` (>=32 chars)
-- `JWT_SECRET_KEY` (>=32 chars)
-- `DATABASE_URL`
-- `FRONTEND_BASE_URL=https://137.43.49.50`
-- `CORS_ORIGINS=https://137.43.49.50`
-- `ADMIN_EMAIL`
-- `STEPFUN_API_KEY` / `AI_REPORT_API_KEY` if AI features enabled
-
-3. Keep privacy-first defaults unless needed:
-- `POSE_SERVER_INFERENCE_ENABLED=0`
-- `POSE_REPORT_AI_ENABLED=0` (if you do not need cloud AI)
-
-### 3.2 Root compose env
-
-Create root `.env` (same folder as `docker-compose.yml`) to provide compose interpolation values:
+Create root `.env` next to `docker-compose.yml`:
 
 ```env
 DB_PORT=5432
 POSTGRES_USER=app_user
-POSTGRES_PASSWORD=strongpass
+POSTGRES_PASSWORD=replace-with-a-strong-password
 POSTGRES_DB=aifitguard
-
 HTTP_PORT=80
-HTTPS_PORT=443
-
-ORIGIN_IP=137.43.49.50
-ACME_EMAIL=admin@example.com
 VITE_API_BASE=/api
 ```
 
-## 4. Database Migration Workflow
+Create `backend/.env`:
 
-Do not rely on app startup table creation in production.
-
-Run migrations explicitly:
-
-```bash
-cd backend
-flask --app run.py db upgrade
-cd ..
+```env
+APP_ENV=production
+DB_AUTO_INIT=0
+SECRET_KEY=replace-with-at-least-32-random-characters
+JWT_SECRET_KEY=replace-with-at-least-32-random-characters
+REDIS_URL=redis://redis:6379/0
+DATABASE_URL=postgresql+psycopg://app_user:replace-with-a-strong-password@db:5432/aifitguard
+FRONTEND_BASE_URL=http://137.43.49.50
+CORS_ORIGINS=http://137.43.49.50
+ADMIN_EMAIL=admin@example.com
+PASSWORD_RESET_DEBUG_RETURN_LINK=0
+UPLOAD_PUBLIC_PREFIXES=avatars,blog_covers
+UPLOAD_SIGNED_URL_TTL_SECONDS=300
+RATE_LIMIT_ENABLED=1
+STEPFUN_API_URL=https://api.stepfun.com/v1/chat/completions
+STEPFUN_API_KEY=
+STEPFUN_MODEL=step-1v-8k
+AI_REPORT_API_URL=https://api.stepfun.com/v1/chat/completions
+AI_REPORT_API_KEY=
+AI_REPORT_MODEL=step-1v-8k
+AI_REPORT_TIMEOUT_SECONDS=20
 ```
 
-If migration repo is not initialized yet:
+Use real secret values before starting production.
+
+## First Deployment
 
 ```bash
-cd backend
-flask --app run.py db init
-flask --app run.py db migrate -m "initial schema"
-flask --app run.py db upgrade
-cd ..
+cd ~/AI-FIT
+
+git fetch origin main
+git checkout main
+git pull --ff-only origin main
+
+docker-compose build backend web
+docker-compose up -d db redis
+
+docker-compose run --rm backend flask --app run.py db upgrade
+docker-compose run --rm backend python seed.py
+
+docker-compose up -d db redis backend web
 ```
 
-## 5. First-Time IP HTTPS Bootstrap
-
-Use the bootstrap Caddyfile first. It serves HTTP and the ACME challenge path so Certbot can request the trusted IP certificate. After the certificate is issued, the script restarts Caddy with the normal HTTPS Caddyfile.
-
-From project root on the VM:
+## Update Deployment
 
 ```bash
-ACME_EMAIL=admin@example.com ORIGIN_IP=137.43.49.50 sh scripts/vm-bootstrap-ip-https.sh
+cd ~/AI-FIT
+
+git fetch origin main
+git checkout main
+git pull --ff-only origin main
+
+docker-compose build backend web
+docker-compose up -d db redis
+docker-compose run --rm backend flask --app run.py db upgrade
+docker-compose run --rm backend python seed.py
+docker-compose up -d db redis backend web
 ```
 
-Expected result:
-
-- Certbot stores the certificate in the `letsencrypt` Docker volume.
-- Caddy serves `https://137.43.49.50/`.
-- `http://137.43.49.50/` redirects to HTTPS, except ACME challenge files.
-
-## 6. Certificate Renewal
-
-IP address certificates are short-lived. Run renewal at least daily; every 4-12 hours is safer.
-
-Manual renewal:
+## Checks
 
 ```bash
-ORIGIN_IP=137.43.49.50 sh scripts/vm-renew-ip-cert.sh
-```
-
-Cron example:
-
-```cron
-17 */6 * * * cd /path/to/AI-FIT && ORIGIN_IP=137.43.49.50 sh scripts/vm-renew-ip-cert.sh >> /var/log/aifit-certbot.log 2>&1
-```
-
-## 7. Normal Start
-
-Use this normal start command after the first certificate has already been issued:
-
-```bash
-docker compose up -d --build
-```
-
-## 8. Post-Deployment Checks
-
-### 8.1 Health endpoint
-
-```bash
-curl -fsS https://137.43.49.50/api/health
+docker-compose ps
+curl -fsS http://137.43.49.50/api/health
 ```
 
 Expected response:
 
 ```json
-{"ok": true}
+{"ok":true}
 ```
 
-### 8.2 Security checks
+The `web` service should expose `0.0.0.0:80->80/tcp`.
 
-- Confirm no default secrets in runtime env.
-- Confirm `APP_ENV=production` and `DB_AUTO_INIT=0`.
-- Confirm CORS only allows `https://137.43.49.50`.
-- Confirm the browser shows a valid certificate for `https://137.43.49.50/`.
+## Troubleshooting
 
-### 8.3 Privacy checks
+### Port 80 Is Already Allocated
 
-- Confirm local MoveNet inference stays in-browser and no server upload is enabled by default.
-- Confirm live camera mode can trigger the browser permission prompt on `https://137.43.49.50/`.
-- If enabling server inference, verify consent UX is visible before upload.
+Find the owner:
 
-## 9. Operations and Rotation
+```bash
+docker ps --format "table {{.Names}}\t{{.Ports}}" | grep ':80' || true
+sudo ss -ltnp | grep ':80' || true
+```
 
-- Rotate all secrets periodically.
-- If a key was ever committed/exposed, rotate immediately.
-- Backup database regularly and test restore path.
-- Monitor:
-  - auth failures
-  - rate-limit spikes
-  - pose task failure ratio
+Stop the old container or host service that owns port `80`, then run:
 
-## 10. Troubleshooting
+```bash
+docker-compose up -d web
+```
 
-### 10.1 Compose exits with SECRET_KEY/JWT_SECRET_KEY required
+### `web` Exits With `host not found in upstream "backend"`
 
-Cause: production hardening guard is working.
-Fix: set real values in root `.env` or shell env before `docker compose up`.
+Recreate the Compose network and containers without deleting volumes:
 
-### 10.2 502/stepfun_failed on recognition/report
+```bash
+docker-compose down --remove-orphans
+docker-compose up -d db redis
+docker-compose run --rm backend flask --app run.py db upgrade
+docker-compose up -d backend web
+```
 
-Cause: AI key missing/invalid or provider unavailable.
-Fix: check `STEPFUN_API_KEY`/`AI_REPORT_API_KEY`, or disable AI with `POSE_REPORT_AI_ENABLED=0`.
+### CORS Errors
 
-### 10.3 CORS error on frontend
+Make sure `backend/.env` uses the exact HTTP origin:
 
-Cause: `CORS_ORIGINS`/`FRONTEND_BASE_URL` mismatch.
-Fix: set exact scheme+host used by frontend, for this VM normally `https://137.43.49.50`.
+```env
+FRONTEND_BASE_URL=http://137.43.49.50
+CORS_ORIGINS=http://137.43.49.50
+```
 
-### 10.4 Camera permission does not appear on the IP site
+### Production Secret Guard Fails
 
-Cause: the browser does not trust the certificate or the page was opened over HTTP.
-Fix: open `https://137.43.49.50/`, confirm the certificate is valid, and confirm the site is not loaded through a mixed-content or captive-portal page.
+Production startup requires:
 
-### 10.5 Caddy fails before the certificate exists
-
-Cause: the normal `Caddyfile` loads certificate files from `/etc/letsencrypt/live/137.43.49.50/`.
-Fix: run `scripts/vm-bootstrap-ip-https.sh` first. It uses `deploy/Caddyfile.bootstrap` to complete ACME validation before switching to HTTPS.
-
-### 10.6 TLS alert internal error on the IP address
-
-Cause: Caddy could not present a certificate during the TLS handshake, often because the certificate files are missing, unreadable, or the server was still using an older host-specific `https://IP` site block.
-Fix: use the current `:443` Caddyfile, confirm `/etc/letsencrypt/live/137.43.49.50/fullchain.pem` exists in the container, then restart Caddy.
+- `APP_ENV=production`
+- `DB_AUTO_INIT=0`
+- non-default `SECRET_KEY`
+- non-default `JWT_SECRET_KEY`
+- explicit `CORS_ORIGINS`
+- `REDIS_URL=redis://redis:6379/0`

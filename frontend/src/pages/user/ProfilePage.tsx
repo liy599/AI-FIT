@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   API_BASE,
-  getMyBlogs,
-  getMyComments,
   getMyProfile,
   listMyMealHistory,
   resolveBackendUrl,
@@ -15,9 +13,9 @@ import {
   listPoseTrainings,
   type PoseTrainingSession
 } from '../../modules/pose'
-import { deleteBlogById, deleteComment as deleteBlogComment, updateBlog } from '../../modules/blog'
+import { deleteBlogById, deleteComment as deleteBlogComment, resolveBlogMediaUrl, updateBlog } from '../../modules/blog'
 import { useAuth } from '../../state/auth-context'
-import type { MealHistory, MyBlog, MyComment, ProfileEditState, UserProfile } from '../../modules/user/profileTypes'
+import type { MealHistory, MyBlog, ProfileEditState, UserProfile } from '../../modules/user/profileTypes'
 import { formatYmdLocal, pad2, startOfWeek } from '../../modules/user/profileDate'
 import { ProfileDetailsPanel } from '../../components/user/ProfileDetailsPanel'
 import { DietHistoryPanel } from '../../components/user/DietHistoryPanel'
@@ -29,22 +27,20 @@ const defaultAvatarImage = '/assets/images/bg/default.jpg'
 export default function ProfilePage() {
   const auth = useAuth()
   const navigate = useNavigate()
-  const [tab, setTab] = useState<'Dashboard' | 'Profile' | 'Diet' | 'Community'>('Dashboard')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [tab, setTab] = useState<'Dashboard' | 'Profile' | 'Diet' | 'Blogs'>(() => {
+    const requested = searchParams.get('tab')
+    if (requested === 'Profile' || requested === 'Diet' || requested === 'Blogs') return requested
+    if (requested === 'Community') return 'Blogs'
+    return 'Dashboard'
+  })
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const noticeTimerRef = useRef<number | null>(null)
-  const loadedRef = useRef({
-    profile: false,
-    blogs: false,
-    comments: false
-  })
   const [avatarUploading, setAvatarUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const [profile, setProfile] = useState<UserProfile | null>(null)
-  const [myBlogs, setMyBlogs] = useState<MyBlog[]>([])
-  const [myComments, setMyComments] = useState<MyComment[]>([])
-
   const [poseMonth, setPoseMonth] = useState(() => {
     const now = new Date()
     return new Date(now.getFullYear(), now.getMonth(), 1)
@@ -99,6 +95,15 @@ export default function ProfilePage() {
     for (const list of map.values()) list.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
     return map
   }, [dietMeals])
+
+  useEffect(() => {
+    const requested = searchParams.get('tab')
+    if (requested === 'Dashboard' || requested === 'Profile' || requested === 'Diet' || requested === 'Blogs') {
+      setTab(requested)
+    } else if (requested === 'Community') {
+      setTab('Blogs')
+    }
+  }, [searchParams])
 
   useEffect(() => {
     if (tab !== 'Dashboard') return
@@ -326,37 +331,13 @@ export default function ProfilePage() {
     }
   }
 
-  async function loadMyBlogs() {
-    const r = await getMyBlogs<MyBlog>()
-    setMyBlogs(r.items)
-  }
-
-  async function loadMyComments() {
-    const r = await getMyComments<MyComment>()
-    setMyComments(r.items)
-  }
-
   useEffect(() => {
     setError(null)
-    loadedRef.current.profile = true
     loadProfile().catch((e: unknown) => setError(e instanceof Error ? e.message : 'Failed to load'))
     return () => {
       if (noticeTimerRef.current != null) window.clearTimeout(noticeTimerRef.current)
     }
   }, [])
-
-  useEffect(() => {
-    if (tab === 'Community') {
-      if (!loadedRef.current.blogs) {
-        loadedRef.current.blogs = true
-        loadMyBlogs().catch(() => {})
-      }
-      if (!loadedRef.current.comments) {
-        loadedRef.current.comments = true
-        loadMyComments().catch(() => {})
-      }
-    }
-  }, [tab])
 
   async function saveProfile() {
     if (!edit) return
@@ -390,7 +371,6 @@ export default function ProfilePage() {
     try {
       const nowPublished = !blog.is_published
       await updateBlog(blog.id, { is_published: nowPublished })
-      await loadMyBlogs()
       flashNotice(nowPublished ? 'Published' : 'Moved to draft')
       if (nowPublished) navigate(`/blogs/${blog.id}`)
     } catch (e: unknown) {
@@ -402,7 +382,6 @@ export default function ProfilePage() {
     setError(null)
     try {
       await deleteBlogById(blogId)
-      await loadMyBlogs()
       flashNotice('Deleted')
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Delete failed')
@@ -413,7 +392,6 @@ export default function ProfilePage() {
     setError(null)
     try {
       await deleteBlogComment(commentId)
-      await loadMyComments()
       flashNotice('Deleted')
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Delete failed')
@@ -429,20 +407,15 @@ export default function ProfilePage() {
             <div className="text-sm text-slate-600">{auth.user?.email}</div>
           </div>
           <div className="flex items-center gap-2">
-            <Link to="/profile/privacy" className="profile-btn-secondary">
-              Privacy
-            </Link>
-            {auth.user?.is_admin ? (
-              <Link to="/admin/data-lifecycle" className="profile-btn-secondary">
-                Admin Cleanup
-              </Link>
-            ) : null}
             <button
               className={[
                 'profile-btn-secondary',
                 tab === 'Profile' ? 'bg-emerald-600 text-white shadow-sm' : ''
-              ].join(' ')}
-              onClick={() => setTab('Profile')}
+            ].join(' ')}
+              onClick={() => {
+                setTab('Profile')
+                setSearchParams({ tab: 'Profile' })
+              }}
               style={tab === 'Profile' ? { borderColor: 'rgb(5 150 105)' } : undefined}
             >
               Profile
@@ -458,7 +431,7 @@ export default function ProfilePage() {
           [
             { key: 'Dashboard', label: 'Exercise' },
             { key: 'Diet', label: 'Diet' },
-            { key: 'Community', label: 'Community' }
+            { key: 'Blogs', label: 'Blogs' }
           ] as const
         ).map((t) => (
           <button
@@ -469,7 +442,11 @@ export default function ProfilePage() {
                 ? 'bg-emerald-600 text-white shadow-sm'
                 : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
             ].join(' ')}
-            onClick={() => setTab(t.key)}
+            onClick={() => {
+              setTab(t.key)
+              if (t.key === 'Dashboard') setSearchParams({})
+              else setSearchParams({ tab: t.key })
+            }}
             style={tab === t.key ? { borderColor: 'rgb(5 150 105)' } : undefined}
           >
             {t.label}
@@ -530,14 +507,12 @@ export default function ProfilePage() {
         />
       ) : null}
 
-      {tab === 'Community' ? (
+      {tab === 'Blogs' ? (
         <UserCommunityPanel
-          myBlogs={myBlogs}
-          myComments={myComments}
-          resolveMediaUrl={resolveAvatarUrl}
-          onTogglePublish={(blog) => togglePublish(blog).catch(() => {})}
-          onDeleteBlog={(blogId) => deleteBlog(blogId).catch(() => {})}
-          onDeleteComment={(commentId) => deleteComment(commentId).catch(() => {})}
+          resolveMediaUrl={resolveBlogMediaUrl}
+          onTogglePublish={togglePublish}
+          onDeleteBlog={deleteBlog}
+          onDeleteComment={deleteComment}
         />
       ) : null}
     </div>

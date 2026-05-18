@@ -4,19 +4,11 @@
   username: string
   avatar_url?: string | null
   is_admin?: boolean
+  is_disabled?: boolean
 }
 
-const TOKEN_KEY = 'aifitguard_token'
 const USER_KEY = 'aifitguard_user'
-
-export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY)
-}
-
-export function setToken(token: string | null) {
-  if (!token) localStorage.removeItem(TOKEN_KEY)
-  else localStorage.setItem(TOKEN_KEY, token)
-}
+const LEGACY_TOKEN_KEY = 'aifitguard_token'
 
 export function getUser(): AuthUser | null {
   const raw = localStorage.getItem(USER_KEY)
@@ -34,8 +26,8 @@ export function setUser(user: AuthUser | null) {
 }
 
 export function clearAuth() {
-  setToken(null)
   setUser(null)
+  localStorage.removeItem(LEGACY_TOKEN_KEY)
 }
 
 

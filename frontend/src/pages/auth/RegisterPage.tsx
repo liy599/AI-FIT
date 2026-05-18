@@ -10,27 +10,46 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function submit() {
     setError(null)
     if (busy) return
-    if (!email.trim()) {
+    const normalizedEmail = email.trim().toLowerCase()
+    const normalizedUsername = username.trim()
+    if (!normalizedEmail) {
       setError('Email is required.')
       return
     }
-    if (!username.trim()) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      setError('Enter a valid email address.')
+      return
+    }
+    if (!normalizedUsername) {
       setError('Username is required.')
+      return
+    }
+    if (normalizedUsername.length < 3) {
+      setError('Username must be at least 3 characters.')
+      return
+    }
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters.')
       return
     }
     if (!password.trim()) {
       setError('Password is required.')
       return
     }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.')
+      return
+    }
     setBusy(true)
     try {
-      const r = await registerByPassword(email, username, password)
+      const r = await registerByPassword(normalizedEmail, normalizedUsername, password)
       auth.setAuth(r.user)
       nav('/profile', { replace: true })
     } catch (e: unknown) {
@@ -81,7 +100,14 @@ export default function RegisterPage() {
                         <label htmlFor="email">
                           Email<span>*</span>
                         </label>
-                        <input type="email" id="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+                        <input
+                          type="email"
+                          id="email"
+                          required
+                          autoComplete="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                        />
                       </div>
                     </div>
                     <div>
@@ -89,7 +115,15 @@ export default function RegisterPage() {
                         <label htmlFor="username">
                           Username<span>*</span>
                         </label>
-                        <input id="username" required value={username} onChange={(e) => setUsername(e.target.value)} />
+                        <input
+                          id="username"
+                          required
+                          minLength={3}
+                          maxLength={64}
+                          autoComplete="username"
+                          value={username}
+                          onChange={(e) => setUsername(e.target.value)}
+                        />
                       </div>
                     </div>
                     <div>
@@ -97,7 +131,31 @@ export default function RegisterPage() {
                         <label htmlFor="password">
                           Password<span>*</span>
                         </label>
-                        <input type="password" id="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+                        <input
+                          type="password"
+                          id="password"
+                          required
+                          minLength={8}
+                          autoComplete="new-password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="cl_blog_details-reply-item">
+                        <label htmlFor="confirmPassword">
+                          Confirm password<span>*</span>
+                        </label>
+                        <input
+                          type="password"
+                          id="confirmPassword"
+                          required
+                          minLength={8}
+                          autoComplete="new-password"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                        />
                       </div>
                     </div>
                     {error ? (
@@ -107,8 +165,8 @@ export default function RegisterPage() {
                     ) : null}
                     <div>
                       <div className="cl_blog_details-reply-item">
-                        <button type="submit">
-                          Register
+                        <button type="submit" disabled={busy}>
+                          {busy ? 'Registering...' : 'Register'}
                         </button>
                       </div>
                     </div>

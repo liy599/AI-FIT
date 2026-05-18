@@ -30,7 +30,7 @@
 - `features/food`: nutrition and meal APIs.
 - `features/user`: auth/profile/workout/meal/blog-owning user APIs.
 - `features/blog`: blog list/detail/edit/comment APIs.
-- `features/app`: cross-domain app-level concerns (feedback).
+- `features/app`: cross-domain app-level concerns.
 
 ## 5. Hard Rules for Future Changes
 

@@ -19,8 +19,8 @@ export default function ResetPasswordPage() {
       setError('Token is required.')
       return
     }
-    if (!newPassword.trim()) {
-      setError('New password is required.')
+    if (newPassword.length < 8) {
+      setError('New password must be at least 8 characters.')
       return
     }
     setBusy(true)
@@ -79,6 +79,8 @@ export default function ResetPasswordPage() {
                           id="newPassword"
                           type="password"
                           required
+                          minLength={8}
+                          autoComplete="new-password"
                           value={newPassword}
                           onChange={(e) => setNewPassword(e.target.value)}
                         />
@@ -98,8 +100,8 @@ export default function ResetPasswordPage() {
                     ) : null}
                     <div>
                       <div className="cl_blog_details-reply-item">
-                        <button type="submit">
-                          Confirm
+                        <button type="submit" disabled={busy || ok}>
+                          {busy ? 'Updating...' : 'Confirm'}
                         </button>
                       </div>
                     </div>

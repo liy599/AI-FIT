@@ -7,7 +7,7 @@ type AuthState = {
   user: AuthUser | null
   setAuth: (user: AuthUser) => void
   setUser: (user: AuthUser) => void
-  logout: () => void
+  logout: () => Promise<void>
 }
 
 const AUTH_EXPIRED_EVENT = 'aifit:auth-expired'
@@ -23,7 +23,7 @@ export function AuthProvider(props: { children: ReactNode }) {
     setUserValue(user)
   }, [])
 
-  // Commit user-only updates while preserving the current token
+  // Commit user-only updates while preserving the current session
   const commitUser = useCallback((user: AuthUser) => {
     setUser(user)
     setUserValue(user)
@@ -34,6 +34,15 @@ export function AuthProvider(props: { children: ReactNode }) {
     clearAuth()
     setUserValue(null)
   }, [])
+
+  const logout = useCallback(async () => {
+    clearSession()
+    try {
+      await apiFetch<{ ok: boolean }>('/api/auth/logout', { method: 'POST', auth: false })
+    } catch {
+      // Local cleanup must still happen if the server session is already gone.
+    }
+  }, [clearSession])
 
   // React to explicit auth-expired events from API layer
   useEffect(() => {
@@ -57,7 +66,7 @@ export function AuthProvider(props: { children: ReactNode }) {
   // Validate persisted user against server cookie session on app startup
   useEffect(() => {
     if (!userValue) return
-    apiFetch<AuthUser>('/api/auth/me')
+    apiFetch<AuthUser>('/api/auth/me', { auth: false })
       .then((serverUser) => {
         setUser(serverUser)
         setUserValue(serverUser)
@@ -73,9 +82,9 @@ export function AuthProvider(props: { children: ReactNode }) {
       user: userValue,
       setAuth: commitAuth,
       setUser: commitUser,
-      logout: clearSession
+      logout
     }),
-    [clearSession, commitAuth, commitUser, userValue]
+    [commitAuth, commitUser, logout, userValue]
   )
 
   return <Ctx.Provider value={value}>{props.children}</Ctx.Provider>

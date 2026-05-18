@@ -128,6 +128,29 @@
   gap: 12px;
 }
 
+.admin-blog-title-cell,
+.admin-blog-excerpt-cell {
+  max-width: 260px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.admin-blog-title-cell {
+  display: -webkit-box;
+  overflow: hidden;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.admin-blog-excerpt-cell {
+  display: -webkit-box;
+  overflow: hidden;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 .privacy-grid-two-col {
   display: grid;
   gap: 8px;
@@ -183,6 +206,14 @@
   margin-bottom: 24px;
 }
 
+.blog-comment-item.is-targeted > .cl_blog_details-comment {
+  border: 1px solid rgba(16, 185, 129, 0.34);
+  border-radius: 18px;
+  background: #f0fdf4;
+  box-shadow: 0 18px 42px rgba(14, 56, 41, 0.1);
+  padding: 14px;
+}
+
 .blog-comment-edit {
   margin-top: 10px;
 }
@@ -191,15 +222,88 @@
   white-space: pre-wrap;
 }
 
+.blog-break-text {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .blog-comment-actions {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   flex-wrap: wrap;
-  margin-top: 10px;
+  margin-top: 12px;
+}
+
+.cl_blog_details-comment-info {
+  min-width: 0;
 }
 
 .blog-action-icon {
-  margin-right: 6px;
+  margin-right: 0;
+}
+
+.blog-comment-action-btn {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(14, 56, 41, 0.12);
+  border-radius: 999px;
+  background: #f7fbf9;
+  color: rgba(14, 56, 41, 0.78);
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.blog-comment-action-btn:hover:not(:disabled),
+.blog-comment-action-btn.is-active {
+  border-color: rgba(53, 204, 149, 0.35);
+  background: rgba(53, 204, 149, 0.14);
+  color: var(--clr-body-heading);
+  transform: translateY(-1px);
+}
+
+.blog-comment-action-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.blog-comment-action-btn strong {
+  color: var(--clr-theme-primary);
+  font-size: 11px;
+}
+
+.blog-comment-action-btn.is-danger:hover:not(:disabled) {
+  border-color: rgba(185, 28, 28, 0.2);
+  background: #fff1f2;
+  color: #9f1239;
+}
+
+.blog-comment-reply-context {
+  display: grid;
+  gap: 4px;
+  margin: 6px 0 10px;
+  border-left: 3px solid rgba(53, 204, 149, 0.45);
+  background: rgba(53, 204, 149, 0.08);
+  padding: 8px 10px;
+  color: rgba(14, 56, 41, 0.72);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.blog-comment-reply-context strong {
+  color: var(--clr-body-heading);
+}
+
+.blog-comment-reply-context span {
+  overflow: hidden;
+  display: -webkit-box;
+  color: rgba(14, 56, 41, 0.58);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .blog-comment-reply-wrap {
@@ -217,8 +321,72 @@
   margin-left: 14px;
 }
 
+.blog-readonly-note {
+  margin: 12px 0 18px;
+  border: 1px solid rgba(245, 158, 11, 0.26);
+  border-radius: 14px;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.5;
+  padding: 10px 12px;
+}
+
 .blog-comments-list {
   margin-top: 32px;
+}
+
+.blog-comments-head,
+.blog-comments-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.blog-comments-head h3 {
+  margin: 0;
+  color: var(--clr-body-heading);
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.blog-comments-head span,
+.blog-comments-pagination span {
+  color: rgba(14, 56, 41, 0.68);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.blog-comments-pagination {
+  justify-content: center;
+  margin-top: 22px;
+  margin-bottom: 0;
+}
+
+.blog-comments-pagination button {
+  min-height: 38px;
+  border: 1px solid var(--btn-premium-border);
+  border-radius: 999px;
+  background: var(--btn-premium-bg);
+  color: var(--btn-premium-text);
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 800;
+  box-shadow: var(--btn-premium-shadow);
+}
+
+.blog-comments-pagination button:hover:not(:disabled) {
+  background: var(--btn-premium-bg-hover);
+  box-shadow: var(--btn-premium-shadow-hover);
+}
+
+.blog-comments-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .section-muted-note {

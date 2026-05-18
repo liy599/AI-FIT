@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { resolveBlogMediaUrl, type BlogCard } from '../../modules/blog'
+import { displayBlogTagName, resolveBlogMediaUrl, type BlogCard } from '../../modules/blog'
 
 export function resolveMediaUrl(url: string | null | undefined) {
   return resolveBlogMediaUrl(url)
@@ -30,6 +30,26 @@ export function getViewCount(blog: BlogCard) {
   const vcc = (blog as unknown as { views?: unknown; view_count?: unknown; viewCount?: unknown }).viewCount
   const n = Number(v ?? vc ?? vcc ?? 0)
   return Number.isFinite(n) ? n : 0
+}
+
+const BLOG_FALLBACK_IMAGES = [
+  '/assets/images/blog/blog_list-1.png',
+  '/assets/images/blog/blog_list-2.png',
+  '/assets/images/blog/blog_list-3.png',
+  '/assets/images/blog/blog-classic-1.png',
+  '/assets/images/blog/blog_details-1.png',
+  '/assets/images/blog/h2_1.png',
+]
+
+export function getBlogCover(blog: Pick<BlogCard, 'id' | 'cover_image_url' | 'image_urls'> | null | undefined, placeholderSrc?: string) {
+  if (!blog) return placeholderSrc ?? BLOG_FALLBACK_IMAGES[0]
+  const firstImage = Array.isArray(blog.image_urls) ? blog.image_urls[0] : null
+  return resolveMediaUrl(blog.cover_image_url) ?? resolveMediaUrl(firstImage) ?? BLOG_FALLBACK_IMAGES[Math.abs(blog.id) % BLOG_FALLBACK_IMAGES.length]
+}
+
+export function getBlogTag(blog: Pick<BlogCard, 'tags'> | null | undefined) {
+  const name = blog?.tags[0]?.name
+  return name ? displayBlogTagName(name) : null
 }
 
 export function useRevealOnScroll<T extends HTMLElement>() {
@@ -80,8 +100,8 @@ export function BlogTeaserCard({
   placeholderSrc: string
   variant: TeaserVariant
 }) {
-  const cover = resolveMediaUrl(blog.cover_image_url) ?? placeholderSrc
-  const tag = blog.tags[0]?.name ?? 'Our Blog'
+  const cover = getBlogCover(blog, placeholderSrc)
+  const tag = getBlogTag(blog)
   const minutes = estimateReadMinutes(blog.excerpt)
 
   const baseCard = 'blog-card-surface rounded-3xl overflow-hidden'
@@ -108,11 +128,13 @@ export function BlogTeaserCard({
           <Link to={`/blogs/${blog.id}`} className="block h-full w-full">
             <img className="absolute inset-0 h-full w-full object-cover" src={cover} alt={blog.title} loading="lazy" decoding="async" />
           </Link>
-          <div className="absolute left-4 top-4">
-            <span className="inline-flex items-center rounded-full bg-white/95 px-3 py-1 text-[11px] font-medium text-neutral-900 shadow-sm">
-              {tag}
-            </span>
-          </div>
+          {tag ? (
+            <div className="absolute left-4 top-4">
+              <span className="blog-category-pill">
+                {tag}
+              </span>
+            </div>
+          ) : null}
         </div>
 
         <h3 className={titleClass}>
@@ -145,8 +167,8 @@ export function FeaturedBlogGridCard({
   blog: BlogCard
   placeholderSrc: string
 }) {
-  const cover = resolveMediaUrl(blog.cover_image_url) ?? placeholderSrc
-  const tag = blog.tags[0]?.name ?? 'Our Blog'
+  const cover = getBlogCover(blog, placeholderSrc)
+  const tag = getBlogTag(blog)
   const minutes = estimateReadMinutes(blog.excerpt)
 
   return (
@@ -162,11 +184,13 @@ export function FeaturedBlogGridCard({
               decoding="async"
             />
           </Link>
-          <div className="absolute left-4 top-4">
-            <span className="inline-flex items-center rounded-full bg-white/95 px-3 py-1 text-[11px] font-medium text-neutral-900 shadow-sm">
-              {tag}
-            </span>
-          </div>
+          {tag ? (
+            <div className="absolute left-4 top-4">
+              <span className="blog-category-pill">
+                {tag}
+              </span>
+            </div>
+          ) : null}
         </div>
 
         <h3 className="mt-4 text-base font-semibold leading-snug tracking-tight text-neutral-900 line-clamp-2">
@@ -204,15 +228,15 @@ function TopViewedStackCard({
   blog: BlogCard | null
   placeholderSrc: string
 }) {
-  const cover = blog ? resolveMediaUrl(blog.cover_image_url) ?? placeholderSrc : placeholderSrc
-  const tag = blog?.tags[0]?.name ?? 'Popular'
+  const cover = getBlogCover(blog, placeholderSrc)
+  const tag = getBlogTag(blog)
   const title = blog?.title ?? 'Popular blog'
   const author = blog?.author.username ?? 'Wordcraft'
   const date = blog?.created_at ? formatLongDate(blog.created_at) : null
   const minutes = blog ? estimateReadMinutes(blog.excerpt) : null
 
   return (
-    <div className="blog-card-surface w-[320px] sm:w-[380px] md:w-[420px] scale-75 origin-bottom rounded-[28px] p-3 shadow-[0_22px_70px_rgba(0,0,0,0.12)]">
+    <div className="blog-card-surface w-[300px] sm:w-[350px] md:w-[390px] scale-75 origin-bottom rounded-[28px] p-3 shadow-[0_22px_70px_rgba(0,0,0,0.12)]">
       <div className="blog-card-media relative overflow-hidden rounded-[28px] aspect-[16/10]">
         {blog ? (
           <Link to={`/blogs/${blog.id}`} className="block h-full w-full">
@@ -221,11 +245,13 @@ function TopViewedStackCard({
         ) : (
           <img className="absolute inset-0 h-full w-full object-cover" src={cover} alt="" loading="lazy" decoding="async" />
         )}
-        <div className="absolute left-4 top-4">
-          <span className="inline-flex items-center rounded-full bg-white/95 px-3 py-1 text-[11px] font-medium text-neutral-900 shadow-sm">
-            {tag}
-          </span>
-        </div>
+        {tag ? (
+          <div className="absolute left-4 top-4">
+            <span className="blog-category-pill">
+              {tag}
+            </span>
+          </div>
+        ) : null}
       </div>
 
       <div className="px-2 pb-2 pt-4">
@@ -314,7 +340,7 @@ export function TopViewedStack({ blogs, loading }: { blogs: BlogCard[]; loading:
   const count = visible.length
 
   return (
-    <div className="relative mx-auto h-[285px] w-full max-w-[520px] sm:h-[315px]">
+    <div className="relative mx-auto h-[285px] w-full max-w-[520px] overflow-hidden sm:h-[315px]">
       {loading && blogs.length === 0 ? (
         <div className="absolute inset-0 flex items-end justify-center pb-2 text-sm text-neutral-500">Loading...</div>
       ) : null}
@@ -338,10 +364,10 @@ export function TopViewedStack({ blogs, loading }: { blogs: BlogCard[]; loading:
                 blog={blog}
                 placeholderSrc={
                   position === 0
-                    ? '/figma/featured-2.png'
+                    ? '/assets/images/blog/h2_2.png'
                     : position === 1
-                      ? '/figma/featured-3.png'
-                      : '/figma/featured-4.png'
+                      ? '/assets/images/blog/h2_3.png'
+                      : '/assets/images/blog/h2_4.png'
                 }
               />
             </div>

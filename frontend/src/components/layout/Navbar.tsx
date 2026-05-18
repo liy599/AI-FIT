@@ -1,5 +1,6 @@
 ﻿import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { logoutSession, resolveBackendUrl } from '../../modules/user'
+import { useEffect, useState } from 'react'
+import { getMyNotifications, markNotificationRead, resolveBackendUrl, type UserNotification } from '../../modules/user'
 import { useAuth } from '../../state/auth-context'
 
 // Normalize avatar URLs (supports relative backend file paths)
@@ -30,48 +31,98 @@ function ArrowIcon() {
 export default function Navbar(props: NavbarProps) {
   const auth = useAuth()
   const nav = useNavigate()
+  const [notifications, setNotifications] = useState<UserNotification[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [notificationTotal, setNotificationTotal] = useState(0)
+  const unreadLabel = unreadCount > 99 ? '99+' : String(unreadCount)
+  const navLinkClass = ({ isActive }: { isActive: boolean }) =>
+    `${props.variant === 'mobile' ? 'cl_mobile-nav-link' : 'cl_nav-link'}${isActive ? ' is-active' : ''}`
+
+  useEffect(() => {
+    let cancelled = false
+    if (!auth.user) {
+      setNotifications([])
+      setUnreadCount(0)
+      setNotificationTotal(0)
+      return () => {
+        cancelled = true
+      }
+    }
+    getMyNotifications({ page_size: 5 })
+      .then((data) => {
+        if (cancelled) return
+        setNotifications(data.items)
+        setUnreadCount(data.unread_count)
+        setNotificationTotal(data.total)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [auth.user])
+
+  async function openNotification(notification: UserNotification) {
+    if (!notification.is_read) {
+      await markNotificationRead(notification.id).catch(() => {})
+      setNotifications((items) => items.map((item) => item.id === notification.id ? { ...item, is_read: true } : item))
+      setUnreadCount((count) => Math.max(0, count - 1))
+    }
+    props.onNavigate?.()
+    nav(`/blogs/${notification.blog.id}?comment=${notification.comment_id}&commentPage=${notification.comment_page}`)
+  }
 
   // Shared menu tree used by desktop and mobile variants
   const menuItems = (
     <>
       <li>
-        <NavLink to="/" onClick={props.onNavigate}>
+        <NavLink to="/" className={navLinkClass} onClick={props.onNavigate}>
           Home
         </NavLink>
       </li>
       <li>
-        <NavLink to="/tools/pose" onClick={props.onNavigate}>
+        <NavLink to="/tools/pose" className={navLinkClass} onClick={props.onNavigate}>
           Pose
         </NavLink>
       </li>
       <li>
-        <NavLink to="/food" onClick={props.onNavigate}>
+        <NavLink to="/food" className={navLinkClass} onClick={props.onNavigate}>
           Food
         </NavLink>
       </li>
       <li>
-        <NavLink to="/blogs" onClick={props.onNavigate}>
+        <NavLink to="/blogs" className={navLinkClass} onClick={props.onNavigate}>
           Blog
         </NavLink>
       </li>
       <li>
-        <NavLink to="/about" onClick={props.onNavigate}>
+        <NavLink to="/about" className={navLinkClass} onClick={props.onNavigate}>
           About Us
         </NavLink>
       </li>
+      {auth.user?.is_admin ? (
+        <li>
+          <NavLink to="/admin" className={navLinkClass} onClick={props.onNavigate}>
+            Admin
+          </NavLink>
+        </li>
+      ) : null}
+      {props.variant === 'mobile' && auth.user ? (
+        <li>
+          <NavLink to="/profile?tab=Blogs" className="cl_mobile-nav-link" onClick={props.onNavigate}>
+            Notifications{unreadCount ? ` (${unreadLabel})` : ''}
+          </NavLink>
+        </li>
+      ) : null}
       {props.variant === 'mobile' && auth.user ? (
         <li>
           <button
             type="button"
-            className="menu-action-btn"
+            className="menu-action-btn cl_mobile-nav-link"
             onClick={() => {
-              logoutSession()
-                .catch(() => {})
-                .finally(() => {
-                  auth.logout()
-                  props.onNavigate?.()
-                  nav('/')
-                })
+              auth.logout().finally(() => {
+                props.onNavigate?.()
+                nav('/')
+              })
             }}
           >
             Logout
@@ -128,17 +179,54 @@ export default function Navbar(props: NavbarProps) {
                         type="button"
                         className="menu-action-btn"
                         onClick={() => {
-                          logoutSession()
-                            .catch(() => {})
-                            .finally(() => {
-                              auth.logout()
-                              nav('/')
-                            })
+                          auth.logout().finally(() => {
+                            nav('/')
+                          })
                         }}
                       >
                         Logout
                       </button>
                     </li>
+                  </ul>
+                </div>
+              ) : null}
+              {auth.user ? (
+                <div className="cl_header-account">
+                  <button type="button" className="cl_header-action-btn notification-trigger" aria-label="Open notifications">
+                    <i className="fa-regular fa-bell"></i>
+                    {unreadCount ? <span className="notification-badge">{unreadLabel}</span> : null}
+                  </button>
+                  <ul className="cl_header-account-submenu notification-menu" aria-label="Notifications">
+                    {notifications.length ? (
+                      <>
+                        <li className="notification-menu-list">
+                          {notifications.map((notification) => (
+                            <button
+                              key={notification.id}
+                              type="button"
+                              className={`notification-menu-item${notification.is_read ? '' : ' is-unread'}`}
+                              onClick={() => {
+                                openNotification(notification).catch(() => {})
+                              }}
+                            >
+                              <span>
+                                <strong>{notification.actor.username}</strong> replied to your comment
+                              </span>
+                              <small>{notification.blog.title}</small>
+                            </button>
+                          ))}
+                        </li>
+                        <li>
+                          <div className="notification-menu-summary">
+                            Showing latest {notifications.length}{notificationTotal > notifications.length ? ` of ${notificationTotal}` : ''}
+                          </div>
+                        </li>
+                      </>
+                    ) : (
+                      <li>
+                        <div className="notification-menu-empty">No notifications</div>
+                      </li>
+                    )}
                   </ul>
                 </div>
               ) : null}

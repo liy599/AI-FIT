@@ -6,8 +6,8 @@ import HomePage from './pages/public/HomePage'
 
 // Lazy-load pages (code splitting for better performance)
 const AboutPage = lazy(() => import('./pages/public/AboutPage'))
-const AdminDataLifecyclePage = lazy(() => import('./pages/admin/AdminDataLifecyclePage'))
-const AdminFeedbackPage = lazy(() => import('./pages/admin/AdminFeedbackPage'))
+const AdminBlogsPage = lazy(() => import('./pages/admin/AdminBlogsPage'))
+const AdminDashboardPage = lazy(() => import('./pages/admin/AdminDashboardPage'))
 const AdminUsersPage = lazy(() => import('./pages/admin/AdminUsersPage'))
 const BlogDetailPage = lazy(() => import('./pages/blog/BlogDetailPage'))
 const BlogEditorPage = lazy(() => import('./pages/blog/BlogEditorPage'))
@@ -93,6 +93,7 @@ const poseRoutes: AppRoute[] = [
 const blogRoutes: AppRoute[] = [
   { path: '/blogs', element: <BlogListPage /> },
   { path: '/blogs/new', element: <BlogEditorPage />, guard: 'auth' },
+  { path: '/blogs/:id/edit', element: <BlogEditorPage />, guard: 'auth' },
   { path: '/blogs/:id', element: <BlogDetailPage /> }
 ]
 
@@ -102,8 +103,8 @@ const userRoutes: AppRoute[] = [
 ]
 
 const adminRoutes: AppRoute[] = [
-  { path: '/admin/data-lifecycle', element: <AdminDataLifecyclePage />, guard: 'admin' },
-  { path: '/admin/feedback', element: <AdminFeedbackPage />, guard: 'admin' },
+  { path: '/admin', element: <AdminDashboardPage />, guard: 'admin' },
+  { path: '/admin/blogs', element: <AdminBlogsPage />, guard: 'admin' },
   { path: '/admin/users', element: <AdminUsersPage />, guard: 'admin' }
 ]
 

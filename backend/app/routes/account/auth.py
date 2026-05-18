@@ -1,3 +1,4 @@
+import re
 from datetime import timedelta
 
 from flask import Blueprint, current_app, jsonify, request
@@ -11,6 +12,10 @@ from ...utils.rate_limit import consume_rate_limit, get_client_ip, subject_finge
 from ...utils.security import hash_password, verify_password
 
 bp = Blueprint("auth", __name__)
+EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+MIN_PASSWORD_LENGTH = 8
+MIN_USERNAME_LENGTH = 3
+MAX_USERNAME_LENGTH = 64
 
 
 def _serializer() -> URLSafeTimedSerializer:
@@ -26,7 +31,22 @@ def _auth_user(u: User):
         "username": u.username,
         "avatar_url": u.avatar_url,
         "is_admin": _is_admin_user(u),
+        "is_disabled": bool(u.is_disabled),
     }
+
+
+def _validate_registration(email: str, username: str, password: str):
+    if not email or not username or not password:
+        return "email/username/password required"
+    if EMAIL_RE.fullmatch(email) is None:
+        return "invalid email"
+    if len(username) < MIN_USERNAME_LENGTH:
+        return "username too short"
+    if len(username) > MAX_USERNAME_LENGTH:
+        return "username too long"
+    if len(password) < MIN_PASSWORD_LENGTH:
+        return "password too short"
+    return None
 
 
 @bp.post("/register")
@@ -36,8 +56,9 @@ def register():
     username = (data.get("username") or "").strip()
     password = data.get("password") or ""
 
-    if not email or not username or not password:
-        return jsonify({"error": "email/username/password required"}), 400
+    validation_error = _validate_registration(email, username, password)
+    if validation_error:
+        return jsonify({"error": validation_error}), 400
 
     if User.query.filter_by(email=email).first() is not None:
         return jsonify({"error": "email already exists"}), 409
@@ -83,6 +104,8 @@ def login():
     user = User.query.filter_by(email=email).first()
     if user is None or not verify_password(password, user.password_hash):
         return jsonify({"error": "invalid credentials"}), 401
+    if user.is_disabled:
+        return jsonify({"error": "account disabled"}), 403
 
     access_token = create_access_token(identity=str(user.id), expires_delta=timedelta(days=7))
     response = jsonify({"user": _auth_user(user)})
@@ -153,6 +176,8 @@ def reset_password():
     new_password = data.get("new_password") or ""
     if not token or not new_password:
         return jsonify({"error": "token/new_password required"}), 400
+    if len(new_password) < MIN_PASSWORD_LENGTH:
+        return jsonify({"error": "password too short"}), 400
 
     try:
         payload = _serializer().loads(token, max_age=current_app.config.get("PASSWORD_RESET_TOKEN_TTL_SECONDS", 60 * 60))
@@ -177,5 +202,7 @@ def me():
     user = db.session.get(User, user_id)
     if user is None:
         return jsonify({"error": "not found"}), 404
+    if user.is_disabled:
+        return jsonify({"error": "account disabled"}), 403
     return jsonify(_auth_user(user))
 

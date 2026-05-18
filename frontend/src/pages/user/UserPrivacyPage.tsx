@@ -7,7 +7,6 @@ const TARGETS = [
   { key: 'workouts', label: 'Workouts' },
   { key: 'meals', label: 'Meals' },
   { key: 'trainings', label: 'Trainings' },
-  { key: 'feedback', label: 'Feedback' },
   { key: 'blogs', label: 'Blogs' },
   { key: 'comments', label: 'Comments' },
   { key: 'account', label: 'Delete My Account' }

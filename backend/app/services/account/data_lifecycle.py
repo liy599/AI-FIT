@@ -5,11 +5,11 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from ...extensions import db
-from ...models import Blog, Comment, FoodMealRecord, TrainingSession, User, UserFeedback, WorkoutRecord
+from ...models import Blog, Comment, FoodMealRecord, TrainingSession, User, WorkoutRecord
 from ...utils.upload_access import resolve_upload_file_path
 
 
-ALLOWED_DELETE_TARGETS = {"workouts", "meals", "trainings", "feedback", "blogs", "comments", "account", "all"}
+ALLOWED_DELETE_TARGETS = {"workouts", "meals", "trainings", "blogs", "comments", "account", "all"}
 
 
 def delete_user_data(user_id: int, data: dict) -> tuple[dict, int]:
@@ -34,9 +34,6 @@ def delete_user_data(user_id: int, data: dict) -> tuple[dict, int]:
         _count_and_delete(
             counts, "trainings", TrainingSession.query.filter_by(user_id=user_id), TrainingSession, before_dt, dry_run
         )
-
-    if "feedback" in targets:
-        _count_and_delete(counts, "feedback", UserFeedback.query.filter_by(user_id=user_id), UserFeedback, before_dt, dry_run)
 
     if "comments" in targets:
         _count_and_delete(counts, "comments", Comment.query.filter_by(user_id=user_id), Comment, before_dt, dry_run)
@@ -114,7 +111,7 @@ def _to_targets(raw) -> set[str]:
     targets = {target for target in targets if target in ALLOWED_DELETE_TARGETS}
     if "all" in targets:
         targets.discard("all")
-        targets.update({"workouts", "meals", "trainings", "feedback", "blogs", "comments"})
+        targets.update({"workouts", "meals", "trainings", "blogs", "comments"})
     return targets
 
 

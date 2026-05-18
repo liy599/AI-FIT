@@ -67,12 +67,48 @@ export function listMyMealHistory<T>(params?: { page?: number; page_size?: numbe
   return apiFetch<{ items: T[]; page: number; page_size: number; total: number }>(`/api/meals/history${suffix ? `?${suffix}` : ''}`)
 }
 
-export function getMyBlogs<T>() {
-  return apiFetch<{ items: T[] }>('/api/user/blogs?page=1&page_size=20')
+export function getMyBlogs<T>(params: { page?: number; page_size?: number; q?: string; status?: string; sort_by?: string; sort_dir?: string } = {}) {
+  const query = new URLSearchParams()
+  query.set('page', String(params.page ?? 1))
+  query.set('page_size', String(params.page_size ?? 6))
+  if (params.q) query.set('q', params.q)
+  if (params.status) query.set('status', params.status)
+  if (params.sort_by) query.set('sort_by', params.sort_by)
+  if (params.sort_dir) query.set('sort_dir', params.sort_dir)
+  return apiFetch<{ items: T[]; page: number; page_size: number; total: number }>(`/api/user/blogs?${query.toString()}`)
 }
 
-export function getMyComments<T>() {
-  return apiFetch<{ items: T[] }>('/api/user/comments?page=1&page_size=20')
+export function getMyComments<T>(params: { page?: number; page_size?: number; q?: string; sort_by?: string; sort_dir?: string } = {}) {
+  const query = new URLSearchParams()
+  query.set('page', String(params.page ?? 1))
+  query.set('page_size', String(params.page_size ?? 5))
+  if (params.q) query.set('q', params.q)
+  if (params.sort_by) query.set('sort_by', params.sort_by)
+  if (params.sort_dir) query.set('sort_dir', params.sort_dir)
+  return apiFetch<{ items: T[]; page: number; page_size: number; total: number }>(`/api/user/comments?${query.toString()}`)
+}
+
+export type UserNotification = {
+  id: number
+  type: 'comment_reply'
+  is_read: boolean
+  created_at: string
+  actor: { id: number; username: string; avatar_url: string | null }
+  blog: { id: number; title: string }
+  comment_id: number
+  root_comment_id: number
+  comment_page: number
+}
+
+export function getMyNotifications(params: { page?: number; page_size?: number } = {}) {
+  const query = new URLSearchParams()
+  query.set('page', String(params.page ?? 1))
+  query.set('page_size', String(params.page_size ?? 5))
+  return apiFetch<{ items: UserNotification[]; page: number; page_size: number; total: number; unread_count: number }>(`/api/user/notifications?${query.toString()}`)
+}
+
+export function markNotificationRead(notificationId: number) {
+  return apiFetch<{ ok: boolean }>(`/api/user/notifications/${notificationId}/read`, { method: 'POST' })
 }
 
 export function previewOrDeleteMyData(payload: Record<string, unknown>) {
@@ -82,14 +118,4 @@ export function previewOrDeleteMyData(payload: Record<string, unknown>) {
   })
 }
 
-export function getAdminLifecyclePolicy<T>() {
-  return apiFetch<T>('/api/admin/data-lifecycle/policy')
-}
-
-export function runAdminLifecycleCleanup<T>(payload: Record<string, unknown>) {
-  return apiFetch<T>('/api/admin/data-lifecycle/cleanup', {
-    method: 'POST',
-    body: JSON.stringify(payload)
-  })
-}
 

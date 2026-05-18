@@ -74,7 +74,7 @@ def create_app(config_object=Config):
     from .routes.account.auth import bp as auth_bp
     from .routes.account.user import bp as user_bp
     from .routes.account.workouts import bp as workouts_bp
-    from .routes.account.feedback import bp as feedback_bp
+    from .routes.admin.blogs import bp as admin_blogs_bp
     from .routes.admin.lifecycle import bp as admin_bp
     from .routes.admin.users import bp as admin_users_bp
     from .routes.blog.blogs import bp as blogs_bp
@@ -92,13 +92,13 @@ def create_app(config_object=Config):
     app.register_blueprint(tags_bp, url_prefix="/api/tags")
     app.register_blueprint(blogs_bp, url_prefix="/api/blogs")
     app.register_blueprint(comments_bp, url_prefix="/api")
-    app.register_blueprint(feedback_bp, url_prefix="/api/feedback")
     app.register_blueprint(food_bp, url_prefix="/api/food")
     app.register_blueprint(foods_bp, url_prefix="/api/foods")
     app.register_blueprint(meals_bp, url_prefix="/api/meals")
     app.register_blueprint(pose_bp, url_prefix="/api/pose")
     app.register_blueprint(recognize_bp, url_prefix="/api/recognize")
     app.register_blueprint(admin_bp, url_prefix="/api/admin")
+    app.register_blueprint(admin_blogs_bp, url_prefix="/api/admin")
     app.register_blueprint(admin_users_bp, url_prefix="/api/admin")
 
     @app.get("/api/health")

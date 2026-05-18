@@ -19,7 +19,7 @@ def list_users():
 
     page, page_size = parse_pagination(request.args, default_page_size=20, max_page_size=50)
 
-    q = User.query
+    q = db.session.query(User.id, User.username, User.email, User.created_at, User.is_admin, User.is_disabled)
     query_text = (request.args.get("q") or "").strip()
     if query_text:
         q = q.filter(or_(User.username.ilike(f"%{query_text}%"), User.email.ilike(f"%{query_text}%")))
@@ -29,23 +29,21 @@ def list_users():
     disabled_filter = _parse_bool_query("is_disabled")
     if disabled_filter is not None:
         q = q.filter(User.is_disabled.is_(disabled_filter))
-    q = q.order_by(_sort_expression())
-
     total = q.count()
-    items = q.offset((page - 1) * page_size).limit(page_size).all()
+    rows = q.order_by(_sort_expression()).offset((page - 1) * page_size).limit(page_size).all()
 
     return jsonify(
         {
             "items": [
                 {
-                    "id": u.id,
-                    "username": u.username,
-                    "email_masked": _mask_email(u.email),
-                    "created_at": u.created_at.isoformat(),
-                    "is_admin": bool(u.is_admin),
-                    "is_disabled": bool(u.is_disabled),
+                    "id": row.id,
+                    "username": row.username,
+                    "email_masked": _mask_email(row.email),
+                    "created_at": row.created_at.isoformat(),
+                    "is_admin": bool(row.is_admin),
+                    "is_disabled": bool(row.is_disabled),
                 }
-                for u in items
+                for row in rows
             ],
             "page": page,
             "page_size": page_size,

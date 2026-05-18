@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { deleteAdminBlog, listAdminBlogs, updateAdminBlog, type AdminBlogItem } from '../../modules/admin'
 
 type PublishFilter = 'all' | 'published' | 'unpublished' | 'restore_requested' | 'draft'
-type BlogSort = 'id:asc' | 'id:desc' | 'updated_at:desc' | 'updated_at:asc' | 'title:asc' | 'title:desc' | 'view_count:desc' | 'like_count:desc'
+type BlogSort = 'id:asc' | 'id:desc' | 'updated_at:desc' | 'updated_at:asc' | 'view_count:desc' | 'like_count:desc'
 
 function statusLabel(blog: AdminBlogItem) {
   if (blog.status === 'published') return 'Published'
@@ -132,8 +132,6 @@ export default function AdminBlogsPage() {
             <option value="id:desc">ID descending</option>
             <option value="updated_at:desc">Recently updated</option>
             <option value="updated_at:asc">Oldest updated</option>
-            <option value="title:asc">Title A-Z</option>
-            <option value="title:desc">Title Z-A</option>
             <option value="view_count:desc">Most viewed</option>
             <option value="like_count:desc">Most liked</option>
           </select>

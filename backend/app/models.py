@@ -47,9 +47,6 @@ class User(db.Model, TimestampMixin):
     training_sessions: Mapped[List["TrainingSession"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
-    food_meal_records: Mapped[List["FoodMealRecord"]] = relationship(
-        back_populates="user", cascade="all, delete-orphan"
-    )
 
 
 class WorkoutRecord(db.Model):
@@ -67,50 +64,6 @@ class WorkoutRecord(db.Model):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
     user: Mapped["User"] = relationship(back_populates="workout_records")
-
-
-class FoodItem(db.Model):
-    __tablename__ = "foods"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    name: Mapped[str] = mapped_column(String(100), nullable=False)
-    display_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    calories: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
-    protein: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False, default=0)
-    fat: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False, default=0)
-    carbs: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False, default=0)
-    category: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
-    aliases: Mapped[Optional[str]] = mapped_column(Text, nullable=True, default="")
-
-    meal_items: Mapped[List["FoodMealItem"]] = relationship(back_populates="food")
-
-
-class FoodMealRecord(db.Model, TimestampMixin):
-    __tablename__ = "meal_records"
-    __table_args__ = (UniqueConstraint("user_id", "meal_type", "recorded_on", name="uq_food_meal_record"),)
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    meal_type: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
-    recorded_on: Mapped[datetime.date] = mapped_column(Date, nullable=False, index=True)
-
-    user: Mapped["User"] = relationship(back_populates="food_meal_records")
-    items: Mapped[List["FoodMealItem"]] = relationship(back_populates="meal", cascade="all, delete-orphan")
-
-
-class FoodMealItem(db.Model):
-    __tablename__ = "meal_items"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    meal_id: Mapped[int] = mapped_column(
-        ForeignKey("meal_records.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    food_id: Mapped[int] = mapped_column(ForeignKey("foods.id", ondelete="CASCADE"), nullable=False, index=True)
-    grams: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-
-    meal: Mapped["FoodMealRecord"] = relationship(back_populates="items")
-    food: Mapped["FoodItem"] = relationship(back_populates="meal_items")
 
 
 class Tag(db.Model):
@@ -172,7 +125,9 @@ class Comment(db.Model, TimestampMixin):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     blog_id: Mapped[int] = mapped_column(ForeignKey("blogs.id", ondelete="CASCADE"), nullable=False, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    parent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("comments.id"), nullable=True, index=True)
+    parent_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("comments.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     content: Mapped[str] = mapped_column(Text, nullable=False)
     like_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)

@@ -55,7 +55,7 @@ export default function AdminDashboardPage() {
                 <h4 className="cl_blog-widget-title mb-2">Admin workspace</h4>
                 <p className="max-w-2xl text-sm leading-6 text-slate-600">
                   <span className="block">Manage account access and public community posts.</span>
-                  <span className="block">Private meal records and training reports stay outside this console.</span>
+                  <span className="block">Private training reports stay outside this console.</span>
                 </p>
               </div>
             </div>
@@ -75,7 +75,6 @@ export default function AdminDashboardPage() {
               <h5 className="cl_blog-widget-title mb-4">Privacy boundaries</h5>
               <div className="space-y-3">
                 <BoundaryLine label="Training reports" value="Not browsable by admins" />
-                <BoundaryLine label="Meal records" value="Not browsable by admins" />
                 <BoundaryLine label="Email addresses" value="Masked until one-row reveal" />
               </div>
             </div>

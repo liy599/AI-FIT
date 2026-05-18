@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
 from sqlalchemy import or_
-from sqlalchemy.orm import joinedload, selectinload
+from sqlalchemy.orm import joinedload, load_only, selectinload
 
 from ...extensions import db
 from ...models import Blog, BlogTag, User
@@ -48,7 +48,25 @@ def list_blogs():
         return jsonify({"items": [], "page": page, "page_size": page_size, "total": total})
 
     blogs = (
-        Blog.query.options(joinedload(Blog.author), selectinload(Blog.tags).joinedload(BlogTag.tag))
+        Blog.query.options(
+            load_only(
+                Blog.id,
+                Blog.title,
+                Blog.content,
+                Blog.cover_image_url,
+                Blog.view_count,
+                Blog.like_count,
+                Blog.is_published,
+                Blog.moderation_status,
+                Blog.visibility,
+                Blog.moderation_restore_requested,
+                Blog.created_at,
+                Blog.updated_at,
+                Blog.user_id,
+            ),
+            joinedload(Blog.author).load_only(User.id, User.username),
+            selectinload(Blog.tags).joinedload(BlogTag.tag),
+        )
         .filter(Blog.id.in_(ids))
         .order_by(sort_expression)
         .all()

@@ -73,6 +73,14 @@ def _root_comment_id(comment: Comment) -> int:
     return node.id
 
 
+def _delete_comment_preserving_replies(comment: Comment) -> None:
+    Comment.query.filter_by(parent_id=comment.id).update(
+        {Comment.parent_id: comment.parent_id},
+        synchronize_session=False,
+    )
+    db.session.delete(comment)
+
+
 @bp.get("/blogs/<int:blog_id>/comments")
 def list_comments(blog_id: int):
     verify_jwt_in_request(optional=True)
@@ -232,7 +240,7 @@ def delete_comment(comment_id: int):
     if c.user_id != user_id and blog.user_id != user_id:
         return jsonify({"error": "forbidden"}), 403
 
-    db.session.delete(c)
+    _delete_comment_preserving_replies(c)
     db.session.commit()
     return jsonify({"ok": True})
 

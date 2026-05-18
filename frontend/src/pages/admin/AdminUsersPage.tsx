@@ -4,7 +4,7 @@ import { getAdminUserContact, listAdminUsers, updateAdminUser, type AdminUserIte
 import { useAuth } from '../../state/auth-context'
 
 type BoolFilter = 'all' | 'yes' | 'no'
-type UserSort = 'id:asc' | 'id:desc' | 'username:asc' | 'username:desc' | 'created_at:desc' | 'created_at:asc'
+type UserSort = 'id:asc' | 'id:desc' | 'created_at:desc' | 'created_at:asc'
 
 function toBoolFilter(value: BoolFilter) {
   if (value === 'yes') return true
@@ -145,8 +145,6 @@ export default function AdminUsersPage() {
           <select className="profile-input" value={sort} onChange={(e) => { setPage(1); setSort(e.target.value as UserSort) }}>
             <option value="id:asc">ID ascending</option>
             <option value="id:desc">ID descending</option>
-            <option value="username:asc">Username A-Z</option>
-            <option value="username:desc">Username Z-A</option>
             <option value="created_at:desc">Newest first</option>
             <option value="created_at:asc">Oldest first</option>
           </select>

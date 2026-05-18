@@ -5,7 +5,6 @@ import { useAuth } from '../../state/auth-context'
 
 const TARGETS = [
   { key: 'workouts', label: 'Workouts' },
-  { key: 'meals', label: 'Meals' },
   { key: 'trainings', label: 'Trainings' },
   { key: 'blogs', label: 'Blogs' },
   { key: 'comments', label: 'Comments' },

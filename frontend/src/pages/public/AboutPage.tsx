@@ -29,8 +29,8 @@ export default function AboutPage() {
       {
         name: 'Member C',
         role: 'AI / Vision',
-        bio: 'Explores pose and food recognition.',
-        details: 'Evaluates TF.js models and browser-side inference approaches (MoveNet/YOLOv8).',
+        bio: 'Explores pose recognition.',
+        details: 'Evaluates TF.js models and browser-side inference approaches such as MoveNet.',
         image: '/assets/images/team/zzx.png'
       },
       {
@@ -61,8 +61,6 @@ export default function AboutPage() {
   const [active, setActive] = useState<Member | null>(null)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const closeRef = useRef<HTMLButtonElement | null>(null)
-  const [aboutVisual, setAboutVisual] = useState<'gym' | 'food'>('gym')
-
   useEffect(() => {
     if (!active) {
       triggerRef.current?.focus()
@@ -70,13 +68,6 @@ export default function AboutPage() {
     }
     closeRef.current?.focus()
   }, [active])
-
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      setAboutVisual((v) => (v === 'gym' ? 'food' : 'gym'))
-    }, 3800)
-    return () => window.clearInterval(id)
-  }, [])
 
   useEffect(() => {
     if (!active) return
@@ -113,19 +104,14 @@ export default function AboutPage() {
             <div className="about-two-col">
               <div>
                 <div className="cl_about-img">
-                  <div className={`cl_about-visual-stack ${aboutVisual === 'food' ? 'is-food' : 'is-gym'}`}>
+                  <div className="cl_about-visual-stack is-gym">
                     <div className="cl_about-visual-label" aria-hidden="true">
-                      {aboutVisual === 'food' ? 'Nutrition' : 'Training'}
+                      Training
                     </div>
                     <img
                       className="cl_about-visual-base"
                       src="/assets/images/about/about_privacy_gym.jpg"
                       alt="Gym equipment"
-                    />
-                    <img
-                      className={`cl_about-visual-top${aboutVisual === 'food' ? ' is-active' : ''}`}
-                      src="/assets/images/about/about_privacy_food.jpg"
-                      alt="Healthy chickpea salad bowl"
                     />
                     <div className="cl_about-visual-badge" aria-hidden="true">
                       <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -151,17 +137,14 @@ export default function AboutPage() {
                 <div className="cl_about-content about-content-offset">
                   <div className="cl_section-area mb-35">
                     <span className="cl_section-subtitle cl_section-subtitle-about">AI FitGuard</span>
-                    <h2 className="cl_section-title cl_section-title-small mb-25">A privacy-first fitness and nutrition assistant</h2>
+                    <h2 className="cl_section-title cl_section-title-small mb-25">A privacy-first fitness assistant</h2>
                     <p className="cl_section-text mb-0">
-                      AI FitGuard helps you get reliable training guidance and nutrition insights without specialized hardware. Whenever possible, video/image inference runs locally in your browser, and the platform combines community features to support long-term progress.
+                      AI FitGuard helps you get reliable training guidance without specialized hardware. Whenever possible, video inference runs locally in your browser, and the platform combines community features to support long-term progress.
                     </p>
                   </div>
                   <ul className="cl_about-content-list">
                     <li>
                       <i className="fa-sharp fa-light fa-check"></i>Pose video analysis
-                    </li>
-                    <li>
-                      <i className="fa-sharp fa-light fa-check"></i>Food & nutrition tracking
                     </li>
                     <li>
                       <i className="fa-sharp fa-light fa-check"></i>Community blogs and comments

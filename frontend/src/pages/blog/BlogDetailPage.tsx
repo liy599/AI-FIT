@@ -61,6 +61,7 @@ function CommentItem(props: {
   onReload: () => void
   onLikeUpdate: (commentId: number, liked: boolean, likeCount: number) => void
   onError: (message: string) => void
+  onNotice: (message: string) => void
   interactionDisabledReason?: string | null
 }) {
   const auth = useAuth()
@@ -71,6 +72,8 @@ function CommentItem(props: {
   const [editing, setEditing] = useState(false)
   const [editText, setEditText] = useState(props.node.content)
   const [likeSaving, setLikeSaving] = useState(false)
+  const [localNotice, setLocalNotice] = useState<string | null>(null)
+  const [localError, setLocalError] = useState<string | null>(null)
   const canEdit = auth.user && props.meId === props.node.user.id
   const canDelete = auth.user && (props.meId === props.node.user.id || props.meId === props.blogAuthorId)
   const isReply = Boolean(props.depth)
@@ -99,29 +102,52 @@ function CommentItem(props: {
   async function submitReply() {
     const validationError = validateCommentContent(replyText)
     if (validationError) {
-      props.onError(validationError)
+      setLocalNotice(null)
+      setLocalError(validationError)
       return
     }
-    await createBlogComment(props.node.blog_id, { content: normalizeComment(replyText), parent_id: replyParentId })
-    setReplyText('')
-    setReplying(false)
-    props.onReload()
+    try {
+      await createBlogComment(props.node.blog_id, { content: normalizeComment(replyText), parent_id: replyParentId })
+      setReplyText('')
+      setReplying(false)
+      setLocalError(null)
+      setLocalNotice('Reply posted.')
+      props.onReload()
+    } catch (e: unknown) {
+      setLocalNotice(null)
+      setLocalError(e instanceof Error ? e.message : 'Reply failed')
+    }
   }
 
   async function saveEdit() {
     const validationError = validateCommentContent(editText)
     if (validationError) {
-      props.onError(validationError)
+      setLocalNotice(null)
+      setLocalError(validationError)
       return
     }
-    await updateComment(props.node.id, normalizeComment(editText))
-    setEditing(false)
-    props.onReload()
+    try {
+      await updateComment(props.node.id, normalizeComment(editText))
+      setEditing(false)
+      setLocalError(null)
+      setLocalNotice('Comment updated.')
+      props.onReload()
+    } catch (e: unknown) {
+      setLocalNotice(null)
+      setLocalError(e instanceof Error ? e.message : 'Update failed')
+    }
   }
 
   async function remove() {
-    await deleteComment(props.node.id)
-    props.onReload()
+    try {
+      await deleteComment(props.node.id)
+      setLocalError(null)
+      props.onNotice('Comment deleted.')
+      props.onReload()
+    } catch (e: unknown) {
+      setLocalNotice(null)
+      setLocalError(e instanceof Error ? e.message : 'Delete failed')
+    }
   }
 
   return (
@@ -237,6 +263,9 @@ function CommentItem(props: {
             ) : null}
           </div>
 
+          {localError ? <div className="blog-inline-message blog-inline-message--error">{localError}</div> : null}
+          {localNotice ? <div className="blog-inline-message blog-inline-message--success">{localNotice}</div> : null}
+
           {replying ? (
             <div className="cl_blog_details-reply blog-comment-reply-wrap">
               <div className="cl_blog_details-reply-item">
@@ -278,6 +307,7 @@ function CommentItem(props: {
               onReload={props.onReload}
               onLikeUpdate={props.onLikeUpdate}
               onError={props.onError}
+              onNotice={props.onNotice}
               interactionDisabledReason={props.interactionDisabledReason}
             />
           ))}
@@ -299,6 +329,8 @@ export default function BlogDetailPage() {
   const [commentTotal, setCommentTotal] = useState(0)
   const [commentText, setCommentText] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [commentFormNotice, setCommentFormNotice] = useState<string | null>(null)
+  const [commentFormError, setCommentFormError] = useState<string | null>(null)
   const [likeSaving, setLikeSaving] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
   const targetCommentId = Math.max(0, Number(searchParams.get('comment')) || 0) || null
@@ -377,22 +409,32 @@ export default function BlogDetailPage() {
     if (!blog) return
     const validationError = validateCommentContent(commentText)
     if (validationError) {
-      setError(validationError)
+      setCommentFormNotice(null)
+      setCommentFormError(validationError)
       return
     }
     setError(null)
+    setCommentFormError(null)
     try {
       await createBlogComment(blog.id, { content: normalizeComment(commentText) })
       setCommentText('')
       setCommentPage(1)
+      setCommentFormNotice('Comment posted.')
       if (commentPage === 1) await load()
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Publish failed')
+      setCommentFormNotice(null)
+      setCommentFormError(e instanceof Error ? e.message : 'Publish failed')
     }
   }
 
   function updateCommentLike(commentId: number, liked: boolean, likeCount: number) {
     setComments((current) => updateCommentLikeInTree(current, commentId, liked, likeCount))
+  }
+
+  function showNotice(message: string) {
+    setError(null)
+    setCommentFormError(null)
+    setCommentFormNotice(message)
   }
 
   const commentLength = normalizeComment(commentText).length
@@ -434,7 +476,7 @@ export default function BlogDetailPage() {
           {error ? (
             <div className="blog-detail-error-row">
               <div>
-                <div className="cl_blog-widget section-widget">{error}</div>
+                <div className="cl_blog-widget section-widget border-rose-200 bg-rose-50 text-rose-700">{error}</div>
               </div>
             </div>
           ) : null}
@@ -568,6 +610,8 @@ export default function BlogDetailPage() {
                                 {COMMENT_MIN_LENGTH}-{COMMENT_MAX_LENGTH} characters | {commentLength}/{COMMENT_MAX_LENGTH}
                               </small>
                               {commentText.length > 0 && commentValidationError ? <small className="blog-field-error">{commentValidationError}</small> : null}
+                              {commentFormError ? <div className="blog-inline-message blog-inline-message--error">{commentFormError}</div> : null}
+                              {commentFormNotice ? <div className="blog-inline-message blog-inline-message--success">{commentFormNotice}</div> : null}
                             </div>
                           </div>
                           <div>
@@ -605,6 +649,7 @@ export default function BlogDetailPage() {
                           onReload={() => load().catch(() => {})}
                           onLikeUpdate={updateCommentLike}
                           onError={setError}
+                          onNotice={showNotice}
                           interactionDisabledReason={interactionDisabledReason}
                         />
                       ))}

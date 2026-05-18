@@ -1,5 +1,5 @@
 from app.extensions import db
-from app.models import Blog, Tag
+from app.models import Blog, Comment, Tag
 
 
 def _auth_headers(client, email="u@example.com", username="user1"):
@@ -170,6 +170,47 @@ def test_comment_reply_creates_notification_with_target_page(client, app):
     mark = commenter.post(f"/api/user/notifications/{data['items'][0]['id']}/read", headers=commenter_headers)
     assert mark.status_code == 200
     assert commenter.get("/api/user/notifications", headers=commenter_headers).get_json()["unread_count"] == 0
+
+
+def test_deleting_parent_comment_preserves_replies(client, app):
+    with app.app_context():
+        t = Tag(name="Training")
+        db.session.add(t)
+        db.session.commit()
+        tag_id = t.id
+
+    author_headers = _auth_headers(client, email="delete-parent-author@example.com", username="deleteparentauthor")
+    create = client.post(
+        "/api/blogs",
+        headers=author_headers,
+        json={
+            "title": "Comment parent delete post",
+            "content": "Public discussion body.",
+            "tag_ids": [tag_id],
+            "is_published": True,
+        },
+    )
+    assert create.status_code == 201
+    blog_id = create.get_json()["id"]
+
+    commenter = app.test_client()
+    commenter_headers = _auth_headers(commenter, email="delete-parent-commenter@example.com", username="deleteparentcommenter")
+    root = commenter.post(f"/api/blogs/{blog_id}/comments", headers=commenter_headers, json={"content": "Parent"})
+    assert root.status_code == 201
+    root_id = root.get_json()["id"]
+
+    reply = client.post(f"/api/blogs/{blog_id}/comments", headers=author_headers, json={"content": "Reply", "parent_id": root_id})
+    assert reply.status_code == 201
+    reply_id = reply.get_json()["id"]
+
+    delete = commenter.delete(f"/api/comments/{root_id}", headers=commenter_headers)
+    assert delete.status_code == 200
+
+    with app.app_context():
+        assert db.session.get(Comment, root_id) is None
+        preserved = db.session.get(Comment, reply_id)
+        assert preserved is not None
+        assert preserved.parent_id is None
 
 
 def test_author_can_read_existing_comments_after_moving_blog_to_draft(client, app):

@@ -3,7 +3,6 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   API_BASE,
   getMyProfile,
-  listMyMealHistory,
   resolveBackendUrl,
   updateMyProfile,
   uploadMyAvatar
@@ -15,10 +14,9 @@ import {
 } from '../../modules/pose'
 import { deleteBlogById, deleteComment as deleteBlogComment, resolveBlogMediaUrl, updateBlog } from '../../modules/blog'
 import { useAuth } from '../../state/auth-context'
-import type { MealHistory, MyBlog, ProfileEditState, UserProfile } from '../../modules/user/profileTypes'
+import type { MyBlog, ProfileEditState, UserProfile } from '../../modules/user/profileTypes'
 import { formatYmdLocal, pad2, startOfWeek } from '../../modules/user/profileDate'
 import { ProfileDetailsPanel } from '../../components/user/ProfileDetailsPanel'
-import { DietHistoryPanel } from '../../components/user/DietHistoryPanel'
 import { UserCommunityPanel } from '../../components/user/UserCommunityPanel'
 import { ExerciseDashboardPanel } from '../../components/user/ExerciseDashboardPanel'
 
@@ -28,9 +26,9 @@ export default function ProfilePage() {
   const auth = useAuth()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const [tab, setTab] = useState<'Dashboard' | 'Profile' | 'Diet' | 'Blogs'>(() => {
+  const [tab, setTab] = useState<'Dashboard' | 'Profile' | 'Blogs'>(() => {
     const requested = searchParams.get('tab')
-    if (requested === 'Profile' || requested === 'Diet' || requested === 'Blogs') return requested
+    if (requested === 'Profile' || requested === 'Blogs') return requested
     if (requested === 'Community') return 'Blogs'
     return 'Dashboard'
   })
@@ -58,17 +56,6 @@ export default function ProfilePage() {
   const [poseWeekError, setPoseWeekError] = useState<string | null>(null)
   const [poseReloadKey, setPoseReloadKey] = useState(0)
 
-  const [dietMonth, setDietMonth] = useState(() => {
-    const now = new Date()
-    return new Date(now.getFullYear(), now.getMonth(), 1)
-  })
-  const [dietSelectedYmd, setDietSelectedYmd] = useState(() => formatYmdLocal(new Date()))
-  const [dietMeals, setDietMeals] = useState<MealHistory[]>([])
-  const [dietLoading, setDietLoading] = useState(false)
-  const [dietError, setDietError] = useState<string | null>(null)
-  const [dietTotal, setDietTotal] = useState<number | null>(null)
-  const [dietReloadKey, setDietReloadKey] = useState(0)
-
   const [edit, setEdit] = useState<ProfileEditState | null>(null)
   const [isEditing, setIsEditing] = useState(false)
 
@@ -84,21 +71,9 @@ export default function ProfilePage() {
     return map
   }, [poseSessions])
 
-  const dietMealsByDay = useMemo(() => {
-    const map = new Map<string, MealHistory[]>()
-    for (const meal of dietMeals) {
-      const key = meal.recordedOn
-      const prev = map.get(key)
-      if (prev) prev.push(meal)
-      else map.set(key, [meal])
-    }
-    for (const list of map.values()) list.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
-    return map
-  }, [dietMeals])
-
   useEffect(() => {
     const requested = searchParams.get('tab')
-    if (requested === 'Dashboard' || requested === 'Profile' || requested === 'Diet' || requested === 'Blogs') {
+    if (requested === 'Dashboard' || requested === 'Profile' || requested === 'Blogs') {
       setTab(requested)
     } else if (requested === 'Community') {
       setTab('Blogs')
@@ -149,61 +124,6 @@ export default function ProfilePage() {
     const prefix = `${year}-${month}-`
     if (!poseSelectedYmd.startsWith(prefix)) setPoseSelectedYmd(`${prefix}01`)
   }, [tab, poseMonth, poseSelectedYmd])
-
-  useEffect(() => {
-    if (tab !== 'Diet') return
-    const year = dietMonth.getFullYear()
-    const month = dietMonth.getMonth()
-    const daysInMonth = new Date(year, month + 1, 0).getDate()
-    const dateFrom = `${year}-${pad2(month + 1)}-01`
-    const dateTo = `${year}-${pad2(month + 1)}-${pad2(daysInMonth)}`
-
-    let active = true
-    setDietLoading(true)
-    setDietError(null)
-    ;(async () => {
-      let page = 1
-      const page_size = 50
-      let all: MealHistory[] = []
-      let total: number | null = null
-      while (true) {
-        const r = await listMyMealHistory<MealHistory>({ page, page_size })
-        if (!active) return
-        if (total == null) total = r.total
-        const filtered = r.items.filter((m) => m.recordedOn >= dateFrom && m.recordedOn <= dateTo)
-        all = all.concat(filtered)
-
-        if (r.items.length === 0) break
-        const last = r.items[r.items.length - 1]
-        if (last && last.recordedOn < dateFrom) break
-        if (page * page_size >= r.total) break
-        page += 1
-        if (page > 100) break
-      }
-      if (!active) return
-      setDietMeals(all)
-      setDietTotal(total ?? 0)
-      setDietLoading(false)
-      setDietError(null)
-    })().catch((e: unknown) => {
-      if (!active) return
-      setDietLoading(false)
-      setDietTotal(null)
-      setDietError(e instanceof Error ? e.message : 'Failed to load diet history')
-    })
-
-    return () => {
-      active = false
-    }
-  }, [tab, dietMonth, dietReloadKey])
-
-  useEffect(() => {
-    if (tab !== 'Diet') return
-    const year = dietMonth.getFullYear()
-    const month = pad2(dietMonth.getMonth() + 1)
-    const prefix = `${year}-${month}-`
-    if (!dietSelectedYmd.startsWith(prefix)) setDietSelectedYmd(`${prefix}01`)
-  }, [tab, dietMonth, dietSelectedYmd])
 
   useEffect(() => {
     if (tab !== 'Dashboard') return
@@ -430,7 +350,6 @@ export default function ProfilePage() {
         {(
           [
             { key: 'Dashboard', label: 'Exercise' },
-            { key: 'Diet', label: 'Diet' },
             { key: 'Blogs', label: 'Blogs' }
           ] as const
         ).map((t) => (
@@ -489,21 +408,6 @@ export default function ProfilePage() {
           onEditingChange={setIsEditing}
           onPickAvatar={(file) => onPickAvatar(file).catch(() => {})}
           onSave={saveProfile}
-        />
-      ) : null}
-
-      {tab === 'Diet' ? (
-        <DietHistoryPanel
-          dietMonth={dietMonth}
-          dietSelectedYmd={dietSelectedYmd}
-          dietMeals={dietMeals}
-          dietMealsByDay={dietMealsByDay}
-          dietLoading={dietLoading}
-          dietError={dietError}
-          dietTotal={dietTotal}
-          onReload={() => setDietReloadKey((k) => k + 1)}
-          onMonthChange={setDietMonth}
-          onSelectedYmdChange={setDietSelectedYmd}
         />
       ) : null}
 

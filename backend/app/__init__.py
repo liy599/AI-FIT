@@ -6,7 +6,6 @@ from werkzeug.exceptions import RequestEntityTooLarge
 
 from .config import Config
 from .extensions import cors, db, jwt, migrate
-from .services.food.catalog_runtime import ensure_food_seed_data
 try:
     from .services.pose.server_inference_worker import start_server_inference_worker
 except Exception:
@@ -80,10 +79,6 @@ def create_app(config_object=Config):
     from .routes.blog.blogs import bp as blogs_bp
     from .routes.blog.comments import bp as comments_bp
     from .routes.blog.tags import bp as tags_bp
-    from .routes.food.foods import bp as foods_bp
-    from .routes.food.meals import bp as meals_bp
-    from .routes.food.meta import bp as food_bp
-    from .routes.food.recognize import bp as recognize_bp
     from .routes.pose.api import bp as pose_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
@@ -92,11 +87,7 @@ def create_app(config_object=Config):
     app.register_blueprint(tags_bp, url_prefix="/api/tags")
     app.register_blueprint(blogs_bp, url_prefix="/api/blogs")
     app.register_blueprint(comments_bp, url_prefix="/api")
-    app.register_blueprint(food_bp, url_prefix="/api/food")
-    app.register_blueprint(foods_bp, url_prefix="/api/foods")
-    app.register_blueprint(meals_bp, url_prefix="/api/meals")
     app.register_blueprint(pose_bp, url_prefix="/api/pose")
-    app.register_blueprint(recognize_bp, url_prefix="/api/recognize")
     app.register_blueprint(admin_bp, url_prefix="/api/admin")
     app.register_blueprint(admin_blogs_bp, url_prefix="/api/admin")
     app.register_blueprint(admin_users_bp, url_prefix="/api/admin")
@@ -133,8 +124,6 @@ def create_app(config_object=Config):
         return jsonify({"error": "file too large (max 80MB)"}), 413
 
     with app.app_context():
-        if (not _is_cli_migration()) and bool(app.config.get("DB_AUTO_INIT", True)):
-            ensure_food_seed_data()
         if not _is_cli_migration():
             _ensure_admin_seed(app)
         if not _is_cli_migration():

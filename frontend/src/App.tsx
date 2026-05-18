@@ -1,30 +1,43 @@
-import { lazy, Suspense, type ReactNode } from 'react'
+import { lazy, Suspense, type ComponentType, type ReactNode } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import Layout from './components/layout/Layout'
 import { AuthProvider, useAuth } from './state/auth-context'
 import HomePage from './pages/public/HomePage'
 
+function lazyWithReload<T extends ComponentType<unknown>>(loader: () => Promise<{ default: T }>) {
+  return lazy(() =>
+    loader().catch((error) => {
+      const key = 'aifitguard:chunk-reload'
+      const message = error instanceof Error ? error.message : String(error)
+      const isChunkError = /chunk|import|module|fetch/i.test(message)
+      if (isChunkError && sessionStorage.getItem(key) !== '1') {
+        sessionStorage.setItem(key, '1')
+        window.location.reload()
+      }
+      throw error
+    })
+  )
+}
+
 // Lazy-load pages (code splitting for better performance)
-const AboutPage = lazy(() => import('./pages/public/AboutPage'))
-const AdminBlogsPage = lazy(() => import('./pages/admin/AdminBlogsPage'))
-const AdminDashboardPage = lazy(() => import('./pages/admin/AdminDashboardPage'))
-const AdminUsersPage = lazy(() => import('./pages/admin/AdminUsersPage'))
-const BlogDetailPage = lazy(() => import('./pages/blog/BlogDetailPage'))
-const BlogEditorPage = lazy(() => import('./pages/blog/BlogEditorPage'))
-const BlogListPage = lazy(() => import('./pages/blog/BlogListPage'))
-const FoodMealPage = lazy(() => import('./pages/food/FoodMealPage'))
-const FoodModulePage = lazy(() => import('./pages/food/FoodModulePage'))
-const LoginPage = lazy(() => import('./pages/auth/LoginPage'))
-const NotFoundPage = lazy(() => import('./pages/public/NotFoundPage'))
-const PoseGuidePage = lazy(() => import('./pages/pose/PoseGuidePage'))
-const PoseSelectPage = lazy(() => import('./pages/pose/PoseSelectPage'))
-const PoseTrainingHistoryPage = lazy(() => import('./pages/pose/PoseTrainingHistoryPage'))
-const PoseTrainingReportPage = lazy(() => import('./pages/pose/PoseTrainingReportPage'))
-const PoseToolPage = lazy(() => import('./pages/pose/PoseToolPage'))
-const ProfilePage = lazy(() => import('./pages/user/ProfilePage'))
-const RegisterPage = lazy(() => import('./pages/auth/RegisterPage'))
-const ResetPasswordPage = lazy(() => import('./pages/auth/ResetPasswordPage'))
-const UserPrivacyPage = lazy(() => import('./pages/user/UserPrivacyPage'))
+const AboutPage = lazyWithReload(() => import('./pages/public/AboutPage'))
+const AdminBlogsPage = lazyWithReload(() => import('./pages/admin/AdminBlogsPage'))
+const AdminDashboardPage = lazyWithReload(() => import('./pages/admin/AdminDashboardPage'))
+const AdminUsersPage = lazyWithReload(() => import('./pages/admin/AdminUsersPage'))
+const BlogDetailPage = lazyWithReload(() => import('./pages/blog/BlogDetailPage'))
+const BlogEditorPage = lazyWithReload(() => import('./pages/blog/BlogEditorPage'))
+const BlogListPage = lazyWithReload(() => import('./pages/blog/BlogListPage'))
+const LoginPage = lazyWithReload(() => import('./pages/auth/LoginPage'))
+const NotFoundPage = lazyWithReload(() => import('./pages/public/NotFoundPage'))
+const PoseGuidePage = lazyWithReload(() => import('./pages/pose/PoseGuidePage'))
+const PoseSelectPage = lazyWithReload(() => import('./pages/pose/PoseSelectPage'))
+const PoseTrainingHistoryPage = lazyWithReload(() => import('./pages/pose/PoseTrainingHistoryPage'))
+const PoseTrainingReportPage = lazyWithReload(() => import('./pages/pose/PoseTrainingReportPage'))
+const PoseToolPage = lazyWithReload(() => import('./pages/pose/PoseToolPage'))
+const ProfilePage = lazyWithReload(() => import('./pages/user/ProfilePage'))
+const RegisterPage = lazyWithReload(() => import('./pages/auth/RegisterPage'))
+const ResetPasswordPage = lazyWithReload(() => import('./pages/auth/ResetPasswordPage'))
+const UserPrivacyPage = lazyWithReload(() => import('./pages/user/UserPrivacyPage'))
 
 // Route guard: requires user authentication
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -77,11 +90,6 @@ const coreRoutes: AppRoute[] = [
   { path: '/about', element: <AboutPage /> }
 ]
 
-const foodRoutes: AppRoute[] = [
-  { path: '/food', element: <FoodModulePage /> },
-  { path: '/food/meal/:mealType', element: <FoodMealPage /> }
-]
-
 const poseRoutes: AppRoute[] = [
   { path: '/tools/pose', element: <PoseSelectPage /> },
   { path: '/tools/pose/:exerciseSlug', element: <PoseGuidePage /> },
@@ -120,7 +128,6 @@ const fallbackRoutes: AppRoute[] = [
 
 const appRoutes: AppRoute[] = [
   ...coreRoutes,
-  ...foodRoutes,
   ...poseRoutes,
   ...blogRoutes,
   ...userRoutes,

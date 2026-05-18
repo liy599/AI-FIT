@@ -42,18 +42,6 @@ export default function BlogListPage() {
     setSearchDraft(q)
   }, [q])
 
-  useEffect(() => {
-    let cancelled = false
-    queryBlogs('page=1&page_size=4&sort_by=created_at&sort_dir=desc')
-      .then((r) => {
-        if (!cancelled) setRecentItems(r.items)
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
   const queryString = useMemo(() => {
     const p = new URLSearchParams()
     p.set('page', String(page))
@@ -65,6 +53,8 @@ export default function BlogListPage() {
     return p.toString()
   }, [page, q, sortBy, sortDir, tagIds])
 
+  const isDefaultBlogQuery = page === 1 && !q.trim() && tagIds.length === 0 && sortBy === 'created_at' && sortDir !== 'asc'
+
   useEffect(() => {
     let cancelled = false
     setLoading(true)
@@ -74,6 +64,7 @@ export default function BlogListPage() {
         if (cancelled) return
         setItems(r.items)
         setTotal(r.total)
+        if (isDefaultBlogQuery) setRecentItems(r.items.slice(0, 4))
       })
       .catch((e: unknown) => {
         if (cancelled) return
@@ -86,7 +77,20 @@ export default function BlogListPage() {
     return () => {
       cancelled = true
     }
-  }, [queryString])
+  }, [isDefaultBlogQuery, queryString])
+
+  useEffect(() => {
+    if (isDefaultBlogQuery || recentItems.length) return
+    let cancelled = false
+    queryBlogs('page=1&page_size=4&sort_by=created_at&sort_dir=desc')
+      .then((r) => {
+        if (!cancelled) setRecentItems(r.items)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [isDefaultBlogQuery, recentItems.length])
 
   const hero = recentItems[0] ?? items[0]
   const recent = recentItems
@@ -273,7 +277,7 @@ export default function BlogListPage() {
                     <div className="text-xs font-semibold uppercase tracking-[0.12em] text-emerald-700">
                       Recent {recentIndex + 1} / {recent.length}
                     </div>
-                    <h3 className="mt-4 text-2xl font-semibold leading-tight tracking-tight text-neutral-900 sm:text-3xl md:text-4xl">
+                    <h3 className="blog-title-one-line mt-4 text-2xl font-semibold leading-tight tracking-tight text-neutral-900 sm:text-3xl md:text-4xl">
                       <Link to={`/blogs/${activeRecent.id}`}>{activeRecent.title}</Link>
                     </h3>
 
@@ -354,8 +358,6 @@ export default function BlogListPage() {
               <select value={sort} onChange={(event) => updateFilters({ sort: event.target.value })}>
                 <option value="created_at:desc">Newest</option>
                 <option value="created_at:asc">Oldest</option>
-                <option value="title:asc">Title A-Z</option>
-                <option value="title:desc">Title Z-A</option>
                 <option value="view_count:desc">Most viewed</option>
                 <option value="like_count:desc">Most liked</option>
               </select>

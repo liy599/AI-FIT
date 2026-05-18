@@ -55,18 +55,6 @@ export function getMyWorkouts<T>() {
   return apiFetch<{ items: T[] }>('/api/workouts?page=1&page_size=20')
 }
 
-export function getMyMeals<T>() {
-  return apiFetch<{ items: T[] }>('/api/meals/history?page=1&page_size=20')
-}
-
-export function listMyMealHistory<T>(params?: { page?: number; page_size?: number }) {
-  const query = new URLSearchParams()
-  if (params?.page) query.set('page', String(params.page))
-  if (params?.page_size) query.set('page_size', String(params.page_size))
-  const suffix = query.toString()
-  return apiFetch<{ items: T[]; page: number; page_size: number; total: number }>(`/api/meals/history${suffix ? `?${suffix}` : ''}`)
-}
-
 export function getMyBlogs<T>(params: { page?: number; page_size?: number; q?: string; status?: string; sort_by?: string; sort_dir?: string } = {}) {
   const query = new URLSearchParams()
   query.set('page', String(params.page ?? 1))

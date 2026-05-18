@@ -34,7 +34,7 @@ export default function Footer() {
               <div className="cl_footer-widget mb-40">
                 <h5 className="cl_footer-widget-title">About Us</h5>
                 <p className="cl_footer-widget-text mb-35">
-                  AI FitGuard: pose video analysis + food & nutrition tracking + community blogs. Video/image processing runs locally in your browser by default.
+                  AI FitGuard: pose video analysis and community blogs. Video processing runs locally in your browser by default.
                 </p>
               </div>
             </div>
@@ -52,7 +52,6 @@ export default function Footer() {
                     <Link to="/tools/pose">Pose</Link>
                   </li>
                   <li>
-                    <Link to="/food">Food</Link>
                   </li>
                 </ul>
               </div>

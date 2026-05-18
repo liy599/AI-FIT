@@ -21,7 +21,15 @@ Browser camera APIs require a secure context. With public HTTP, live camera perm
 
 ## Prepare Environment Files
 
-Create root `.env` next to `docker-compose.yml`:
+The tracked `*.example` files are templates. The real `.env` files stay on the VM and are not committed.
+
+Create root `.env` next to `docker-compose.yml`. You can start from the template:
+
+```bash
+cp .env.example .env
+```
+
+Expected root `.env` shape:
 
 ```env
 DB_PORT=5432
@@ -32,7 +40,13 @@ HTTP_PORT=80
 VITE_API_BASE=/api
 ```
 
-Create `backend/.env`:
+Create `backend/.env`. You can start from the production template:
+
+```bash
+cp backend/.env.production.example backend/.env
+```
+
+Expected `backend/.env` shape:
 
 ```env
 APP_ENV=production
@@ -59,6 +73,12 @@ AI_REPORT_TIMEOUT_SECONDS=20
 
 Use real secret values before starting production.
 
+Validate the VM env files before starting or updating containers:
+
+```bash
+sh scripts/check-env.sh production
+```
+
 ## First Deployment
 
 ```bash
@@ -67,6 +87,8 @@ cd ~/AI-FIT
 git fetch origin main
 git checkout main
 git pull --ff-only origin main
+
+sh scripts/check-env.sh production
 
 docker-compose build backend web
 docker-compose up -d db redis
@@ -85,6 +107,8 @@ cd ~/AI-FIT
 git fetch origin main
 git checkout main
 git pull --ff-only origin main
+
+sh scripts/check-env.sh production
 
 docker-compose build backend web
 docker-compose up -d db redis

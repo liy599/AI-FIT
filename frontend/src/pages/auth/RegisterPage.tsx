@@ -42,7 +42,7 @@ export default function RegisterPage() {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Request failed'
       if (msg === 'email already exists') {
-        setError('邮箱已存在')
+        setError('Email already exists')
         return
       }
       if (msg === 'email delivery not configured') {
@@ -90,7 +90,7 @@ export default function RegisterPage() {
         return
       }
       if (msg === 'email already exists') {
-        setError('邮箱已存在')
+        setError('Email already exists')
         return
       }
       setError(msg)
@@ -204,7 +204,7 @@ export default function RegisterPage() {
         return
       }
       if (msg === 'email already exists') {
-        setError('邮箱已存在')
+        setError('Email already exists')
         return
       }
       setError(msg)

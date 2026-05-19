@@ -1,10 +1,14 @@
+import json
+import os
+
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
 from sqlalchemy import or_
 
 from ...extensions import db
-from ...models import User
+from ...models import Blog, BlogLike, BlogView, Comment, CommentLike, CourseCommentLike, Notification, User
 from ...utils.pagination import parse_pagination
+from ...utils.upload_access import resolve_upload_file_path
 from .lifecycle import _admin_guard
 
 bp = Blueprint("admin_users", __name__)
@@ -80,6 +84,36 @@ def update_user(user_id: int):
     return jsonify(_admin_user_payload(user))
 
 
+@bp.delete("/users/<int:user_id>")
+@jwt_required()
+def delete_user(user_id: int):
+    allowed, current_user = _admin_guard()
+    if not allowed or current_user is None:
+        return jsonify({"error": "forbidden"}), 403
+
+    user = db.session.get(User, user_id)
+    if user is None:
+        return jsonify({"error": "not found"}), 404
+    if user.id == current_user.id:
+        return jsonify({"error": "cannot delete your own account"}), 400
+
+    data = request.get_json(silent=True) or {}
+    if (data.get("confirm_username") or "") != user.username:
+        return jsonify({"error": "confirm_username must match target username"}), 400
+
+    if user.is_admin:
+        remaining_admins = User.query.filter(User.is_admin.is_(True), User.id != user.id).count()
+        if remaining_admins <= 0:
+            return jsonify({"error": "cannot delete the last admin account"}), 400
+
+    upload_paths = _user_upload_file_paths(user)
+    _delete_user_associations(user)
+    db.session.delete(user)
+    db.session.commit()
+    _remove_upload_files(upload_paths)
+    return jsonify({"ok": True})
+
+
 @bp.get("/users/<int:user_id>/contact")
 @jwt_required()
 def get_user_contact(user_id: int):
@@ -123,6 +157,76 @@ def _sort_expression():
     }
     column = sort_fields.get(sort_by, User.id)
     return column.desc() if sort_dir == "desc" else column.asc()
+
+
+def _delete_user_associations(user: User) -> None:
+    blog_ids = [row.id for row in db.session.query(Blog.id).filter(Blog.user_id == user.id).all()]
+    comment_ids = [row.id for row in db.session.query(Comment.id).filter(Comment.user_id == user.id).all()]
+
+    notification_filters = [
+        Notification.recipient_user_id == user.id,
+        Notification.actor_user_id == user.id,
+    ]
+    if blog_ids:
+        notification_filters.append(Notification.blog_id.in_(blog_ids))
+    if comment_ids:
+        notification_filters.append(Notification.comment_id.in_(comment_ids))
+        notification_filters.append(Notification.root_comment_id.in_(comment_ids))
+
+    db.session.query(Notification).filter(or_(*notification_filters)).delete(synchronize_session=False)
+    db.session.query(BlogLike).filter(BlogLike.user_id == user.id).delete(synchronize_session=False)
+    db.session.query(CommentLike).filter(CommentLike.user_id == user.id).delete(synchronize_session=False)
+    db.session.query(CourseCommentLike).filter(CourseCommentLike.user_id == user.id).delete(synchronize_session=False)
+    db.session.query(BlogView).filter(BlogView.viewer_key == f"user:{user.id}").delete(synchronize_session=False)
+
+
+def _user_upload_file_paths(user: User) -> set[str]:
+    urls: set[str] = set()
+    if user.avatar_url:
+        urls.add(user.avatar_url)
+
+    blogs = Blog.query.filter_by(user_id=user.id).all()
+    for blog in blogs:
+        if blog.cover_image_url:
+            urls.add(blog.cover_image_url)
+        for image_url in _blog_image_urls(blog):
+            urls.add(image_url)
+
+    paths: set[str] = set()
+    for url in urls:
+        path = _upload_url_to_file_path(url)
+        if path:
+            paths.add(path)
+    return paths
+
+
+def _blog_image_urls(blog: Blog) -> list[str]:
+    if not blog.image_urls:
+        return []
+    try:
+        parsed = json.loads(blog.image_urls)
+    except (TypeError, ValueError):
+        return []
+    if not isinstance(parsed, list):
+        return []
+    return [str(item) for item in parsed if isinstance(item, str) and item.strip()]
+
+
+def _upload_url_to_file_path(url: str) -> str | None:
+    normalized = (url or "").strip()
+    if not normalized.startswith("/uploads/"):
+        return None
+    rel = normalized.removeprefix("/uploads/")
+    return resolve_upload_file_path(rel)
+
+
+def _remove_upload_files(paths: set[str]) -> None:
+    for path in paths:
+        if os.path.isfile(path):
+            try:
+                os.remove(path)
+            except OSError:
+                pass
 
 
 def _mask_email(email: str) -> str:

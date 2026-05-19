@@ -1,4 +1,5 @@
 import json
+import os
 from typing import Optional
 
 from flask import Blueprint, jsonify, request
@@ -8,7 +9,7 @@ from sqlalchemy.orm import joinedload, load_only
 
 from ...extensions import db
 from ...models import Blog, Comment, Notification, User
-from ...services.account.data_lifecycle import delete_user_data, remove_user_avatar_file
+from ...utils.upload_access import resolve_upload_file_path
 from ...utils.image_upload import save_public_image_upload
 from ...utils.pagination import parse_pagination
 
@@ -164,6 +165,19 @@ def my_blogs():
             "total": total,
         }
     )
+
+
+def remove_user_avatar_file(user: User) -> None:
+    avatar = (user.avatar_url or "").strip()
+    if not avatar.startswith("/uploads/avatars/"):
+        return
+    rel = avatar.removeprefix("/uploads/")
+    abs_path = resolve_upload_file_path(rel)
+    if abs_path and os.path.isfile(abs_path):
+        try:
+            os.remove(abs_path)
+        except OSError:
+            pass
 
 
 def _blog_status(blog: Blog) -> str:
@@ -340,11 +354,13 @@ def mark_notification_read(notification_id: int):
     return jsonify({"ok": True})
 
 
-@bp.post("/data-lifecycle/delete")
+@bp.delete("/notifications/<int:notification_id>")
 @jwt_required()
-def delete_my_data():
+def delete_notification(notification_id: int):
     user_id = int(get_jwt_identity())
-    data = request.get_json(silent=True) or {}
-    payload, status = delete_user_data(user_id, data)
-    return jsonify(payload), status
-
+    notification = Notification.query.filter_by(id=notification_id, recipient_user_id=user_id).first()
+    if notification is None:
+        return jsonify({"error": "not found"}), 404
+    db.session.delete(notification)
+    db.session.commit()
+    return jsonify({"ok": True})

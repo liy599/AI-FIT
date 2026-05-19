@@ -37,7 +37,6 @@ const PoseToolPage = lazyWithReload(() => import('./pages/pose/PoseToolPage'))
 const ProfilePage = lazyWithReload(() => import('./pages/user/ProfilePage'))
 const RegisterPage = lazyWithReload(() => import('./pages/auth/RegisterPage'))
 const ResetPasswordPage = lazyWithReload(() => import('./pages/auth/ResetPasswordPage'))
-const UserPrivacyPage = lazyWithReload(() => import('./pages/user/UserPrivacyPage'))
 
 // Route guard: requires user authentication
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -92,6 +91,7 @@ const coreRoutes: AppRoute[] = [
 
 const poseRoutes: AppRoute[] = [
   { path: '/tools/pose', element: <PoseSelectPage /> },
+  { path: '/tools/pose/history', element: <PoseTrainingHistoryPage />, guard: 'auth' },
   { path: '/tools/pose/:exerciseSlug', element: <PoseGuidePage /> },
   { path: '/tools/pose/:exerciseSlug/video', element: <PoseToolPage /> },
   { path: '/tools/pose/:exerciseSlug/history', element: <PoseTrainingHistoryPage />, guard: 'auth' },
@@ -106,8 +106,7 @@ const blogRoutes: AppRoute[] = [
 ]
 
 const userRoutes: AppRoute[] = [
-  { path: '/profile', element: <ProfilePage />, guard: 'auth' },
-  { path: '/profile/privacy', element: <UserPrivacyPage />, guard: 'auth' }
+  { path: '/profile', element: <ProfilePage />, guard: 'auth' }
 ]
 
 const adminRoutes: AppRoute[] = [

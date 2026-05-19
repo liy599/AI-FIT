@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   buildPoseGuidePath,
   buildPoseHistoryPath,
   buildTrainingRecordName,
+  deletePoseTraining,
   DEMO_POSE_TRAINING,
   DEMO_POSE_TRAINING_ID,
   getPoseExerciseBySlug,
@@ -16,11 +17,13 @@ import {
 
 export default function PoseTrainingReportPage() {
   const params = useParams<{ exerciseSlug: string; sessionId: string }>()
+  const navigate = useNavigate()
   const exercise = getPoseExerciseBySlug(params.exerciseSlug)
   const sessionId = useMemo(() => Number(params.sessionId), [params.sessionId])
   const [session, setSession] = useState<PoseTrainingSession | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -80,6 +83,22 @@ export default function PoseTrainingReportPage() {
     return { reps, sessionName, sessionExerciseType, displayReport }
   }, [session])
 
+  async function deleteCurrentReport() {
+    if (!session || session.id === DEMO_POSE_TRAINING_ID) return
+    const confirmed = window.confirm(`Delete training report "${computed?.sessionName ?? 'Training Report'}"? This cannot be undone.`)
+    if (!confirmed) return
+
+    setDeleting(true)
+    setError(null)
+    try {
+      await deletePoseTraining(session.id)
+      navigate(buildPoseHistoryPath(exercise.slug), { replace: true, state: { notice: 'Training report deleted.' } })
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Delete failed')
+      setDeleting(false)
+    }
+  }
+
   return (
     <>
       <section className="cl_breadcrumb-area brand-page-theme">
@@ -107,9 +126,21 @@ export default function PoseTrainingReportPage() {
         <div className="page-container">
           <div className="pose-history-head mb-30">
             <h4 className="cl_blog-widget-title mb-0">{computed?.sessionName ?? 'Training Report'}</h4>
-            <Link to={buildPoseHistoryPath(exercise.slug)} className="pose-tool-ghost-btn pose-tool-light-btn">
-              Back to History
-            </Link>
+            <div className="pose-history-head-actions">
+              {!loading && !error && session && session.id !== DEMO_POSE_TRAINING_ID ? (
+                <button
+                  className="pose-tool-ghost-btn pose-tool-light-btn pose-tool-danger-btn"
+                  type="button"
+                  disabled={deleting}
+                  onClick={() => deleteCurrentReport().catch(() => {})}
+                >
+                  {deleting ? 'Deleting...' : 'Delete Report'}
+                </button>
+              ) : null}
+              <Link to={buildPoseHistoryPath(exercise.slug)} className="pose-tool-ghost-btn pose-tool-light-btn">
+                Back to History
+              </Link>
+            </div>
           </div>
 
           {loading ? <p className="pose-muted-copy">Loading report...</p> : null}

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getAdminUserContact, listAdminUsers, updateAdminUser, type AdminUserItem } from '../../modules/admin'
+import { buildPaginationItems } from '../../lib/pagination'
+import { deleteAdminUser, getAdminUserContact, listAdminUsers, updateAdminUser, type AdminUserItem } from '../../modules/admin'
 import { useAuth } from '../../state/auth-context'
 
 type BoolFilter = 'all' | 'yes' | 'no'
@@ -50,6 +51,7 @@ export default function AdminUsersPage() {
   }, [page, pageSize, appliedQuery, adminFilter, disabledFilter, sort])
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const paginationItems = useMemo(() => buildPaginationItems(page, totalPages), [page, totalPages])
 
   const canEditUser = useMemo(() => {
     return (user: AdminUserItem) => user.id !== auth.user?.id
@@ -77,6 +79,33 @@ export default function AdminUsersPage() {
       setRevealedEmails((prev) => ({ ...prev, [user.id]: r.email }))
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to reveal email')
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  async function deleteUser(user: AdminUserItem) {
+    const confirmedName = window.prompt(
+      `Delete user "${user.username}"?\n\nThis permanently removes the account and related blogs, comments, notifications, training records, likes, and uploads.\n\nType the username to confirm:`
+    )
+    if (confirmedName !== user.username) {
+      if (confirmedName !== null) setError('Delete cancelled: username confirmation did not match.')
+      return
+    }
+
+    setSavingId(user.id)
+    setError(null)
+    try {
+      await deleteAdminUser(user.id, confirmedName)
+      setItems((prev) => prev.filter((item) => item.id !== user.id))
+      setTotal((prev) => Math.max(0, prev - 1))
+      setRevealedEmails((prev) => {
+        const next = { ...prev }
+        delete next[user.id]
+        return next
+      })
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Delete failed')
     } finally {
       setSavingId(null)
     }
@@ -233,6 +262,15 @@ export default function AdminUsersPage() {
                               <i className={u.is_disabled ? 'fa-regular fa-unlock-alt' : 'fa-regular fa-lock'} aria-hidden="true" />
                               {u.is_disabled ? 'Enable' : 'Disable'}
                             </button>
+                            <button
+                              type="button"
+                              className="inline-flex h-8 items-center gap-2.5 rounded-full bg-rose-600 px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-50"
+                              disabled={disabled || !canEditUser(u)}
+                              onClick={() => deleteUser(u).catch(() => {})}
+                            >
+                              <i className="fa-regular fa-trash" aria-hidden="true" />
+                              Delete
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -249,12 +287,35 @@ export default function AdminUsersPage() {
               </table>
             </div>
 
-            <div className="flex gap-2">
-              <button className="profile-btn-secondary disabled:opacity-50" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+            <div className="admin-pagination">
+              <button type="button" disabled={page <= 1} onClick={() => setPage(1)}>
+                First
+              </button>
+              <button type="button" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
                 Prev
               </button>
-              <button className="profile-btn-secondary disabled:opacity-50" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
+              <div className="admin-page-numbers" aria-label="Admin user pages">
+                {paginationItems.map((item, index) =>
+                  item === 'ellipsis' ? (
+                    <span key={`ellipsis-${index}`} className="admin-page-ellipsis">...</span>
+                  ) : (
+                    <button
+                      key={item}
+                      type="button"
+                      className={item === page ? 'is-active' : ''}
+                      aria-current={item === page ? 'page' : undefined}
+                      onClick={() => setPage(item)}
+                    >
+                      {item}
+                    </button>
+                  )
+                )}
+              </div>
+              <button type="button" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
                 Next
+              </button>
+              <button type="button" disabled={page >= totalPages} onClick={() => setPage(totalPages)}>
+                Last
               </button>
             </div>
           </div>

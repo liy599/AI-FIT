@@ -196,6 +196,14 @@
   box-shadow: var(--btn-premium-shadow-hover);
 }
 
+.blog-list-pagination button.is-active {
+  border-color: #0e3829;
+  background: #0e3829;
+  color: #fff;
+  box-shadow: 0 12px 28px rgba(14, 56, 41, 0.24);
+  transform: translateY(-1px);
+}
+
 .blog-list-pagination {
   margin-top: 30px;
   display: flex;
@@ -211,6 +219,19 @@
 .blog-list-pagination button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
+}
+
+.blog-list-page-numbers {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.blog-list-page-ellipsis {
+  color: rgba(14, 56, 41, 0.58);
+  padding: 0 2px;
 }
 
 .blog-editor-panel {
@@ -249,6 +270,67 @@
   color: rgba(14, 56, 41, 0.64);
   font-size: 12px;
   line-height: 1.5;
+}
+
+.blog-detail-author-meta {
+  align-items: center;
+  gap: 14px;
+  justify-content: center;
+  text-align: center;
+}
+
+.blog-detail-author-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.blog-detail-author-inline img {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  border: 2px solid rgba(53, 204, 149, 0.28);
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+.brand-page-body .cl_blog_details-content-title {
+  max-width: 860px;
+  margin-right: auto;
+  margin-left: auto;
+  font-size: clamp(30px, 3vw, 42px);
+  line-height: 1.18;
+  text-align: center;
+}
+
+.brand-page-body .cl_blog_details-content-text {
+  max-width: 780px;
+  margin-right: auto;
+  margin-left: auto;
+  margin-top: 24px;
+  color: rgba(14, 56, 41, 0.76);
+  font-size: 18px;
+  line-height: 1.78;
+}
+
+.brand-page-body .blog-detail-main-col {
+  width: 100%;
+  max-width: 980px;
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.brand-page-body .cl_blog_details-content-bottom {
+  max-width: 780px;
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.brand-page-body .cl_blog_details-reply,
+.brand-page-body .blog-comments-list {
+  max-width: 920px;
+  margin-right: auto;
+  margin-left: auto;
 }
 
 .blog-editor-form small.blog-field-error,

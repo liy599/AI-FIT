@@ -28,6 +28,7 @@ type ExerciseDashboardPanelProps = {
   latestPoseSession: PoseTrainingSession | null
   latestPoseExerciseName: string
   onReload: () => void
+  onDeleteSession: (session: PoseTrainingSession) => Promise<void>
   onMonthChange: (next: Date) => void
   onSelectedYmdChange: (next: string) => void
 }
@@ -49,6 +50,7 @@ export function ExerciseDashboardPanel(props: ExerciseDashboardPanelProps) {
     latestPoseSession,
     latestPoseExerciseName,
     onReload,
+    onDeleteSession,
     onMonthChange,
     onSelectedYmdChange
   } = props
@@ -89,6 +91,7 @@ export function ExerciseDashboardPanel(props: ExerciseDashboardPanelProps) {
             poseLoading={poseLoading}
             onMonthChange={onMonthChange}
             onSelectedYmdChange={onSelectedYmdChange}
+            onDeleteSession={onDeleteSession}
           />
 
           <div className="profile-panel">
@@ -116,7 +119,7 @@ export function ExerciseDashboardPanel(props: ExerciseDashboardPanelProps) {
             </div>
           </div>
 
-          <RecentPoseSessions sessions={poseRecentSessions} onReload={onReload} />
+          <RecentPoseSessions sessions={poseRecentSessions} onReload={onReload} onDeleteSession={onDeleteSession} />
         </>
       )}
     </div>
@@ -131,8 +134,9 @@ function PoseHistoryCalendar(props: {
   poseLoading: boolean
   onMonthChange: (next: Date) => void
   onSelectedYmdChange: (next: string) => void
+  onDeleteSession: (session: PoseTrainingSession) => Promise<void>
 }) {
-  const { poseMonth, poseSelectedYmd, poseSessions, poseSessionsByDay, poseLoading, onMonthChange, onSelectedYmdChange } = props
+  const { poseMonth, poseSelectedYmd, poseSessions, poseSessionsByDay, poseLoading, onMonthChange, onSelectedYmdChange, onDeleteSession } = props
 
   return (
     <div className="profile-panel">
@@ -211,7 +215,7 @@ function PoseHistoryCalendar(props: {
 
           <div className="mt-4 space-y-3">
             {(poseSessionsByDay.get(poseSelectedYmd) ?? []).map((s) => (
-              <PoseSessionCard key={s.id} session={s} />
+              <PoseSessionCard key={s.id} session={s} onDeleteSession={onDeleteSession} />
             ))}
 
             {(poseSessionsByDay.get(poseSelectedYmd) ?? []).length === 0 && !poseLoading ? (
@@ -224,7 +228,7 @@ function PoseHistoryCalendar(props: {
   )
 }
 
-function RecentPoseSessions(props: { sessions: PoseTrainingSession[]; onReload: () => void }) {
+function RecentPoseSessions(props: { sessions: PoseTrainingSession[]; onReload: () => void; onDeleteSession: (session: PoseTrainingSession) => Promise<void> }) {
   return (
     <div className="profile-panel">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -241,14 +245,14 @@ function RecentPoseSessions(props: { sessions: PoseTrainingSession[]; onReload: 
 
       <div className="mt-4 space-y-3">
         {props.sessions.slice(0, 5).map((s) => (
-          <PoseSessionCard key={s.id} session={s} />
+          <PoseSessionCard key={s.id} session={s} onDeleteSession={props.onDeleteSession} />
         ))}
       </div>
     </div>
   )
 }
 
-function PoseSessionCard(props: { session: PoseTrainingSession }) {
+function PoseSessionCard(props: { session: PoseTrainingSession; onDeleteSession: (session: PoseTrainingSession) => Promise<void> }) {
   const s = props.session
   const totalReps = s.sets.reduce((acc, item) => acc + (item.reps ?? 0), 0)
   const exerciseType = s.sets[0]?.exercise_type ?? 'squat'
@@ -272,6 +276,9 @@ function PoseSessionCard(props: { session: PoseTrainingSession }) {
           <Link to={buildPoseReportPath(exercise.slug, s.id)} className="profile-btn-secondary">
             View Report
           </Link>
+          <button type="button" className="profile-btn-chip-danger" onClick={() => props.onDeleteSession(s).catch(() => {})}>
+            Delete
+          </button>
         </div>
       </div>
     </div>

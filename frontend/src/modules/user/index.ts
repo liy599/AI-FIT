@@ -3,6 +3,8 @@ import type { AuthUser } from '../../lib/auth'
 
 export { API_BASE, resolveBackendUrl }
 
+export const NOTIFICATIONS_CHANGED_EVENT = 'aifitguard:notifications-changed'
+
 export function loginByPassword(email: string, password: string) {
   return apiFetch<{
     user: AuthUser
@@ -99,11 +101,6 @@ export function markNotificationRead(notificationId: number) {
   return apiFetch<{ ok: boolean }>(`/api/user/notifications/${notificationId}/read`, { method: 'POST' })
 }
 
-export function previewOrDeleteMyData(payload: Record<string, unknown>) {
-  return apiFetch('/api/user/data-lifecycle/delete', {
-    method: 'POST',
-    body: JSON.stringify(payload)
-  })
+export function deleteNotification(notificationId: number) {
+  return apiFetch<{ ok: boolean }>(`/api/user/notifications/${notificationId}`, { method: 'DELETE' })
 }
-
-

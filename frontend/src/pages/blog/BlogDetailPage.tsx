@@ -495,17 +495,28 @@ export default function BlogDetailPage() {
                           <span className="cl_blog_details-content-img-tag blog-category-pill">{displayBlogTagName(blog.tags[0].name)}</span>
                         ) : null}
                       </div>
-                      <div className="cl_blog_classic-item-content-meta">
-                        <span>
-                          <i className="fa-light fa-user"></i>
+                      <h3 className="cl_blog_details-content-title section-stack-sm blog-break-text">{blog.title}</h3>
+                      <div className="cl_blog_classic-item-content-meta blog-detail-author-meta">
+                        <span className="blog-detail-author-inline">
+                          <img
+                            src={resolveMediaUrl(blog.author.avatar_url) ?? '/assets/images/blog/blog_widget-1.png'}
+                            alt={`${blog.author.username} avatar`}
+                          />
                           <span>BY {blog.author.username}</span>
                         </span>
                         <span>
                           <i className="fa-light fa-calendar"></i>
                           <span>{new Date(blog.created_at).toLocaleDateString()}</span>
                         </span>
+                        <span>
+                          <i className="fa-light fa-eye"></i>
+                          <span>{blog.view_count} views</span>
+                        </span>
+                        <span>
+                          <i className="fa-light fa-thumbs-up"></i>
+                          <span>{blog.like_count} likes</span>
+                        </span>
                       </div>
-                      <h3 className="cl_blog_details-content-title section-stack-sm blog-break-text">{blog.title}</h3>
                       {!blog.is_published ? <div className="blog-draft-badge section-stack-sm">Draft preview</div> : null}
                       {blog.visibility === 'private' ? <div className="blog-draft-badge section-stack-sm">Private</div> : null}
                       {detailImages.length ? (
@@ -675,23 +686,6 @@ export default function BlogDetailPage() {
               </div>
             </div>
 
-            <div className="blog-detail-side-col">
-              <div className="cl_blog_details-right pb-10">
-                {blog ? (
-                  <div className="cl_blog-widget section-widget">
-                    <div className="cl_blog-widget-author">
-                      <img
-                        className="cl_blog-widget-author-avatar"
-                        src={resolveMediaUrl(blog.author.avatar_url) ?? '/assets/images/blog/blog_widget-1.png'}
-                        alt={`${blog.author.username} avatar`}
-                      />
-                      <h4 className="cl_blog-widget-author-title">{blog.author.username}</h4>
-                      <p>Views: {blog.view_count} / Likes: {blog.like_count}</p>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            </div>
           </div>
         </div>
       </section>

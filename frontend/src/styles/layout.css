@@ -67,8 +67,20 @@
 
 .footer-bottom-grid {
   display: grid;
-  grid-template-columns: 4fr 2fr 3fr 3fr;
-  gap: 24px;
+  grid-template-columns: minmax(320px, 560px) repeat(2, minmax(132px, 160px));
+  align-items: start;
+  justify-content: space-between;
+  gap: 56px;
+}
+
+.footer-bottom-grid > div:first-child {
+  max-width: 560px;
+}
+
+.footer-bottom-grid > div:nth-child(2),
+.footer-bottom-grid > div:nth-child(3) {
+  width: 160px;
+  justify-self: end;
 }
 
 .auth-form-grid {
@@ -104,7 +116,7 @@
 
 .blog-detail-main-grid {
   display: grid;
-  grid-template-columns: minmax(0, 8fr) minmax(280px, 4fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 24px;
 }
 
@@ -145,6 +157,58 @@
   line-height: 1.45;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+.admin-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.admin-pagination button {
+  min-height: 38px;
+  min-width: 38px;
+  border: 1px solid var(--btn-premium-border);
+  border-radius: 999px;
+  background: var(--btn-premium-bg);
+  color: var(--btn-premium-text);
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 800;
+  box-shadow: var(--btn-premium-shadow);
+}
+
+.admin-pagination button:hover:not(:disabled) {
+  background: var(--btn-premium-bg-hover);
+  box-shadow: var(--btn-premium-shadow-hover);
+}
+
+.admin-pagination button.is-active {
+  border-color: #0e3829;
+  background: #0e3829;
+  color: #fff;
+  box-shadow: 0 12px 28px rgba(14, 56, 41, 0.24);
+  transform: translateY(-1px);
+}
+
+.admin-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.admin-page-numbers {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.admin-page-ellipsis {
+  color: rgba(14, 56, 41, 0.58);
+  padding: 0 2px;
 }
 
 .privacy-grid-two-col {

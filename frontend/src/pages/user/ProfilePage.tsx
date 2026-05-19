@@ -8,6 +8,7 @@ import {
   uploadMyAvatar
 } from '../../modules/user'
 import {
+  deletePoseTraining,
   getPoseExerciseByType,
   listPoseTrainings,
   type PoseTrainingSession
@@ -318,6 +319,20 @@ export default function ProfilePage() {
     }
   }
 
+  async function deletePoseSession(session: PoseTrainingSession) {
+    const label = session.note?.trim() || new Date(session.started_at).toLocaleString()
+    const confirmed = window.confirm(`Delete report "${label}"? This cannot be undone.`)
+    if (!confirmed) return
+    setError(null)
+    try {
+      await deletePoseTraining(session.id)
+      flashNotice('Report deleted')
+      setPoseReloadKey((key) => key + 1)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Delete failed')
+    }
+  }
+
   return (
     <div className="mx-auto w-full min-h-[calc(100vh-120px)] max-w-5xl space-y-6 px-4 pt-6 pb-32 text-slate-900 sm:px-6 lg:px-8">
       <div className="profile-panel">
@@ -390,6 +405,7 @@ export default function ProfilePage() {
           latestPoseSession={latestPoseSession}
           latestPoseExerciseName={latestPoseExercise.displayName}
           onReload={() => setPoseReloadKey((k) => k + 1)}
+          onDeleteSession={deletePoseSession}
           onMonthChange={setPoseMonth}
           onSelectedYmdChange={setPoseSelectedYmd}
         />

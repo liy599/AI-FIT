@@ -1,6 +1,13 @@
 ﻿import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { useEffect, useState } from 'react'
-import { getMyNotifications, markNotificationRead, resolveBackendUrl, type UserNotification } from '../../modules/user'
+import { useCallback, useEffect, useState } from 'react'
+import {
+  deleteNotification,
+  getMyNotifications,
+  markNotificationRead,
+  NOTIFICATIONS_CHANGED_EVENT,
+  resolveBackendUrl,
+  type UserNotification
+} from '../../modules/user'
 import { useAuth } from '../../state/auth-context'
 
 // Normalize avatar URLs (supports relative backend file paths)
@@ -38,7 +45,7 @@ export default function Navbar(props: NavbarProps) {
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
     `${props.variant === 'mobile' ? 'cl_mobile-nav-link' : 'cl_nav-link'}${isActive ? ' is-active' : ''}`
 
-  useEffect(() => {
+  const loadNotifications = useCallback(() => {
     let cancelled = false
     if (!auth.user) {
       setNotifications([])
@@ -61,6 +68,16 @@ export default function Navbar(props: NavbarProps) {
     }
   }, [auth.user])
 
+  useEffect(() => loadNotifications(), [loadNotifications])
+
+  useEffect(() => {
+    const onChanged = () => {
+      loadNotifications()
+    }
+    window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, onChanged)
+    return () => window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, onChanged)
+  }, [loadNotifications])
+
   async function openNotification(notification: UserNotification) {
     if (!notification.is_read) {
       await markNotificationRead(notification.id).catch(() => {})
@@ -69,6 +86,14 @@ export default function Navbar(props: NavbarProps) {
     }
     props.onNavigate?.()
     nav(`/blogs/${notification.blog.id}?comment=${notification.comment_id}&commentPage=${notification.comment_page}`)
+  }
+
+  async function removeNotification(notification: UserNotification) {
+    await deleteNotification(notification.id)
+    setNotifications((items) => items.filter((item) => item.id !== notification.id))
+    setNotificationTotal((count) => Math.max(0, count - 1))
+    if (!notification.is_read) setUnreadCount((count) => Math.max(0, count - 1))
+    window.dispatchEvent(new CustomEvent(NOTIFICATIONS_CHANGED_EVENT))
   }
 
   // Shared menu tree used by desktop and mobile variants
@@ -103,7 +128,7 @@ export default function Navbar(props: NavbarProps) {
       ) : null}
       {props.variant === 'mobile' && auth.user ? (
         <li>
-          <NavLink to="/profile?tab=Blogs" className="cl_mobile-nav-link" onClick={props.onNavigate}>
+          <NavLink to="/profile?tab=Blogs&activity=notifications" className="cl_mobile-nav-link" onClick={props.onNavigate}>
             Notifications{unreadCount ? ` (${unreadLabel})` : ''}
           </NavLink>
         </li>
@@ -157,6 +182,62 @@ export default function Navbar(props: NavbarProps) {
               {/* Account quick actions when signed in */}
               {auth.user ? (
                 <div className="cl_header-account cl_header-account-desktop-xl">
+                  <button type="button" className="cl_header-action-btn notification-trigger" aria-label="Open notifications">
+                    <i className="fa-regular fa-bell"></i>
+                    {unreadCount ? <span className="notification-badge">{unreadLabel}</span> : null}
+                  </button>
+                  <ul className="cl_header-account-submenu notification-menu" aria-label="Notifications">
+                    {notifications.length ? (
+                      <>
+                        <li className="notification-menu-list">
+                          {notifications.map((notification) => (
+                            <div
+                              key={notification.id}
+                              className={`notification-menu-item${notification.is_read ? '' : ' is-unread'}`}
+                            >
+                              <button
+                                type="button"
+                                className="notification-menu-item-main"
+                                onClick={() => {
+                                  openNotification(notification).catch(() => {})
+                                }}
+                              >
+                                <span title={`${notification.actor.username} replied to your comment`}>
+                                  <strong>{notification.actor.username}</strong> replied to your comment
+                                </span>
+                                <small title={notification.blog.title}>{notification.blog.title}</small>
+                              </button>
+                              <button
+                                type="button"
+                                className="notification-delete-btn"
+                                aria-label="Delete notification"
+                                title="Delete notification"
+                                onClick={() => {
+                                  removeNotification(notification).catch(() => {})
+                                }}
+                              >
+                                <i className="fa-regular fa-trash" aria-hidden="true"></i>
+                              </button>
+                            </div>
+                          ))}
+                        </li>
+                        <li>
+                          <div className="notification-menu-summary">
+                            <span>Showing latest {notifications.length}{notificationTotal > notifications.length ? ` of ${notificationTotal}` : ''}</span>
+                            {notificationTotal > notifications.length ? <Link to="/profile?tab=Blogs&activity=notifications">View all</Link> : null}
+                          </div>
+                        </li>
+                      </>
+                    ) : (
+                      <li>
+                        <div className="notification-menu-empty">No notifications</div>
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              ) : null}
+              {auth.user ? (
+                <div className="cl_header-account">
                   <Link to="/profile" className="cl_header-action-btn" aria-label="Open profile menu">
                     {auth.user.avatar_url ? (
                       <img
@@ -182,46 +263,6 @@ export default function Navbar(props: NavbarProps) {
                         Logout
                       </button>
                     </li>
-                  </ul>
-                </div>
-              ) : null}
-              {auth.user ? (
-                <div className="cl_header-account">
-                  <button type="button" className="cl_header-action-btn notification-trigger" aria-label="Open notifications">
-                    <i className="fa-regular fa-bell"></i>
-                    {unreadCount ? <span className="notification-badge">{unreadLabel}</span> : null}
-                  </button>
-                  <ul className="cl_header-account-submenu notification-menu" aria-label="Notifications">
-                    {notifications.length ? (
-                      <>
-                        <li className="notification-menu-list">
-                          {notifications.map((notification) => (
-                            <button
-                              key={notification.id}
-                              type="button"
-                              className={`notification-menu-item${notification.is_read ? '' : ' is-unread'}`}
-                              onClick={() => {
-                                openNotification(notification).catch(() => {})
-                              }}
-                            >
-                              <span>
-                                <strong>{notification.actor.username}</strong> replied to your comment
-                              </span>
-                              <small>{notification.blog.title}</small>
-                            </button>
-                          ))}
-                        </li>
-                        <li>
-                          <div className="notification-menu-summary">
-                            Showing latest {notifications.length}{notificationTotal > notifications.length ? ` of ${notificationTotal}` : ''}
-                          </div>
-                        </li>
-                      </>
-                    ) : (
-                      <li>
-                        <div className="notification-menu-empty">No notifications</div>
-                      </li>
-                    )}
                   </ul>
                 </div>
               ) : null}

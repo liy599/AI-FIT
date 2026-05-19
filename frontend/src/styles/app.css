@@ -331,11 +331,6 @@
   text-align: left;
 }
 
-.cl_footer-copyright-menu ul li .footer-text-btn {
-  color: rgb(255, 255, 255);
-  display: block;
-}
-
 .cl_hero-carousel {
   position: relative;
   overflow: hidden;
@@ -580,6 +575,12 @@
 
 .brand-page-body .cl_blog_details-content-title {
   color: var(--clr-body-heading);
+}
+
+.cl_about-content-btn {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .blog-draft-badge {
@@ -1449,7 +1450,7 @@
 .cl_header-account-submenu.notification-menu {
   left: auto;
   right: 0;
-  width: 320px;
+  width: 340px;
   overflow: hidden;
 }
 
@@ -1461,14 +1462,13 @@
 }
 
 .notification-menu-item {
+  position: relative;
   width: 100%;
-  display: grid;
-  gap: 4px;
-  border: 0;
+  display: block;
   background: #fff;
   color: var(--clr-body-heading);
-  padding: 12px 14px;
-  text-align: left;
+  padding: 0;
+  overflow: hidden;
 }
 
 .notification-menu-item:hover {
@@ -1479,25 +1479,74 @@
   background: #f0fdf4;
 }
 
+.notification-menu-item-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 12px 46px 12px 14px;
+  text-align: left;
+}
+
 .notification-menu-item span,
 .notification-menu-item small {
   min-width: 0;
+  max-width: 100%;
   overflow: hidden;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .notification-menu-item span {
-  -webkit-line-clamp: 2;
+  display: block;
   font-size: 13px;
   line-height: 1.35;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .notification-menu-item small {
-  -webkit-line-clamp: 1;
+  display: block;
   color: rgba(14, 56, 41, 0.62);
   font-size: 12px;
   line-height: 1.3;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.notification-delete-btn {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(220, 38, 38, 0.16);
+  border-radius: 999px;
+  background: #fff;
+  color: #b91c1c;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(8px, -50%);
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+}
+
+.notification-menu-item:hover .notification-delete-btn,
+.notification-menu-item:focus-within .notification-delete-btn {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(0, -50%);
+}
+
+.notification-delete-btn:hover {
+  border-color: rgba(220, 38, 38, 0.34);
+  background: #fef2f2;
+  color: #991b1b;
 }
 
 .notification-menu-empty {
@@ -1508,13 +1557,21 @@
 }
 
 .notification-menu-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   border-top: 1px solid rgba(14, 56, 41, 0.08);
   background: #f8fafc;
   color: rgba(14, 56, 41, 0.62);
   padding: 10px 14px;
   font-size: 12px;
   font-weight: 800;
-  text-align: center;
+}
+
+.notification-menu-summary a {
+  color: #047857;
+  white-space: nowrap;
 }
 
 .cl_blog-widget.cl_auth-switch {
@@ -1629,8 +1686,23 @@
   padding-bottom: 17px;
 }
 
+.footer-bottom-grid .cl_footer-widget-title {
+  margin-bottom: 16px;
+}
+
+.footer-bottom-grid .cl_footer-widget-text {
+  max-width: 520px;
+}
+
+.footer-bottom-grid .cl_footer-widget ul li {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
 .cl_footer-copyright {
   padding: 7px 0;
+  justify-content: center;
+  text-align: center;
 }
 
 @media (max-width: 767px) {

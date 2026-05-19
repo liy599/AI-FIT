@@ -104,6 +104,78 @@ def test_admin_can_reveal_user_contact(client, app):
     assert r.get_json()["email"] == "contact-user@example.com"
 
 
+def test_admin_can_delete_user_and_related_data(client, app):
+    from app.extensions import db
+    from app.models import Blog, BlogLike, BlogView, Comment, Notification, User
+
+    admin_client = client.application.test_client()
+    admin_headers = _register(admin_client, "delete-admin@example.com", "delete-admin")
+    _set_admin(app, "delete-admin@example.com")
+
+    target_client = client.application.test_client()
+    target_headers = _register(target_client, "delete-target@example.com", "delete-target")
+    tag_id = _create_blog_tag(app)
+    create = target_client.post(
+        "/api/blogs",
+        headers=target_headers,
+        json={
+            "title": "Delete target blog",
+            "content": "Body" * 40,
+            "tag_ids": [tag_id],
+            "is_published": True,
+        },
+    )
+    assert create.status_code == 201
+    blog_id = create.get_json()["id"]
+
+    other_client = client.application.test_client()
+    other_headers = _register(other_client, "delete-other@example.com", "delete-other")
+    like = other_client.post(f"/api/blogs/{blog_id}/like", headers=other_headers)
+    assert like.status_code == 200
+    comment = other_client.post(f"/api/blogs/{blog_id}/comments", headers=other_headers, json={"content": "Keep going"})
+    assert comment.status_code == 201
+    root_comment_id = comment.get_json()["id"]
+    reply = target_client.post(
+        f"/api/blogs/{blog_id}/comments",
+        headers=target_headers,
+        json={"content": "Thanks", "parent_id": root_comment_id},
+    )
+    assert reply.status_code == 201
+
+    with app.app_context():
+        target = User.query.filter_by(email="delete-target@example.com").first()
+        assert target is not None
+        target_id = target.id
+        db.session.add(BlogView(blog_id=blog_id, viewer_key=f"user:{target_id}"))
+        db.session.commit()
+        assert Notification.query.filter_by(actor_user_id=target_id).count() == 1
+
+    mismatch = admin_client.delete(
+        f"/api/admin/users/{target_id}",
+        headers=admin_headers,
+        json={"confirm_username": "wrong-user"},
+    )
+    assert mismatch.status_code == 400
+
+    response = admin_client.delete(
+        f"/api/admin/users/{target_id}",
+        headers=admin_headers,
+        json={"confirm_username": "delete-target"},
+    )
+    assert response.status_code == 200
+    assert response.get_json()["ok"] is True
+
+    with app.app_context():
+        assert db.session.get(User, target_id) is None
+        assert db.session.get(Blog, blog_id) is None
+        assert Comment.query.filter_by(user_id=target_id).count() == 0
+        assert BlogLike.query.filter_by(user_id=target_id).count() == 0
+        assert BlogView.query.filter_by(viewer_key=f"user:{target_id}").count() == 0
+        assert Notification.query.filter(
+            (Notification.actor_user_id == target_id) | (Notification.recipient_user_id == target_id)
+        ).count() == 0
+
+
 def test_admin_users_default_sort_is_id_ascending(client, app):
     admin_client = client.application.test_client()
     admin_headers = _register(admin_client, "sort-admin@example.com", "sort-admin")

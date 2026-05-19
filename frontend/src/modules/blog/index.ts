@@ -69,11 +69,16 @@ export function displayBlogTagName(name: string) {
   return aliases[name] ?? name
 }
 
-export function getBlogs(params: { page?: number; page_size?: number; auth?: boolean } = {}) {
+export function getBlogs(params: { page?: number; page_size?: number; auth?: boolean; sort_by?: string; sort_dir?: 'asc' | 'desc' } = {}) {
   const page = params.page ?? 1
   const pageSize = params.page_size ?? 20
   const auth = params.auth ?? true
-  return apiFetch<{ items: BlogCard[] }>(`/api/blogs?page=${page}&page_size=${pageSize}`, { auth })
+  const query = new URLSearchParams()
+  query.set('page', String(page))
+  query.set('page_size', String(pageSize))
+  if (params.sort_by) query.set('sort_by', params.sort_by)
+  if (params.sort_dir) query.set('sort_dir', params.sort_dir)
+  return apiFetch<{ items: BlogCard[] }>(`/api/blogs?${query.toString()}`, { auth })
 }
 
 export function getBlogTags() {

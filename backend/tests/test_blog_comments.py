@@ -93,6 +93,34 @@ def test_blog_tag_filter_uses_canonical_aliases(client, app):
     assert data["items"][0]["tags"][0]["name"] == "Nutrition"
 
 
+def test_my_blogs_returns_user_blog_list(client, app):
+    with app.app_context():
+        t = Tag(name="Profile Blogs")
+        db.session.add(t)
+        db.session.commit()
+        tag_id = t.id
+
+    headers = _auth_headers(client, email="my-blogs@example.com", username="myblogs")
+    create = client.post(
+        "/api/blogs",
+        headers=headers,
+        json={
+            "title": "My profile blog",
+            "content": "Profile blog content",
+            "tag_ids": [tag_id],
+            "is_published": True,
+        },
+    )
+    assert create.status_code == 201
+
+    response = client.get("/api/user/blogs?page=1&page_size=5&status=published&sort_by=updated_at&sort_dir=desc")
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["total"] == 1
+    assert payload["items"][0]["title"] == "My profile blog"
+    assert payload["items"][0]["status"] == "published"
+
+
 def test_comment_like_requires_public_blog(client, app):
     with app.app_context():
         t = Tag(name="Training")
@@ -170,6 +198,12 @@ def test_comment_reply_creates_notification_with_target_page(client, app):
     mark = commenter.post(f"/api/user/notifications/{data['items'][0]['id']}/read", headers=commenter_headers)
     assert mark.status_code == 200
     assert commenter.get("/api/user/notifications", headers=commenter_headers).get_json()["unread_count"] == 0
+
+    delete = commenter.delete(f"/api/user/notifications/{data['items'][0]['id']}", headers=commenter_headers)
+    assert delete.status_code == 200
+    after_delete = commenter.get("/api/user/notifications", headers=commenter_headers).get_json()
+    assert after_delete["total"] == 0
+    assert after_delete["items"] == []
 
 
 def test_deleting_parent_comment_preserves_replies(client, app):

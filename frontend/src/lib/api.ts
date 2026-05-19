@@ -146,8 +146,10 @@ export async function apiFetch<T>(
   options?: RequestInit & { auth?: boolean }
 ): Promise<T> {
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
     ...buildHeaders(options)
+  }
+  if (options?.body != null && !('Content-Type' in headers)) {
+    headers['Content-Type'] = 'application/json'
   }
   if (isMutationMethod(options?.method)) {
     const csrfToken = readCookie('csrf_access_token')

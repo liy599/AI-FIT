@@ -58,7 +58,7 @@ export default function HomePage() {
     setBlogsLoading(true)
     setBlogsError(null)
 
-    getBlogs({ page: 1, page_size: 8, auth: false })
+    getBlogs({ page: 1, page_size: 8, auth: false, sort_by: 'view_count', sort_dir: 'desc' })
       .then((r) => {
         if (cancelled) return
         setBlogs(r.items)
@@ -217,7 +217,6 @@ export default function HomePage() {
         <div className="page-container">
           <div className="cl_home-blogs-header">
             <div className="cl_section-area mb-0 pb-0">
-              <span className="cl_section-subtitle">Our Blogs</span>
               <h2 className="cl_section-title mb-0">Featured Blogs</h2>
             </div>
             <Link to="/blogs" className="cl_home-blogs-viewall">

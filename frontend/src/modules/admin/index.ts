@@ -64,6 +64,13 @@ export function updateAdminUser(id: number, payload: { is_admin?: boolean; is_di
   })
 }
 
+export function deleteAdminUser(id: number, confirmUsername: string) {
+  return apiFetch<{ ok: boolean }>(`/api/admin/users/${id}`, {
+    method: 'DELETE',
+    body: JSON.stringify({ confirm_username: confirmUsername })
+  })
+}
+
 export function getAdminUserContact(id: number) {
   return apiFetch<{ id: number; email: string }>(`/api/admin/users/${id}/contact`)
 }

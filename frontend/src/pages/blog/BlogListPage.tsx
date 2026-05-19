@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { buildPaginationItems } from '../../lib/pagination'
 import { displayBlogTagName, getBlogTags, queryBlogs, type BlogCard, type BlogTag as Tag } from '../../modules/blog'
 import { useAuth } from '../../state/auth-context'
 import {
@@ -8,7 +9,6 @@ import {
   formatLongDate,
   getBlogCover,
   getBlogTag,
-  getViewCount,
   TopViewedStack,
   useRevealOnScroll
 } from '../../components/blog/BlogListParts'
@@ -18,8 +18,10 @@ export default function BlogListPage() {
   const [tags, setTags] = useState<Tag[]>([])
   const [items, setItems] = useState<BlogCard[]>([])
   const [recentItems, setRecentItems] = useState<BlogCard[]>([])
+  const [topViewedItems, setTopViewedItems] = useState<BlogCard[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [topViewedLoading, setTopViewedLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [recentIndex, setRecentIndex] = useState(0)
   const [searchDraft, setSearchDraft] = useState(sp.get('q') ?? '')
@@ -92,21 +94,31 @@ export default function BlogListPage() {
     }
   }, [isDefaultBlogQuery, recentItems.length])
 
+  useEffect(() => {
+    let cancelled = false
+    setTopViewedLoading(true)
+    queryBlogs('page=1&page_size=3&sort_by=view_count&sort_dir=desc')
+      .then((r) => {
+        if (!cancelled) setTopViewedItems(r.items)
+      })
+      .catch(() => {
+        if (!cancelled) setTopViewedItems([])
+      })
+      .finally(() => {
+        if (!cancelled) setTopViewedLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const hero = recentItems[0] ?? items[0]
   const recent = recentItems
   const featured = items
   const activeRecent = recent[recentIndex] ?? recent[0] ?? null
   const activeRecentTag = getBlogTag(activeRecent)
-  const topViewed = useMemo(() => {
-    const source = recentItems.length ? recentItems : items
-    if (!source.length) return []
-    const sorted = [...source].sort((a, b) => getViewCount(b) - getViewCount(a))
-    const best = sorted.slice(0, 3)
-    const hasViews = best.some((b) => getViewCount(b) > 0)
-    if (!hasViews) return source.slice(0, 3)
-    return best
-  }, [items, recentItems])
   const totalPages = Math.max(1, Math.ceil(total / 9))
+  const paginationItems = useMemo(() => buildPaginationItems(page, totalPages), [page, totalPages])
 
   const recentReveal = useRevealOnScroll<HTMLElement>()
   const featuredReveal = useRevealOnScroll<HTMLElement>()
@@ -220,7 +232,7 @@ export default function BlogListPage() {
 
           <div className="blog-list-hero-col-side">
             <div className="blog-list-hero-media-wrap">
-              <TopViewedStack blogs={topViewed} loading={loading} />
+              <TopViewedStack blogs={topViewedItems} loading={topViewedLoading} />
             </div>
           </div>
         </div>
@@ -381,12 +393,34 @@ export default function BlogListPage() {
             ) : null}
           </div>
           <div className="blog-list-pagination">
+            <button type="button" disabled={page <= 1} onClick={() => updateFilters({ page: 1 })}>
+              First
+            </button>
             <button type="button" disabled={page <= 1} onClick={() => updateFilters({ page: page - 1 })}>
               Prev
             </button>
-            <span>Page {page} / {totalPages}</span>
+            <div className="blog-list-page-numbers" aria-label="Featured blog pages">
+              {paginationItems.map((item, index) =>
+                item === 'ellipsis' ? (
+                  <span key={`ellipsis-${index}`} className="blog-list-page-ellipsis">...</span>
+                ) : (
+                  <button
+                    key={item}
+                    type="button"
+                    className={item === page ? 'is-active' : ''}
+                    aria-current={item === page ? 'page' : undefined}
+                    onClick={() => updateFilters({ page: item })}
+                  >
+                    {item}
+                  </button>
+                )
+              )}
+            </div>
             <button type="button" disabled={page >= totalPages} onClick={() => updateFilters({ page: page + 1 })}>
               Next
+            </button>
+            <button type="button" disabled={page >= totalPages} onClick={() => updateFilters({ page: totalPages })}>
+              Last
             </button>
           </div>
         </div>

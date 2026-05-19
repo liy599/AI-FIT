@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { buildPaginationItems } from '../../lib/pagination'
 import { deleteAdminBlog, listAdminBlogs, updateAdminBlog, type AdminBlogItem } from '../../modules/admin'
 
 type PublishFilter = 'all' | 'published' | 'unpublished' | 'restore_requested' | 'draft'
@@ -45,6 +46,7 @@ export default function AdminBlogsPage() {
   }, [page, pageSize, appliedQuery, publishFilter, sort])
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const paginationItems = useMemo(() => buildPaginationItems(page, totalPages), [page, totalPages])
 
   async function togglePublish(blog: AdminBlogItem) {
     setSavingId(blog.id)
@@ -231,12 +233,35 @@ export default function AdminBlogsPage() {
               </table>
             </div>
 
-            <div className="flex gap-2">
-              <button className="profile-btn-secondary disabled:opacity-50" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+            <div className="admin-pagination">
+              <button type="button" disabled={page <= 1} onClick={() => setPage(1)}>
+                First
+              </button>
+              <button type="button" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
                 Prev
               </button>
-              <button className="profile-btn-secondary disabled:opacity-50" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
+              <div className="admin-page-numbers" aria-label="Admin blog pages">
+                {paginationItems.map((item, index) =>
+                  item === 'ellipsis' ? (
+                    <span key={`ellipsis-${index}`} className="admin-page-ellipsis">...</span>
+                  ) : (
+                    <button
+                      key={item}
+                      type="button"
+                      className={item === page ? 'is-active' : ''}
+                      aria-current={item === page ? 'page' : undefined}
+                      onClick={() => setPage(item)}
+                    >
+                      {item}
+                    </button>
+                  )
+                )}
+              </div>
+              <button type="button" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
                 Next
+              </button>
+              <button type="button" disabled={page >= totalPages} onClick={() => setPage(totalPages)}>
+                Last
               </button>
             </div>
           </div>

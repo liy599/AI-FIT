@@ -2,7 +2,7 @@ from app.extensions import db
 from app.models import Tag
 
 
-def _auth_headers(client, email="u@example.com", username="u1"):
+def _auth_headers(client, email="u@example.com", username="user1"):
     r = client.post("/api/auth/register", json={"email": email, "username": username, "password": "pass1234"})
     assert r.status_code == 200
     csrf_cookie = client.get_cookie("csrf_access_token")

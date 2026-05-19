@@ -89,6 +89,11 @@ class Config:
     PASSWORD_RESET_DEBUG_RETURN_LINK = _env_bool("PASSWORD_RESET_DEBUG_RETURN_LINK", False)
     PASSWORD_RESET_EMAIL_SUBJECT = os.environ.get("PASSWORD_RESET_EMAIL_SUBJECT", "Reset your password")
 
+    EMAIL_VERIFY_REQUIRED = _env_bool("EMAIL_VERIFY_REQUIRED", True)
+    EMAIL_VERIFY_TOKEN_TTL_SECONDS = _env_int("EMAIL_VERIFY_TOKEN_TTL_SECONDS", 60 * 60)
+    EMAIL_VERIFY_DEBUG_RETURN_LINK = _env_bool("EMAIL_VERIFY_DEBUG_RETURN_LINK", False)
+    EMAIL_VERIFY_EMAIL_SUBJECT = os.environ.get("EMAIL_VERIFY_EMAIL_SUBJECT", "Verify your email")
+
     SMTP_HOST = os.environ.get("SMTP_HOST", "").strip()
     SMTP_PORT = _env_int("SMTP_PORT", 587)
     SMTP_USERNAME = os.environ.get("SMTP_USERNAME", "").strip()

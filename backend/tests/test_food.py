@@ -102,7 +102,7 @@ def test_meals_reject_empty_items(client):
 
 
 def test_meals_reject_invalid_food_ids(client):
-    token = register_and_token(client, email="invalid-food@example.com", username="invalid-food-user")
+    token = register_and_token(client, email="invalid-food@example.com", username="inv-food-user")
     _ = token
 
     response = client.post(

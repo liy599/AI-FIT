@@ -150,6 +150,7 @@ def _validate_production_config(app: Flask) -> None:
     secret_key = str(app.config.get("SECRET_KEY", "")).strip()
     jwt_secret_key = str(app.config.get("JWT_SECRET_KEY", "")).strip()
     password_reset_debug = bool(app.config.get("PASSWORD_RESET_DEBUG_RETURN_LINK", False))
+    email_verify_debug = bool(app.config.get("EMAIL_VERIFY_DEBUG_RETURN_LINK", False))
     if not secret_key or secret_key == "dev-secret-change-me":
         raise RuntimeError("production requires non-default SECRET_KEY")
     if not jwt_secret_key or jwt_secret_key == "dev-jwt-secret-change-me":
@@ -158,11 +159,17 @@ def _validate_production_config(app: Flask) -> None:
         raise RuntimeError("production secrets must be at least 32 chars")
     if password_reset_debug:
         raise RuntimeError("production requires PASSWORD_RESET_DEBUG_RETURN_LINK=0")
+    if email_verify_debug:
+        raise RuntimeError("production requires EMAIL_VERIFY_DEBUG_RETURN_LINK=0")
     cors_origins = str(app.config.get("CORS_ORIGINS", "")).strip()
     redis_url = str(app.config.get("REDIS_URL", "")).strip()
+    smtp_host = str(app.config.get("SMTP_HOST", "")).strip()
+    smtp_from = str(app.config.get("SMTP_FROM", "")).strip()
     if not cors_origins:
         raise RuntimeError("production requires explicit CORS_ORIGINS")
     if not redis_url:
         raise RuntimeError("production requires REDIS_URL for distributed rate limiting")
+    if bool(app.config.get("EMAIL_VERIFY_REQUIRED", True)) and (not smtp_host or not smtp_from):
+        raise RuntimeError("production requires SMTP_HOST and SMTP_FROM when EMAIL_VERIFY_REQUIRED=1")
     if bool(app.config.get("DB_AUTO_INIT", True)):
         raise RuntimeError("production requires DB_AUTO_INIT=0; run migrations explicitly")

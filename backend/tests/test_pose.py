@@ -51,7 +51,7 @@ def test_pose_policy_version_switch_is_traceable(client):
     assert policy_response.status_code == 200
     assert policy_response.get_json()["version"] == "2026-05-04.test-switch"
 
-    token = register_and_token(client, email="pose-policy-switch@example.com", username="pose-policy-switch")
+    token = register_and_token(client, email="pose-policy-switch@example.com", username="pose-switch")
     _ = token
     response = client.post(
         "/api/pose/trainings",

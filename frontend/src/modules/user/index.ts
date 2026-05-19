@@ -16,10 +16,38 @@ export function registerByPassword(email: string, username: string, password: st
 }
 
 export function requestPasswordReset(email: string) {
-  return apiFetch<{ ok: boolean; reset_link?: string; email_sent?: boolean }>('/api/auth/forgot-password', {
+  return apiFetch<{ ok: boolean; email_sent?: boolean; reset_code?: string }>('/api/auth/forgot-password', {
     method: 'POST',
     auth: false,
     body: JSON.stringify({ email })
+  })
+}
+
+export function requestEmailVerification(email: string) {
+  return apiFetch<{ ok: boolean; email_sent?: boolean; verification_code?: string }>(
+    '/api/auth/request-email-verification',
+    {
+      method: 'POST',
+      auth: false,
+      body: JSON.stringify({ email })
+    }
+  )
+}
+
+export function verifyEmail(email: string, code: string) {
+  return apiFetch<{ ok: boolean; email: string }>('/api/auth/verify-email', {
+    method: 'POST',
+    auth: false,
+    body: JSON.stringify({ email, code })
+  })
+}
+
+export function getEmailVerificationStatus(email: string) {
+  const query = new URLSearchParams()
+  query.set('email', email)
+  return apiFetch<{ ok: boolean; email_verified: boolean }>(`/api/auth/email-verification-status?${query.toString()}`, {
+    method: 'GET',
+    auth: false
   })
 }
 
@@ -29,11 +57,11 @@ export function logoutSession() {
   })
 }
 
-export function confirmPasswordReset(token: string, newPassword: string) {
+export function confirmPasswordReset(email: string, code: string, newPassword: string) {
   return apiFetch('/api/auth/reset-password', {
     method: 'POST',
     auth: false,
-    body: JSON.stringify({ token, new_password: newPassword })
+    body: JSON.stringify({ email, code, new_password: newPassword })
   })
 }
 

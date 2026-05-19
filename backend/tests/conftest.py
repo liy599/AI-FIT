@@ -16,6 +16,7 @@ class TestConfig(Config):
     TESTING = True
     SQLALCHEMY_DATABASE_URI = "sqlite+pysqlite:///:memory:"
     DB_AUTO_INIT = False
+    EMAIL_VERIFY_REQUIRED = False
     JWT_SECRET_KEY = "test-jwt"
     SECRET_KEY = "test-secret"
     PASSWORD_RESET_DEBUG_RETURN_LINK = True

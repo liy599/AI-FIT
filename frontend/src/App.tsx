@@ -21,9 +21,11 @@ const PoseSelectPage = lazy(() => import('./pages/pose/PoseSelectPage'))
 const PoseTrainingHistoryPage = lazy(() => import('./pages/pose/PoseTrainingHistoryPage'))
 const PoseTrainingReportPage = lazy(() => import('./pages/pose/PoseTrainingReportPage'))
 const PoseToolPage = lazy(() => import('./pages/pose/PoseToolPage'))
+const ProfileOnboardingPage = lazy(() => import('./pages/user/ProfileOnboardingPage'))
 const ProfilePage = lazy(() => import('./pages/user/ProfilePage'))
 const RegisterPage = lazy(() => import('./pages/auth/RegisterPage'))
 const ResetPasswordPage = lazy(() => import('./pages/auth/ResetPasswordPage'))
+const VerifyEmailPage = lazy(() => import('./pages/auth/VerifyEmailPage'))
 const UserPrivacyPage = lazy(() => import('./pages/user/UserPrivacyPage'))
 
 // Route guard: requires user authentication
@@ -97,6 +99,7 @@ const blogRoutes: AppRoute[] = [
 ]
 
 const userRoutes: AppRoute[] = [
+  { path: '/onboarding/profile', element: <ProfileOnboardingPage />, guard: 'auth' },
   { path: '/profile', element: <ProfilePage />, guard: 'auth' },
   { path: '/profile/privacy', element: <UserPrivacyPage />, guard: 'auth' }
 ]
@@ -110,7 +113,8 @@ const adminRoutes: AppRoute[] = [
 const authRoutes: AppRoute[] = [
   { path: '/login', element: <LoginPage /> },
   { path: '/register', element: <RegisterPage /> },
-  { path: '/reset-password', element: <ResetPasswordPage /> }
+  { path: '/reset-password', element: <ResetPasswordPage /> },
+  { path: '/verify-email', element: <VerifyEmailPage /> }
 ]
 
 const fallbackRoutes: AppRoute[] = [

@@ -49,6 +49,29 @@ class User(db.Model, TimestampMixin):
     )
 
 
+class EmailVerification(db.Model, TimestampMixin):
+    __tablename__ = "email_verifications"
+    __table_args__ = (UniqueConstraint("email", name="uq_email_verification_email"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    email: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    code_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    last_sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+
+class PasswordResetCode(db.Model, TimestampMixin):
+    __tablename__ = "password_reset_codes"
+    __table_args__ = (UniqueConstraint("email", name="uq_password_reset_codes_email"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    email: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    code_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    used_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    last_sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+
 class WorkoutRecord(db.Model):
     __tablename__ = "workout_records"
 

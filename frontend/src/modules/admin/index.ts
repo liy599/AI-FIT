@@ -28,7 +28,7 @@ export type AdminBlogItem = {
 
 export type AdminSummary = {
   users: { total: number; disabled: number; admins: number }
-  blogs: { total: number; published: number; drafts: number }
+  blogs: { total: number; published: number; drafts: number; unpublished?: number; restore_requested?: number }
 }
 
 export function getAdminSummary() {
@@ -95,7 +95,7 @@ export function listAdminBlogs(params: {
   )
 }
 
-export function updateAdminBlog(id: number, payload: { action: 'unpublish' | 'restore' }) {
+export function updateAdminBlog(id: number, payload: { action: 'disable' | 'unpublish' | 'restore' }) {
   return apiFetch<AdminBlogItem>(`/api/admin/blogs/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(payload)

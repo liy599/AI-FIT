@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   API_BASE,
+  deleteMyAccount,
   getMyProfile,
   resolveBackendUrl,
   updateMyProfile,
@@ -27,9 +28,9 @@ export default function ProfilePage() {
   const auth = useAuth()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const [tab, setTab] = useState<'Dashboard' | 'Profile' | 'Blogs'>(() => {
+  const [tab, setTab] = useState<'Dashboard' | 'Blogs'>(() => {
     const requested = searchParams.get('tab')
-    if (requested === 'Profile' || requested === 'Blogs') return requested
+    if (requested === 'Blogs') return requested
     if (requested === 'Community') return 'Blogs'
     return 'Dashboard'
   })
@@ -74,8 +75,10 @@ export default function ProfilePage() {
 
   useEffect(() => {
     const requested = searchParams.get('tab')
-    if (requested === 'Dashboard' || requested === 'Profile' || requested === 'Blogs') {
+    if (requested === 'Dashboard' || requested === 'Blogs') {
       setTab(requested)
+    } else if (requested === 'Profile') {
+      setTab('Dashboard')
     } else if (requested === 'Community') {
       setTab('Blogs')
     }
@@ -319,10 +322,33 @@ export default function ProfilePage() {
     }
   }
 
+  async function deleteAccount() {
+    if (!profile) return
+    const confirmedName = window.prompt(
+      `Delete account "${profile.username}"?\n\nThis permanently removes your account and related blogs, comments, notifications, training records, likes, and uploads.\n\nType your username to confirm:`
+    )
+    if (confirmedName !== profile.username) {
+      if (confirmedName !== null) setError('Delete cancelled: username confirmation did not match.')
+      return
+    }
+
+    setError(null)
+    try {
+      await deleteMyAccount(confirmedName)
+      await auth.logout()
+      navigate('/login', { replace: true })
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Delete account failed')
+    }
+  }
+
   async function deletePoseSession(session: PoseTrainingSession) {
     const label = session.note?.trim() || new Date(session.started_at).toLocaleString()
     const confirmed = window.confirm(`Delete report "${label}"? This cannot be undone.`)
-    if (!confirmed) return
+    if (!confirmed) {
+      setError('Delete cancelled: report deletion requires confirmation.')
+      return
+    }
     setError(null)
     try {
       await deletePoseTraining(session.id)
@@ -335,55 +361,49 @@ export default function ProfilePage() {
 
   return (
     <div className="mx-auto w-full min-h-[calc(100vh-120px)] max-w-5xl space-y-6 px-4 pt-6 pb-32 text-slate-900 sm:px-6 lg:px-8">
-      <div className="profile-panel">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-lg font-semibold">Account</div>
-            <div className="text-sm text-slate-600">{auth.user?.email}</div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              className={[
-                'profile-btn-secondary',
-                tab === 'Profile' ? 'bg-emerald-600 text-white shadow-sm' : ''
-            ].join(' ')}
-              onClick={() => {
-                setTab('Profile')
-                setSearchParams({ tab: 'Profile' })
-              }}
-              style={tab === 'Profile' ? { borderColor: 'rgb(5 150 105)' } : undefined}
-            >
-              Profile
-            </button>
-          </div>
-        </div>
-        {error ? <div className="mt-2 text-sm text-rose-700">{error}</div> : null}
-        {notice ? <div className="mt-2 text-sm text-emerald-700">{notice}</div> : null}
-      </div>
+      <ProfileDetailsPanel
+        profile={profile}
+        edit={edit}
+        isEditing={isEditing}
+        avatarUploading={avatarUploading}
+        fileInputRef={fileInputRef}
+        defaultAvatarImage={defaultAvatarImage}
+        resolveAvatarUrl={resolveAvatarUrl}
+        onEditChange={setEdit}
+        onEditingChange={setIsEditing}
+        onPickAvatar={(file) => onPickAvatar(file).catch(() => {})}
+        onSave={saveProfile}
+        onDeleteAccount={() => deleteAccount().catch(() => {})}
+        error={error}
+        notice={notice}
+      />
 
-      <div className="flex flex-wrap gap-2">
+      <div className="profile-section-switch">
         {(
           [
-            { key: 'Dashboard', label: 'Exercise' },
-            { key: 'Blogs', label: 'Blogs' }
+            { key: 'Dashboard', label: 'Exercise', detail: 'Training history, pose reports, and weekly activity.', icon: 'fa-light fa-calendar' },
+            { key: 'Blogs', label: 'Blogs', detail: 'Posts, comments, and community notifications.', icon: 'fa-light fa-pen' }
           ] as const
         ).map((t) => (
           <button
             key={t.key}
             className={[
-              'rounded-full border px-4 py-2 text-sm transition',
-              tab === t.key
-                ? 'bg-emerald-600 text-white shadow-sm'
-                : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+              'profile-section-card',
+              tab === t.key ? 'is-active' : ''
             ].join(' ')}
             onClick={() => {
               setTab(t.key)
               if (t.key === 'Dashboard') setSearchParams({})
               else setSearchParams({ tab: t.key })
             }}
-            style={tab === t.key ? { borderColor: 'rgb(5 150 105)' } : undefined}
           >
-            {t.label}
+            <span className="profile-section-card-icon">
+              <i className={t.icon} aria-hidden="true" />
+            </span>
+            <span>
+              <strong>{t.label}</strong>
+              <small>{t.detail}</small>
+            </span>
           </button>
         ))}
       </div>
@@ -408,22 +428,6 @@ export default function ProfilePage() {
           onDeleteSession={deletePoseSession}
           onMonthChange={setPoseMonth}
           onSelectedYmdChange={setPoseSelectedYmd}
-        />
-      ) : null}
-
-      {tab === 'Profile' ? (
-        <ProfileDetailsPanel
-          profile={profile}
-          edit={edit}
-          isEditing={isEditing}
-          avatarUploading={avatarUploading}
-          fileInputRef={fileInputRef}
-          defaultAvatarImage={defaultAvatarImage}
-          resolveAvatarUrl={resolveAvatarUrl}
-          onEditChange={setEdit}
-          onEditingChange={setIsEditing}
-          onPickAvatar={(file) => onPickAvatar(file).catch(() => {})}
-          onSave={saveProfile}
         />
       ) : null}
 

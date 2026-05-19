@@ -3,7 +3,7 @@ import os
 from typing import Optional
 
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import get_jwt_identity, jwt_required
+from flask_jwt_extended import get_jwt_identity, jwt_required, unset_jwt_cookies
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import joinedload, load_only
 
@@ -12,6 +12,7 @@ from ...models import Blog, Comment, Notification, User
 from ...utils.upload_access import resolve_upload_file_path
 from ...utils.image_upload import save_public_image_upload
 from ...utils.pagination import parse_pagination
+from ..admin.users import _delete_user_associations, _remove_upload_files, _user_upload_file_paths
 
 bp = Blueprint("user", __name__)
 
@@ -78,6 +79,34 @@ def update_profile():
 
     db.session.commit()
     return jsonify(_user_public(user))
+
+
+@bp.delete("/account")
+@jwt_required()
+def delete_account():
+    user_id = int(get_jwt_identity())
+    user = db.session.get(User, user_id)
+    if user is None:
+        return jsonify({"error": "not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    if (data.get("confirm_username") or "") != user.username:
+        return jsonify({"error": "confirm_username must match your username"}), 400
+
+    if user.is_admin:
+        remaining_admins = User.query.filter(User.is_admin.is_(True), User.id != user.id).count()
+        if remaining_admins <= 0:
+            return jsonify({"error": "cannot delete the last admin account"}), 400
+
+    upload_paths = _user_upload_file_paths(user)
+    _delete_user_associations(user)
+    db.session.delete(user)
+    db.session.commit()
+    _remove_upload_files(upload_paths)
+
+    response = jsonify({"ok": True})
+    unset_jwt_cookies(response)
+    return response
 
 
 @bp.route("/avatar", methods=["OPTIONS"])

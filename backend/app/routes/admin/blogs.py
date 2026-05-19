@@ -89,17 +89,17 @@ def update_blog(blog_id: int):
     data = request.get_json(silent=True) or {}
     action = (data.get("action") or "").strip().lower()
     if not action and "is_published" in data:
-        action = "restore" if bool(data.get("is_published")) else "unpublish"
+        action = "restore" if bool(data.get("is_published")) else "disable"
 
-    if action == "unpublish":
+    if action in {"disable", "unpublish"}:
         if not blog.is_published or blog.moderation_status != "active":
-            return jsonify({"error": "only published posts can be unpublished"}), 400
+            return jsonify({"error": "only published posts can be disabled by admin"}), 400
         blog.is_published = False
         blog.moderation_status = "unpublished"
         blog.moderation_restore_requested = False
     elif action == "restore":
         if blog.moderation_status != "unpublished":
-            return jsonify({"error": "only admin-unpublished posts can be restored"}), 400
+            return jsonify({"error": "only admin-disabled posts can be restored"}), 400
         blog.is_published = True
         blog.moderation_status = "active"
         blog.moderation_restore_requested = False

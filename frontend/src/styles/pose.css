@@ -699,6 +699,38 @@
   height: 56px;
 }
 
+.pose-date-input-wrap {
+  position: relative;
+}
+
+.pose-date-input-wrap input[type='date'] {
+  color: transparent;
+  caret-color: transparent;
+}
+
+.pose-date-input-wrap input[type='date']::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+}
+
+.pose-date-input-preview {
+  position: absolute;
+  top: 50%;
+  left: 14px;
+  right: 44px;
+  transform: translateY(-50%);
+  overflow: hidden;
+  color: #0f172a;
+  font-weight: 400;
+  line-height: 1;
+  pointer-events: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pose-date-input-placeholder {
+  color: #94a3b8;
+}
+
 .pose-file-input-hidden {
   position: absolute;
   width: 1px;
@@ -1645,6 +1677,7 @@
   justify-content: center;
   gap: 10px;
   flex-wrap: wrap;
+  max-width: 100%;
   margin-top: 20px;
   color: #475569;
   font-size: 13px;
@@ -1689,6 +1722,8 @@
   gap: 6px;
   flex-wrap: wrap;
   justify-content: center;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .pose-history-page-ellipsis {

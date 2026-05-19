@@ -1,14 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { buildPaginationItems } from '../../lib/pagination'
-import { deleteAdminBlog, listAdminBlogs, updateAdminBlog, type AdminBlogItem } from '../../modules/admin'
+import { deleteAdminBlog, getAdminSummary, listAdminBlogs, updateAdminBlog, type AdminBlogItem, type AdminSummary } from '../../modules/admin'
 
 type PublishFilter = 'all' | 'published' | 'unpublished' | 'restore_requested' | 'draft'
 type BlogSort = 'id:asc' | 'id:desc' | 'updated_at:desc' | 'updated_at:asc' | 'view_count:desc' | 'like_count:desc'
 
+const emptySummary: AdminSummary = {
+  users: { total: 0, disabled: 0, admins: 0 },
+  blogs: { total: 0, published: 0, drafts: 0, unpublished: 0, restore_requested: 0 }
+}
+
 function statusLabel(blog: AdminBlogItem) {
   if (blog.status === 'published') return 'Published'
-  if (blog.status === 'unpublished') return 'Unpublished'
+  if (blog.status === 'unpublished') return 'Admin disabled'
   return 'Draft'
 }
 
@@ -22,8 +27,18 @@ export default function AdminBlogsPage() {
   const [items, setItems] = useState<AdminBlogItem[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [summary, setSummary] = useState<AdminSummary>(emptySummary)
+  const [summaryLoading, setSummaryLoading] = useState(true)
   const [savingId, setSavingId] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setSummaryLoading(true)
+    getAdminSummary()
+      .then(setSummary)
+      .catch(() => {})
+      .finally(() => setSummaryLoading(false))
+  }, [total])
 
   useEffect(() => {
     const [sortBy, sortDir] = sort.split(':') as [string, 'asc' | 'desc']
@@ -47,12 +62,18 @@ export default function AdminBlogsPage() {
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const paginationItems = useMemo(() => buildPaginationItems(page, totalPages), [page, totalPages])
+  const blogStats = normalizeBlogStats(summary)
+  const totalBlogs = blogStats.total
+  const publishedPct = percent(blogStats.published, totalBlogs)
+  const draftPct = percent(blogStats.drafts, totalBlogs)
+  const disabledPct = percent(blogStats.disabled, totalBlogs)
+  const restorePct = percent(blogStats.restoreRequested, totalBlogs)
 
   async function togglePublish(blog: AdminBlogItem) {
     setSavingId(blog.id)
     setError(null)
     try {
-      const next = await updateAdminBlog(blog.id, { action: blog.status === 'unpublished' ? 'restore' : 'unpublish' })
+      const next = await updateAdminBlog(blog.id, { action: blog.status === 'unpublished' ? 'restore' : 'disable' })
       setItems((prev) => prev.map((item) => (item.id === next.id ? next : item)))
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Update failed')
@@ -100,16 +121,30 @@ export default function AdminBlogsPage() {
 
       <section className="pt-100 pb-100 brand-page-body">
         <div className="page-container space-y-5">
-      <div className="cl_blog-widget mb-0">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="cl_blog-widget admin-stats-dashboard mb-0">
+        <div className="admin-stats-head">
           <div>
-            <h1 className="text-xl font-semibold text-slate-950">Admin Blogs</h1>
-            <p className="mt-2 text-sm text-slate-600">Review, unpublish, or remove public posts.</p>
+            <h1>Blog Management Overview</h1>
+            <p>Publication health, moderation workload, and content review signals.</p>
           </div>
           <Link to="/admin" className="profile-btn-secondary">
             Admin home
           </Link>
         </div>
+
+        <div className="admin-stats-summary">
+          <SummaryPill icon="fa-light fa-newspaper" label="Total blogs" value={summaryLoading ? '-' : String(totalBlogs)} tone="emerald" />
+          <SummaryPill icon="fa-light fa-eye" label="Published" value={summaryLoading ? '-' : String(blogStats.published)} tone="sky" />
+          <SummaryPill icon="fa-light fa-ban" label="Admin disabled" value={summaryLoading ? '-' : String(blogStats.disabled)} tone="rose" />
+          <SummaryPill icon="fa-light fa-rotate-left" label="Pending restore (blogs)" value={summaryLoading ? '-' : String(blogStats.restoreRequested)} tone="amber" />
+        </div>
+
+        <div className="admin-chart-row" aria-label="Blog status charts">
+          <MiniDonut label="Published" value={publishedPct} caption={`${blogStats.published} visible`} tone="sky" />
+          <MiniDonut label="Drafts" value={draftPct} caption={`${blogStats.drafts} drafts`} tone="amber" />
+          <MiniDonut label="Admin disabled" value={disabledPct} caption={`${blogStats.disabled} hidden by admin`} tone="rose" />
+        </div>
+
       </div>
 
       <div className="cl_blog-widget mb-0">
@@ -125,8 +160,8 @@ export default function AdminBlogsPage() {
           <select className="profile-input" value={publishFilter} onChange={(e) => { setPage(1); setPublishFilter(e.target.value as PublishFilter) }}>
             <option value="all">All posts</option>
             <option value="published">Published</option>
-            <option value="unpublished">Unpublished</option>
-            <option value="restore_requested">Restore requests</option>
+            <option value="unpublished">Admin disabled</option>
+            <option value="restore_requested">Pending restore (blogs)</option>
             <option value="draft">Draft</option>
           </select>
           <select className="profile-input" value={sort} onChange={(e) => { setPage(1); setSort(e.target.value as BlogSort) }}>
@@ -205,7 +240,7 @@ export default function AdminBlogsPage() {
                                 onClick={() => togglePublish(blog).catch(() => {})}
                               >
                                 <i className={blog.status === 'published' ? 'fa-regular fa-eye-slash' : 'fa-regular fa-check'} aria-hidden="true" />
-                                {blog.status === 'published' ? 'Unpublish' : 'Restore'}
+                                {blog.status === 'published' ? 'Disable' : 'Restore'}
                               </button>
                             ) : null}
                             <button
@@ -270,5 +305,49 @@ export default function AdminBlogsPage() {
         </div>
       </section>
     </>
+  )
+}
+
+function percent(value: number, total: number) {
+  if (total <= 0) return 0
+  return Math.round((value / total) * 100)
+}
+
+function safeNumber(value: unknown) {
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? numeric : 0
+}
+
+function normalizeBlogStats(summary: AdminSummary) {
+  return {
+    total: safeNumber(summary.blogs.total),
+    published: safeNumber(summary.blogs.published),
+    drafts: safeNumber(summary.blogs.drafts),
+    disabled: safeNumber(summary.blogs.unpublished),
+    restoreRequested: safeNumber(summary.blogs.restore_requested),
+  }
+}
+
+function SummaryPill(props: { icon: string; label: string; value: string; tone: 'emerald' | 'sky' | 'amber' | 'rose' }) {
+  return (
+    <div className={`admin-summary-pill admin-summary-pill-${props.tone}`}>
+      <i className={props.icon} aria-hidden="true" />
+      <span>{props.label}</span>
+      <strong>{props.value}</strong>
+    </div>
+  )
+}
+
+function MiniDonut(props: { label: string; value: number; caption: string; tone: 'emerald' | 'sky' | 'amber' | 'rose' }) {
+  return (
+    <div className={`admin-mini-chart admin-mini-chart-${props.tone}`}>
+      <div className="admin-mini-donut" style={{ background: `conic-gradient(var(--admin-chart-color) ${props.value}%, #e2e8f0 0)` }}>
+        <span>{props.value}%</span>
+      </div>
+      <div>
+        <div className="admin-mini-chart-label">{props.label}</div>
+        <div className="admin-mini-chart-caption">{props.caption}</div>
+      </div>
+    </div>
   )
 }

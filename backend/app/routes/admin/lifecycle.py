@@ -31,18 +31,42 @@ def get_summary():
         func.count(User.id),
         func.sum(case((User.is_disabled.is_(True), 1), else_=0)),
         func.sum(case((User.is_admin.is_(True), 1), else_=0)),
-    ).one()
+    ).filter(Blog.visibility == "public").one()
     blog_counts = db.session.query(
         func.count(Blog.id),
-        func.sum(case((Blog.is_published.is_(True), 1), else_=0)),
-    ).filter(Blog.visibility == "public").one()
+        func.sum(
+            case(
+                (
+                    Blog.is_published.is_(True)
+                    & (Blog.moderation_status == "active")
+                    & (Blog.visibility == "public"),
+                    1,
+                ),
+                else_=0,
+            )
+        ),
+        func.sum(
+            case(
+                (
+                    Blog.is_published.is_(False)
+                    & (Blog.moderation_status != "unpublished"),
+                    1,
+                ),
+                else_=0,
+            )
+        ),
+        func.sum(case((Blog.moderation_status == "unpublished", 1), else_=0)),
+        func.sum(case((Blog.moderation_restore_requested.is_(True), 1), else_=0)),
+    ).one()
 
     total_users = int(user_counts[0] or 0)
     disabled_users = int(user_counts[1] or 0)
     admin_users = int(user_counts[2] or 0)
     total_blogs = int(blog_counts[0] or 0)
     published_blogs = int(blog_counts[1] or 0)
-    draft_blogs = total_blogs - published_blogs
+    draft_blogs = int(blog_counts[2] or 0)
+    unpublished_blogs = int(blog_counts[3] or 0)
+    restore_requested_blogs = int(blog_counts[4] or 0)
 
     return jsonify(
         {
@@ -55,6 +79,8 @@ def get_summary():
                 "total": total_blogs,
                 "published": published_blogs,
                 "drafts": draft_blogs,
+                "unpublished": unpublished_blogs,
+                "restore_requested": restore_requested_blogs,
             },
         }
     )

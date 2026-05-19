@@ -165,6 +165,7 @@
   justify-content: center;
   gap: 10px;
   flex-wrap: wrap;
+  max-width: 100%;
 }
 
 .admin-pagination button {
@@ -204,11 +205,190 @@
   justify-content: center;
   gap: 6px;
   flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .admin-page-ellipsis {
   color: rgba(14, 56, 41, 0.58);
   padding: 0 2px;
+}
+
+.admin-stats-dashboard {
+  display: grid;
+  gap: 20px;
+}
+
+.admin-stats-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.admin-stats-head h1 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.35rem;
+  font-weight: 750;
+}
+
+.admin-stats-head p {
+  margin: 8px 0 0;
+  color: #64748b;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.admin-stats-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.admin-summary-pill {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #fff;
+  padding: 8px 12px;
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+.admin-summary-pill i {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.06);
+  color: #0f172a;
+  font-size: 0.78rem;
+}
+
+.admin-summary-pill strong {
+  margin-left: auto;
+  color: #0f172a;
+  font-size: 1rem;
+  font-weight: 850;
+}
+
+.admin-summary-pill-emerald {
+  border-color: rgba(16, 185, 129, 0.25);
+}
+
+.admin-summary-pill-sky {
+  border-color: rgba(14, 165, 233, 0.25);
+}
+
+.admin-summary-pill-amber {
+  border-color: rgba(245, 158, 11, 0.28);
+}
+
+.admin-summary-pill-rose {
+  border-color: rgba(244, 63, 94, 0.26);
+}
+
+.admin-summary-pill-emerald i {
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
+}
+
+.admin-summary-pill-sky i {
+  background: rgba(14, 165, 233, 0.12);
+  color: #0369a1;
+}
+
+.admin-summary-pill-amber i {
+  background: rgba(245, 158, 11, 0.14);
+  color: #b45309;
+}
+
+.admin-summary-pill-rose i {
+  background: rgba(244, 63, 94, 0.12);
+  color: #be123c;
+}
+
+.admin-chart-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-mini-chart {
+  --admin-chart-color: #10b981;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 92px;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: #fff;
+  padding: 14px;
+}
+
+.admin-mini-donut {
+  position: relative;
+  display: grid;
+  width: 62px;
+  height: 62px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 999px;
+}
+
+.admin-mini-donut::after {
+  position: absolute;
+  inset: 8px;
+  border-radius: inherit;
+  background: #fff;
+  content: "";
+}
+
+.admin-mini-donut span {
+  position: relative;
+  z-index: 1;
+  color: #0f172a;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.admin-mini-chart-label {
+  color: #0f172a;
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.admin-mini-chart-caption {
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.admin-mini-chart-emerald {
+  --admin-chart-color: #10b981;
+}
+
+.admin-mini-chart-sky {
+  --admin-chart-color: #0ea5e9;
+}
+
+.admin-mini-chart-amber {
+  --admin-chart-color: #f59e0b;
+}
+
+.admin-mini-chart-rose {
+  --admin-chart-color: #f43f5e;
 }
 
 .privacy-grid-two-col {
@@ -296,6 +476,23 @@
 
 .cl_blog_details-comment-info {
   min-width: 0;
+}
+
+.blog-comment-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 12px;
+}
+
+.blog-comment-head .cl_blog_details-comment-info-title {
+  margin-bottom: 0;
+}
+
+.blog-comment-head time {
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 650;
 }
 
 .blog-action-icon {
@@ -444,6 +641,7 @@
 
 .blog-comments-pagination {
   justify-content: center;
+  max-width: 100%;
   margin-top: 22px;
   margin-bottom: 0;
 }
@@ -564,6 +762,14 @@
     gap: 20px;
   }
 
+  .admin-chart-row {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-stats-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .about-content-offset {
     margin-right: 0;
     margin-left: 0;
@@ -608,6 +814,14 @@
   }
 
   .footer-bottom-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-mini-chart {
+    align-items: flex-start;
+  }
+
+  .admin-stats-summary {
     grid-template-columns: 1fr;
   }
 }

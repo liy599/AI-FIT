@@ -47,6 +47,13 @@ export function updateMyProfile<T>(payload: Record<string, unknown>) {
   return apiFetch<T>('/api/user/profile', { method: 'PUT', body: JSON.stringify(payload) })
 }
 
+export function deleteMyAccount(confirmUsername: string) {
+  return apiFetch<{ ok: boolean }>('/api/user/account', {
+    method: 'DELETE',
+    body: JSON.stringify({ confirm_username: confirmUsername })
+  })
+}
+
 export function uploadMyAvatar(file: File) {
   const form = new FormData()
   form.append('file', file)

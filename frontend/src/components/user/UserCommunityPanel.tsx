@@ -128,7 +128,7 @@ export function UserCommunityPanel(props: UserCommunityPanelProps) {
   const [blogSortBy, blogSortDir] = blogSort.split(':') as [string, string]
   const [commentSortBy, commentSortDir] = commentSort.split(':') as [string, string]
   const publishedCountLabel =
-    blogStatus === 'published' ? `${blogTotal} published` : blogStatus === 'unpublished' ? `${blogTotal} unpublished` : `${blogTotal} drafts`
+    blogStatus === 'published' ? `${blogTotal} published` : blogStatus === 'unpublished' ? `${blogTotal} admin disabled` : `${blogTotal} drafts`
 
   useEffect(() => {
     setActivityTab(searchParams.get('activity') === 'notifications' ? 'notifications' : 'comments')
@@ -233,7 +233,7 @@ export function UserCommunityPanel(props: UserCommunityPanelProps) {
     if (blogsLoading) return 'Loading blogs...'
     if (blogSearch) return 'No matching blogs.'
     if (blogStatus === 'published') return 'No published blogs yet.'
-    if (blogStatus === 'unpublished') return 'No unpublished blogs.'
+    if (blogStatus === 'unpublished') return 'No admin-disabled blogs.'
     return 'No drafts yet.'
   }, [blogSearch, blogStatus, blogsLoading])
 
@@ -368,7 +368,7 @@ export function UserCommunityPanel(props: UserCommunityPanelProps) {
               Drafts
             </button>
             <button type="button" className={blogStatus === 'unpublished' ? 'is-active' : ''} onClick={() => { setBlogStatus('unpublished'); setBlogPage(1) }}>
-              Unpublished
+              Admin disabled
             </button>
           </div>
           <form
@@ -408,7 +408,7 @@ export function UserCommunityPanel(props: UserCommunityPanelProps) {
                 </Link>
                 <div className="profile-blog-meta">
                   <span className={blog.status === 'unpublished' ? 'profile-status profile-status--unpublished' : blog.is_published ? 'profile-status profile-status--published' : 'profile-status profile-status--draft'}>
-                    {blog.status === 'unpublished' ? 'Unpublished' : blog.is_published ? 'Published' : 'Draft'}
+                    {blog.status === 'unpublished' ? 'Admin disabled' : blog.is_published ? 'Published' : 'Draft'}
                   </span>
                   {blog.visibility === 'private' ? <span className="profile-status profile-status--draft">Private</span> : null}
                   {blog.restore_requested ? <span className="profile-status profile-status--requested">Restore requested</span> : null}

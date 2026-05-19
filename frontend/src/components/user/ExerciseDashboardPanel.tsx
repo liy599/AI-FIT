@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   buildPoseReportPath,
@@ -6,6 +7,45 @@ import {
   type PoseTrainingSession
 } from '../../modules/pose'
 import { buildMonthCells, pad2, startOfMonth } from '../../modules/user/profileDate'
+
+const DAILY_SESSION_PAGE_SIZE = 3
+
+function buildDailyPaginationItems(current: number, total: number): Array<number | 'ellipsis'> {
+  if (total <= 5) return Array.from({ length: total }, (_, index) => index + 1)
+
+  const pages = new Set([1, total, current, current - 1, current + 1])
+  if (current <= 3) {
+    pages.add(2)
+    pages.add(3)
+    pages.add(4)
+  }
+  if (current >= total - 2) {
+    pages.add(total - 1)
+    pages.add(total - 2)
+    pages.add(total - 3)
+  }
+
+  const sorted = [...pages].filter((item) => item >= 1 && item <= total).sort((a, b) => a - b)
+  const result: Array<number | 'ellipsis'> = []
+  for (const item of sorted) {
+    const previous = result[result.length - 1]
+    if (typeof previous === 'number' && item - previous > 1) result.push('ellipsis')
+    result.push(item)
+  }
+  return result
+}
+
+function formatProfileDateTime(value: string) {
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return value
+  return parsed.toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
 
 type PoseSummary = {
   weekSessions: number
@@ -110,7 +150,7 @@ export function ExerciseDashboardPanel(props: ExerciseDashboardPanelProps) {
               </div>
               <div className="profile-subpanel">
                 <div className="text-xs text-slate-600">Latest session</div>
-                <div className="mt-2 text-sm font-semibold">{latestPoseSession ? new Date(latestPoseSession.started_at).toLocaleString() : '-'}</div>
+                <div className="mt-2 text-sm font-semibold">{latestPoseSession ? formatProfileDateTime(latestPoseSession.started_at) : '-'}</div>
               </div>
               <div className="profile-subpanel">
                 <div className="text-xs text-slate-600">Latest exercise</div>
@@ -137,6 +177,19 @@ function PoseHistoryCalendar(props: {
   onDeleteSession: (session: PoseTrainingSession) => Promise<void>
 }) {
   const { poseMonth, poseSelectedYmd, poseSessions, poseSessionsByDay, poseLoading, onMonthChange, onSelectedYmdChange, onDeleteSession } = props
+  const [dailyPage, setDailyPage] = useState(1)
+  const selectedSessions = useMemo(() => poseSessionsByDay.get(poseSelectedYmd) ?? [], [poseSelectedYmd, poseSessionsByDay])
+  const dailyTotalPages = Math.max(1, Math.ceil(selectedSessions.length / DAILY_SESSION_PAGE_SIZE))
+  const dailyPageSafe = Math.min(dailyPage, dailyTotalPages)
+  const dailyPaginationItems = useMemo(() => buildDailyPaginationItems(dailyPageSafe, dailyTotalPages), [dailyPageSafe, dailyTotalPages])
+  const visibleSelectedSessions = selectedSessions.slice((dailyPageSafe - 1) * DAILY_SESSION_PAGE_SIZE, dailyPageSafe * DAILY_SESSION_PAGE_SIZE)
+
+  function selectDate(ymd: string) {
+    const date = new Date(`${ymd}T00:00:00`)
+    if (!Number.isNaN(date.getTime())) onMonthChange(new Date(date.getFullYear(), date.getMonth(), 1))
+    onSelectedYmdChange(ymd)
+    setDailyPage(1)
+  }
 
   return (
     <div className="profile-panel">
@@ -145,6 +198,9 @@ function PoseHistoryCalendar(props: {
           <div className="text-sm font-semibold">Pose History</div>
           <div className="mt-1 text-xs text-slate-600">Calendar view of your pose training sessions</div>
         </div>
+        <Link to="/tools/pose/history" className="profile-btn-secondary">
+          All History
+        </Link>
       </div>
 
       <div className="mt-4 profile-history-main-grid">
@@ -153,10 +209,21 @@ function PoseHistoryCalendar(props: {
             <button className="profile-btn-secondary" onClick={() => onMonthChange(new Date(poseMonth.getFullYear(), poseMonth.getMonth() - 1, 1))}>
               {'<'}
             </button>
-            <div className="text-sm font-semibold">{poseMonth.toLocaleString(undefined, { year: 'numeric', month: 'long' })}</div>
+            <div className="text-sm font-semibold">{poseMonth.toLocaleString('en-US', { year: 'numeric', month: 'long' })}</div>
             <button className="profile-btn-secondary" onClick={() => onMonthChange(new Date(poseMonth.getFullYear(), poseMonth.getMonth() + 1, 1))}>
               {'>'}
             </button>
+          </div>
+
+          <div className="mt-3 profile-date-picker-grid">
+            <label>
+              <span>Date</span>
+              <input
+                type="date"
+                value={poseSelectedYmd}
+                onChange={(event) => selectDate(event.target.value)}
+              />
+            </label>
           </div>
 
           <div className="mt-3 grid grid-cols-7 gap-1 text-center text-xs text-slate-600">
@@ -180,7 +247,7 @@ function PoseHistoryCalendar(props: {
                     'relative h-9 rounded-xl border text-sm transition',
                     active ? 'bg-emerald-600 text-white' : 'border-slate-200 bg-white text-slate-800 hover:bg-slate-50'
                   ].join(' ')}
-                  onClick={() => onSelectedYmdChange(ymd)}
+                  onClick={() => selectDate(ymd)}
                   style={active ? { borderColor: 'rgb(5 150 105)' } : undefined}
                 >
                   {cell.day}
@@ -198,10 +265,19 @@ function PoseHistoryCalendar(props: {
           </div>
 
           <div className="mt-3 flex items-center justify-between text-xs text-slate-600">
-            <button className="rounded-xl border border-slate-200 bg-white px-3 py-2 hover:bg-slate-50" onClick={() => onMonthChange(startOfMonth(new Date()))}>
-              This month
+            <button
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 hover:bg-slate-50"
+              onClick={() => {
+                const today = new Date()
+                const todayYmd = `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`
+                onMonthChange(startOfMonth(today))
+                onSelectedYmdChange(todayYmd)
+                setDailyPage(1)
+              }}
+            >
+              Today
             </button>
-            {poseLoading ? <div>Loading...</div> : <div>{poseSessions.length} sessions</div>}
+            {poseLoading ? <div>Loading...</div> : <div>Total reports this month: {poseSessions.length}</div>}
           </div>
         </div>
 
@@ -209,19 +285,56 @@ function PoseHistoryCalendar(props: {
           <div className="flex items-center justify-between gap-3">
             <div>
               <div className="text-sm font-semibold">{poseSelectedYmd}</div>
-              <div className="mt-1 text-xs text-slate-600">{poseSessionsByDay.get(poseSelectedYmd)?.length ?? 0} sessions</div>
+              <div className="mt-1 text-xs text-slate-600">
+                Reports on selected date: {selectedSessions.length}
+                {selectedSessions.length > DAILY_SESSION_PAGE_SIZE ? ` / showing ${visibleSelectedSessions.length} per page` : ''}
+              </div>
             </div>
           </div>
 
-          <div className="mt-4 space-y-3">
-            {(poseSessionsByDay.get(poseSelectedYmd) ?? []).map((s) => (
+          <div className="mt-4 profile-daily-session-list">
+            {visibleSelectedSessions.map((s) => (
               <PoseSessionCard key={s.id} session={s} onDeleteSession={onDeleteSession} />
             ))}
 
-            {(poseSessionsByDay.get(poseSelectedYmd) ?? []).length === 0 && !poseLoading ? (
+            {selectedSessions.length === 0 && !poseLoading ? (
               <div className="text-sm text-slate-600">No sessions on this day</div>
             ) : null}
           </div>
+
+          {selectedSessions.length > DAILY_SESSION_PAGE_SIZE ? (
+            <div className="profile-daily-pagination">
+              <button type="button" disabled={dailyPageSafe <= 1} onClick={() => setDailyPage(1)}>
+                First
+              </button>
+              <button type="button" disabled={dailyPageSafe <= 1} onClick={() => setDailyPage((page) => Math.max(1, page - 1))}>
+                Prev
+              </button>
+              <div className="profile-page-numbers" aria-label="Daily pose session pages">
+                {dailyPaginationItems.map((item, index) =>
+                  item === 'ellipsis' ? (
+                    <span key={`ellipsis-${index}`} className="profile-page-ellipsis">...</span>
+                  ) : (
+                    <button
+                      key={item}
+                      type="button"
+                      className={item === dailyPageSafe ? 'is-active' : ''}
+                      aria-current={item === dailyPageSafe ? 'page' : undefined}
+                      onClick={() => setDailyPage(item)}
+                    >
+                      {item}
+                    </button>
+                  )
+                )}
+              </div>
+              <button type="button" disabled={dailyPageSafe >= dailyTotalPages} onClick={() => setDailyPage((page) => Math.min(dailyTotalPages, page + 1))}>
+                Next
+              </button>
+              <button type="button" disabled={dailyPageSafe >= dailyTotalPages} onClick={() => setDailyPage(dailyTotalPages)}>
+                Last
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
@@ -269,7 +382,7 @@ function PoseSessionCard(props: { session: PoseTrainingSession; onDeleteSession:
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="text-sm font-semibold">{recordName}</div>
-          <div className="mt-1 text-xs text-slate-600">{new Date(s.started_at).toLocaleString()}</div>
+          <div className="mt-1 text-xs text-slate-600">{formatProfileDateTime(s.started_at)}</div>
           <div className="mt-2 text-xs text-slate-600">{totalReps} reps</div>
         </div>
         <div className="flex flex-wrap gap-2">

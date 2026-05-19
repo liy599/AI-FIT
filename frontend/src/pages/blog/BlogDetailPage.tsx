@@ -42,6 +42,18 @@ function validateCommentContent(value: string) {
   return null
 }
 
+function formatCommentTime(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 function updateCommentLikeInTree(nodes: CommentNode[], commentId: number, liked: boolean, likeCount: number): CommentNode[] {
   return nodes.map((node) => {
     if (node.id === commentId) {
@@ -158,7 +170,10 @@ function CommentItem(props: {
       <div className="cl_blog_details-comment mb-45">
         <img src={resolveMediaUrl(props.node.user.avatar_url) ?? '/assets/images/blog/blog-comment.png'} alt={`${props.node.user.username} avatar`} />
         <div className="cl_blog_details-comment-info">
-          <h4 className="cl_blog_details-comment-info-title">{props.node.user.username}</h4>
+          <div className="blog-comment-head">
+            <h4 className="cl_blog_details-comment-info-title">{props.node.user.username}</h4>
+            <time dateTime={props.node.created_at}>{formatCommentTime(props.node.created_at)}</time>
+          </div>
           {isReply && props.node.reply_to ? (
             <div className="blog-comment-reply-context">
               Replying to <strong>@{props.node.reply_to.username}</strong>

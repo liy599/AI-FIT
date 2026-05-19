@@ -1,11 +1,24 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { buildPaginationItems } from '../../lib/pagination'
-import { deleteAdminUser, getAdminUserContact, listAdminUsers, updateAdminUser, type AdminUserItem } from '../../modules/admin'
+import {
+  deleteAdminUser,
+  getAdminSummary,
+  getAdminUserContact,
+  listAdminUsers,
+  updateAdminUser,
+  type AdminSummary,
+  type AdminUserItem
+} from '../../modules/admin'
 import { useAuth } from '../../state/auth-context'
 
 type BoolFilter = 'all' | 'yes' | 'no'
 type UserSort = 'id:asc' | 'id:desc' | 'created_at:desc' | 'created_at:asc'
+
+const emptySummary: AdminSummary = {
+  users: { total: 0, disabled: 0, admins: 0 },
+  blogs: { total: 0, published: 0, drafts: 0, unpublished: 0, restore_requested: 0 }
+}
 
 function toBoolFilter(value: BoolFilter) {
   if (value === 'yes') return true
@@ -25,9 +38,19 @@ export default function AdminUsersPage() {
   const [items, setItems] = useState<AdminUserItem[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [summary, setSummary] = useState<AdminSummary>(emptySummary)
+  const [summaryLoading, setSummaryLoading] = useState(true)
   const [savingId, setSavingId] = useState<number | null>(null)
   const [revealedEmails, setRevealedEmails] = useState<Record<number, string>>({})
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setSummaryLoading(true)
+    getAdminSummary()
+      .then(setSummary)
+      .catch(() => {})
+      .finally(() => setSummaryLoading(false))
+  }, [total])
 
   useEffect(() => {
     const [sortBy, sortDir] = sort.split(':') as [string, 'asc' | 'desc']
@@ -52,6 +75,11 @@ export default function AdminUsersPage() {
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const paginationItems = useMemo(() => buildPaginationItems(page, totalPages), [page, totalPages])
+  const totalUsers = summary.users.total
+  const activeUsers = Math.max(0, totalUsers - summary.users.disabled)
+  const activePct = percent(activeUsers, totalUsers)
+  const adminPct = percent(summary.users.admins, totalUsers)
+  const disabledPct = percent(summary.users.disabled, totalUsers)
 
   const canEditUser = useMemo(() => {
     return (user: AdminUserItem) => user.id !== auth.user?.id
@@ -134,16 +162,30 @@ export default function AdminUsersPage() {
 
       <section className="pt-100 pb-100 brand-page-body">
         <div className="page-container space-y-5">
-      <div className="cl_blog-widget mb-0">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="cl_blog-widget admin-stats-dashboard mb-0">
+        <div className="admin-stats-head">
           <div>
-            <h1 className="text-xl font-semibold text-slate-950">Admin Users</h1>
-            <p className="mt-2 text-sm text-slate-600">Manage access, roles, and disabled accounts.</p>
+            <h1>User Management Overview</h1>
+            <p>Account access, role distribution, and disabled-user risk signals.</p>
           </div>
           <Link to="/admin" className="profile-btn-secondary">
             Admin home
           </Link>
         </div>
+
+        <div className="admin-stats-summary">
+          <SummaryPill icon="fa-regular fa-users" label="Total users" value={summaryLoading ? '-' : String(totalUsers)} tone="emerald" />
+          <SummaryPill icon="fa-regular fa-user-check" label="Active" value={summaryLoading ? '-' : String(activeUsers)} tone="sky" />
+          <SummaryPill icon="fa-regular fa-user-shield" label="Admins" value={summaryLoading ? '-' : String(summary.users.admins)} tone="amber" />
+          <SummaryPill icon="fa-regular fa-user-lock" label="Disabled" value={summaryLoading ? '-' : String(summary.users.disabled)} tone="rose" />
+        </div>
+
+        <div className="admin-chart-row" aria-label="User access charts">
+          <MiniDonut label="Active users" value={activePct} caption={`${activeUsers} active accounts`} tone="sky" />
+          <MiniDonut label="Admins" value={adminPct} caption={`${summary.users.admins} privileged accounts`} tone="amber" />
+          <MiniDonut label="Disabled" value={disabledPct} caption={`${summary.users.disabled} blocked accounts`} tone="rose" />
+        </div>
+
       </div>
 
       <div className="cl_blog-widget mb-0">
@@ -324,5 +366,34 @@ export default function AdminUsersPage() {
         </div>
       </section>
     </>
+  )
+}
+
+function percent(value: number, total: number) {
+  if (total <= 0) return 0
+  return Math.round((value / total) * 100)
+}
+
+function SummaryPill(props: { icon: string; label: string; value: string; tone: 'emerald' | 'sky' | 'amber' | 'rose' }) {
+  return (
+    <div className={`admin-summary-pill admin-summary-pill-${props.tone}`}>
+      <i className={props.icon} aria-hidden="true" />
+      <span>{props.label}</span>
+      <strong>{props.value}</strong>
+    </div>
+  )
+}
+
+function MiniDonut(props: { label: string; value: number; caption: string; tone: 'emerald' | 'sky' | 'amber' | 'rose' }) {
+  return (
+    <div className={`admin-mini-chart admin-mini-chart-${props.tone}`}>
+      <div className="admin-mini-donut" style={{ background: `conic-gradient(var(--admin-chart-color) ${props.value}%, #e2e8f0 0)` }}>
+        <span>{props.value}%</span>
+      </div>
+      <div>
+        <div className="admin-mini-chart-label">{props.label}</div>
+        <div className="admin-mini-chart-caption">{props.caption}</div>
+      </div>
+    </div>
   )
 }

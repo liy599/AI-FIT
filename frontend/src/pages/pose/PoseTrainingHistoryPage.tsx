@@ -206,11 +206,31 @@ export default function PoseTrainingHistoryPage() {
                   </label>
                   <label className="pose-form-field">
                     <span>From Date</span>
-                    <input type="date" value={dateFrom} max={dateTo || undefined} onChange={(e) => updateDateFrom(e.target.value)} />
+                    <div className="pose-date-input-wrap">
+                      <input
+                        type="date"
+                        value={dateFrom}
+                        max={dateTo || undefined}
+                        onChange={(e) => updateDateFrom(e.target.value)}
+                      />
+                      <span className={dateFrom ? 'pose-date-input-preview' : 'pose-date-input-preview pose-date-input-placeholder'}>
+                        {formatDateInputPreview(dateFrom)}
+                      </span>
+                    </div>
                   </label>
                   <label className="pose-form-field">
                     <span>To Date</span>
-                    <input type="date" value={dateTo} min={dateFrom || undefined} onChange={(e) => updateDateTo(e.target.value)} />
+                    <div className="pose-date-input-wrap">
+                      <input
+                        type="date"
+                        value={dateTo}
+                        min={dateFrom || undefined}
+                        onChange={(e) => updateDateTo(e.target.value)}
+                      />
+                      <span className={dateTo ? 'pose-date-input-preview' : 'pose-date-input-preview pose-date-input-placeholder'}>
+                        {formatDateInputPreview(dateTo)}
+                      </span>
+                    </div>
                   </label>
                   <button className="pose-tool-ghost-btn pose-tool-light-btn pose-filter-clear-btn" type="button" onClick={clearFilters}>
                     Clear
@@ -346,7 +366,17 @@ export default function PoseTrainingHistoryPage() {
 function formatDateTime(value: string) {
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) return value
-  return parsed.toLocaleString()
+  return parsed.toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function formatDateInputPreview(value: string) {
+  return value || 'Select date'
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {

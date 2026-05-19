@@ -369,7 +369,7 @@ def update_blog(blog_id: int):
     moderation_action = (data.get("moderation_action") or "").strip().lower()
     if moderation_action == "request_restore":
         if blog.moderation_status != "unpublished":
-            return jsonify({"error": "only unpublished posts can request restore"}), 400
+            return jsonify({"error": "only admin-disabled posts can request restore"}), 400
         blog.moderation_restore_requested = True
         db.session.commit()
         return jsonify({"ok": True})
@@ -397,7 +397,7 @@ def update_blog(blog_id: int):
     if "is_published" in data:
         next_published = bool(data.get("is_published"))
         if next_published and blog.moderation_status == "unpublished":
-            return jsonify({"error": "admin unpublished posts cannot be republished by the author"}), 403
+            return jsonify({"error": "admin-disabled posts cannot be republished by the author"}), 403
         blog.is_published = next_published
         if not next_published and blog.moderation_status != "unpublished":
             blog.moderation_status = "active"

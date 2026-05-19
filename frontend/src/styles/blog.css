@@ -211,6 +211,7 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
+  max-width: 100%;
   color: rgba(14, 56, 41, 0.76);
   font-size: 14px;
   font-weight: 700;
@@ -227,6 +228,8 @@
   justify-content: center;
   gap: 6px;
   flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .blog-list-page-ellipsis {

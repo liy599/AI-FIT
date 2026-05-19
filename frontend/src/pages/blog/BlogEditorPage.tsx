@@ -245,7 +245,7 @@ export default function BlogEditorPage() {
                 <h4 className="cl_blog-widget-title mb-2">{isEditingBlog ? 'Edit your post' : 'Share your training insights'}</h4>
                 <p className="max-w-2xl text-sm text-slate-600">
                   {blogStatus === 'unpublished'
-                    ? 'This post was unpublished by an admin. You can edit it here, then request restore from Profile > Blogs.'
+                    ? 'This post was disabled by an admin. You can edit it here, then request restore from Profile > Blogs.'
                     : 'Choose one category, a default cover, and write a clear post for the community.'}
                 </p>
               </div>
@@ -340,7 +340,7 @@ export default function BlogEditorPage() {
                     disabled={blogStatus === 'unpublished'}
                     onChange={(e) => setBlog((b) => ({ ...b, is_published: e.target.checked }))}
                   />
-                  {blogStatus === 'unpublished' ? 'Admin unpublished - save changes only' : 'Publish now'}
+                  {blogStatus === 'unpublished' ? 'Admin disabled - save changes only' : 'Publish now'}
                 </label>
 
                 <div className="blog-editor-actions">

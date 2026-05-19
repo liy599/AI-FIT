@@ -65,7 +65,6 @@ def send_password_reset_email(*, to_email: str, reset_code: str) -> None:
     ttl_seconds = int(current_app.config.get("PASSWORD_RESET_TOKEN_TTL_SECONDS", 60 * 60))
     ttl = _format_ttl(ttl_seconds)
     subject = str(current_app.config.get("PASSWORD_RESET_EMAIL_SUBJECT") or "[AI Fit Guard] Password reset code")
-    site = str(current_app.config.get("FRONTEND_BASE_URL") or "").strip()
     body_lines = [
         "Hello,",
         "",
@@ -76,8 +75,6 @@ def send_password_reset_email(*, to_email: str, reset_code: str) -> None:
         "",
         f"This code will expire in {ttl}.",
     ]
-    if site:
-        body_lines.extend(["", f"Website: {site}"])
     body_lines.extend(
         [
             "",
@@ -94,7 +91,6 @@ def send_email_verification_email(*, to_email: str, verification_code: str) -> N
     ttl_seconds = int(current_app.config.get("EMAIL_VERIFY_TOKEN_TTL_SECONDS", 60 * 60))
     ttl = _format_ttl(ttl_seconds)
     subject = str(current_app.config.get("EMAIL_VERIFY_EMAIL_SUBJECT") or "[AI Fit Guard] Email verification code")
-    site = str(current_app.config.get("FRONTEND_BASE_URL") or "").strip()
     body_lines = [
         "Hello,",
         "",
@@ -105,8 +101,6 @@ def send_email_verification_email(*, to_email: str, verification_code: str) -> N
         "",
         f"This code will expire in {ttl}.",
     ]
-    if site:
-        body_lines.extend(["", f"Website: {site}"])
     body_lines.extend(
         [
             "",

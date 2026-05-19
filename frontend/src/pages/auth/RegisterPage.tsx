@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { PasswordField } from '../../components/ui'
 import { registerByPassword, requestEmailVerification, verifyEmail } from '../../modules/user'
 import { useAuth } from '../../state/auth-context'
 
@@ -41,7 +42,7 @@ export default function RegisterPage() {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Request failed'
       if (msg === 'email already exists') {
-        setError('This email is already registered. Please sign in instead.')
+        setError('邮箱已存在')
         return
       }
       if (msg === 'email delivery not configured') {
@@ -89,7 +90,7 @@ export default function RegisterPage() {
         return
       }
       if (msg === 'email already exists') {
-        setError('This email is already registered. Please sign in instead.')
+        setError('邮箱已存在')
         return
       }
       setError(msg)
@@ -203,7 +204,7 @@ export default function RegisterPage() {
         return
       }
       if (msg === 'email already exists') {
-        setError('This email is already registered. Please sign in instead.')
+        setError('邮箱已存在')
         return
       }
       setError(msg)
@@ -221,31 +222,12 @@ export default function RegisterPage() {
 
   return (
     <>
-      <section className="cl_breadcrumb-area brand-page-theme">
-        <div className="cl_breadcrumb-wrap brand-page-hero" data-background="/assets/images/bg/breadcrumb.png">
-          <div className="page-container">
-            <div className="page-row-center">
-              <div className="page-col-breadcrumb">
-                <div className="cl_breadcrumb-content">
-                  <h2 className="cl_breadcrumb-content-title">Register</h2>
-                  <div className="cl_breadcrumb-content-list">
-                    <Link to="/">Home</Link>
-                    <span>Register</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="pt-100 pb-100 brand-page-body auth-page-body">
+      <section className="pt-100 pb-100 brand-page-body auth-page-body auth-primary-page">
         <div className="page-container">
           <div className="page-row-center">
             <div className="page-col-auth">
               <div className="cl_blog_details-reply">
                 <h3 className="cl_blog_details-reply-title">Create account</h3>
-                <p>Enter your email and request a verification code. After you confirm the code, the rest of registration will unlock.</p>
                 <form
                   action="#"
                   noValidate
@@ -317,10 +299,10 @@ export default function RegisterPage() {
                             <label htmlFor="password">
                               Password<span>*</span>
                             </label>
-                            <input
-                              type="password"
+                            <PasswordField
                               id="password"
                               required
+                              autoComplete="new-password"
                               value={password}
                               onChange={(e) => setPassword(e.target.value)}
                             />
@@ -331,10 +313,10 @@ export default function RegisterPage() {
                             <label htmlFor="confirmPassword">
                               Confirm password<span>*</span>
                             </label>
-                            <input
-                              type="password"
+                            <PasswordField
                               id="confirmPassword"
                               required
+                              autoComplete="new-password"
                               value={confirmPassword}
                               onChange={(e) => setConfirmPassword(e.target.value)}
                             />

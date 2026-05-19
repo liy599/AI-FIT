@@ -140,7 +140,6 @@ export default function ProfileOnboardingPage() {
             <div className="page-col-auth">
               <div className="cl_blog_details-reply">
                 <h3 className="cl_blog_details-reply-title">Complete your profile</h3>
-                <p>Optional. You can skip now and edit later in Profile.</p>
                 <form
                   action="#"
                   noValidate

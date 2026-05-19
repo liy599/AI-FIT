@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { FallbackImage } from '../ui'
 import { buildPaginationItems } from '../../lib/pagination'
 import {
   deleteNotification,
@@ -397,7 +398,11 @@ export function UserCommunityPanel(props: UserCommunityPanelProps) {
             <div key={blog.id} className="profile-blog-card">
               <Link to={`/blogs/${blog.id}`} className="profile-blog-cover">
                 {blog.cover_image_url ? (
-                  <img src={resolveMediaUrl(blog.cover_image_url) ?? ''} alt={`${blog.title} cover`} />
+                  <FallbackImage
+                    src={resolveMediaUrl(blog.cover_image_url)}
+                    fallbackSrc="/assets/images/blog/h2_1.png"
+                    alt={`${blog.title} cover`}
+                  />
                 ) : (
                   <span>No cover</span>
                 )}
@@ -494,7 +499,11 @@ export function UserCommunityPanel(props: UserCommunityPanelProps) {
                   <div key={group.blog.id} className="profile-comment-group">
                     <button type="button" className="profile-comment-group-head" onClick={() => toggleComments(group.blog.id)}>
                       <div className="profile-comment-cover">
-                        {group.blog.cover_image_url ? <img src={resolveMediaUrl(group.blog.cover_image_url) ?? ''} alt="" /> : <span>No cover</span>}
+                        {group.blog.cover_image_url ? (
+                          <FallbackImage src={resolveMediaUrl(group.blog.cover_image_url)} fallbackSrc="/assets/images/blog/h2_2.png" alt="" />
+                        ) : (
+                          <span>No cover</span>
+                        )}
                       </div>
                       <div className="profile-comment-group-main">
                         <span className="profile-comment-blog-title">{group.blog.title}</span>

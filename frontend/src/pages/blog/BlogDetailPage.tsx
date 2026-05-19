@@ -1,6 +1,7 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { getBlogCover } from '../../components/blog/BlogListParts'
+import { FallbackImage } from '../../components/ui'
 import {
   createBlogComment,
   deleteComment,
@@ -168,7 +169,11 @@ function CommentItem(props: {
       id={`comment-${props.node.id}`}
     >
       <div className="cl_blog_details-comment mb-45">
-        <img src={resolveMediaUrl(props.node.user.avatar_url) ?? '/assets/images/blog/blog-comment.png'} alt={`${props.node.user.username} avatar`} />
+        <FallbackImage
+          src={resolveMediaUrl(props.node.user.avatar_url) ?? '/assets/images/blog/blog-comment.png'}
+          fallbackSrc="/assets/images/blog/blog-comment.png"
+          alt={`${props.node.user.username} avatar`}
+        />
         <div className="cl_blog_details-comment-info">
           <div className="blog-comment-head">
             <h4 className="cl_blog_details-comment-info-title">{props.node.user.username}</h4>
@@ -505,7 +510,13 @@ export default function BlogDetailPage() {
                   <>
                     <div className="cl_blog_details-content">
                       <div className="cl_blog_details-content-img section-stack-md">
-                        <img src={getBlogCover(blog)} alt={blog.title} fetchPriority="high" decoding="async" />
+                        <FallbackImage
+                          src={getBlogCover(blog, '/assets/images/blog/blog_details-1.png')}
+                          fallbackSrc="/assets/images/blog/blog_details-1.png"
+                          alt={blog.title}
+                          fetchPriority="high"
+                          decoding="async"
+                        />
                         {blog.tags[0]?.name ? (
                           <span className="cl_blog_details-content-img-tag blog-category-pill">{displayBlogTagName(blog.tags[0].name)}</span>
                         ) : null}
@@ -513,8 +524,9 @@ export default function BlogDetailPage() {
                       <h3 className="cl_blog_details-content-title section-stack-sm blog-break-text">{blog.title}</h3>
                       <div className="cl_blog_classic-item-content-meta blog-detail-author-meta">
                         <span className="blog-detail-author-inline">
-                          <img
+                          <FallbackImage
                             src={resolveMediaUrl(blog.author.avatar_url) ?? '/assets/images/blog/blog_widget-1.png'}
+                            fallbackSrc="/assets/images/blog/blog_widget-1.png"
                             alt={`${blog.author.username} avatar`}
                           />
                           <span>BY {blog.author.username}</span>
@@ -537,9 +549,10 @@ export default function BlogDetailPage() {
                       {detailImages.length ? (
                         <div className={`blog-detail-image-grid blog-detail-image-grid--count-${Math.min(detailImages.length, 9)}`}>
                           {detailImages.map((url, index) => (
-                            <img
+                            <FallbackImage
                               key={`${url}-${index}`}
                               src={resolveMediaUrl(url) ?? url}
+                              fallbackSrc="/assets/images/blog/blog_details-1.png"
                               alt={`${blog.title} image ${index + 1}`}
                               loading="lazy"
                               decoding="async"
@@ -721,8 +734,9 @@ export default function BlogDetailPage() {
           >
             <i className="fa-light fa-arrow-left" aria-hidden="true"></i>
           </button>
-          <img
+          <FallbackImage
             src={resolveMediaUrl(detailImages[lightboxIndex]) ?? detailImages[lightboxIndex]}
+            fallbackSrc="/assets/images/blog/blog_details-1.png"
             alt={`${blog?.title ?? 'Blog'} image ${lightboxIndex + 1}`}
             onClick={(event) => event.stopPropagation()}
           />

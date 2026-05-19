@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { displayBlogTagName, resolveBlogMediaUrl, type BlogCard } from '../../modules/blog'
+import { FallbackImage } from '../ui'
 
 export function resolveMediaUrl(url: string | null | undefined) {
   return resolveBlogMediaUrl(url)
@@ -126,7 +127,7 @@ export function BlogTeaserCard({
       <div className="p-3">
         <div className={imageWrap}>
           <Link to={`/blogs/${blog.id}`} className="block h-full w-full">
-            <img className="absolute inset-0 h-full w-full object-cover" src={cover} alt={blog.title} loading="lazy" decoding="async" />
+            <FallbackImage className="absolute inset-0 h-full w-full object-cover" src={cover} fallbackSrc={placeholderSrc} alt={blog.title} loading="lazy" decoding="async" />
           </Link>
           {tag ? (
             <div className="absolute left-4 top-4">
@@ -176,9 +177,10 @@ export function FeaturedBlogGridCard({
       <div className="flex h-full flex-col p-3">
         <div className="blog-card-media relative overflow-hidden rounded-xl aspect-[16/9]">
           <Link to={`/blogs/${blog.id}`} className="block h-full w-full">
-            <img
+            <FallbackImage
               className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
               src={cover}
+              fallbackSrc={placeholderSrc}
               alt={blog.title}
               loading="lazy"
               decoding="async"
@@ -240,10 +242,10 @@ function TopViewedStackCard({
       <div className="blog-card-media relative overflow-hidden rounded-[28px] aspect-[16/10]">
         {blog ? (
           <Link to={`/blogs/${blog.id}`} className="block h-full w-full">
-            <img className="absolute inset-0 h-full w-full object-cover" src={cover} alt={title} loading="lazy" decoding="async" />
+            <FallbackImage className="absolute inset-0 h-full w-full object-cover" src={cover} fallbackSrc={placeholderSrc} alt={title} loading="lazy" decoding="async" />
           </Link>
         ) : (
-          <img className="absolute inset-0 h-full w-full object-cover" src={cover} alt="" loading="lazy" decoding="async" />
+          <FallbackImage className="absolute inset-0 h-full w-full object-cover" src={cover} fallbackSrc={placeholderSrc} alt="" loading="lazy" decoding="async" />
         )}
         {tag ? (
           <div className="absolute left-4 top-4">

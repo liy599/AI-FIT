@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { buildPaginationItems } from '../../lib/pagination'
 import { displayBlogTagName, getBlogTags, queryBlogs, type BlogCard, type BlogTag as Tag } from '../../modules/blog'
+import { FallbackImage } from '../../components/ui'
 import { useAuth } from '../../state/auth-context'
 import {
   estimateReadMinutes,
@@ -261,16 +262,17 @@ export default function BlogListPage() {
 
                 {previewBlogs.prev ? (
                   <button type="button" className="blog-list-recent-shadow blog-list-recent-shadow--left" onClick={() => shiftRecent(-1)} aria-label="Show previous recent blog">
-                    <img src={getBlogCover(previewBlogs.prev)} alt="" />
+                    <FallbackImage src={getBlogCover(previewBlogs.prev)} fallbackSrc="/assets/images/blog/h2_2.png" alt="" />
                   </button>
                 ) : null}
 
                 <article className="blog-card-surface blog-list-recent-focus rounded-3xl p-3 md:p-5">
                   <div className="blog-list-recent-focus-media blog-card-media relative overflow-hidden rounded-3xl">
                     <Link to={`/blogs/${activeRecent.id}`} className="block h-full w-full">
-                      <img
+                      <FallbackImage
                         className="absolute inset-0 h-full w-full object-cover"
                         src={getBlogCover(activeRecent)}
+                        fallbackSrc="/assets/images/blog/h2_1.png"
                         alt={activeRecent.title}
                         fetchPriority="high"
                         decoding="async"
@@ -333,7 +335,7 @@ export default function BlogListPage() {
 
                 {previewBlogs.next ? (
                   <button type="button" className="blog-list-recent-shadow blog-list-recent-shadow--right" onClick={() => shiftRecent(1)} aria-label="Show next recent blog">
-                    <img src={getBlogCover(previewBlogs.next)} alt="" />
+                    <FallbackImage src={getBlogCover(previewBlogs.next)} fallbackSrc="/assets/images/blog/h2_3.png" alt="" />
                   </button>
                 ) : null}
               </>
@@ -455,9 +457,10 @@ export default function BlogListPage() {
                 <div className="blog-card-surface rounded-3xl p-3 text-neutral-900">
                   <div className="blog-card-media relative overflow-hidden rounded-3xl aspect-[16/9]">
                     <Link to={`/blogs/${hero.id}`} className="block h-full w-full">
-                      <img
+                      <FallbackImage
                         className="absolute inset-0 h-full w-full object-cover"
                         src={getBlogCover(hero)}
+                        fallbackSrc="/assets/images/blog/h2_1.png"
                         alt={hero.title}
                         loading="lazy"
                         decoding="async"

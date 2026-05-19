@@ -8,6 +8,7 @@ from sqlalchemy.orm import joinedload
 
 from ...extensions import db
 from ...models import Blog, Comment, CommentLike, Notification, User
+from ...utils.media_url import public_media_url_or_none
 from ...utils.pagination import parse_pagination
 
 bp = Blueprint("comments", __name__)
@@ -40,7 +41,7 @@ def _comment_public(c: Comment, liked_by_me: bool):
     return {
         "id": c.id,
         "blog_id": c.blog_id,
-        "user": {"id": c.author.id, "username": c.author.username, "avatar_url": c.author.avatar_url},
+        "user": {"id": c.author.id, "username": c.author.username, "avatar_url": public_media_url_or_none(c.author.avatar_url)},
         "parent_id": c.parent_id,
         "content": c.content,
         "like_count": c.like_count,

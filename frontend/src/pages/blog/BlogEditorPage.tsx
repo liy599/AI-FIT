@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { FallbackImage } from '../../components/ui'
 import { createBlog, displayBlogTagName, getBlogDetail, getBlogTags, resolveBlogMediaUrl, updateBlog, uploadBlogCover, type BlogTag } from '../../modules/blog'
 
 function resolveMediaUrl(url: string | null | undefined) {
@@ -364,7 +365,11 @@ export default function BlogEditorPage() {
               <aside className="blog-editor-cover">
                 <div className="blog-editor-label">Images</div>
                 <div className="blog-editor-cover-preview">
-                  <img src={resolveMediaUrl(selectedCover) ?? selectedCover} alt="Selected cover preview" />
+                  <FallbackImage
+                    src={resolveMediaUrl(selectedCover) ?? selectedCover}
+                    fallbackSrc="/assets/images/blog/blog_list-1.png"
+                    alt="Selected cover preview"
+                  />
                 </div>
                 <p>Up to 9 images. First image becomes the cover.</p>
                 {blog.image_urls.length ? (
@@ -379,7 +384,11 @@ export default function BlogEditorPage() {
                           return { ...b, image_urls, cover_image_url: image_urls[0] ?? null }
                         })}
                       >
-                        <img src={resolveMediaUrl(url) ?? url} alt={`Uploaded image ${index + 1}`} />
+                        <FallbackImage
+                          src={resolveMediaUrl(url) ?? url}
+                          fallbackSrc="/assets/images/blog/blog_list-1.png"
+                          alt={`Uploaded image ${index + 1}`}
+                        />
                         <span>{index + 1}</span>
                       </button>
                     ))}

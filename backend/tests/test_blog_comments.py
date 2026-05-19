@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from app.extensions import db
 from app.models import Blog, Comment, Tag
 
@@ -213,7 +215,7 @@ def test_deleting_parent_comment_preserves_replies(client, app):
         db.session.commit()
         tag_id = t.id
 
-    author_headers = _auth_headers(client, email="delete-parent-author@example.com", username="deleteparentauthor")
+    author_headers = _auth_headers(client, email="delete-parent-author@example.com", username="deleteauthor")
     create = client.post(
         "/api/blogs",
         headers=author_headers,
@@ -228,7 +230,7 @@ def test_deleting_parent_comment_preserves_replies(client, app):
     blog_id = create.get_json()["id"]
 
     commenter = app.test_client()
-    commenter_headers = _auth_headers(commenter, email="delete-parent-commenter@example.com", username="deleteparentcommenter")
+    commenter_headers = _auth_headers(commenter, email="delete-parent-commenter@example.com", username="deletecommenter")
     root = commenter.post(f"/api/blogs/{blog_id}/comments", headers=commenter_headers, json={"content": "Parent"})
     assert root.status_code == 201
     root_id = root.get_json()["id"]
@@ -293,6 +295,11 @@ def test_private_published_blog_is_owner_only_and_not_interactive(client, app):
         db.session.commit()
         tag_id = t.id
 
+    upload_dir = Path(app.config["UPLOAD_FOLDER"]) / "blog_covers"
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    (upload_dir / "a.png").write_bytes(b"cover-a")
+    (upload_dir / "b.png").write_bytes(b"cover-b")
+
     headers = _auth_headers(client, email="private-blog@example.com", username="privateblog")
     create = client.post(
         "/api/blogs",
@@ -322,3 +329,38 @@ def test_private_published_blog_is_owner_only_and_not_interactive(client, app):
     assert anonymous.get(f"/api/blogs/{blog_id}").status_code == 404
     assert client.post(f"/api/blogs/{blog_id}/like", headers=headers).status_code == 404
     assert client.post(f"/api/blogs/{blog_id}/comments", headers=headers, json={"content": "No public interaction"}).status_code == 404
+
+
+def test_missing_upload_urls_are_omitted_from_blog_payloads(client, app):
+    with app.app_context():
+        t = Tag(name="Other")
+        db.session.add(t)
+        db.session.commit()
+        tag_id = t.id
+
+    headers = _auth_headers(client, email="missing-cover@example.com", username="missingcover")
+    create = client.post(
+        "/api/blogs",
+        headers=headers,
+        json={
+            "title": "Missing uploaded cover",
+            "content": "Public post with an upload path left over from a previous local instance.",
+            "tag_ids": [tag_id],
+            "is_published": True,
+            "cover_image_url": "/uploads/blog_covers/missing-cover.png",
+            "image_urls": ["/uploads/blog_covers/missing-a.png"],
+        },
+    )
+    assert create.status_code == 201
+    blog_id = create.get_json()["id"]
+
+    listing = client.get("/api/blogs")
+    assert listing.status_code == 200
+    listed = listing.get_json()["items"][0]
+    assert listed["cover_image_url"] is None
+    assert listed["image_urls"] == []
+
+    detail = client.get(f"/api/blogs/{blog_id}", headers=headers)
+    assert detail.status_code == 200
+    assert detail.get_json()["cover_image_url"] is None
+    assert detail.get_json()["image_urls"] == []

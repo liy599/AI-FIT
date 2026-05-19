@@ -97,6 +97,20 @@ def test_register_login_me(client, monkeypatch):
     assert r.get_json()["email"] == "a@example.com"
 
 
+def test_request_verification_rejects_registered_email(client, monkeypatch):
+    _verify_email(client, monkeypatch, "used@example.com")
+
+    r = client.post(
+        "/api/auth/register",
+        json={"email": "used@example.com", "username": "usedone", "password": "pass1234"},
+    )
+    assert r.status_code == 200
+
+    r = client.post("/api/auth/request-email-verification", json={"email": "used@example.com"})
+    assert r.status_code == 409
+    assert r.get_json()["error"] == "email already exists"
+
+
 def test_password_reset_flow(client, monkeypatch):
     _verify_email(client, monkeypatch, "b@example.com")
 
@@ -113,6 +127,26 @@ def test_password_reset_flow(client, monkeypatch):
     assert r.status_code == 200
 
     r = client.post("/api/auth/login", json={"email": "b@example.com", "password": "newpass1"})
+    assert r.status_code == 200
+
+
+def test_verify_reset_code_does_not_change_password(client, monkeypatch):
+    _verify_email(client, monkeypatch, "resetcheck@example.com")
+
+    client.post(
+        "/api/auth/register",
+        json={"email": "resetcheck@example.com", "username": "resetcheck", "password": "oldpass1"},
+    )
+
+    r = client.post("/api/auth/forgot-password", json={"email": "resetcheck@example.com"})
+    assert r.status_code == 200
+    code = r.get_json()["reset_code"]
+
+    r = client.post("/api/auth/verify-reset-code", json={"email": "resetcheck@example.com", "code": code})
+    assert r.status_code == 200
+    assert r.get_json()["email"] == "resetcheck@example.com"
+
+    r = client.post("/api/auth/login", json={"email": "resetcheck@example.com", "password": "oldpass1"})
     assert r.status_code == 200
 
 

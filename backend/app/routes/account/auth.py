@@ -9,6 +9,7 @@ from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_requir
 from ...extensions import db
 from ...models import EmailVerification, PasswordResetCode, User
 from ...utils.mailer import is_email_delivery_configured, send_email_verification_email, send_password_reset_email
+from ...utils.media_url import public_media_url_or_none
 from ...utils.rate_limit import consume_rate_limit, get_client_ip, subject_fingerprint
 from ...utils.security import hash_password, verify_password
 
@@ -26,7 +27,7 @@ def _auth_user(u: User):
         "id": u.id,
         "email": u.email,
         "username": u.username,
-        "avatar_url": u.avatar_url,
+        "avatar_url": public_media_url_or_none(u.avatar_url),
         "is_admin": _is_admin_user(u),
         "is_disabled": bool(u.is_disabled),
     }
@@ -85,6 +86,28 @@ def _is_code_expired(*, sent_at: Optional[datetime], ttl_seconds: int) -> bool:
         return True
     delta = _utcnow_seconds() - sent_at.replace(microsecond=0)
     return delta.total_seconds() > ttl_seconds
+
+
+def _get_valid_password_reset_row(email: str, code: str) -> tuple[Optional[PasswordResetCode], Optional[str]]:
+    row = PasswordResetCode.query.filter_by(email=email).first()
+    if row is None:
+        return None, "invalid code"
+    if row.used_at:
+        return None, "invalid code"
+    if not row.code_hash:
+        return None, "invalid code"
+    if _is_code_expired(
+        sent_at=row.last_sent_at,
+        ttl_seconds=int(current_app.config.get("PASSWORD_RESET_TOKEN_TTL_SECONDS", 60 * 60)),
+    ):
+        return None, "code expired"
+    if not verify_password(code, row.code_hash):
+        return None, "invalid code"
+
+    user = db.session.get(User, int(row.user_id))
+    if user is None or user.email != email:
+        return None, "invalid code"
+    return row, None
 
 
 @bp.post("/register")
@@ -150,15 +173,11 @@ def request_email_verification():
         if not account_result.allowed:
             return jsonify({"error": "too many requests", "retry_after": account_result.retry_after_seconds}), 429
 
+    if User.query.filter_by(email=email).first() is not None:
+        return jsonify({"error": "email already exists"}), 409
+
     email_enabled = is_email_delivery_configured()
     debug_return_code = bool(current_app.config.get("EMAIL_VERIFY_DEBUG_RETURN_LINK", False))
-
-    if User.query.filter_by(email=email).first() is not None:
-        if debug_return_code:
-            return jsonify({"ok": True, "email_sent": False})
-        if not email_enabled:
-            return jsonify({"error": "email delivery not configured"}), 500
-        return jsonify({"ok": True, "email_sent": True})
 
     row = EmailVerification.query.filter_by(email=email).first()
     sent_at = _utcnow_seconds()
@@ -363,6 +382,42 @@ def forgot_password():
     return jsonify({"ok": True, "email_sent": True})
 
 
+@bp.post("/verify-reset-code")
+def verify_reset_code():
+    data = request.get_json(silent=True) or {}
+    email = (data.get("email") or "").strip().lower()
+    code = (data.get("code") or "").strip()
+    if not email or not code:
+        return jsonify({"error": "email/code required"}), 400
+    if not _is_valid_email(email):
+        return jsonify({"error": "invalid email"}), 400
+    if not re.fullmatch(r"[0-9]{6}", code):
+        return jsonify({"error": "invalid code"}), 400
+
+    if current_app.config.get("RATE_LIMIT_ENABLED", True):
+        ip = get_client_ip()
+        ip_result = consume_rate_limit(
+            f"auth:verify-reset:ip:{ip}",
+            limit=int(current_app.config.get("AUTH_FORGOT_RATE_LIMIT_PER_IP", 10)),
+            window_seconds=int(current_app.config.get("AUTH_FORGOT_RATE_LIMIT_IP_WINDOW_SECONDS", 900)),
+        )
+        if not ip_result.allowed:
+            return jsonify({"error": "too many requests", "retry_after": ip_result.retry_after_seconds}), 429
+
+        account_result = consume_rate_limit(
+            f"auth:verify-reset:acct:{subject_fingerprint(email)}",
+            limit=int(current_app.config.get("AUTH_FORGOT_RATE_LIMIT_PER_ACCOUNT", 5)),
+            window_seconds=int(current_app.config.get("AUTH_FORGOT_RATE_LIMIT_ACCOUNT_WINDOW_SECONDS", 1800)),
+        )
+        if not account_result.allowed:
+            return jsonify({"error": "too many requests", "retry_after": account_result.retry_after_seconds}), 429
+
+    _, error = _get_valid_password_reset_row(email, code)
+    if error:
+        return jsonify({"error": error}), 400
+    return jsonify({"ok": True, "email": email})
+
+
 @bp.post("/reset-password")
 def reset_password():
     data = request.get_json(silent=True) or {}
@@ -398,24 +453,11 @@ def reset_password():
     if password_err:
         return jsonify({"error": password_err}), 400
 
-    row = PasswordResetCode.query.filter_by(email=email).first()
-    if row is None:
-        return jsonify({"error": "invalid code"}), 400
-    if row.used_at:
-        return jsonify({"error": "invalid code"}), 400
-    if not row.code_hash:
-        return jsonify({"error": "invalid code"}), 400
-    if _is_code_expired(
-        sent_at=row.last_sent_at,
-        ttl_seconds=int(current_app.config.get("PASSWORD_RESET_TOKEN_TTL_SECONDS", 60 * 60)),
-    ):
-        return jsonify({"error": "code expired"}), 400
-    if not verify_password(code, row.code_hash):
-        return jsonify({"error": "invalid code"}), 400
+    row, code_error = _get_valid_password_reset_row(email, code)
+    if code_error:
+        return jsonify({"error": code_error}), 400
 
     user = db.session.get(User, int(row.user_id))
-    if user is None or user.email != email:
-        return jsonify({"error": "invalid code"}), 400
 
     now = _utcnow_seconds()
     user.password_hash = hash_password(new_password)

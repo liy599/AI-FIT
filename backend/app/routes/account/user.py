@@ -10,9 +10,10 @@ from sqlalchemy.orm import joinedload, load_only
 
 from ...extensions import db
 from ...models import Blog, Comment, Notification, User
-from ...utils.upload_access import resolve_upload_file_path
 from ...utils.image_upload import save_public_image_upload
+from ...utils.media_url import available_public_media_urls, public_media_url_or_none
 from ...utils.pagination import parse_pagination
+from ...utils.upload_access import resolve_upload_file_path
 from ..admin.users import _delete_user_associations, _remove_upload_files, _user_upload_file_paths
 
 bp = Blueprint("user", __name__)
@@ -52,7 +53,8 @@ def _blog_image_urls(blog: Blog) -> list[str]:
         return []
     if not isinstance(parsed, list):
         return []
-    return [str(item) for item in parsed if isinstance(item, str) and item.strip()][:9]
+    urls = [str(item) for item in parsed if isinstance(item, str) and item.strip()][:9]
+    return available_public_media_urls(urls)
 
 
 def _user_public(u: User):
@@ -60,7 +62,7 @@ def _user_public(u: User):
         "id": u.id,
         "username": u.username,
         "email": u.email,
-        "avatar_url": u.avatar_url,
+        "avatar_url": public_media_url_or_none(u.avatar_url),
         "gender": u.gender,
         "height": float(u.height) if u.height is not None else None,
         "weight": float(u.weight) if u.weight is not None else None,
@@ -228,7 +230,7 @@ def my_blogs():
                 {
                     "id": b.id,
                     "title": b.title,
-                    "cover_image_url": b.cover_image_url or (_blog_image_urls(b)[0] if _blog_image_urls(b) else None),
+                    "cover_image_url": public_media_url_or_none(b.cover_image_url) or (_blog_image_urls(b)[0] if _blog_image_urls(b) else None),
                     "image_urls": _blog_image_urls(b),
                     "excerpt": (b.content or "")[:160],
                     "is_published": b.is_published,
@@ -330,7 +332,7 @@ def my_comments():
                 "blog": {
                     "id": row.blog_id,
                     "title": row.blog_title,
-                    "cover_image_url": row.cover_image_url,
+                    "cover_image_url": public_media_url_or_none(row.cover_image_url),
                     "is_published": bool(row.is_published),
                     "status": status,
                     "updated_at": row.blog_updated_at.isoformat(),
@@ -374,7 +376,7 @@ def _notification_public(notification: Notification):
         "actor": {
             "id": actor.id,
             "username": actor.username,
-            "avatar_url": actor.avatar_url,
+            "avatar_url": public_media_url_or_none(actor.avatar_url),
         },
         "blog": {
             "id": blog.id,

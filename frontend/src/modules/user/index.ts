@@ -67,6 +67,14 @@ export function confirmPasswordReset(email: string, code: string, newPassword: s
   })
 }
 
+export function verifyPasswordResetCode(email: string, code: string) {
+  return apiFetch<{ ok: boolean; email: string }>('/api/auth/verify-reset-code', {
+    method: 'POST',
+    auth: false,
+    body: JSON.stringify({ email, code })
+  })
+}
+
 export function getMyProfile<T>() {
   return apiFetch<T>('/api/user/profile')
 }

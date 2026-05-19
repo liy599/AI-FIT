@@ -1,5 +1,6 @@
 ﻿import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { FallbackImage } from '../../components/ui'
 import { displayBlogTagName, getBlogs, resolveBlogMediaUrl, type BlogCard } from '../../modules/blog'
 
 // Resolve media URLs for blog covers (supports relative backend paths)
@@ -144,11 +145,12 @@ export default function HomePage() {
   function renderBlogRow(items: BlogCard[], rowOffset: number) {
     return items.map((b, idx) => {
       const tagLabel = b.tags[0]?.name ? displayBlogTagName(b.tags[0].name) : 'AI FitGuard'
-      const img = resolveMediaUrl(b.cover_image_url) ?? fallbackBlogImage(idx + rowOffset)
+      const fallbackSrc = fallbackBlogImage(idx + rowOffset)
+      const img = resolveMediaUrl(b.cover_image_url) ?? fallbackSrc
       return (
         <article className="cl_home-blog-card" key={b.id}>
           <Link to={`/blogs/${b.id}`} className="cl_home-blog-card-media">
-            <img src={img} alt={b.title} loading="lazy" />
+            <FallbackImage src={img} fallbackSrc={fallbackSrc} alt={b.title} loading="lazy" />
             <span className="cl_home-blog-card-tag">{tagLabel}</span>
           </Link>
           <div className="cl_home-blog-card-body">

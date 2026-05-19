@@ -14,6 +14,7 @@ from sqlalchemy.orm import joinedload, load_only, selectinload
 from ...extensions import db
 from ...models import Blog, BlogLike, BlogTag, BlogView, Tag, User
 from ...utils.image_upload import save_public_image_upload
+from ...utils.media_url import available_public_media_urls, public_media_url_or_none
 from ...utils.pagination import parse_pagination
 
 bp = Blueprint("blogs", __name__)
@@ -70,7 +71,8 @@ def _blog_image_urls(blog: Blog) -> list[str]:
         return []
     if not isinstance(parsed, list):
         return []
-    return [str(item) for item in parsed if isinstance(item, str) and item.strip()][:MAX_BLOG_IMAGES]
+    urls = [str(item) for item in parsed if isinstance(item, str) and item.strip()][:MAX_BLOG_IMAGES]
+    return available_public_media_urls(urls)
 
 
 def _normalize_image_urls(value) -> list[str]:
@@ -136,13 +138,14 @@ def _blog_status(blog: Blog) -> str:
 
 def _blog_card(b: Blog):
     image_urls = _blog_image_urls(b)
+    cover_image_url = public_media_url_or_none(b.cover_image_url)
     return {
         "id": b.id,
         "title": b.title,
-        "cover_image_url": b.cover_image_url or (image_urls[0] if image_urls else None),
+        "cover_image_url": cover_image_url or (image_urls[0] if image_urls else None),
         "image_urls": image_urls,
         "excerpt": (b.content or "")[:160],
-        "author": {"id": b.author.id, "username": b.author.username, "avatar_url": b.author.avatar_url},
+        "author": {"id": b.author.id, "username": b.author.username, "avatar_url": public_media_url_or_none(b.author.avatar_url)},
         "view_count": b.view_count,
         "like_count": b.like_count,
         "is_published": b.is_published,

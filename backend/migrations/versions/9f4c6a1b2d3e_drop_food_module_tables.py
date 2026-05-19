@@ -17,12 +17,20 @@ depends_on = None
 
 
 def upgrade():
-    op.drop_table("meal_items")
-    op.drop_table("meal_records")
-    op.drop_table("foods")
+    tables = set(sa.inspect(op.get_bind()).get_table_names())
+    if "meal_items" in tables:
+        op.drop_table("meal_items")
+    if "meal_records" in tables:
+        op.drop_table("meal_records")
+    if "foods" in tables:
+        op.drop_table("foods")
 
 
 def downgrade():
+    tables = set(sa.inspect(op.get_bind()).get_table_names())
+    if "foods" in tables or "meal_records" in tables or "meal_items" in tables:
+        return
+
     op.create_table(
         "foods",
         sa.Column("id", sa.Integer(), nullable=False),

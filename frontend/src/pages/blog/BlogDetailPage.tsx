@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { getBlogCover } from '../../components/blog/BlogListParts'
 import { FallbackImage } from '../../components/ui'
@@ -24,6 +24,7 @@ function resolveMediaUrl(url: string | null | undefined) {
 const COMMENT_MIN_LENGTH = 1
 const COMMENT_MAX_LENGTH = 500
 const COMMENT_PAGE_SIZE = 10
+const DEFAULT_AVATAR_IMAGE = '/assets/images/bg/default.jpg'
 
 function normalizeComment(value: string) {
   return value
@@ -170,8 +171,8 @@ function CommentItem(props: {
     >
       <div className="cl_blog_details-comment mb-45">
         <FallbackImage
-          src={resolveMediaUrl(props.node.user.avatar_url) ?? '/assets/images/blog/blog-comment.png'}
-          fallbackSrc="/assets/images/blog/blog-comment.png"
+          src={resolveMediaUrl(props.node.user.avatar_url) ?? DEFAULT_AVATAR_IMAGE}
+          fallbackSrc={DEFAULT_AVATAR_IMAGE}
           alt={`${props.node.user.username} avatar`}
         />
         <div className="cl_blog_details-comment-info">
@@ -525,8 +526,8 @@ export default function BlogDetailPage() {
                       <div className="cl_blog_classic-item-content-meta blog-detail-author-meta">
                         <span className="blog-detail-author-inline">
                           <FallbackImage
-                            src={resolveMediaUrl(blog.author.avatar_url) ?? '/assets/images/blog/blog_widget-1.png'}
-                            fallbackSrc="/assets/images/blog/blog_widget-1.png"
+                            src={resolveMediaUrl(blog.author.avatar_url) ?? DEFAULT_AVATAR_IMAGE}
+                            fallbackSrc={DEFAULT_AVATAR_IMAGE}
                             alt={`${blog.author.username} avatar`}
                           />
                           <span>BY {blog.author.username}</span>

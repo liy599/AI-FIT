@@ -272,11 +272,15 @@ export function PoseOfflineReportPanel(props: {
   checklist: ChecklistItem[]
   offlineReport: PoseAnalysisReport | null
   reportContent: ReactNode
+  reportAction?: ReactNode
 }) {
-  const { taskStatusToneClass, taskStatusText, offlineFileSizeMbText, analysisStarted, checklist, offlineReport, reportContent } = props
+  const { taskStatusToneClass, taskStatusText, offlineFileSizeMbText, analysisStarted, checklist, offlineReport, reportContent, reportAction } = props
   return (
     <div className="cl_blog-widget mb-30 h-full w-full pose-video-report-card">
-      <h4 className="cl_blog-widget-title mb-30">Analysis Report</h4>
+      <div className="pose-report-panel-head">
+        <h4 className="cl_blog-widget-title mb-0">Analysis Report</h4>
+        {reportAction}
+      </div>
       <div className="pose-report-overview">
         <span className={`pose-status-pill ${taskStatusToneClass}`}>{taskStatusText}</span>
         <span className="pose-status-pill pose-status-pill-muted">Video: {offlineFileSizeMbText}</span>

@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { formatLocalDateTimeMinute } from '../../lib/datetime'
 import {
   buildPoseGuidePath,
   buildPoseHistoryPath,
+  buildPoseReportPath,
   buildTrainingRecordName,
   deletePoseTraining,
   DEMO_POSE_TRAINING,
@@ -14,6 +16,17 @@ import {
   ReportVisualization,
   type PoseTrainingSession
 } from '../../modules/pose'
+
+type ReportBlogDraft = {
+  exerciseName: string
+  startedAt: string
+  endedAt: string | null
+  reps: number
+  accuracy: string | null
+  summary: string
+  issues: string[]
+  suggestions: string[]
+}
 
 export default function PoseTrainingReportPage() {
   const params = useParams<{ exerciseSlug: string; sessionId: string }>()
@@ -80,7 +93,16 @@ export default function PoseTrainingReportPage() {
       session.report && isRecord(session.report) && (isRecord(session.report.keyMetrics) || Array.isArray(session.report.issues) || Array.isArray(session.report.suggestions))
         ? (humanizePoseReport(session.report as never) as unknown as Record<string, unknown>)
         : session.report
-    return { reps, sessionName, sessionExerciseType, displayReport }
+    const blogDraft = isRecord(displayReport)
+      ? buildReportBlogDraft({
+          report: displayReport,
+          exerciseName: getPoseExerciseByType(sessionExerciseType).displayName,
+          startedAt: session.started_at,
+          endedAt: session.ended_at,
+          reps
+        })
+      : null
+    return { reps, sessionName, displayReport, blogDraft }
   }, [session])
 
   async function deleteCurrentReport() {
@@ -97,6 +119,17 @@ export default function PoseTrainingReportPage() {
       setError(e instanceof Error ? e.message : 'Delete failed')
       setDeleting(false)
     }
+  }
+
+  function writePostFromSavedReport() {
+    if (!computed?.blogDraft || !session) return
+    navigate('/blogs/new', {
+      state: {
+        template: 'training',
+        reportDraft: computed.blogDraft,
+        reportPath: buildPoseReportPath(exercise.slug, session.id)
+      }
+    })
   }
 
   return (
@@ -127,6 +160,15 @@ export default function PoseTrainingReportPage() {
           <div className="pose-history-head mb-30">
             <h4 className="cl_blog-widget-title mb-0">{computed?.sessionName ?? 'Training Report'}</h4>
             <div className="pose-history-head-actions">
+              {!loading && !error && session && computed?.blogDraft ? (
+                <button
+                  className="pose-tool-ghost-btn pose-tool-light-btn"
+                  type="button"
+                  onClick={writePostFromSavedReport}
+                >
+                  Write Post
+                </button>
+              ) : null}
               {!loading && !error && session && session.id !== DEMO_POSE_TRAINING_ID ? (
                 <button
                   className="pose-tool-ghost-btn pose-tool-light-btn pose-tool-danger-btn"
@@ -151,8 +193,8 @@ export default function PoseTrainingReportPage() {
               <div className="pose-tool-video-col pose-tool-video-col-report">
                 <div className="cl_blog-widget mb-30 w-100">
                   <div className="pose-history-meta">
-                    <span>Started: {formatDateTime(session.started_at)}</span>
-                    <span>Ended: {session.ended_at ? formatDateTime(session.ended_at) : 'In progress'}</span>
+                    <span>Started: {formatLocalDateTimeMinute(session.started_at)}</span>
+                    <span>Ended: {session.ended_at ? formatLocalDateTimeMinute(session.ended_at) : 'In progress'}</span>
                     <span>Total Reps: {computed?.reps ?? 0}</span>
                   </div>
 
@@ -176,14 +218,52 @@ export default function PoseTrainingReportPage() {
   )
 }
 
-function formatDateTime(value: string) {
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return value
-  return parsed.toLocaleString()
-}
-
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
+function buildReportBlogDraft(input: {
+  report: Record<string, unknown>
+  exerciseName: string
+  startedAt: string
+  endedAt: string | null
+  reps: number
+}): ReportBlogDraft {
+  const keyMetrics = isRecord(input.report.keyMetrics) ? input.report.keyMetrics : {}
+  const accuracy = pickPercent(keyMetrics.formAccuracyPct ?? input.report.formAccuracyPct ?? input.report.accuracyPct)
+  const summary = typeof input.report.summary === 'string' ? input.report.summary.trim() : ''
+  const issues = Array.isArray(input.report.issues)
+    ? input.report.issues
+        .map((issue) => {
+          if (typeof issue === 'string') return issue.trim()
+          if (isRecord(issue) && typeof issue.message === 'string') return issue.message.trim()
+          return ''
+        })
+        .filter(Boolean)
+        .slice(0, 3)
+    : []
+  const suggestions = Array.isArray(input.report.suggestions)
+    ? input.report.suggestions
+        .map((suggestion) => (typeof suggestion === 'string' ? suggestion.trim() : ''))
+        .filter(Boolean)
+        .slice(0, 3)
+    : []
+
+  return {
+    exerciseName: input.exerciseName,
+    startedAt: input.startedAt,
+    endedAt: input.endedAt,
+    reps: input.reps,
+    accuracy,
+    summary,
+    issues,
+    suggestions
+  }
+}
+
+function pickPercent(value: unknown) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null
+  return `${Math.round(value)}%`
 }
 
 

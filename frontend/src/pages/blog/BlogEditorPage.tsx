@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { FallbackImage } from '../../components/ui'
+import { formatLocalDateTimeMinute } from '../../lib/datetime'
 import { createBlog, displayBlogTagName, getBlogDetail, getBlogTags, resolveBlogMediaUrl, updateBlog, uploadBlogCover, type BlogTag } from '../../modules/blog'
 
 function resolveMediaUrl(url: string | null | undefined) {
@@ -30,6 +31,87 @@ const defaultCovers = [
   { label: 'Other', url: '/assets/images/blog/blog_details-1.png' },
 ]
 
+const blogTemplates = [
+  {
+    key: 'diet',
+    label: 'Diet Log',
+    description: 'Record meals, hydration, and nutrition notes for the day.',
+    title: 'Daily Diet Log',
+    cover: defaultCovers[0].url,
+    tagKeywords: ['nutrition', 'diet', 'food', 'health'],
+    content: [
+      'Daily Diet Log',
+      '',
+      'Date:',
+      '',
+      'Breakfast:',
+      '-',
+      '',
+      'Lunch:',
+      '-',
+      '',
+      'Dinner:',
+      '-',
+      '',
+      'Snacks:',
+      '-',
+      '',
+      'Hydration:',
+      '-',
+      '',
+      'Energy and appetite:',
+      '-',
+      '',
+      'Notes for tomorrow:',
+      '-'
+    ].join('\n')
+  },
+  {
+    key: 'training',
+    label: 'Training Log',
+    description: 'Draft a post from one pose training report.',
+    title: 'Training Report Notes',
+    cover: defaultCovers[1].url,
+    tagKeywords: ['training', 'fitness', 'workout', 'pose'],
+    content: [
+      'Training Report Notes',
+      '',
+      'Date:',
+      '',
+      'Exercise:',
+      '-',
+      '',
+      'Report summary:',
+      '- Avg Accuracy:',
+      '- Result:',
+      '',
+      'Main feedback:',
+      '-',
+      '',
+      'What I will improve next:',
+      '-',
+      '',
+      'Personal note:',
+      '-'
+    ].join('\n')
+  }
+] as const
+
+type ReportDraftState = {
+  template?: string
+  reportPath?: string | null
+  reportDraft?: {
+    exerciseName?: string
+    startedAt?: string
+    endedAt?: string | null
+    reps?: number
+    accuracy?: string | null
+    summary?: string
+    issues?: string[]
+    suggestions?: string[]
+  }
+}
+
 function normalizeTitle(value: string) {
   return value.replace(/\s+/g, ' ').trim()
 }
@@ -51,8 +133,50 @@ function validateLength(label: string, length: number, min: number, max: number)
   return null
 }
 
+function buildTrainingReportBlogContent(reportDraft: NonNullable<ReportDraftState['reportDraft']>) {
+  const startedAt = formatReportDraftDate(reportDraft.startedAt)
+  const exerciseName = reportDraft.exerciseName?.trim() || '-'
+  const accuracy = reportDraft.accuracy?.trim() || '-'
+  const reps = typeof reportDraft.reps === 'number' && Number.isFinite(reportDraft.reps) ? String(reportDraft.reps) : '-'
+  const summary = reportDraft.summary?.trim() || '-'
+  const issues = formatBulletLines(reportDraft.issues, '-')
+  const suggestions = formatBulletLines(reportDraft.suggestions, '-')
+
+  return [
+    'Training Report Notes',
+    '',
+    `Date: ${startedAt}`,
+    '',
+    `Exercise: ${exerciseName}`,
+    '',
+    'Report summary:',
+    `- Avg Accuracy: ${accuracy}`,
+    `- Total Reps: ${reps}`,
+    `- Result: ${summary}`,
+    '',
+    'Main feedback:',
+    issues,
+    '',
+    'What I will improve next:',
+    suggestions,
+    '',
+    'Personal note:',
+    '-'
+  ].join('\n')
+}
+
+function formatReportDraftDate(value: string | undefined) {
+  return value ? formatLocalDateTimeMinute(value) : '-'
+}
+
+function formatBulletLines(items: string[] | undefined, fallback: string) {
+  const lines = (items ?? []).map((item) => item.trim()).filter(Boolean)
+  return lines.length ? lines.map((item) => `- ${item}`).join('\n') : fallback
+}
+
 export default function BlogEditorPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const params = useParams()
   const editId = params.id ? Number(params.id) : null
   const isEditingBlog = editId != null && Number.isFinite(editId)
@@ -61,6 +185,7 @@ export default function BlogEditorPage() {
   const [notice, setNotice] = useState<string | null>(null)
   const [loading, setLoading] = useState(isEditingBlog)
   const [blogStatus, setBlogStatus] = useState<'published' | 'unpublished' | 'draft'>('draft')
+  const reportDraftApplied = useRef(false)
 
   const [coverUploading, setCoverUploading] = useState(false)
 
@@ -83,12 +208,38 @@ export default function BlogEditorPage() {
   const contentError = validateLength('Content', contentLength, CONTENT_MIN_LENGTH, CONTENT_MAX_LENGTH)
   const categoryError = blog.tag_ids.length === 0 ? 'Choose one category' : null
   const submitHelp = titleError ?? contentError ?? categoryError
+  const showNoticeBlogLink = notice?.includes('Profile > Blogs')
+  const stateReportPath = (location.state as ReportDraftState | null)?.reportPath ?? null
 
   useEffect(() => {
     getBlogTags()
       .then(setTags)
       .catch(() => {})
   }, [])
+
+  useEffect(() => {
+    if (isEditingBlog || reportDraftApplied.current) return
+    if (tags.length === 0) return
+    const state = location.state as ReportDraftState | null
+    if (state?.template !== 'training' || !state.reportDraft) return
+    const template = blogTemplates.find((item) => item.key === 'training')
+    if (!template) return
+
+    const tagId = findTemplateTagId(template.tagKeywords)
+    const exerciseName = state.reportDraft.exerciseName?.trim() || 'Training'
+    const content = buildTrainingReportBlogContent(state.reportDraft)
+    setBlog((current) => ({
+      ...current,
+      title: `${exerciseName} Training Report`,
+      content,
+      tag_ids: tagId ? [tagId] : current.tag_ids,
+      cover_image_url: template.cover,
+      image_urls: [template.cover]
+    }))
+    setNotice('Training report template applied.')
+    setError(null)
+    reportDraftApplied.current = true
+  }, [isEditingBlog, location.state, tags])
 
   useEffect(() => {
     if (!isEditingBlog || editId == null) return
@@ -203,7 +354,6 @@ export default function BlogEditorPage() {
         return
       }
       const r = await createBlog({ ...blog, title: normalizedTitle, content: normalizedContent, cover_image_url: selectedCover, image_urls: blog.image_urls })
-      setBlog({ title: '', content: '', tag_ids: [], is_published: false, visibility: 'public', cover_image_url: null, image_urls: [] })
       if (publishNow) {
         navigate(`/blogs/${r.id}`)
         return
@@ -212,6 +362,28 @@ export default function BlogEditorPage() {
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : isEditingBlog ? 'Save failed' : 'Create failed')
     }
+  }
+
+  function findTemplateTagId(keywords: readonly string[]) {
+    const found = tags.find((tag) => {
+      const normalized = `${tag.name} ${displayBlogTagName(tag.name)}`.toLowerCase()
+      return keywords.some((keyword) => normalized.includes(keyword))
+    })
+    return found?.id
+  }
+
+  function applyTemplate(template: (typeof blogTemplates)[number]) {
+    const tagId = findTemplateTagId(template.tagKeywords)
+    setBlog((current) => ({
+      ...current,
+      title: template.title,
+      content: template.content,
+      tag_ids: tagId ? [tagId] : current.tag_ids,
+      cover_image_url: template.cover,
+      image_urls: [template.cover]
+    }))
+    setNotice(`${template.label} template applied.`)
+    setError(null)
   }
 
   const buttonText = isEditingBlog ? 'Save changes' : blog.is_published ? 'Publish' : 'Save Draft'
@@ -250,23 +422,36 @@ export default function BlogEditorPage() {
                     : 'Choose one category, a default cover, and write a clear post for the community.'}
                 </p>
               </div>
-              <Link to="/blogs" className="profile-btn-secondary">Back to blogs</Link>
+              <div className="blog-editor-head-actions">
+                {stateReportPath ? <Link to={stateReportPath} className="profile-btn-secondary">Open Saved Report</Link> : null}
+                <button type="button" className="profile-btn-secondary" onClick={() => navigate(-1)}>Back</button>
+              </div>
             </div>
           </div>
 
           {error ? <div className="cl_blog-widget mb-30 border-rose-200 bg-rose-50 text-sm text-rose-700">{error}</div> : null}
-          {notice ? (
-            <div className="cl_blog-widget mb-30 border-emerald-200 bg-emerald-50 text-sm text-emerald-700">
-              <span>{notice}</span>
-              <Link to="/profile?tab=Blogs" className="ml-10 font-semibold underline">Open My Blogs</Link>
-            </div>
-          ) : null}
-
           {loading ? <div className="cl_blog-widget mb-30 text-sm text-slate-600">Loading post...</div> : null}
 
           {!loading ? <div className="cl_blog-widget blog-editor-panel mb-0">
             <div className="blog-editor-grid">
               <div className="blog-editor-form">
+                {!isEditingBlog ? (
+                  <div className="blog-template-panel">
+                    <div>
+                      <div className="blog-editor-label">Blog templates</div>
+                      <small>Start with a daily diet or training structure, then edit it freely.</small>
+                    </div>
+                    <div className="blog-template-grid">
+                      {blogTemplates.map((template) => (
+                        <button key={template.key} type="button" className="blog-template-card" onClick={() => applyTemplate(template)}>
+                          <strong>{template.label}</strong>
+                          <span>{template.description}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
                 <label>
                   <span>Title</span>
                   <input
@@ -371,7 +556,11 @@ export default function BlogEditorPage() {
                     alt="Selected cover preview"
                   />
                 </div>
-                <p>Up to 9 images. First image becomes the cover.</p>
+                <ol className="blog-editor-image-notes">
+                  <li>Upload up to 9 images.</li>
+                  <li>The first uploaded image becomes the cover.</li>
+                  <li>Choose a default cover below; only uploaded images can be removed.</li>
+                </ol>
                 {blog.image_urls.length ? (
                   <div className="blog-editor-image-grid">
                     {blog.image_urls.map((url, index) => (
@@ -414,7 +603,6 @@ export default function BlogEditorPage() {
                   >
                     {coverUploading ? 'Uploading...' : 'Upload images'}
                   </label>
-                  <span className="blog-editor-upload-hint">Click an image to remove it.</span>
                   <input
                     id="blog-image-upload"
                     type="file"
@@ -433,6 +621,13 @@ export default function BlogEditorPage() {
               </aside>
             </div>
           </div> : null}
+
+          {notice ? (
+            <div className="cl_blog-widget mt-30 mb-0 border-emerald-200 bg-emerald-50 text-sm text-emerald-700">
+              <span>{notice}</span>
+              {showNoticeBlogLink ? <Link to="/profile?tab=Blogs" className="ml-10 font-semibold underline">Open My Blogs</Link> : null}
+            </div>
+          ) : null}
         </div>
       </section>
     </>

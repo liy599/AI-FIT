@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { formatLocalDateTimeMinute } from '../../lib/datetime'
 import { buildPaginationItems } from '../../lib/pagination'
 import {
   buildPoseGuidePath,
@@ -112,6 +113,28 @@ export default function PoseTrainingHistoryPage() {
     } finally {
       setDeletingId(null)
     }
+  }
+
+  function writePostFromReport(args: {
+    item: PoseTrainingSession
+    report: Record<string, unknown>
+    exerciseName: string
+    sessionSlug: ReturnType<typeof getPoseExerciseByType>['slug']
+    reps: number
+  }) {
+    navigate('/blogs/new', {
+      state: {
+        template: 'training',
+        reportDraft: buildReportBlogDraft({
+          report: args.report,
+          exerciseName: args.exerciseName,
+          startedAt: args.item.started_at,
+          endedAt: args.item.ended_at,
+          reps: args.reps
+        }),
+        reportPath: buildPoseReportPath(args.sessionSlug, args.item.id)
+      }
+    })
   }
 
   useEffect(() => {
@@ -279,17 +302,32 @@ export default function PoseTrainingHistoryPage() {
                         <div key={item.id} className="pose-history-item pose-history-item-static">
                           <div className="pose-history-item-top">
                             <strong>{sessionName}</strong>
-                            <span>{formatDateTime(item.started_at)}</span>
+                            <span>{formatLocalDateTimeMinute(item.started_at)}</span>
                           </div>
                           <div className="pose-history-meta">
                             <span>Total Reps: {reps}</span>
-                            <span>Ended: {item.ended_at ? formatDateTime(item.ended_at) : 'In progress'}</span>
+                            <span>Ended: {item.ended_at ? formatLocalDateTimeMinute(item.ended_at) : 'In progress'}</span>
                           </div>
                           <p className="pose-history-summary">{reportSummary}</p>
                           <div className="pose-history-actions">
                             <Link to={buildPoseReportPath(sessionSlug, item.id)} className="pose-tool-ghost-btn pose-tool-light-btn">
                               View Report
                             </Link>
+                            {displayReport && isRecord(displayReport) ? (
+                              <button
+                                className="pose-tool-ghost-btn pose-tool-light-btn"
+                                type="button"
+                                onClick={() => writePostFromReport({
+                                  item,
+                                  report: displayReport,
+                                  exerciseName: getPoseExerciseByType(sessionExerciseType).displayName,
+                                  sessionSlug,
+                                  reps
+                                })}
+                              >
+                                Write Post
+                              </button>
+                            ) : null}
                             <button
                               className="pose-tool-ghost-btn pose-tool-light-btn pose-tool-danger-btn"
                               type="button"
@@ -363,24 +401,56 @@ export default function PoseTrainingHistoryPage() {
   )
 }
 
-function formatDateTime(value: string) {
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return value
-  return parsed.toLocaleString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
 function formatDateInputPreview(value: string) {
   return value || 'Select date'
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
+function buildReportBlogDraft(input: {
+  report: Record<string, unknown>
+  exerciseName: string
+  startedAt: string
+  endedAt: string | null
+  reps: number
+}) {
+  const keyMetrics = isRecord(input.report.keyMetrics) ? input.report.keyMetrics : {}
+  const accuracy = pickPercent(keyMetrics.formAccuracyPct ?? input.report.formAccuracyPct ?? input.report.accuracyPct)
+  const summary = typeof input.report.summary === 'string' ? input.report.summary.trim() : ''
+  const issues = Array.isArray(input.report.issues)
+    ? input.report.issues
+        .map((issue) => {
+          if (typeof issue === 'string') return issue.trim()
+          if (isRecord(issue) && typeof issue.message === 'string') return issue.message.trim()
+          return ''
+        })
+        .filter(Boolean)
+        .slice(0, 3)
+    : []
+  const suggestions = Array.isArray(input.report.suggestions)
+    ? input.report.suggestions
+        .map((suggestion) => (typeof suggestion === 'string' ? suggestion.trim() : ''))
+        .filter(Boolean)
+        .slice(0, 3)
+    : []
+
+  return {
+    exerciseName: input.exerciseName,
+    startedAt: input.startedAt,
+    endedAt: input.endedAt,
+    reps: input.reps,
+    accuracy,
+    summary,
+    issues,
+    suggestions
+  }
+}
+
+function pickPercent(value: unknown) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null
+  return `${Math.round(value)}%`
 }
 
 

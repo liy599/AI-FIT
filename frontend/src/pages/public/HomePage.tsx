@@ -1,7 +1,11 @@
 ﻿import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { FallbackImage } from '../../components/ui'
+import { TrainingInsightsPanel } from '../../components/user/ExerciseDashboardPanel'
 import { displayBlogTagName, getBlogs, resolveBlogMediaUrl, type BlogCard } from '../../modules/blog'
+import { listPoseTrainings, type PoseTrainingSession } from '../../modules/pose'
+import { formatYmdLocal } from '../../modules/user/profileDate'
+import { useAuth } from '../../state/auth-context'
 
 // Resolve media URLs for blog covers (supports relative backend paths)
 function resolveMediaUrl(url: string | null | undefined) {
@@ -40,10 +44,14 @@ function fallbackBlogImage(index: number) {
 
 // Main homepage component
 export default function HomePage() {
+  const auth = useAuth()
   // Blog state for homepage featured section
   const [blogs, setBlogs] = useState<BlogCard[]>([])
   const [blogsLoading, setBlogsLoading] = useState(true)
   const [blogsError, setBlogsError] = useState<string | null>(null)
+  const [trainingItems, setTrainingItems] = useState<PoseTrainingSession[]>([])
+  const [trainingLoading, setTrainingLoading] = useState(false)
+  const [trainingError, setTrainingError] = useState<string | null>(null)
 
   // Reveal state for staggered row animation
   const [blogReveal, setBlogReveal] = useState<0 | 1 | 2>(0)
@@ -77,6 +85,45 @@ export default function HomePage() {
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    if (!auth.user) {
+      setTrainingItems([])
+      setTrainingLoading(false)
+      setTrainingError(null)
+      return
+    }
+
+    let cancelled = false
+    const today = new Date()
+    const start = new Date(today)
+    start.setDate(today.getDate() - 6)
+
+    setTrainingLoading(true)
+    setTrainingError(null)
+    listPoseTrainings({
+      page: 1,
+      page_size: 100,
+      date_from: formatYmdLocal(start),
+      date_to: formatYmdLocal(today)
+    })
+      .then((result) => {
+        if (cancelled) return
+        setTrainingItems(result.items)
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return
+        setTrainingError(error instanceof Error ? error.message : 'Failed to load training insights')
+      })
+      .finally(() => {
+        if (cancelled) return
+        setTrainingLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [auth.user?.id])
 
   // Auto-rotate hero slides (respects reduced-motion preference)
   useEffect(() => {
@@ -140,6 +187,8 @@ export default function HomePage() {
   const featuredBlogs = blogs.slice(0, 6)
   const row1 = featuredBlogs.slice(0, 3)
   const row2 = featuredBlogs.slice(3, 6)
+  const trainingInsightsPath = '/profile?tab=Dashboard#training-insights'
+  const trainingInsightsLink = auth.user ? trainingInsightsPath : `/login?from=${encodeURIComponent(trainingInsightsPath)}`
 
   // Render a single blog card row
   function renderBlogRow(items: BlogCard[], rowOffset: number) {
@@ -217,6 +266,45 @@ export default function HomePage() {
       {/* Featured blogs section */}
       <section className="cl_blog-area home-blogs-section">
         <div className="page-container">
+          <div className="home-training-insights">
+            <div className="cl_home-blogs-header home-training-insights-header">
+              <div className="cl_section-area mb-0 pb-0">
+                <h2 className="cl_section-title mb-0">Recent Training</h2>
+              </div>
+              <Link to={trainingInsightsLink} className="cl_home-blogs-viewall">
+                View all <Arrow15 />
+              </Link>
+            </div>
+
+            {auth.user ? (
+              <TrainingInsightsPanel
+                title="Training Insights"
+                sessions={trainingItems}
+                loading={trainingLoading}
+                error={trainingError}
+                fixedRange="day"
+                showRangeTabs={false}
+                showWindowControls={false}
+                showFooter={false}
+              />
+            ) : (
+              <div className="profile-panel home-training-insights-guest">
+                <div>
+                  <div className="text-sm font-semibold">Training Insights</div>
+                  <div className="mt-1 text-xs text-slate-600">Sign in to see your last 7 days of pose training data.</div>
+                </div>
+                <div className="home-training-insights-actions">
+                  <Link to="/login?from=%2F" className="profile-btn-primary">
+                    Sign in
+                  </Link>
+                  <Link to="/tools/pose" className="profile-btn-secondary">
+                    Try pose tools
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="cl_home-blogs-header">
             <div className="cl_section-area mb-0 pb-0">
               <h2 className="cl_section-title mb-0">Featured Blogs</h2>

@@ -957,6 +957,24 @@
   border-radius: 20px;
 }
 
+.pose-report-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 30px;
+}
+
+.pose-report-panel-head .pose-tool-ghost-btn,
+.pose-report-panel-head .cl_theme-btn {
+  flex: 0 0 auto;
+}
+
+.pose-report-blog-btn {
+  min-height: 46px;
+  padding: 13px 24px;
+}
+
 .pose-tool-page .pose-tool-video-col-report > .cl_blog-widget {
   min-height: 520px;
   margin-bottom: 0 !important;

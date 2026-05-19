@@ -123,6 +123,29 @@ def test_my_blogs_returns_user_blog_list(client, app):
     assert payload["items"][0]["status"] == "published"
 
 
+def test_blog_create_daily_limit_per_user(client, app):
+    app.config["BLOG_CREATE_DAILY_LIMIT_PER_USER"] = 1
+    with app.app_context():
+        t = Tag(name="Daily Limit")
+        db.session.add(t)
+        db.session.commit()
+        tag_id = t.id
+
+    headers = _auth_headers(client, email="daily-limit@example.com", username="dailylimit")
+    payload = {
+        "title": "First daily post",
+        "content": "Daily post content",
+        "tag_ids": [tag_id],
+        "is_published": True,
+    }
+    first = client.post("/api/blogs", headers=headers, json=payload)
+    assert first.status_code == 201
+
+    second = client.post("/api/blogs", headers=headers, json={**payload, "title": "Second daily post"})
+    assert second.status_code == 429
+    assert "daily blog limit" in second.get_json()["error"]
+
+
 def test_comment_like_requires_public_blog(client, app):
     with app.app_context():
         t = Tag(name="Training")

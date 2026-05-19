@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { formatLocalDateTimeMinute, parseApiDate } from '../../lib/datetime'
 import {
   API_BASE,
   deleteMyAccount,
@@ -56,6 +57,9 @@ export default function ProfilePage() {
   const [poseWeekSessions, setPoseWeekSessions] = useState<PoseTrainingSession[]>([])
   const [poseWeekLoading, setPoseWeekLoading] = useState(false)
   const [poseWeekError, setPoseWeekError] = useState<string | null>(null)
+  const [poseYearSessions, setPoseYearSessions] = useState<PoseTrainingSession[]>([])
+  const [poseYearLoading, setPoseYearLoading] = useState(false)
+  const [poseYearError, setPoseYearError] = useState<string | null>(null)
   const [poseReloadKey, setPoseReloadKey] = useState(0)
 
   const [edit, setEdit] = useState<ProfileEditState | null>(null)
@@ -64,7 +68,9 @@ export default function ProfilePage() {
   const poseSessionsByDay = useMemo(() => {
     const map = new Map<string, PoseTrainingSession[]>()
     for (const session of poseSessions) {
-      const key = formatYmdLocal(new Date(session.started_at))
+      const date = parseApiDate(session.started_at)
+      if (!date) continue
+      const key = formatYmdLocal(date)
       const prev = map.get(key)
       if (prev) prev.push(session)
       else map.set(key, [session])
@@ -184,6 +190,42 @@ export default function ProfilePage() {
       if (!active) return
       setPoseWeekLoading(false)
       setPoseWeekError(e instanceof Error ? e.message : 'Failed to load weekly stats')
+    })
+
+    return () => {
+      active = false
+    }
+  }, [tab, poseReloadKey])
+
+  useEffect(() => {
+    if (tab !== 'Dashboard') return
+    const now = new Date()
+    const year = now.getFullYear()
+    const dateFrom = `${year - 4}-01-01`
+    const dateTo = `${year}-12-31`
+
+    let active = true
+    setPoseYearLoading(true)
+    setPoseYearError(null)
+    ;(async () => {
+      let page = 1
+      const page_size = 100
+      let all: PoseTrainingSession[] = []
+      while (true) {
+        const r = await listPoseTrainings({ page, page_size, date_from: dateFrom, date_to: dateTo })
+        all = all.concat(r.items)
+        if (all.length >= r.total) break
+        page += 1
+        if (page > 100) break
+      }
+      if (!active) return
+      setPoseYearSessions(all)
+      setPoseYearLoading(false)
+      setPoseYearError(null)
+    })().catch((e: unknown) => {
+      if (!active) return
+      setPoseYearLoading(false)
+      setPoseYearError(e instanceof Error ? e.message : 'Failed to load yearly stats')
     })
 
     return () => {
@@ -377,7 +419,7 @@ export default function ProfilePage() {
   }
 
   async function deletePoseSession(session: PoseTrainingSession) {
-    const label = session.note?.trim() || new Date(session.started_at).toLocaleString()
+    const label = session.note?.trim() || formatLocalDateTimeMinute(session.started_at)
     const confirmed = window.confirm(`Delete report "${label}"? This cannot be undone.`)
     if (!confirmed) {
       setError('Delete cancelled: report deletion requires confirmation.')
@@ -456,6 +498,9 @@ export default function ProfilePage() {
           poseWeekLoading={poseWeekLoading}
           poseWeekError={poseWeekError}
           poseSummary={poseSummary}
+          poseYearSessions={poseYearSessions}
+          poseYearLoading={poseYearLoading}
+          poseYearError={poseYearError}
           latestPoseSession={latestPoseSession}
           latestPoseExerciseName={latestPoseExercise.displayName}
           onReload={() => setPoseReloadKey((k) => k + 1)}

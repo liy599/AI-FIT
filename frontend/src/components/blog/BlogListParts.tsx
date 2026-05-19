@@ -53,6 +53,12 @@ export function getBlogTag(blog: Pick<BlogCard, 'tags'> | null | undefined) {
   return name ? displayBlogTagName(name) : null
 }
 
+export function abbreviateBlogTitle(title: string, maxLength = 48) {
+  const normalized = title.replace(/\s+/g, ' ').trim()
+  if (normalized.length <= maxLength) return normalized
+  return `${normalized.slice(0, Math.max(1, maxLength - 1))}...`
+}
+
 export function useRevealOnScroll<T extends HTMLElement>() {
   const ref = useRef<T | null>(null)
   const [visible, setVisible] = useState(false)
@@ -227,26 +233,23 @@ function TopViewedStackCard({
   blog,
   placeholderSrc,
 }: {
-  blog: BlogCard | null
+  blog: BlogCard
   placeholderSrc: string
 }) {
   const cover = getBlogCover(blog, placeholderSrc)
   const tag = getBlogTag(blog)
-  const title = blog?.title ?? 'Popular blog'
-  const author = blog?.author.username ?? 'Wordcraft'
-  const date = blog?.created_at ? formatLongDate(blog.created_at) : null
-  const minutes = blog ? estimateReadMinutes(blog.excerpt) : null
+  const title = blog.title
+  const displayTitle = abbreviateBlogTitle(title, 28)
+  const author = blog.author.username
+  const date = formatLongDate(blog.created_at)
+  const minutes = estimateReadMinutes(blog.excerpt)
 
   return (
-    <div className="blog-card-surface w-[300px] sm:w-[350px] md:w-[390px] scale-75 origin-bottom rounded-[28px] p-3 shadow-[0_22px_70px_rgba(0,0,0,0.12)]">
+    <div className="blog-card-surface blog-stack-card-surface w-[300px] sm:w-[350px] md:w-[390px] scale-75 origin-bottom rounded-[28px] p-3 shadow-[0_22px_70px_rgba(0,0,0,0.12)]">
       <div className="blog-card-media relative overflow-hidden rounded-[28px] aspect-[16/10]">
-        {blog ? (
-          <Link to={`/blogs/${blog.id}`} className="block h-full w-full">
-            <FallbackImage className="absolute inset-0 h-full w-full object-cover" src={cover} fallbackSrc={placeholderSrc} alt={title} loading="lazy" decoding="async" />
-          </Link>
-        ) : (
-          <FallbackImage className="absolute inset-0 h-full w-full object-cover" src={cover} fallbackSrc={placeholderSrc} alt="" loading="lazy" decoding="async" />
-        )}
+        <Link to={`/blogs/${blog.id}`} className="block h-full w-full">
+          <FallbackImage className="absolute inset-0 h-full w-full object-cover" src={cover} fallbackSrc={placeholderSrc} alt={title} loading="lazy" decoding="async" />
+        </Link>
         {tag ? (
           <div className="absolute left-4 top-4">
             <span className="blog-category-pill">
@@ -257,34 +260,30 @@ function TopViewedStackCard({
       </div>
 
       <div className="px-2 pb-2 pt-4">
-        <div className="text-[11px] font-medium tracking-wide text-neutral-500">{author}</div>
-        <div className="blog-title-one-line mt-1 text-base font-semibold leading-snug tracking-tight text-neutral-900">
-          {blog ? <Link to={`/blogs/${blog.id}`}>{title}</Link> : title}
+        <div className="blog-stack-author text-[11px] font-medium tracking-wide text-neutral-500">{author}</div>
+        <div className="blog-stack-title mt-1 min-w-0 text-base font-semibold leading-snug tracking-tight text-neutral-900">
+          <Link to={`/blogs/${blog.id}`} title={title}>{displayTitle}</Link>
         </div>
 
-        {blog ? (
-          <>
-            <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-neutral-500">
-              <div className="flex items-center gap-2">
-                <img src="/figma/icon-calendar.svg" alt="" className="h-3.5 w-3.5" />
-                <span>{date}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <img src="/figma/icon-clock.svg" alt="" className="h-3.5 w-3.5" />
-                <span>{minutes} min read</span>
-              </div>
-            </div>
+        <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-neutral-500">
+          <div className="flex items-center gap-2">
+            <img src="/figma/icon-calendar.svg" alt="" className="h-3.5 w-3.5" />
+            <span>{date}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <img src="/figma/icon-clock.svg" alt="" className="h-3.5 w-3.5" />
+            <span>{minutes} min read</span>
+          </div>
+        </div>
 
-            <div className="mt-4">
-              <Link
-                to={`/blogs/${blog.id}`}
-                className="blog-theme-btn inline-flex h-11 items-center justify-center rounded-full border border-neutral-900 bg-white px-6 text-sm font-medium text-neutral-900"
-              >
-                Read more
-              </Link>
-            </div>
-          </>
-        ) : null}
+        <div className="mt-4">
+          <Link
+            to={`/blogs/${blog.id}`}
+            className="blog-theme-btn inline-flex h-11 items-center justify-center rounded-full border border-neutral-900 bg-white px-6 text-sm font-medium text-neutral-900"
+          >
+            Read more
+          </Link>
+        </div>
       </div>
     </div>
   )
@@ -307,11 +306,12 @@ export function TopViewedStack({ blogs, loading }: { blogs: BlogCard[]; loading:
     return window.matchMedia('(prefers-reduced-motion: reduce)').matches
   }, [])
 
-  const padded = useMemo(() => {
-    const out: (BlogCard | null)[] = blogs.slice(0, 3)
-    while (out.length < 3) out.push(null)
-    return out
-  }, [blogs])
+  const stackBlogs = useMemo(() => blogs.slice(0, 3), [blogs])
+
+  useEffect(() => {
+    if (step < stackBlogs.length || stackBlogs.length === 0) return
+    setStep(0)
+  }, [stackBlogs.length, step])
 
   useEffect(() => {
     if (reducedMotion) return
@@ -338,13 +338,41 @@ export function TopViewedStack({ blogs, loading }: { blogs: BlogCard[]; loading:
     }
   }, [blogs.length, reducedMotion, step])
 
-  const visible = reducedMotion ? padded : padded.slice(step)
+  const visible = reducedMotion ? stackBlogs : stackBlogs.slice(step)
   const count = visible.length
+
+  if (!loading && stackBlogs.length > 0 && stackBlogs.length < 3) {
+    return (
+      <div className="relative mx-auto h-[285px] w-full max-w-[520px] overflow-visible sm:h-[315px]">
+        {stackBlogs
+          .slice()
+          .reverse()
+          .map((blog, rIndex) => {
+            const position = stackBlogs.length - 1 - rIndex
+            const stackClass = getStackClass(position, stackBlogs.length)
+            return (
+              <div
+                key={blog.id}
+                className={`blog-stack-card absolute bottom-0 left-1/2 transition-[transform,opacity] duration-700 ease-out ${stackClass}`}
+              >
+                <TopViewedStackCard
+                  blog={blog}
+                  placeholderSrc={position === 0 ? '/assets/images/blog/h2_2.png' : '/assets/images/blog/h2_3.png'}
+                />
+              </div>
+            )
+          })}
+      </div>
+    )
+  }
 
   return (
     <div className="relative mx-auto h-[285px] w-full max-w-[520px] overflow-hidden sm:h-[315px]">
       {loading && blogs.length === 0 ? (
         <div className="absolute inset-0 flex items-end justify-center pb-2 text-sm text-neutral-500">Loading...</div>
+      ) : null}
+      {!loading && blogs.length === 0 ? (
+        <div className="absolute inset-0 flex items-end justify-center pb-2 text-sm text-neutral-500">No popular blogs yet</div>
       ) : null}
 
       {visible
@@ -359,7 +387,7 @@ export function TopViewedStack({ blogs, loading }: { blogs: BlogCard[]; loading:
 
           return (
             <div
-              key={blog?.id ?? `placeholder-${position}`}
+              key={blog.id}
               className={`blog-stack-card absolute bottom-0 left-1/2 transition-[transform,opacity] duration-700 ease-out ${stackClass} ${fadeClass}`}
             >
               <TopViewedStackCard

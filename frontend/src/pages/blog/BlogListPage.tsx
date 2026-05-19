@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { buildPaginationItems } from '../../lib/pagination'
 import { displayBlogTagName, getBlogTags, queryBlogs, type BlogCard, type BlogTag as Tag } from '../../modules/blog'
@@ -7,6 +7,7 @@ import { useAuth } from '../../state/auth-context'
 import {
   estimateReadMinutes,
   FeaturedBlogGridCard,
+  abbreviateBlogTitle,
   formatLongDate,
   getBlogCover,
   getBlogTag,
@@ -26,6 +27,7 @@ export default function BlogListPage() {
   const [error, setError] = useState<string | null>(null)
   const [recentIndex, setRecentIndex] = useState(0)
   const [searchDraft, setSearchDraft] = useState(sp.get('q') ?? '')
+  const pendingScrollYRef = useRef<number | null>(null)
 
   const q = sp.get('q') ?? ''
   const page = Math.max(1, Number(sp.get('page') ?? '1') || 1)
@@ -44,6 +46,13 @@ export default function BlogListPage() {
   useEffect(() => {
     setSearchDraft(q)
   }, [q])
+
+  useEffect(() => {
+    if (pendingScrollYRef.current == null) return
+    const y = pendingScrollYRef.current
+    pendingScrollYRef.current = null
+    window.requestAnimationFrame(() => window.scrollTo({ top: y, left: 0 }))
+  }, [sp])
 
   const queryString = useMemo(() => {
     const p = new URLSearchParams()
@@ -145,6 +154,7 @@ export default function BlogListPage() {
   }
 
   function updateFilters(next: { q?: string; sort?: string; tagId?: number | null; page?: number }) {
+    pendingScrollYRef.current = window.scrollY
     const params = new URLSearchParams(sp)
     if (next.q !== undefined) {
       const text = next.q.trim()
@@ -164,7 +174,7 @@ export default function BlogListPage() {
     if (next.page !== undefined) {
       params.set('page', String(Math.max(1, next.page)))
     }
-    setSp(params)
+    setSp(params, { preventScrollReset: true })
   }
 
   const previewBlogs = recent.length
@@ -291,8 +301,10 @@ export default function BlogListPage() {
                     <div className="text-xs font-semibold uppercase tracking-[0.12em] text-emerald-700">
                       Recent {recentIndex + 1} / {recent.length}
                     </div>
-                    <h3 className="blog-title-one-line mt-4 text-2xl font-semibold leading-tight tracking-tight text-neutral-900 sm:text-3xl md:text-4xl">
-                      <Link to={`/blogs/${activeRecent.id}`}>{activeRecent.title}</Link>
+                    <h3 className="blog-title-one-line mt-4 min-w-0 text-2xl font-semibold leading-tight tracking-tight text-neutral-900 sm:text-3xl md:text-4xl">
+                      <Link to={`/blogs/${activeRecent.id}`} title={activeRecent.title}>
+                        {abbreviateBlogTitle(activeRecent.title, 44)}
+                      </Link>
                     </h3>
 
                     <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-neutral-500">

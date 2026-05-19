@@ -148,7 +148,7 @@ export default function ProfileOnboardingPage() {
                     save().catch(() => {})
                   }}
                 >
-                  <div className="auth-form-grid">
+                  <div className="auth-form-grid auth-onboard-form-grid">
                     <div>
                       <div className="cl_blog_details-reply-item auth-onboard-avatar-preview">
                         <label>Avatar (optional)</label>
@@ -184,7 +184,9 @@ export default function ProfileOnboardingPage() {
                       <div className="cl_blog_details-reply-item">
                         <label htmlFor="gender">Gender</label>
                         <select id="gender" value={gender} onChange={(e) => setGender(e.target.value)} disabled={locked}>
-                          <option value="">Prefer not to say</option>
+                          <option value="" disabled>
+                            Select gender
+                          </option>
                           <option value="Male">Male</option>
                           <option value="Female">Female</option>
                           <option value="Other">Other</option>

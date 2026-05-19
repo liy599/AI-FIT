@@ -167,8 +167,8 @@ def request_email_verification():
 
         account_result = consume_rate_limit(
             f"auth:verify:acct:{subject_fingerprint(email)}",
-            limit=int(current_app.config.get("AUTH_FORGOT_RATE_LIMIT_PER_ACCOUNT", 5)),
-            window_seconds=int(current_app.config.get("AUTH_FORGOT_RATE_LIMIT_ACCOUNT_WINDOW_SECONDS", 1800)),
+            limit=int(current_app.config.get("AUTH_EMAIL_REQUEST_RATE_LIMIT_PER_ACCOUNT", 5)),
+            window_seconds=int(current_app.config.get("AUTH_EMAIL_REQUEST_RATE_LIMIT_ACCOUNT_WINDOW_SECONDS", 3600)),
         )
         if not account_result.allowed:
             return jsonify({"error": "too many requests", "retry_after": account_result.retry_after_seconds}), 429
@@ -338,8 +338,8 @@ def forgot_password():
 
         account_result = consume_rate_limit(
             f"auth:forgot:acct:{subject_fingerprint(email)}",
-            limit=int(current_app.config.get("AUTH_FORGOT_RATE_LIMIT_PER_ACCOUNT", 5)),
-            window_seconds=int(current_app.config.get("AUTH_FORGOT_RATE_LIMIT_ACCOUNT_WINDOW_SECONDS", 1800)),
+            limit=int(current_app.config.get("AUTH_EMAIL_REQUEST_RATE_LIMIT_PER_ACCOUNT", 5)),
+            window_seconds=int(current_app.config.get("AUTH_EMAIL_REQUEST_RATE_LIMIT_ACCOUNT_WINDOW_SECONDS", 3600)),
         )
         if not account_result.allowed:
             return jsonify({"error": "too many requests", "retry_after": account_result.retry_after_seconds}), 429

@@ -236,7 +236,7 @@ export default function RegisterPage() {
                     submit().catch(() => {})
                   }}
                 >
-                  <div className="auth-form-grid">
+                  <div className="auth-form-grid auth-register-form-grid">
                     <div>
                       <div className="cl_blog_details-reply-item">
                         <label htmlFor="email">

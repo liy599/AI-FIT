@@ -1057,6 +1057,27 @@
   gap: 4px;
 }
 
+.auth-page-body .auth-onboard-form-grid {
+  gap: 16px;
+}
+
+.auth-page-body .auth-register-form-grid {
+  gap: 10px;
+}
+
+.auth-page-body .auth-register-form-grid > div {
+  display: grid;
+  gap: 10px;
+}
+
+.auth-page-body .auth-onboard-form-grid .cl_blog_details-reply-item {
+  margin-bottom: 0;
+}
+
+.auth-page-body .auth-register-form-grid .cl_blog_details-reply-item {
+  margin-bottom: 0;
+}
+
 .auth-page-body .cl_auth-alert {
   margin-bottom: 18px !important;
 }

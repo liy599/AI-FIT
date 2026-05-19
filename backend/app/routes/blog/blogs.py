@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+from datetime import datetime, time, timedelta
 from hashlib import sha256
 import json
 import re
 from typing import Optional
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required, verify_jwt_in_request
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import or_
@@ -53,6 +54,24 @@ def _validate_blog_text(title: str, content: str):
         return f"content must be at least {MIN_BLOG_CONTENT_LENGTH} character"
     if len(content) > MAX_BLOG_CONTENT_LENGTH:
         return f"content must be at most {MAX_BLOG_CONTENT_LENGTH} characters"
+    return None
+
+
+def _daily_blog_create_limit_error(user_id: int) -> str | None:
+    limit = int(current_app.config.get("BLOG_CREATE_DAILY_LIMIT_PER_USER", 10))
+    if limit <= 0:
+        return None
+
+    today = datetime.utcnow().date()
+    start = datetime.combine(today, time.min)
+    end = start + timedelta(days=1)
+    count = Blog.query.filter(
+        Blog.user_id == user_id,
+        Blog.created_at >= start,
+        Blog.created_at < end,
+    ).count()
+    if count >= limit:
+        return f"daily blog limit reached: at most {limit} posts per day"
     return None
 
 
@@ -321,6 +340,9 @@ def get_blog(blog_id: int):
 def create_blog():
     user_id = int(get_jwt_identity())
     data = request.get_json(silent=True) or {}
+    limit_error = _daily_blog_create_limit_error(user_id)
+    if limit_error:
+        return jsonify({"error": limit_error}), 429
 
     title = _normalize_blog_title(data.get("title") or "")
     content = _normalize_blog_content(data.get("content") or "")

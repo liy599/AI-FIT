@@ -12,10 +12,9 @@ def main():
         if Tag.query.count() == 0:
             db.session.add_all(
                 [
-                    Tag(name="Fitness Tips"),
-                    Tag(name="Nutrition"),
-                    Tag(name="Training Plan"),
-                    Tag(name="Rehab"),
+                    Tag(name="Diet"),
+                    Tag(name="Training"),
+                    Tag(name="Other"),
                 ]
             )
 

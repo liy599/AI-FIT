@@ -14,7 +14,6 @@
 |---|---|
 | `app/routes/account/` | 注册、登录、用户资料、反馈、训练摘要等账号相关接口 |
 | `app/routes/blog/` | 博客、评论、标签 |
-| `app/routes/food/` | 食物元数据、食物记录、餐食、识别接口 |
 | `app/routes/pose/` | Pose policy 与训练记录接口 |
 | `app/routes/admin/` | 管理后台与数据生命周期接口 |
 

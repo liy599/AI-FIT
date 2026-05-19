@@ -1,30 +1,44 @@
-import { lazy, Suspense, type ReactNode } from 'react'
+import { lazy, Suspense, type ComponentType, type ReactNode } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import Layout from './components/layout/Layout'
 import { AuthProvider, useAuth } from './state/auth-context'
 import HomePage from './pages/public/HomePage'
 
+function lazyWithReload<T extends ComponentType<unknown>>(loader: () => Promise<{ default: T }>) {
+  return lazy(() =>
+    loader().catch((error) => {
+      const key = 'aifitguard:chunk-reload'
+      const message = error instanceof Error ? error.message : String(error)
+      const isChunkError = /chunk|import|module|fetch/i.test(message)
+      if (isChunkError && sessionStorage.getItem(key) !== '1') {
+        sessionStorage.setItem(key, '1')
+        window.location.reload()
+      }
+      throw error
+    })
+  )
+}
+
 // Lazy-load pages (code splitting for better performance)
-const AboutPage = lazy(() => import('./pages/public/AboutPage'))
-const AdminDataLifecyclePage = lazy(() => import('./pages/admin/AdminDataLifecyclePage'))
-const AdminFeedbackPage = lazy(() => import('./pages/admin/AdminFeedbackPage'))
-const AdminUsersPage = lazy(() => import('./pages/admin/AdminUsersPage'))
-const BlogDetailPage = lazy(() => import('./pages/blog/BlogDetailPage'))
-const BlogEditorPage = lazy(() => import('./pages/blog/BlogEditorPage'))
-const BlogListPage = lazy(() => import('./pages/blog/BlogListPage'))
-const FoodMealPage = lazy(() => import('./pages/food/FoodMealPage'))
-const FoodModulePage = lazy(() => import('./pages/food/FoodModulePage'))
-const LoginPage = lazy(() => import('./pages/auth/LoginPage'))
-const NotFoundPage = lazy(() => import('./pages/public/NotFoundPage'))
-const PoseGuidePage = lazy(() => import('./pages/pose/PoseGuidePage'))
-const PoseSelectPage = lazy(() => import('./pages/pose/PoseSelectPage'))
-const PoseTrainingHistoryPage = lazy(() => import('./pages/pose/PoseTrainingHistoryPage'))
-const PoseTrainingReportPage = lazy(() => import('./pages/pose/PoseTrainingReportPage'))
-const PoseToolPage = lazy(() => import('./pages/pose/PoseToolPage'))
-const ProfilePage = lazy(() => import('./pages/user/ProfilePage'))
-const RegisterPage = lazy(() => import('./pages/auth/RegisterPage'))
-const ResetPasswordPage = lazy(() => import('./pages/auth/ResetPasswordPage'))
-const UserPrivacyPage = lazy(() => import('./pages/user/UserPrivacyPage'))
+const AboutPage = lazyWithReload(() => import('./pages/public/AboutPage'))
+const AdminBlogsPage = lazyWithReload(() => import('./pages/admin/AdminBlogsPage'))
+const AdminDashboardPage = lazyWithReload(() => import('./pages/admin/AdminDashboardPage'))
+const AdminUsersPage = lazyWithReload(() => import('./pages/admin/AdminUsersPage'))
+const BlogDetailPage = lazyWithReload(() => import('./pages/blog/BlogDetailPage'))
+const BlogEditorPage = lazyWithReload(() => import('./pages/blog/BlogEditorPage'))
+const BlogListPage = lazyWithReload(() => import('./pages/blog/BlogListPage'))
+const LoginPage = lazyWithReload(() => import('./pages/auth/LoginPage'))
+const NotFoundPage = lazyWithReload(() => import('./pages/public/NotFoundPage'))
+const PoseGuidePage = lazyWithReload(() => import('./pages/pose/PoseGuidePage'))
+const PoseSelectPage = lazyWithReload(() => import('./pages/pose/PoseSelectPage'))
+const PoseTrainingHistoryPage = lazyWithReload(() => import('./pages/pose/PoseTrainingHistoryPage'))
+const PoseTrainingReportPage = lazyWithReload(() => import('./pages/pose/PoseTrainingReportPage'))
+const PoseToolPage = lazyWithReload(() => import('./pages/pose/PoseToolPage'))
+const ProfileOnboardingPage = lazyWithReload(() => import('./pages/user/ProfileOnboardingPage'))
+const ProfilePage = lazyWithReload(() => import('./pages/user/ProfilePage'))
+const RegisterPage = lazyWithReload(() => import('./pages/auth/RegisterPage'))
+const ResetPasswordPage = lazyWithReload(() => import('./pages/auth/ResetPasswordPage'))
+const VerifyEmailPage = lazyWithReload(() => import('./pages/auth/VerifyEmailPage'))
 
 // Route guard: requires user authentication
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -77,13 +91,9 @@ const coreRoutes: AppRoute[] = [
   { path: '/about', element: <AboutPage /> }
 ]
 
-const foodRoutes: AppRoute[] = [
-  { path: '/food', element: <FoodModulePage /> },
-  { path: '/food/meal/:mealType', element: <FoodMealPage /> }
-]
-
 const poseRoutes: AppRoute[] = [
   { path: '/tools/pose', element: <PoseSelectPage /> },
+  { path: '/tools/pose/history', element: <PoseTrainingHistoryPage />, guard: 'auth' },
   { path: '/tools/pose/:exerciseSlug', element: <PoseGuidePage /> },
   { path: '/tools/pose/:exerciseSlug/video', element: <PoseToolPage /> },
   { path: '/tools/pose/:exerciseSlug/history', element: <PoseTrainingHistoryPage />, guard: 'auth' },
@@ -93,24 +103,26 @@ const poseRoutes: AppRoute[] = [
 const blogRoutes: AppRoute[] = [
   { path: '/blogs', element: <BlogListPage /> },
   { path: '/blogs/new', element: <BlogEditorPage />, guard: 'auth' },
+  { path: '/blogs/:id/edit', element: <BlogEditorPage />, guard: 'auth' },
   { path: '/blogs/:id', element: <BlogDetailPage /> }
 ]
 
 const userRoutes: AppRoute[] = [
-  { path: '/profile', element: <ProfilePage />, guard: 'auth' },
-  { path: '/profile/privacy', element: <UserPrivacyPage />, guard: 'auth' }
+  { path: '/onboarding/profile', element: <ProfileOnboardingPage />, guard: 'auth' },
+  { path: '/profile', element: <ProfilePage />, guard: 'auth' }
 ]
 
 const adminRoutes: AppRoute[] = [
-  { path: '/admin/data-lifecycle', element: <AdminDataLifecyclePage />, guard: 'admin' },
-  { path: '/admin/feedback', element: <AdminFeedbackPage />, guard: 'admin' },
+  { path: '/admin', element: <AdminDashboardPage />, guard: 'admin' },
+  { path: '/admin/blogs', element: <AdminBlogsPage />, guard: 'admin' },
   { path: '/admin/users', element: <AdminUsersPage />, guard: 'admin' }
 ]
 
 const authRoutes: AppRoute[] = [
   { path: '/login', element: <LoginPage /> },
   { path: '/register', element: <RegisterPage /> },
-  { path: '/reset-password', element: <ResetPasswordPage /> }
+  { path: '/reset-password', element: <ResetPasswordPage /> },
+  { path: '/verify-email', element: <VerifyEmailPage /> }
 ]
 
 const fallbackRoutes: AppRoute[] = [
@@ -119,7 +131,6 @@ const fallbackRoutes: AppRoute[] = [
 
 const appRoutes: AppRoute[] = [
   ...coreRoutes,
-  ...foodRoutes,
   ...poseRoutes,
   ...blogRoutes,
   ...userRoutes,

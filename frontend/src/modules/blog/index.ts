@@ -8,20 +8,30 @@ export type BlogCard = {
   title: string
   excerpt: string
   cover_image_url: string | null
+  image_urls?: string[]
   author: BlogAuthor
   created_at: string
   tags: BlogTag[]
+  view_count?: number
+  like_count?: number
+  is_published?: boolean
+  visibility?: 'public' | 'private'
 }
 
 export type BlogDetail = {
   id: number
   title: string
   cover_image_url: string | null
+  image_urls: string[]
   content: string
   author: { id: number; username: string; avatar_url: string | null }
   view_count: number
   like_count: number
   liked_by_me: boolean
+  is_published: boolean
+  visibility: 'public' | 'private'
+  status: 'published' | 'unpublished' | 'draft'
+  restore_requested?: boolean
   created_at: string
   tags: BlogTag[]
 }
@@ -36,19 +46,39 @@ export type CommentNode = {
   created_at: string
   updated_at: string
   user: { id: number; username: string; avatar_url: string | null }
+  reply_to?: { id: number; username: string; content: string } | null
   replies: CommentNode[]
 }
 
 export function resolveBlogMediaUrl(url: string | null | undefined) {
   if (!url) return null
+  if (url.startsWith('/assets/') || url.startsWith('/figma/')) return url
   return resolveBackendUrl(url)
 }
 
-export function getBlogs(params: { page?: number; page_size?: number; auth?: boolean } = {}) {
+export function displayBlogTagName(name: string) {
+  const aliases: Record<string, string> = {
+    '\u996e\u98df': 'Diet',
+    '\u8bad\u7ec3': 'Training',
+    '\u5176\u5b83': 'Other',
+    Nutrition: 'Diet',
+    'Fitness Tips': 'Training',
+    'Training Plan': 'Training',
+    Rehab: 'Other',
+  }
+  return aliases[name] ?? name
+}
+
+export function getBlogs(params: { page?: number; page_size?: number; auth?: boolean; sort_by?: string; sort_dir?: 'asc' | 'desc' } = {}) {
   const page = params.page ?? 1
   const pageSize = params.page_size ?? 20
   const auth = params.auth ?? true
-  return apiFetch<{ items: BlogCard[] }>(`/api/blogs?page=${page}&page_size=${pageSize}`, { auth })
+  const query = new URLSearchParams()
+  query.set('page', String(page))
+  query.set('page_size', String(pageSize))
+  if (params.sort_by) query.set('sort_by', params.sort_by)
+  if (params.sort_dir) query.set('sort_dir', params.sort_dir)
+  return apiFetch<{ items: BlogCard[] }>(`/api/blogs?${query.toString()}`, { auth })
 }
 
 export function getBlogTags() {
@@ -59,8 +89,9 @@ export function queryBlogs(queryString: string) {
   return apiFetch<{ items: BlogCard[]; total: number }>(`/api/blogs?${queryString}`, { auth: false })
 }
 
-export function getBlogDetail(id: number) {
-  return apiFetch<BlogDetail>(`/api/blogs/${id}`)
+export function getBlogDetail(id: number, options: { countView?: boolean } = {}) {
+  const suffix = options.countView ? '?view=1' : ''
+  return apiFetch<BlogDetail>(`/api/blogs/${id}${suffix}`)
 }
 
 export function toggleBlogLike(id: number) {
@@ -68,7 +99,7 @@ export function toggleBlogLike(id: number) {
 }
 
 export function getBlogComments(blogId: number, page = 1, pageSize = 20) {
-  return apiFetch<{ items: CommentNode[] }>(`/api/blogs/${blogId}/comments?page=${page}&page_size=${pageSize}`)
+  return apiFetch<{ items: CommentNode[]; page: number; page_size: number; total: number }>(`/api/blogs/${blogId}/comments?page=${page}&page_size=${pageSize}`)
 }
 
 export function createBlogComment(blogId: number, input: { content: string; parent_id?: number }) {

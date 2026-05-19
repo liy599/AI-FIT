@@ -42,15 +42,16 @@ class Config:
         "postgresql+psycopg://aifitguard:aifitguard@localhost:5432/aifitguard",
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        "pool_pre_ping": True,
+        "pool_recycle": _env_int("DB_POOL_RECYCLE_SECONDS", 1800),
+    }
 
     FRONTEND_BASE_URL = os.environ.get("FRONTEND_BASE_URL", "http://localhost:5173")
     CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "").strip()
     DB_AUTO_INIT = _env_bool("DB_AUTO_INIT", True)
     REDIS_URL = os.environ.get("REDIS_URL", "").strip()
     ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "")
-    STEPFUN_API_URL = os.environ.get("STEPFUN_API_URL", "")
-    STEPFUN_API_KEY = os.environ.get("STEPFUN_API_KEY", "")
-    STEPFUN_MODEL = os.environ.get("STEPFUN_MODEL", "step-1v-8k")
 
     AI_REPORT_API_URL = os.environ.get("AI_REPORT_API_URL", "")
     AI_REPORT_API_KEY = os.environ.get("AI_REPORT_API_KEY", "")
@@ -89,6 +90,11 @@ class Config:
     PASSWORD_RESET_DEBUG_RETURN_LINK = _env_bool("PASSWORD_RESET_DEBUG_RETURN_LINK", False)
     PASSWORD_RESET_EMAIL_SUBJECT = os.environ.get("PASSWORD_RESET_EMAIL_SUBJECT", "Reset your password")
 
+    EMAIL_VERIFY_REQUIRED = _env_bool("EMAIL_VERIFY_REQUIRED", True)
+    EMAIL_VERIFY_TOKEN_TTL_SECONDS = _env_int("EMAIL_VERIFY_TOKEN_TTL_SECONDS", 60 * 60)
+    EMAIL_VERIFY_DEBUG_RETURN_LINK = _env_bool("EMAIL_VERIFY_DEBUG_RETURN_LINK", False)
+    EMAIL_VERIFY_EMAIL_SUBJECT = os.environ.get("EMAIL_VERIFY_EMAIL_SUBJECT", "Verify your email")
+
     SMTP_HOST = os.environ.get("SMTP_HOST", "").strip()
     SMTP_PORT = _env_int("SMTP_PORT", 587)
     SMTP_USERNAME = os.environ.get("SMTP_USERNAME", "").strip()
@@ -108,11 +114,6 @@ class Config:
     AUTH_FORGOT_RATE_LIMIT_IP_WINDOW_SECONDS = _env_int("AUTH_FORGOT_RATE_LIMIT_IP_WINDOW_SECONDS", 900)
     AUTH_FORGOT_RATE_LIMIT_PER_ACCOUNT = _env_int("AUTH_FORGOT_RATE_LIMIT_PER_ACCOUNT", 5)
     AUTH_FORGOT_RATE_LIMIT_ACCOUNT_WINDOW_SECONDS = _env_int("AUTH_FORGOT_RATE_LIMIT_ACCOUNT_WINDOW_SECONDS", 1800)
-    FEEDBACK_RATE_LIMIT_PER_IP = _env_int("FEEDBACK_RATE_LIMIT_PER_IP", 20)
-    FEEDBACK_RATE_LIMIT_IP_WINDOW_SECONDS = _env_int("FEEDBACK_RATE_LIMIT_IP_WINDOW_SECONDS", 600)
-    FEEDBACK_RATE_LIMIT_PER_SUBJECT = _env_int("FEEDBACK_RATE_LIMIT_PER_SUBJECT", 10)
-    FEEDBACK_RATE_LIMIT_SUBJECT_WINDOW_SECONDS = _env_int("FEEDBACK_RATE_LIMIT_SUBJECT_WINDOW_SECONDS", 600)
-
     # JWT in HttpOnly cookies (preferred for browser-based clients)
     JWT_TOKEN_LOCATION = ["cookies"]
     JWT_COOKIE_SECURE = _env_bool("JWT_COOKIE_SECURE", APP_ENV == "production" and not _is_local_url(FRONTEND_BASE_URL))

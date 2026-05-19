@@ -33,18 +33,3 @@ def test_forgot_password_rate_limit_by_account(client, app):
     assert r2.status_code == 429
     assert r2.get_json()["error"] == "too many requests"
 
-
-def test_feedback_rate_limit_by_subject(client, app):
-    app.config["FEEDBACK_RATE_LIMIT_PER_IP"] = 100
-    app.config["FEEDBACK_RATE_LIMIT_IP_WINDOW_SECONDS"] = 3600
-    app.config["FEEDBACK_RATE_LIMIT_PER_SUBJECT"] = 1
-    app.config["FEEDBACK_RATE_LIMIT_SUBJECT_WINDOW_SECONDS"] = 3600
-
-    payload = {"type": "Review", "content": "great", "rating": 5, "contact_email": "anon@example.com"}
-    r1 = client.post("/api/feedback", json=payload)
-    r2 = client.post("/api/feedback", json=payload)
-
-    assert r1.status_code == 201
-    assert r2.status_code == 429
-    assert r2.get_json()["error"] == "too many requests"
-

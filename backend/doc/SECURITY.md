@@ -6,12 +6,11 @@
 
 ## 2. Data Protection
 - Sensitive structured payloads use privacy helpers (`protect_json_payload` / `reveal_json_payload`).
-- Contact email stored in feedback is masked for privacy-by-default.
 - Upload access uses short-lived signed token URLs.
 
 ## 3. Abuse Prevention
-- Endpoint-level rate limits for auth and feedback.
-- Input validation on required fields, types, and bounds (for example feedback rating 1..5).
+- Endpoint-level rate limits for auth flows.
+- Input validation on required fields, types, and bounds.
 
 ## 4. Media Privacy
 - Local inference remains default flow to keep camera/video on-device.
@@ -19,7 +18,7 @@
 - Cancel endpoint supports purging uploaded media payload.
 
 ## 5. Deployment Hardening Checklist
-- Use HTTPS only.
+- Use HTTPS for public production when browser camera APIs are required; HTTP-only VM deployment is a temporary/simple mode.
 - Keep `http.sslverify` enabled in git/system config.
 - Store secrets in vault/CI secret manager, not repo.
 - Enforce non-default `SECRET_KEY` and `JWT_SECRET_KEY` in production.

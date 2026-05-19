@@ -24,6 +24,7 @@ class User(db.Model, TimestampMixin):
     email: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     is_admin: Mapped[bool] = mapped_column(db.Boolean, default=False, nullable=False)
+    is_disabled: Mapped[bool] = mapped_column(db.Boolean, default=False, nullable=False)
 
     avatar_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     gender: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
@@ -33,6 +34,9 @@ class User(db.Model, TimestampMixin):
 
     blogs: Mapped[List["Blog"]] = relationship(back_populates="author", cascade="all, delete-orphan")
     comments: Mapped[List["Comment"]] = relationship(back_populates="author", cascade="all, delete-orphan")
+    notifications: Mapped[List["Notification"]] = relationship(
+        foreign_keys="Notification.recipient_user_id", back_populates="recipient", cascade="all, delete-orphan"
+    )
     workout_records: Mapped[List["WorkoutRecord"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
@@ -40,13 +44,32 @@ class User(db.Model, TimestampMixin):
     course_comments: Mapped[List["CourseComment"]] = relationship(
         back_populates="author", cascade="all, delete-orphan"
     )
-    feedback: Mapped[List["UserFeedback"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     training_sessions: Mapped[List["TrainingSession"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
-    food_meal_records: Mapped[List["FoodMealRecord"]] = relationship(
-        back_populates="user", cascade="all, delete-orphan"
-    )
+
+
+class EmailVerification(db.Model, TimestampMixin):
+    __tablename__ = "email_verifications"
+    __table_args__ = (UniqueConstraint("email", name="uq_email_verification_email"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    email: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    code_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    last_sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+
+class PasswordResetCode(db.Model, TimestampMixin):
+    __tablename__ = "password_reset_codes"
+    __table_args__ = (UniqueConstraint("email", name="uq_password_reset_codes_email"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    email: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    code_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    used_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    last_sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
 
 class WorkoutRecord(db.Model):
@@ -66,50 +89,6 @@ class WorkoutRecord(db.Model):
     user: Mapped["User"] = relationship(back_populates="workout_records")
 
 
-class FoodItem(db.Model):
-    __tablename__ = "foods"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    name: Mapped[str] = mapped_column(String(100), nullable=False)
-    display_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    calories: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
-    protein: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False, default=0)
-    fat: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False, default=0)
-    carbs: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False, default=0)
-    category: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
-    aliases: Mapped[Optional[str]] = mapped_column(Text, nullable=True, default="")
-
-    meal_items: Mapped[List["FoodMealItem"]] = relationship(back_populates="food")
-
-
-class FoodMealRecord(db.Model, TimestampMixin):
-    __tablename__ = "meal_records"
-    __table_args__ = (UniqueConstraint("user_id", "meal_type", "recorded_on", name="uq_food_meal_record"),)
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    meal_type: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
-    recorded_on: Mapped[datetime.date] = mapped_column(Date, nullable=False, index=True)
-
-    user: Mapped["User"] = relationship(back_populates="food_meal_records")
-    items: Mapped[List["FoodMealItem"]] = relationship(back_populates="meal", cascade="all, delete-orphan")
-
-
-class FoodMealItem(db.Model):
-    __tablename__ = "meal_items"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    meal_id: Mapped[int] = mapped_column(
-        ForeignKey("meal_records.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    food_id: Mapped[int] = mapped_column(ForeignKey("foods.id", ondelete="CASCADE"), nullable=False, index=True)
-    grams: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-
-    meal: Mapped["FoodMealRecord"] = relationship(back_populates="items")
-    food: Mapped["FoodItem"] = relationship(back_populates="meal_items")
-
-
 class Tag(db.Model):
     __tablename__ = "tags"
 
@@ -127,14 +106,28 @@ class Blog(db.Model, TimestampMixin):
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     cover_image_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    image_urls: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    visibility: Mapped[str] = mapped_column(String(20), default="public", nullable=False)
     view_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     like_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     is_published: Mapped[bool] = mapped_column(db.Boolean, default=False, nullable=False)
+    moderation_status: Mapped[str] = mapped_column(String(20), default="active", nullable=False)
+    moderation_restore_requested: Mapped[bool] = mapped_column(db.Boolean, default=False, nullable=False)
 
     author: Mapped["User"] = relationship(back_populates="blogs")
     tags: Mapped[list["BlogTag"]] = relationship(back_populates="blog", cascade="all, delete-orphan")
     comments: Mapped[list["Comment"]] = relationship(back_populates="blog", cascade="all, delete-orphan")
     likes: Mapped[list["BlogLike"]] = relationship(back_populates="blog", cascade="all, delete-orphan")
+
+
+class BlogView(db.Model):
+    __tablename__ = "blog_views"
+    __table_args__ = (UniqueConstraint("blog_id", "viewer_key", name="uq_blog_viewer"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    blog_id: Mapped[int] = mapped_column(ForeignKey("blogs.id", ondelete="CASCADE"), nullable=False, index=True)
+    viewer_key: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
 
 class BlogTag(db.Model):
@@ -155,7 +148,9 @@ class Comment(db.Model, TimestampMixin):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     blog_id: Mapped[int] = mapped_column(ForeignKey("blogs.id", ondelete="CASCADE"), nullable=False, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    parent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("comments.id"), nullable=True, index=True)
+    parent_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("comments.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     content: Mapped[str] = mapped_column(Text, nullable=False)
     like_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
@@ -188,6 +183,27 @@ class CommentLike(db.Model):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
     comment: Mapped["Comment"] = relationship(back_populates="likes")
+
+
+class Notification(db.Model, TimestampMixin):
+    __tablename__ = "notifications"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    recipient_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    actor_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    blog_id: Mapped[int] = mapped_column(ForeignKey("blogs.id", ondelete="CASCADE"), nullable=False, index=True)
+    comment_id: Mapped[int] = mapped_column(ForeignKey("comments.id", ondelete="CASCADE"), nullable=False, index=True)
+    root_comment_id: Mapped[int] = mapped_column(ForeignKey("comments.id", ondelete="CASCADE"), nullable=False, index=True)
+    is_read: Mapped[bool] = mapped_column(db.Boolean, default=False, nullable=False, index=True)
+
+    recipient: Mapped["User"] = relationship(
+        foreign_keys=[recipient_user_id], back_populates="notifications"
+    )
+    actor: Mapped["User"] = relationship(foreign_keys=[actor_user_id])
+    blog: Mapped["Blog"] = relationship()
+    comment: Mapped["Comment"] = relationship(foreign_keys=[comment_id])
+    root_comment: Mapped["Comment"] = relationship(foreign_keys=[root_comment_id])
 
 
 class Course(db.Model, TimestampMixin):
@@ -254,21 +270,6 @@ class CourseCommentLike(db.Model):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
     comment: Mapped["CourseComment"] = relationship(back_populates="likes")
-
-
-class UserFeedback(db.Model):
-    __tablename__ = "user_feedback"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
-    type: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
-    content: Mapped[str] = mapped_column(Text, nullable=False)
-    contact_email: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    rating: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-
-    user: Mapped[Optional["User"]] = relationship(back_populates="feedback")
 
 
 class TrainingSession(db.Model, TimestampMixin):

@@ -288,7 +288,7 @@ export function PoseOfflineReportPanel(props: {
               key={item.label}
               className={`pose-task-checklist__item${item.done ? ' is-done' : ''}${item.failed ? ' is-failed' : ''}`}
             >
-              <span className="pose-task-checklist__icon">{item.done ? 'OK' : item.failed ? '!' : item.saving ? '...' : 'o'}</span>
+              <span className="pose-task-checklist__icon">{item.done ? '✓' : item.failed ? '!' : item.saving ? '...' : 'o'}</span>
               <span>{item.label}</span>
             </div>
           ))}

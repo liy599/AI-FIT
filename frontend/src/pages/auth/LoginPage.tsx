@@ -1,7 +1,11 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { loginByPassword, requestPasswordReset } from '../../modules/user'
+import { loginByPassword } from '../../modules/user'
 import { useAuth } from '../../state/auth-context'
+
+function isValidEmail(email: string) {
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())
+}
 
 export default function LoginPage() {
   const auth = useAuth()
@@ -20,28 +24,12 @@ export default function LoginPage() {
   const fromQuery = qs.get('from')
   const effectiveFrom = fromQuery || from
 
-  function buildResetPath(resetLink?: string) {
-    if (!resetLink) return null
-    try {
-      const u = new URL(resetLink, window.location.origin)
-      if (u.pathname === '/reset-password') return `${u.pathname}${u.search}${u.hash}`
-      const token = u.searchParams.get('token')
-      if (token) return `/reset-password?token=${encodeURIComponent(token)}`
-      return null
-    } catch {
-      if (resetLink.includes('token=')) {
-        const token = resetLink.split('token=')[1]?.split('&')[0]
-        if (token) return `/reset-password?token=${encodeURIComponent(token)}`
-      }
-      return null
-    }
-  }
-
   async function submit() {
     setError(null)
     setNotice(null)
     if (busy) return
-    if (!email.trim()) {
+    const normalizedEmail = email.trim().toLowerCase()
+    if (!normalizedEmail) {
       setError('Email is required.')
       return
     }
@@ -51,7 +39,7 @@ export default function LoginPage() {
     }
     setBusy(true)
     try {
-      const r = await loginByPassword(email, password)
+      const r = await loginByPassword(normalizedEmail, password)
       auth.setAuth(r.user)
       nav(effectiveFrom, { replace: true })
     } catch (e: unknown) {
@@ -64,34 +52,18 @@ export default function LoginPage() {
   async function forgot() {
     setError(null)
     setNotice(null)
-    if (!email.trim()) {
+    const normalizedEmail = email.trim().toLowerCase()
+    if (!normalizedEmail) {
       setError('Email is required.')
       return
     }
-    try {
-      const r = await requestPasswordReset(email)
-      const path = buildResetPath(r.reset_link)
-      if (path) {
-        nav(path, { replace: true })
-        return
-      }
-      setNotice('A password reset link has been sent to your email (if the account exists). Please check your inbox.')
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Request failed'
-      if (msg === 'email not found') {
-        setError('Email not found.')
-        return
-      }
-      if (msg === 'email delivery not configured') {
-        setError('Password reset email is not configured on the server yet.')
-        return
-      }
-      if (msg === 'email delivery failed') {
-        setError('Failed to send password reset email. Please try again later.')
-        return
-      }
-      setError(msg)
+    if (!isValidEmail(normalizedEmail)) {
+      setError('Invalid email format.')
+      return
     }
+    const q = new URLSearchParams()
+    q.set('email', normalizedEmail)
+    nav(`/reset-password?${q.toString()}`, { replace: true })
   }
 
   return (
@@ -144,6 +116,7 @@ export default function LoginPage() {
                           type="email"
                           id="email"
                           required
+                          autoComplete="email"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                         />
@@ -158,6 +131,7 @@ export default function LoginPage() {
                           type="password"
                           id="password"
                           required
+                          autoComplete="current-password"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                         />
@@ -175,8 +149,8 @@ export default function LoginPage() {
                     ) : null}
                     <div>
                       <div className="cl_blog_details-reply-item">
-                        <button type="submit">
-                          Login
+                        <button type="submit" disabled={busy}>
+                          {busy ? 'Signing in...' : 'Login'}
                         </button>
                       </div>
                     </div>

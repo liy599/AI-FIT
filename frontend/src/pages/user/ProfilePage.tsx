@@ -267,11 +267,45 @@ export default function ProfilePage() {
     if (!edit) return
     setError(null)
     try {
+      const nextUsername = edit.username.trim()
+      if (!nextUsername) {
+        setError('Username is required.')
+        return
+      }
+      if (nextUsername.length < 3 || nextUsername.length > 15) {
+        setError('Username length must be 3-15.')
+        return
+      }
+      if (/\s/.test(nextUsername)) {
+        setError('Username cannot contain whitespace.')
+        return
+      }
+
+      let nextHeight: number | null = null
+      if (edit.height) {
+        const h = Number(edit.height)
+        if (!Number.isFinite(h) || h < 50 || h > 260) {
+          setError('Invalid height')
+          return
+        }
+        nextHeight = h
+      }
+
+      let nextWeight: number | null = null
+      if (edit.weight) {
+        const w = Number(edit.weight)
+        if (!Number.isFinite(w) || w < 20 || w > 400) {
+          setError('Invalid weight')
+          return
+        }
+        nextWeight = w
+      }
+
       const p = await updateMyProfile<UserProfile>({
-        username: edit.username,
+        username: nextUsername,
         gender: edit.gender || null,
-        height: edit.height ? Number(edit.height) : null,
-        weight: edit.weight ? Number(edit.weight) : null,
+        height: nextHeight,
+        weight: nextWeight,
         fitness_goal: edit.fitness_goal || null
       })
       setProfile(p)

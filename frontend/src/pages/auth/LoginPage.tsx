@@ -3,6 +3,10 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { loginByPassword } from '../../modules/user'
 import { useAuth } from '../../state/auth-context'
 
+function isValidEmail(email: string) {
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())
+}
+
 export default function LoginPage() {
   const auth = useAuth()
   const nav = useNavigate()
@@ -48,12 +52,17 @@ export default function LoginPage() {
   async function forgot() {
     setError(null)
     setNotice(null)
-    if (!email.trim()) {
+    const normalizedEmail = email.trim().toLowerCase()
+    if (!normalizedEmail) {
       setError('Email is required.')
       return
     }
+    if (!isValidEmail(normalizedEmail)) {
+      setError('Invalid email format.')
+      return
+    }
     const q = new URLSearchParams()
-    q.set('email', email.trim())
+    q.set('email', normalizedEmail)
     nav(`/reset-password?${q.toString()}`, { replace: true })
   }
 

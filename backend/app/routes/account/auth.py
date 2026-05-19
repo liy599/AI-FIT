@@ -131,8 +131,6 @@ def request_email_verification():
         return jsonify({"error": "email required"}), 400
     if not _is_valid_email(email):
         return jsonify({"error": "invalid email"}), 400
-    if User.query.filter_by(email=email).first() is not None:
-        return jsonify({"error": "email already exists"}), 409
 
     if current_app.config.get("RATE_LIMIT_ENABLED", True):
         ip = get_client_ip()
@@ -152,12 +150,20 @@ def request_email_verification():
         if not account_result.allowed:
             return jsonify({"error": "too many requests", "retry_after": account_result.retry_after_seconds}), 429
 
+    email_enabled = is_email_delivery_configured()
+    debug_return_code = bool(current_app.config.get("EMAIL_VERIFY_DEBUG_RETURN_LINK", False))
+
+    if User.query.filter_by(email=email).first() is not None:
+        if debug_return_code:
+            return jsonify({"ok": True, "email_sent": False})
+        if not email_enabled:
+            return jsonify({"error": "email delivery not configured"}), 500
+        return jsonify({"ok": True, "email_sent": True})
+
     row = EmailVerification.query.filter_by(email=email).first()
     sent_at = _utcnow_seconds()
     code = _generate_verification_code()
 
-    email_enabled = is_email_delivery_configured()
-    debug_return_code = bool(current_app.config.get("EMAIL_VERIFY_DEBUG_RETURN_LINK", False))
     if debug_return_code:
         if row is None:
             row = EmailVerification(email=email)
@@ -195,8 +201,24 @@ def verify_email():
         return jsonify({"error": "email/code required"}), 400
     if not _is_valid_email(email):
         return jsonify({"error": "invalid email"}), 400
-    if User.query.filter_by(email=email).first() is not None:
-        return jsonify({"error": "email already exists"}), 409
+
+    if current_app.config.get("RATE_LIMIT_ENABLED", True):
+        ip = get_client_ip()
+        ip_result = consume_rate_limit(
+            f"auth:verify-code:ip:{ip}",
+            limit=int(current_app.config.get("AUTH_FORGOT_RATE_LIMIT_PER_IP", 10)),
+            window_seconds=int(current_app.config.get("AUTH_FORGOT_RATE_LIMIT_IP_WINDOW_SECONDS", 900)),
+        )
+        if not ip_result.allowed:
+            return jsonify({"error": "too many requests", "retry_after": ip_result.retry_after_seconds}), 429
+
+        account_result = consume_rate_limit(
+            f"auth:verify-code:acct:{subject_fingerprint(email)}",
+            limit=int(current_app.config.get("AUTH_FORGOT_RATE_LIMIT_PER_ACCOUNT", 5)),
+            window_seconds=int(current_app.config.get("AUTH_FORGOT_RATE_LIMIT_ACCOUNT_WINDOW_SECONDS", 1800)),
+        )
+        if not account_result.allowed:
+            return jsonify({"error": "too many requests", "retry_after": account_result.retry_after_seconds}), 429
 
     now = _utcnow_seconds()
     row = EmailVerification.query.filter_by(email=email).first()
@@ -282,6 +304,8 @@ def forgot_password():
     email = (data.get("email") or "").strip().lower()
     if not email:
         return jsonify({"error": "email required"}), 400
+    if not _is_valid_email(email):
+        return jsonify({"error": "invalid email"}), 400
 
     if current_app.config.get("RATE_LIMIT_ENABLED", True):
         ip = get_client_ip()
@@ -303,7 +327,13 @@ def forgot_password():
 
     user = User.query.filter_by(email=email).first()
     if user is None:
-        return jsonify({"error": "email not found"}), 404
+        email_enabled = is_email_delivery_configured()
+        debug_return_code = bool(current_app.config.get("PASSWORD_RESET_DEBUG_RETURN_LINK", False))
+        if debug_return_code:
+            return jsonify({"ok": True, "email_sent": False})
+        if not email_enabled:
+            return jsonify({"error": "email delivery not configured"}), 500
+        return jsonify({"ok": True, "email_sent": True})
 
     row = PasswordResetCode.query.filter_by(email=email).first()
     sent_at = _utcnow_seconds()
@@ -345,6 +375,25 @@ def reset_password():
         return jsonify({"error": "invalid email"}), 400
     if not re.fullmatch(r"[0-9]{6}", code):
         return jsonify({"error": "invalid code"}), 400
+
+    if current_app.config.get("RATE_LIMIT_ENABLED", True):
+        ip = get_client_ip()
+        ip_result = consume_rate_limit(
+            f"auth:reset:ip:{ip}",
+            limit=int(current_app.config.get("AUTH_FORGOT_RATE_LIMIT_PER_IP", 10)),
+            window_seconds=int(current_app.config.get("AUTH_FORGOT_RATE_LIMIT_IP_WINDOW_SECONDS", 900)),
+        )
+        if not ip_result.allowed:
+            return jsonify({"error": "too many requests", "retry_after": ip_result.retry_after_seconds}), 429
+
+        account_result = consume_rate_limit(
+            f"auth:reset:acct:{subject_fingerprint(email)}",
+            limit=int(current_app.config.get("AUTH_FORGOT_RATE_LIMIT_PER_ACCOUNT", 5)),
+            window_seconds=int(current_app.config.get("AUTH_FORGOT_RATE_LIMIT_ACCOUNT_WINDOW_SECONDS", 1800)),
+        )
+        if not account_result.allowed:
+            return jsonify({"error": "too many requests", "retry_after": account_result.retry_after_seconds}), 429
+
     password_err = _validate_password(new_password, email=email, username="")
     if password_err:
         return jsonify({"error": password_err}), 400
@@ -366,7 +415,7 @@ def reset_password():
 
     user = db.session.get(User, int(row.user_id))
     if user is None or user.email != email:
-        return jsonify({"error": "email not found"}), 404
+        return jsonify({"error": "invalid code"}), 400
 
     now = _utcnow_seconds()
     user.password_hash = hash_password(new_password)

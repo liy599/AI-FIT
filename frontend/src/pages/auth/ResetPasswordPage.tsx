@@ -55,10 +55,7 @@ export default function ResetPasswordPage() {
     setBusy(true)
     try {
       const r = await requestPasswordReset(e)
-      if (!r.email_sent) {
-        setError('Reset code was not sent. Please restart the backend and check SMTP configuration.')
-        return
-      }
+      if (r.reset_code) setCode(String(r.reset_code))
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Request failed'
       if (msg === 'email not found') {

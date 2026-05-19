@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from typing import Optional
 
 from flask import Blueprint, jsonify, request
@@ -15,6 +16,31 @@ from ...utils.pagination import parse_pagination
 from ..admin.users import _delete_user_associations, _remove_upload_files, _user_upload_file_paths
 
 bp = Blueprint("user", __name__)
+
+_USERNAME_RE = re.compile(r"^\S+$")
+_ALLOWED_GENDERS = {"Male", "Female", "Other"}
+_ALLOWED_FITNESS_GOALS = {"Build Muscle", "Lose Fat", "Stay Healthy"}
+
+
+def _validate_username(username: str) -> Optional[str]:
+    text = (username or "").strip()
+    if len(text) < 3 or len(text) > 15:
+        return "username length must be 3-15"
+    if _USERNAME_RE.fullmatch(text) is None:
+        return "username cannot contain whitespace"
+    return None
+
+
+def _parse_number(value, *, field: str, min_value: float, max_value: float) -> tuple[Optional[float], Optional[str]]:
+    if value is None or value == "":
+        return None, None
+    try:
+        num = float(value)
+    except Exception:
+        return None, f"invalid {field}"
+    if not (min_value <= num <= max_value):
+        return None, f"invalid {field}"
+    return num, None
 
 
 def _blog_image_urls(blog: Blog) -> list[str]:
@@ -63,19 +89,44 @@ def update_profile():
         return jsonify({"error": "not found"}), 404
 
     data = request.get_json(silent=True) or {}
-    for field in ["username", "avatar_url", "gender", "fitness_goal"]:
-        if field in data:
-            setattr(user, field, (data.get(field) or None))
-
-    for field in ["height", "weight"]:
-        if field in data:
-            v = data.get(field)
-            setattr(user, field, v if v is not None and v != "" else None)
-
     if "username" in data:
-        existing = User.query.filter(User.username == user.username, User.id != user.id).first()
+        next_username = (data.get("username") or "").strip()
+        if not next_username:
+            return jsonify({"error": "username required"}), 400
+        username_err = _validate_username(next_username)
+        if username_err:
+            return jsonify({"error": username_err}), 400
+        existing = User.query.filter(User.username == next_username, User.id != user.id).first()
         if existing is not None:
             return jsonify({"error": "username already exists"}), 409
+        user.username = next_username
+
+    if "avatar_url" in data:
+        user.avatar_url = (data.get("avatar_url") or None)
+
+    if "gender" in data:
+        gender = (data.get("gender") or "").strip()
+        user.gender = None if not gender else (gender if gender in _ALLOWED_GENDERS else None)
+        if gender and user.gender is None:
+            return jsonify({"error": "invalid gender"}), 400
+
+    if "fitness_goal" in data:
+        goal = (data.get("fitness_goal") or "").strip()
+        user.fitness_goal = None if not goal else (goal if goal in _ALLOWED_FITNESS_GOALS else None)
+        if goal and user.fitness_goal is None:
+            return jsonify({"error": "invalid fitness_goal"}), 400
+
+    if "height" in data:
+        num, err = _parse_number(data.get("height"), field="height", min_value=50, max_value=260)
+        if err:
+            return jsonify({"error": err}), 400
+        user.height = num
+
+    if "weight" in data:
+        num, err = _parse_number(data.get("weight"), field="weight", min_value=20, max_value=400)
+        if err:
+            return jsonify({"error": err}), 400
+        user.weight = num
 
     db.session.commit()
     return jsonify(_user_public(user))

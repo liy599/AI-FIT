@@ -74,16 +74,30 @@ export default function ProfileOnboardingPage() {
   }
 
   async function save() {
-    if (busy) return
-    setBusy(true)
     setError(null)
+    if (busy) return
     try {
       const payload: Record<string, unknown> = {}
       if (gender) payload.gender = gender
       if (fitnessGoal) payload.fitness_goal = fitnessGoal
-      if (height.trim()) payload.height = Number(height)
-      if (weight.trim()) payload.weight = Number(weight)
+      if (height.trim()) {
+        const h = Number(height)
+        if (!Number.isFinite(h) || h < 50 || h > 260) {
+          setError('Invalid height')
+          return
+        }
+        payload.height = h
+      }
+      if (weight.trim()) {
+        const w = Number(weight)
+        if (!Number.isFinite(w) || w < 20 || w > 400) {
+          setError('Invalid weight')
+          return
+        }
+        payload.weight = w
+      }
 
+      setBusy(true)
       if (Object.keys(payload).length > 0) {
         await updateMyProfile<UserProfile>(payload)
       }

@@ -37,10 +37,7 @@ export default function RegisterPage() {
     setBusy(true)
     try {
       const r = await requestEmailVerification(e)
-      if (!r.email_sent) {
-        setError('Verification email was not sent. Please restart the backend and check SMTP configuration.')
-        return
-      }
+      if (r.verification_code) setEmailCode(String(r.verification_code))
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Request failed'
       if (msg === 'email already exists') {

@@ -17,11 +17,11 @@ export default function Footer() {
             </div>
             <div>
               <div className="cl_footer-action">
-                <a href="mailto:hello@aifitguard.com">
+                <a href="mailto:aifitguard@163.com">
                   <span>
                     <i className="fa-light fa-envelope"></i>
                   </span>{' '}
-                  hello@aifitguard.com
+                  aifitguard@163.com
                 </a>
               </div>
             </div>
@@ -34,7 +34,7 @@ export default function Footer() {
               <div className="cl_footer-widget mb-40">
                 <h5 className="cl_footer-widget-title">About Us</h5>
                 <p className="cl_footer-widget-text mb-35">
-                  AI FitGuard: pose video analysis + food & nutrition tracking + community blogs. Video/image processing runs locally in your browser by default.
+                  AI FitGuard helps you train with clearer movement feedback and share progress through community posts. It is designed and developed by Group 4 5090.
                 </p>
               </div>
             </div>
@@ -43,16 +43,13 @@ export default function Footer() {
                 <h5 className="cl_footer-widget-title">Useful Link</h5>
                 <ul aria-label="Useful links">
                   <li>
-                    <Link to="/about">About</Link>
+                    <Link to="/tools/pose">Pose</Link>
                   </li>
                   <li>
                     <Link to="/blogs">Blog</Link>
                   </li>
                   <li>
-                    <Link to="/tools/pose">Pose</Link>
-                  </li>
-                  <li>
-                    <Link to="/food">Food</Link>
+                    <Link to="/about">About</Link>
                   </li>
                 </ul>
               </div>
@@ -79,16 +76,6 @@ export default function Footer() {
         <div className="cl_footer-copyright">
           <div className="cl_footer-copyright-text">
             <p>{`Copyright ${String.fromCharCode(169)} ${new Date().getFullYear()} AI FitGuard`}</p>
-          </div>
-          <div className="cl_footer-copyright-menu">
-            <ul>
-              <li>
-                <Link to="/about" className="footer-text-btn">Terms</Link>
-              </li>
-              <li>
-                <Link to="/profile/privacy" className="footer-text-btn">Privacy</Link>
-              </li>
-            </ul>
           </div>
         </div>
       </div>

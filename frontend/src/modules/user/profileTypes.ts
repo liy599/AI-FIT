@@ -11,33 +11,16 @@ export type UserProfile = {
   updated_at: string
 }
 
-export type MealHistory = {
-  id: number
-  mealType: string
-  recordedOn: string
-  items: Array<{
-    id: number
-    grams: number
-    foodId: number
-    food: {
-      id: number
-      displayName: string
-      name: string
-    } | null
-  }>
-  totals: {
-    kcal: number
-    protein: number
-    fat: number
-    carbs: number
-  }
-}
-
 export type MyBlog = {
   id: number
   title: string
   cover_image_url: string | null
+  image_urls?: string[]
+  excerpt?: string
   is_published: boolean
+  status?: 'published' | 'unpublished' | 'draft'
+  visibility?: 'public' | 'private'
+  restore_requested?: boolean
   created_at: string
   updated_at: string
 }
@@ -47,6 +30,20 @@ export type MyComment = {
   blog_id: number
   content: string
   created_at: string
+  updated_at?: string
+}
+
+export type MyCommentGroup = {
+  blog: {
+    id: number
+    title: string
+    cover_image_url: string | null
+    is_published: boolean
+    updated_at: string
+  }
+  comments: MyComment[]
+  comment_count: number
+  latest_comment_at: string
 }
 
 export type ProfileEditState = {

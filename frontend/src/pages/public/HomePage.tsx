@@ -1,6 +1,6 @@
 ﻿import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getBlogs, resolveBlogMediaUrl, type BlogCard } from '../../modules/blog'
+import { displayBlogTagName, getBlogs, resolveBlogMediaUrl, type BlogCard } from '../../modules/blog'
 
 // Resolve media URLs for blog covers (supports relative backend paths)
 function resolveMediaUrl(url: string | null | undefined) {
@@ -23,7 +23,7 @@ const HERO_SLIDES = [
   { src: '/assets/images/hero/hero_slide_1.jpg', label: 'Outdoor gym equipment' },
   { src: '/assets/images/hero/hero_slide_2.jpg', label: 'Kettlebell training' },
   { src: '/assets/images/hero/hero_slide_3.jpg', label: 'Healthy garden salad' },
-  { src: '/assets/images/hero/hero_slide_4.jpg', label: 'Healthy meal' }
+  { src: '/assets/images/hero/hero_slide_4.jpg', label: 'Active recovery' }
 ] as const
 
 const DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
@@ -58,7 +58,7 @@ export default function HomePage() {
     setBlogsLoading(true)
     setBlogsError(null)
 
-    getBlogs({ page: 1, page_size: 8, auth: false })
+    getBlogs({ page: 1, page_size: 8, auth: false, sort_by: 'view_count', sort_dir: 'desc' })
       .then((r) => {
         if (cancelled) return
         setBlogs(r.items)
@@ -143,7 +143,7 @@ export default function HomePage() {
   // Render a single blog card row
   function renderBlogRow(items: BlogCard[], rowOffset: number) {
     return items.map((b, idx) => {
-      const tagLabel = b.tags[0]?.name ?? 'AI FitGuard'
+      const tagLabel = b.tags[0]?.name ? displayBlogTagName(b.tags[0].name) : 'AI FitGuard'
       const img = resolveMediaUrl(b.cover_image_url) ?? fallbackBlogImage(idx + rowOffset)
       return (
         <article className="cl_home-blog-card" key={b.id}>
@@ -187,13 +187,13 @@ export default function HomePage() {
             </div>
             <div className="cl_hero-carousel-overlay" aria-hidden="true" />
             <div className="cl_hero-content">
-              <h1>Train smarter. Eat clearer.</h1>
+              <h1>Train smarter.</h1>
               <div className="cl_hero-content-btn">
                 <Link to="/tools/pose" className="cl_theme-btn cl_hero-btn">
                   Start Pose Coaching <Arrow15 />
                 </Link>
-                <Link to="/food" className="cl_hero-btn-2">
-                  Start Food Tracking <Arrow15 />
+                <Link to="/blogs" className="cl_hero-btn-2">
+                  Read Community Posts <Arrow15 />
                 </Link>
               </div>
             </div>
@@ -217,7 +217,6 @@ export default function HomePage() {
         <div className="page-container">
           <div className="cl_home-blogs-header">
             <div className="cl_section-area mb-0 pb-0">
-              <span className="cl_section-subtitle">Our Blogs</span>
               <h2 className="cl_section-title mb-0">Featured Blogs</h2>
             </div>
             <Link to="/blogs" className="cl_home-blogs-viewall">

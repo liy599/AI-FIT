@@ -13,6 +13,9 @@ type ProfileDetailsPanelProps = {
   onEditingChange: (next: boolean) => void
   onPickAvatar: (file: File) => void
   onSave: () => void
+  onDeleteAccount: () => void
+  error?: string | null
+  notice?: string | null
 }
 
 export function ProfileDetailsPanel(props: ProfileDetailsPanelProps) {
@@ -27,12 +30,19 @@ export function ProfileDetailsPanel(props: ProfileDetailsPanelProps) {
     onEditChange,
     onEditingChange,
     onPickAvatar,
-    onSave
+    onSave,
+    onDeleteAccount,
+    error,
+    notice
   } = props
 
   return (
     <div className="profile-panel">
-      <div className="text-sm font-semibold">Profile</div>
+      <div>
+        <div className="text-lg font-semibold">Account</div>
+      </div>
+      {error ? <div className="mt-2 text-sm text-rose-700">{error}</div> : null}
+      {notice ? <div className="mt-2 text-sm text-emerald-700">{notice}</div> : null}
       {!profile || !edit ? (
         <div className="mt-3 text-sm text-slate-600">Loading...</div>
       ) : isEditing ? (
@@ -153,21 +163,26 @@ export function ProfileDetailsPanel(props: ProfileDetailsPanelProps) {
                 <div className="text-xs text-slate-600">{profile.email}</div>
               </div>
             </div>
-            <button
-              className="profile-btn-primary"
-              onClick={() => {
-                onEditChange({
-                  username: profile.username,
-                  gender: profile.gender ?? '',
-                  height: profile.height != null ? String(profile.height) : '',
-                  weight: profile.weight != null ? String(profile.weight) : '',
-                  fitness_goal: profile.fitness_goal ?? ''
-                })
-                onEditingChange(true)
-              }}
-            >
-              Edit profile
-            </button>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <button
+                className="profile-btn-primary"
+                onClick={() => {
+                  onEditChange({
+                    username: profile.username,
+                    gender: profile.gender ?? '',
+                    height: profile.height != null ? String(profile.height) : '',
+                    weight: profile.weight != null ? String(profile.weight) : '',
+                    fitness_goal: profile.fitness_goal ?? ''
+                  })
+                  onEditingChange(true)
+                }}
+              >
+                Edit profile
+              </button>
+              <button className="profile-btn-danger" onClick={onDeleteAccount}>
+                Delete account
+              </button>
+            </div>
           </div>
 
           <div className="profile-meta-grid profile-subpanel">

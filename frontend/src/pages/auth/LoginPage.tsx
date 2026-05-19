@@ -24,7 +24,8 @@ export default function LoginPage() {
     setError(null)
     setNotice(null)
     if (busy) return
-    if (!email.trim()) {
+    const normalizedEmail = email.trim().toLowerCase()
+    if (!normalizedEmail) {
       setError('Email is required.')
       return
     }
@@ -34,7 +35,7 @@ export default function LoginPage() {
     }
     setBusy(true)
     try {
-      const r = await loginByPassword(email, password)
+      const r = await loginByPassword(normalizedEmail, password)
       auth.setAuth(r.user)
       nav(effectiveFrom, { replace: true })
     } catch (e: unknown) {
@@ -106,6 +107,7 @@ export default function LoginPage() {
                           type="email"
                           id="email"
                           required
+                          autoComplete="email"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                         />
@@ -120,6 +122,7 @@ export default function LoginPage() {
                           type="password"
                           id="password"
                           required
+                          autoComplete="current-password"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                         />
@@ -137,8 +140,8 @@ export default function LoginPage() {
                     ) : null}
                     <div>
                       <div className="cl_blog_details-reply-item">
-                        <button type="submit">
-                          Login
+                        <button type="submit" disabled={busy}>
+                          {busy ? 'Signing in...' : 'Login'}
                         </button>
                       </div>
                     </div>

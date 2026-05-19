@@ -147,6 +147,12 @@ export async function getPoseTraining(sessionId: number) {
   return data.session
 }
 
+export async function deletePoseTraining(sessionId: number) {
+  await apiFetch<{ ok: boolean }>(`/api/pose/trainings/${sessionId}`, {
+    method: 'DELETE'
+  })
+}
+
 export async function updatePoseTrainingReport(sessionId: number, report: Record<string, unknown>) {
   const data = await apiFetch<{ session: PoseTrainingSession }>(`/api/pose/trainings/${sessionId}/report`, {
     method: 'PUT',

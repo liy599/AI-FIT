@@ -1,26 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   API_BASE,
-  getMyBlogs,
-  getMyComments,
+  deleteMyAccount,
   getMyProfile,
-  listMyMealHistory,
   resolveBackendUrl,
   updateMyProfile,
   uploadMyAvatar
 } from '../../modules/user'
 import {
+  deletePoseTraining,
   getPoseExerciseByType,
   listPoseTrainings,
   type PoseTrainingSession
 } from '../../modules/pose'
-import { deleteBlogById, deleteComment as deleteBlogComment, updateBlog } from '../../modules/blog'
+import { deleteBlogById, deleteComment as deleteBlogComment, resolveBlogMediaUrl, updateBlog } from '../../modules/blog'
 import { useAuth } from '../../state/auth-context'
-import type { MealHistory, MyBlog, MyComment, ProfileEditState, UserProfile } from '../../modules/user/profileTypes'
+import type { MyBlog, ProfileEditState, UserProfile } from '../../modules/user/profileTypes'
 import { formatYmdLocal, pad2, startOfWeek } from '../../modules/user/profileDate'
 import { ProfileDetailsPanel } from '../../components/user/ProfileDetailsPanel'
-import { DietHistoryPanel } from '../../components/user/DietHistoryPanel'
 import { UserCommunityPanel } from '../../components/user/UserCommunityPanel'
 import { ExerciseDashboardPanel } from '../../components/user/ExerciseDashboardPanel'
 
@@ -29,22 +27,20 @@ const defaultAvatarImage = '/assets/images/bg/default.jpg'
 export default function ProfilePage() {
   const auth = useAuth()
   const navigate = useNavigate()
-  const [tab, setTab] = useState<'Dashboard' | 'Profile' | 'Diet' | 'Community'>('Dashboard')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [tab, setTab] = useState<'Dashboard' | 'Blogs'>(() => {
+    const requested = searchParams.get('tab')
+    if (requested === 'Blogs') return requested
+    if (requested === 'Community') return 'Blogs'
+    return 'Dashboard'
+  })
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const noticeTimerRef = useRef<number | null>(null)
-  const loadedRef = useRef({
-    profile: false,
-    blogs: false,
-    comments: false
-  })
   const [avatarUploading, setAvatarUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const [profile, setProfile] = useState<UserProfile | null>(null)
-  const [myBlogs, setMyBlogs] = useState<MyBlog[]>([])
-  const [myComments, setMyComments] = useState<MyComment[]>([])
-
   const [poseMonth, setPoseMonth] = useState(() => {
     const now = new Date()
     return new Date(now.getFullYear(), now.getMonth(), 1)
@@ -62,17 +58,6 @@ export default function ProfilePage() {
   const [poseWeekError, setPoseWeekError] = useState<string | null>(null)
   const [poseReloadKey, setPoseReloadKey] = useState(0)
 
-  const [dietMonth, setDietMonth] = useState(() => {
-    const now = new Date()
-    return new Date(now.getFullYear(), now.getMonth(), 1)
-  })
-  const [dietSelectedYmd, setDietSelectedYmd] = useState(() => formatYmdLocal(new Date()))
-  const [dietMeals, setDietMeals] = useState<MealHistory[]>([])
-  const [dietLoading, setDietLoading] = useState(false)
-  const [dietError, setDietError] = useState<string | null>(null)
-  const [dietTotal, setDietTotal] = useState<number | null>(null)
-  const [dietReloadKey, setDietReloadKey] = useState(0)
-
   const [edit, setEdit] = useState<ProfileEditState | null>(null)
   const [isEditing, setIsEditing] = useState(false)
 
@@ -88,17 +73,16 @@ export default function ProfilePage() {
     return map
   }, [poseSessions])
 
-  const dietMealsByDay = useMemo(() => {
-    const map = new Map<string, MealHistory[]>()
-    for (const meal of dietMeals) {
-      const key = meal.recordedOn
-      const prev = map.get(key)
-      if (prev) prev.push(meal)
-      else map.set(key, [meal])
+  useEffect(() => {
+    const requested = searchParams.get('tab')
+    if (requested === 'Dashboard' || requested === 'Blogs') {
+      setTab(requested)
+    } else if (requested === 'Profile') {
+      setTab('Dashboard')
+    } else if (requested === 'Community') {
+      setTab('Blogs')
     }
-    for (const list of map.values()) list.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
-    return map
-  }, [dietMeals])
+  }, [searchParams])
 
   useEffect(() => {
     if (tab !== 'Dashboard') return
@@ -144,61 +128,6 @@ export default function ProfilePage() {
     const prefix = `${year}-${month}-`
     if (!poseSelectedYmd.startsWith(prefix)) setPoseSelectedYmd(`${prefix}01`)
   }, [tab, poseMonth, poseSelectedYmd])
-
-  useEffect(() => {
-    if (tab !== 'Diet') return
-    const year = dietMonth.getFullYear()
-    const month = dietMonth.getMonth()
-    const daysInMonth = new Date(year, month + 1, 0).getDate()
-    const dateFrom = `${year}-${pad2(month + 1)}-01`
-    const dateTo = `${year}-${pad2(month + 1)}-${pad2(daysInMonth)}`
-
-    let active = true
-    setDietLoading(true)
-    setDietError(null)
-    ;(async () => {
-      let page = 1
-      const page_size = 50
-      let all: MealHistory[] = []
-      let total: number | null = null
-      while (true) {
-        const r = await listMyMealHistory<MealHistory>({ page, page_size })
-        if (!active) return
-        if (total == null) total = r.total
-        const filtered = r.items.filter((m) => m.recordedOn >= dateFrom && m.recordedOn <= dateTo)
-        all = all.concat(filtered)
-
-        if (r.items.length === 0) break
-        const last = r.items[r.items.length - 1]
-        if (last && last.recordedOn < dateFrom) break
-        if (page * page_size >= r.total) break
-        page += 1
-        if (page > 100) break
-      }
-      if (!active) return
-      setDietMeals(all)
-      setDietTotal(total ?? 0)
-      setDietLoading(false)
-      setDietError(null)
-    })().catch((e: unknown) => {
-      if (!active) return
-      setDietLoading(false)
-      setDietTotal(null)
-      setDietError(e instanceof Error ? e.message : 'Failed to load diet history')
-    })
-
-    return () => {
-      active = false
-    }
-  }, [tab, dietMonth, dietReloadKey])
-
-  useEffect(() => {
-    if (tab !== 'Diet') return
-    const year = dietMonth.getFullYear()
-    const month = pad2(dietMonth.getMonth() + 1)
-    const prefix = `${year}-${month}-`
-    if (!dietSelectedYmd.startsWith(prefix)) setDietSelectedYmd(`${prefix}01`)
-  }, [tab, dietMonth, dietSelectedYmd])
 
   useEffect(() => {
     if (tab !== 'Dashboard') return
@@ -326,37 +255,13 @@ export default function ProfilePage() {
     }
   }
 
-  async function loadMyBlogs() {
-    const r = await getMyBlogs<MyBlog>()
-    setMyBlogs(r.items)
-  }
-
-  async function loadMyComments() {
-    const r = await getMyComments<MyComment>()
-    setMyComments(r.items)
-  }
-
   useEffect(() => {
     setError(null)
-    loadedRef.current.profile = true
     loadProfile().catch((e: unknown) => setError(e instanceof Error ? e.message : 'Failed to load'))
     return () => {
       if (noticeTimerRef.current != null) window.clearTimeout(noticeTimerRef.current)
     }
   }, [])
-
-  useEffect(() => {
-    if (tab === 'Community') {
-      if (!loadedRef.current.blogs) {
-        loadedRef.current.blogs = true
-        loadMyBlogs().catch(() => {})
-      }
-      if (!loadedRef.current.comments) {
-        loadedRef.current.comments = true
-        loadMyComments().catch(() => {})
-      }
-    }
-  }, [tab])
 
   async function saveProfile() {
     if (!edit) return
@@ -390,7 +295,6 @@ export default function ProfilePage() {
     try {
       const nowPublished = !blog.is_published
       await updateBlog(blog.id, { is_published: nowPublished })
-      await loadMyBlogs()
       flashNotice(nowPublished ? 'Published' : 'Moved to draft')
       if (nowPublished) navigate(`/blogs/${blog.id}`)
     } catch (e: unknown) {
@@ -402,7 +306,6 @@ export default function ProfilePage() {
     setError(null)
     try {
       await deleteBlogById(blogId)
-      await loadMyBlogs()
       flashNotice('Deleted')
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Delete failed')
@@ -413,8 +316,44 @@ export default function ProfilePage() {
     setError(null)
     try {
       await deleteBlogComment(commentId)
-      await loadMyComments()
       flashNotice('Deleted')
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Delete failed')
+    }
+  }
+
+  async function deleteAccount() {
+    if (!profile) return
+    const confirmedName = window.prompt(
+      `Delete account "${profile.username}"?\n\nThis permanently removes your account and related blogs, comments, notifications, training records, likes, and uploads.\n\nType your username to confirm:`
+    )
+    if (confirmedName !== profile.username) {
+      if (confirmedName !== null) setError('Delete cancelled: username confirmation did not match.')
+      return
+    }
+
+    setError(null)
+    try {
+      await deleteMyAccount(confirmedName)
+      await auth.logout()
+      navigate('/login', { replace: true })
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Delete account failed')
+    }
+  }
+
+  async function deletePoseSession(session: PoseTrainingSession) {
+    const label = session.note?.trim() || new Date(session.started_at).toLocaleString()
+    const confirmed = window.confirm(`Delete report "${label}"? This cannot be undone.`)
+    if (!confirmed) {
+      setError('Delete cancelled: report deletion requires confirmation.')
+      return
+    }
+    setError(null)
+    try {
+      await deletePoseTraining(session.id)
+      flashNotice('Report deleted')
+      setPoseReloadKey((key) => key + 1)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Delete failed')
     }
@@ -422,57 +361,49 @@ export default function ProfilePage() {
 
   return (
     <div className="mx-auto w-full min-h-[calc(100vh-120px)] max-w-5xl space-y-6 px-4 pt-6 pb-32 text-slate-900 sm:px-6 lg:px-8">
-      <div className="profile-panel">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-lg font-semibold">Account</div>
-            <div className="text-sm text-slate-600">{auth.user?.email}</div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link to="/profile/privacy" className="profile-btn-secondary">
-              Privacy
-            </Link>
-            {auth.user?.is_admin ? (
-              <Link to="/admin/data-lifecycle" className="profile-btn-secondary">
-                Admin Cleanup
-              </Link>
-            ) : null}
-            <button
-              className={[
-                'profile-btn-secondary',
-                tab === 'Profile' ? 'bg-emerald-600 text-white shadow-sm' : ''
-              ].join(' ')}
-              onClick={() => setTab('Profile')}
-              style={tab === 'Profile' ? { borderColor: 'rgb(5 150 105)' } : undefined}
-            >
-              Profile
-            </button>
-          </div>
-        </div>
-        {error ? <div className="mt-2 text-sm text-rose-700">{error}</div> : null}
-        {notice ? <div className="mt-2 text-sm text-emerald-700">{notice}</div> : null}
-      </div>
+      <ProfileDetailsPanel
+        profile={profile}
+        edit={edit}
+        isEditing={isEditing}
+        avatarUploading={avatarUploading}
+        fileInputRef={fileInputRef}
+        defaultAvatarImage={defaultAvatarImage}
+        resolveAvatarUrl={resolveAvatarUrl}
+        onEditChange={setEdit}
+        onEditingChange={setIsEditing}
+        onPickAvatar={(file) => onPickAvatar(file).catch(() => {})}
+        onSave={saveProfile}
+        onDeleteAccount={() => deleteAccount().catch(() => {})}
+        error={error}
+        notice={notice}
+      />
 
-      <div className="flex flex-wrap gap-2">
+      <div className="profile-section-switch">
         {(
           [
-            { key: 'Dashboard', label: 'Exercise' },
-            { key: 'Diet', label: 'Diet' },
-            { key: 'Community', label: 'Community' }
+            { key: 'Dashboard', label: 'Exercise', detail: 'Training history, pose reports, and weekly activity.', icon: 'fa-light fa-calendar' },
+            { key: 'Blogs', label: 'Blogs', detail: 'Posts, comments, and community notifications.', icon: 'fa-light fa-pen' }
           ] as const
         ).map((t) => (
           <button
             key={t.key}
             className={[
-              'rounded-full border px-4 py-2 text-sm transition',
-              tab === t.key
-                ? 'bg-emerald-600 text-white shadow-sm'
-                : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+              'profile-section-card',
+              tab === t.key ? 'is-active' : ''
             ].join(' ')}
-            onClick={() => setTab(t.key)}
-            style={tab === t.key ? { borderColor: 'rgb(5 150 105)' } : undefined}
+            onClick={() => {
+              setTab(t.key)
+              if (t.key === 'Dashboard') setSearchParams({})
+              else setSearchParams({ tab: t.key })
+            }}
           >
-            {t.label}
+            <span className="profile-section-card-icon">
+              <i className={t.icon} aria-hidden="true" />
+            </span>
+            <span>
+              <strong>{t.label}</strong>
+              <small>{t.detail}</small>
+            </span>
           </button>
         ))}
       </div>
@@ -494,50 +425,18 @@ export default function ProfilePage() {
           latestPoseSession={latestPoseSession}
           latestPoseExerciseName={latestPoseExercise.displayName}
           onReload={() => setPoseReloadKey((k) => k + 1)}
+          onDeleteSession={deletePoseSession}
           onMonthChange={setPoseMonth}
           onSelectedYmdChange={setPoseSelectedYmd}
         />
       ) : null}
 
-      {tab === 'Profile' ? (
-        <ProfileDetailsPanel
-          profile={profile}
-          edit={edit}
-          isEditing={isEditing}
-          avatarUploading={avatarUploading}
-          fileInputRef={fileInputRef}
-          defaultAvatarImage={defaultAvatarImage}
-          resolveAvatarUrl={resolveAvatarUrl}
-          onEditChange={setEdit}
-          onEditingChange={setIsEditing}
-          onPickAvatar={(file) => onPickAvatar(file).catch(() => {})}
-          onSave={saveProfile}
-        />
-      ) : null}
-
-      {tab === 'Diet' ? (
-        <DietHistoryPanel
-          dietMonth={dietMonth}
-          dietSelectedYmd={dietSelectedYmd}
-          dietMeals={dietMeals}
-          dietMealsByDay={dietMealsByDay}
-          dietLoading={dietLoading}
-          dietError={dietError}
-          dietTotal={dietTotal}
-          onReload={() => setDietReloadKey((k) => k + 1)}
-          onMonthChange={setDietMonth}
-          onSelectedYmdChange={setDietSelectedYmd}
-        />
-      ) : null}
-
-      {tab === 'Community' ? (
+      {tab === 'Blogs' ? (
         <UserCommunityPanel
-          myBlogs={myBlogs}
-          myComments={myComments}
-          resolveMediaUrl={resolveAvatarUrl}
-          onTogglePublish={(blog) => togglePublish(blog).catch(() => {})}
-          onDeleteBlog={(blogId) => deleteBlog(blogId).catch(() => {})}
-          onDeleteComment={(commentId) => deleteComment(commentId).catch(() => {})}
+          resolveMediaUrl={resolveBlogMediaUrl}
+          onTogglePublish={togglePublish}
+          onDeleteBlog={deleteBlog}
+          onDeleteComment={deleteComment}
         />
       ) : null}
     </div>

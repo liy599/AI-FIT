@@ -6,19 +6,15 @@ def main():
     from app import create_app
     from app.extensions import db
     from app.models import Course, Tag
-    from app.services.food.catalog_runtime import ensure_food_seed_data
 
     app = create_app()
     with app.app_context():
-        ensure_food_seed_data()
-
         if Tag.query.count() == 0:
             db.session.add_all(
                 [
-                    Tag(name="Fitness Tips"),
-                    Tag(name="Nutrition"),
-                    Tag(name="Training Plan"),
-                    Tag(name="Rehab"),
+                    Tag(name="Diet"),
+                    Tag(name="Training"),
+                    Tag(name="Other"),
                 ]
             )
 

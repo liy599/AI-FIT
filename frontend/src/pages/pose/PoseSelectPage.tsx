@@ -101,7 +101,7 @@ export default function PoseSelectPage() {
               <div className="cl_blog-widget mb-30 pose-select-hero">
                 <div className="pose-select-hero-head">
                   <h4 className="cl_blog-widget-title mb-0">Choose what you want to train</h4>
-                  <Link to={buildPoseHistoryPath('squat')} className="pose-tool-ghost-btn pose-tool-light-btn">
+                  <Link to={buildPoseHistoryPath()} className="pose-tool-ghost-btn pose-tool-light-btn">
                     Training History
                   </Link>
                 </div>

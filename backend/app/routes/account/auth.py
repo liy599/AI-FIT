@@ -14,9 +14,12 @@ from ...utils.security import hash_password, verify_password
 
 bp = Blueprint("auth", __name__)
 
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
 
 def _is_admin_user(u: User) -> bool:
     return bool(u.is_admin)
+
 
 def _auth_user(u: User):
     return {
@@ -25,12 +28,13 @@ def _auth_user(u: User):
         "username": u.username,
         "avatar_url": u.avatar_url,
         "is_admin": _is_admin_user(u),
+        "is_disabled": bool(u.is_disabled),
     }
 
-_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 def _is_valid_email(email: str) -> bool:
     return bool(email and _EMAIL_RE.match(email))
+
 
 def _validate_username(username: str) -> Optional[str]:
     text = (username or "").strip()
@@ -39,6 +43,7 @@ def _validate_username(username: str) -> Optional[str]:
     if any(ch.isspace() for ch in text):
         return "username cannot contain whitespace"
     return None
+
 
 def _validate_password(password: str, *, email: str, username: str) -> Optional[str]:
     text = password or ""
@@ -61,15 +66,19 @@ def _validate_password(password: str, *, email: str, username: str) -> Optional[
         return "password too weak"
     return None
 
+
 def _generate_verification_code() -> str:
     return f"{secrets.randbelow(1_000_000):06d}"
+
 
 def _is_email_verified(email: str) -> bool:
     row = EmailVerification.query.filter_by(email=email).first()
     return bool(row and row.verified_at)
 
+
 def _utcnow_seconds() -> datetime:
     return datetime.utcnow().replace(microsecond=0)
+
 
 def _is_code_expired(*, sent_at: Optional[datetime], ttl_seconds: int) -> bool:
     if not sent_at:
@@ -96,7 +105,7 @@ def register():
     if password_err:
         return jsonify({"error": password_err}), 400
 
-    if bool(current_app.config.get("EMAIL_VERIFY_REQUIRED", True)) and (not _is_email_verified(email)):
+    if bool(current_app.config.get("EMAIL_VERIFY_REQUIRED", False)) and not _is_email_verified(email):
         return jsonify({"error": "email not verified"}), 403
 
     if User.query.filter_by(email=email).first() is not None:
@@ -250,6 +259,8 @@ def login():
     user = User.query.filter_by(email=email).first()
     if user is None or not verify_password(password, user.password_hash):
         return jsonify({"error": "invalid credentials"}), 401
+    if user.is_disabled:
+        return jsonify({"error": "account disabled"}), 403
 
     access_token = create_access_token(identity=str(user.id), expires_delta=timedelta(days=7))
     response = jsonify({"user": _auth_user(user)})
@@ -332,17 +343,18 @@ def reset_password():
         return jsonify({"error": "email/code/new_password required"}), 400
     if not _is_valid_email(email):
         return jsonify({"error": "invalid email"}), 400
-
-    user = User.query.filter_by(email=email).first()
-    if user is None:
-        return jsonify({"error": "email not found"}), 404
-
-    password_err = _validate_password(new_password, email=email, username=user.username)
+    if not re.fullmatch(r"[0-9]{6}", code):
+        return jsonify({"error": "invalid code"}), 400
+    password_err = _validate_password(new_password, email=email, username="")
     if password_err:
         return jsonify({"error": password_err}), 400
 
     row = PasswordResetCode.query.filter_by(email=email).first()
-    if row is None or not row.code_hash or row.used_at:
+    if row is None:
+        return jsonify({"error": "invalid code"}), 400
+    if row.used_at:
+        return jsonify({"error": "invalid code"}), 400
+    if not row.code_hash:
         return jsonify({"error": "invalid code"}), 400
     if _is_code_expired(
         sent_at=row.last_sent_at,
@@ -351,6 +363,10 @@ def reset_password():
         return jsonify({"error": "code expired"}), 400
     if not verify_password(code, row.code_hash):
         return jsonify({"error": "invalid code"}), 400
+
+    user = db.session.get(User, int(row.user_id))
+    if user is None or user.email != email:
+        return jsonify({"error": "email not found"}), 404
 
     now = _utcnow_seconds()
     user.password_hash = hash_password(new_password)
@@ -367,5 +383,7 @@ def me():
     user = db.session.get(User, user_id)
     if user is None:
         return jsonify({"error": "not found"}), 404
+    if user.is_disabled:
+        return jsonify({"error": "account disabled"}), 403
     return jsonify(_auth_user(user))
 

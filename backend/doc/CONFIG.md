@@ -21,13 +21,12 @@
 以上配置由后端读取，并通过 `GET /api/pose/policy` 返回。前端运行行为应由后端 policy 控制，避免在页面里硬编码策略常量。
 
 ## 可选能力
-- `AI_REPORT_*` / `STEPFUN_*`：AI 增强能力配置，当前用于食物识别等非 Pose 主链路能力。
+- `AI_REPORT_*`：AI 增强能力配置，当前用于 Pose 报告等能力。
 
 ## 限流配置
 - `RATE_LIMIT_ENABLED`
 - `AUTH_LOGIN_*`
 - `AUTH_FORGOT_*`
-- `FEEDBACK_*`
 
 ## 运维规则
 - `.env.example` 不能包含真实生产密钥。

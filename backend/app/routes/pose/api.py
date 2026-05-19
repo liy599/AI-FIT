@@ -159,6 +159,19 @@ def get_training_session(session_id: int):
     return jsonify({"session": _training_session_public(session)})
 
 
+@bp.delete("/trainings/<int:session_id>")
+@jwt_required()
+def delete_training_session(session_id: int):
+    user_id = int(get_jwt_identity())
+    session = TrainingSession.query.filter_by(id=session_id, user_id=user_id).first()
+    if session is None:
+        return jsonify({"error": "not found"}), 404
+
+    db.session.delete(session)
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
 @bp.put("/trainings/<int:session_id>/report")
 @jwt_required()
 def update_training_session_report(session_id: int):

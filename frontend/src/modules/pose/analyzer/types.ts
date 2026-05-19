@@ -1,4 +1,4 @@
-﻿import type { MoveNetName } from '../vision/movenetTracker'
+import type { MoveNetName } from '../vision/movenetTracker'
 
 export type PoseAnalyzerFeedback = {
   phase: 'up' | 'descent' | 'bottom' | 'ascent'

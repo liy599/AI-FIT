@@ -80,7 +80,7 @@ export function buildPushupAlignedReport(input: {
     issues.push({
       code: 'DEPTH_INSUFFICIENT',
       severity: severityFromRatio(ratio, { warnRatio: rules.depthWarnRatio, failRatio: rules.depthFailRatio }),
-      message: `Depth insufficient in ${depthInsufficientCount}/${effectiveReps} assessed reps (${Math.round(ratio * 100)}%).`,
+      message: `In ${depthInsufficientCount} of ${effectiveReps} scored reps, you did not go low enough.`,
       atFrame: null
     })
   }
@@ -89,7 +89,7 @@ export function buildPushupAlignedReport(input: {
     issues.push({
       code: 'HIPS_SAGGING',
       severity: severityFromRatio(ratio, { warnRatio: rules.bodyLineWarnRatio, failRatio: rules.bodyLineFailRatio }),
-      message: `Hips sagging detected in ${hipsSagCount}/${effectiveReps} assessed reps (${Math.round(ratio * 100)}%).`,
+      message: `In ${hipsSagCount} of ${effectiveReps} scored reps, your hips dropped and your body line was not straight.`,
       atFrame: null
     })
   }
@@ -98,7 +98,7 @@ export function buildPushupAlignedReport(input: {
     issues.push({
       code: 'HIPS_TOO_HIGH',
       severity: severityFromRatio(ratio, { warnRatio: rules.bodyLineWarnRatio, failRatio: rules.bodyLineFailRatio }),
-      message: `Hips too high detected in ${hipsHighCount}/${effectiveReps} assessed reps (${Math.round(ratio * 100)}%).`,
+      message: `In ${hipsHighCount} of ${effectiveReps} scored reps, your hips were too high (body was angled like an upside-down V).`,
       atFrame: null
     })
   }
@@ -116,7 +116,7 @@ export function buildPushupAlignedReport(input: {
     issues.push({
       code: 'REPS_UNASSESSED',
       severity: ratio >= 0.35 ? 'warning' : 'info',
-      message: `${unassessedReps}/${totalReps} reps could not be quality-assessed due to unstable tracking (lighting/occlusion/partial body).`,
+      message: `${unassessedReps} of ${totalReps} reps could not be scored because the video tracking was unclear (lighting, body not fully visible, or occlusion).`,
       atFrame: null
     })
   }
@@ -147,7 +147,7 @@ export function buildPushupAlignedReport(input: {
     issues.push({
       code: 'NO_OBVIOUS_ISSUES',
       severity: 'info',
-      message: 'No obvious issues detected during analyzer replay.',
+      message: 'No major issues were detected.',
       atFrame: null
     })
   }
@@ -168,10 +168,9 @@ export function buildPushupAlignedReport(input: {
     })
   }
 
-  const summaryPrefix = 'Video replay analysis'
   const summary = input.lastFeedback
-    ? `${summaryPrefix}: total ${input.lastFeedback.session.totalReps}, correct ${input.lastFeedback.session.correctReps}, accuracy ${input.lastFeedback.session.accuracyPct}%`
-    : `${summaryPrefix}: no stable pose frames were detected.`
+    ? `${input.lastFeedback.session.totalReps} reps detected. ${input.lastFeedback.session.correctReps} correct, ${input.lastFeedback.session.incorrectReps} incorrect.`
+    : 'No stable body pose was detected. Try brighter light and keep your full body in frame.'
 
   const suggestions = buildPushupReplaySuggestions(input.lastFeedback, sortedIssues, tempoCheck, fallbackSuggestion)
   const keyMetrics = {

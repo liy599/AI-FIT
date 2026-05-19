@@ -9,8 +9,8 @@ const REP_COUNT_MIN_FRAMES = 7
 const REP_COUNT_MIN_ACTIVE_FRAMES = 5
 const REP_COUNT_MIN_BOTTOM_FRAMES = 3
 const REP_COUNT_MIN_ELBOW_ANGLE = 125
-const REP_VALID_MIN_FRAMES = 2
-const REP_VALID_RATIO_MIN = 0.2
+const REP_VALID_MIN_FRAMES = 6
+const REP_VALID_RATIO_MIN = 0.4
 
 const S1_ENTER_ELBOW_ANGLE = 150
 const S1_EXIT_ELBOW_ANGLE = 142
@@ -190,7 +190,10 @@ export class PushupVideoAnalyzer {
         totalReps: this.repCount,
         correctReps: this.correctCount,
         incorrectReps: this.incorrectCount,
-        accuracyPct: this.repCount > 0 ? Math.round((this.correctCount / this.repCount) * 100) : 0,
+        accuracyPct:
+          this.correctCount + this.incorrectCount > 0
+            ? Math.round((this.correctCount / (this.correctCount + this.incorrectCount)) * 100)
+            : 0,
         unassessedReps: this.unassessedCount,
         depthInsufficientCount: this.depthInsufficientCount,
         kneeOverToeCount: 0,

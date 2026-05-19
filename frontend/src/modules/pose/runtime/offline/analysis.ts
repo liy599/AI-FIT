@@ -122,7 +122,7 @@ export function useOfflinePoseAnalysis(args: UseOfflinePoseAnalysisArgs) {
 
       const taskId = `local-${Date.now()}`
       const analyzerTuning = resolveAnalyzerTuning(exercise.slug, poseRuntimeRules)
-      const report = buildOfflinePoseReport({
+      let report = buildOfflinePoseReport({
         taskId,
         exercise,
         effectiveViewAngle,

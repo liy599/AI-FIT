@@ -335,24 +335,6 @@ export class LateralRaiseVideoAnalyzer {
       }
 
       const repDurationSec = Math.max(0.1, this.frameCount / this.analyzerFps)
-      const tempoTooFast = repDurationSec < this.tempo.repFastSec
-      const tempoTooSlow = repDurationSec > this.tempo.repSlowSec
-      if (tempoTooFast || tempoTooSlow) {
-        if (tempoTooFast) this.fastRepCount += 1
-        if (tempoTooSlow) this.slowRepCount += 1
-        this.lastRepResult = null
-        this.lastRepMessage = tempoTooFast ? 'Rep ignored: movement was too fast to count.' : 'Rep ignored: movement was too slow to count.'
-        this.lastRepReasonCodes = [tempoTooFast ? 'REP_TOO_FAST_IGNORE' : 'REP_TOO_SLOW_IGNORE']
-        this.lastRepReasonLabels = [tempoTooFast ? 'Movement was too fast to count' : 'Movement was too slow to count']
-        this.lastRepCorrections = [
-          tempoTooFast ? 'Slow down: lift up under control, brief pause, then lower slowly.' : 'Keep control, but avoid long stalls; use a smoother continuous rhythm.'
-        ]
-        this.lastRepFrameCount = this.frameCount
-        this.frameCount = 0
-        this.enteredTop = false
-        this.currentState = nextState
-        return
-      }
 
       const validRatio = this.frameCount > 0 ? this.repValidFrameCount / this.frameCount : 0
       const frontBadRatio = this.frameCount > 0 ? this.repFrontBadFrames / this.frameCount : 0
@@ -362,6 +344,10 @@ export class LateralRaiseVideoAnalyzer {
       this.repCount += 1
       this.repDurationTotalSec += repDurationSec
       this.repDurationCount += 1
+      const tempoTooFast = repDurationSec < this.tempo.repFastSec
+      const tempoTooSlow = repDurationSec > this.tempo.repSlowSec
+      if (tempoTooFast) this.fastRepCount += 1
+      if (tempoTooSlow) this.slowRepCount += 1
       if (frontBadRatio > NATIVE_FRONT_VIEW_FAIL_RATIO) this.viewInvalidRepCount += 1
 
       if (!assessable) {
@@ -380,7 +366,7 @@ export class LateralRaiseVideoAnalyzer {
         const elbowCurlFailed =
           this.repMinElbowAngle <= this.tuning.elbowCurlFailDeg && this.repElbowHardFrames >= this.tuning.elbowCurlFailMinFrames
 
-        if (topInsufficient || torsoSwayFailed || symmetryFailed || elbowCurlFailed) {
+        if (topInsufficient || torsoSwayFailed || symmetryFailed || elbowCurlFailed || tempoTooFast || tempoTooSlow) {
           this.incorrectCount += 1
           this.lastRepResult = 'incorrect'
           const reasonCodes: string[] = []
@@ -410,6 +396,16 @@ export class LateralRaiseVideoAnalyzer {
             reasonCodes.push('ELBOW_CURL')
             reasonLabels.push('Elbows bent too much (turned into a curl)')
             corrections.push('Keep a soft elbow bend and move from the shoulder joint.')
+          }
+          if (tempoTooFast) {
+            reasonCodes.push('TEMPO_TOO_FAST')
+            reasonLabels.push('Rep tempo was too fast')
+            corrections.push('Slow down: lift up under control, brief pause at the top, then lower with control.')
+          }
+          if (tempoTooSlow) {
+            reasonCodes.push('TEMPO_TOO_SLOW')
+            reasonLabels.push('Rep tempo was too slow')
+            corrections.push('Keep control, but avoid long stalls; use a smoother continuous rhythm.')
           }
 
           this.lastRepReasonCodes = reasonCodes

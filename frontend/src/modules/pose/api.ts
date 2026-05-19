@@ -89,6 +89,9 @@ export type PosePolicy = {
         tracking_quality_min: number
         torso_lean_warn_deg: number
         torso_lean_fail_deg: number
+        knee_straight_warn_deg: number
+        knee_straight_fail_deg: number
+        knee_straight_fail_min_frames: number
         symmetry_warn_deg: number
         symmetry_fail_deg: number
         top_range_min_deg: number

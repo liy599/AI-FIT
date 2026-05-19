@@ -119,8 +119,22 @@ export function PoseOfflineAnalysisPanel(props: {
         </div>
       </div>
 
+      <div className="pose-offline-steps">
+        <div className={`pose-offline-step ${!offlineBusy && !offlineOverlayReady ? 'pose-offline-step--active' : offlineOverlayReady ? 'pose-offline-step--done' : ''}`}>
+          <span className="pose-offline-step__num">1</span>
+          <span className="pose-offline-step__label">Select a video file</span>
+        </div>
+        <div className={`pose-offline-step ${offlineBusy ? 'pose-offline-step--active' : offlineOverlayReady ? 'pose-offline-step--done' : ''}`}>
+          <span className="pose-offline-step__num">2</span>
+          <span className="pose-offline-step__label">Analyze locally</span>
+        </div>
+        <div className={`pose-offline-step ${offlineOverlayReady ? 'pose-offline-step--active' : ''}`}>
+          <span className="pose-offline-step__num">3</span>
+          <span className="pose-offline-step__label">Review results &amp; report</span>
+        </div>
+      </div>
+
       <div className="pose-form-grid pose-form-grid-single">
-        <div className="pose-inline-note pose-inline-note-top">Local mode keeps video processing on this device.</div>
         <label className="pose-form-field">
           <span>Video File</span>
           <input
@@ -141,8 +155,11 @@ export function PoseOfflineAnalysisPanel(props: {
 
       <div className="pose-export-row">
         <button className="cl_theme-btn" disabled={offlineBusy} onClick={onAnalyze} type="button">
-          {offlineBusy ? 'Analyzing...' : 'Analyze Locally'}
+          {offlineBusy ? 'Analyzing...' : offlineFile ? 'Analyze Locally' : 'Select a video to start'}
         </button>
+        {offlineFile && !offlineBusy ? (
+          <span className="pose-inline-note pose-inline-note-top">Your video stays on this device — nothing is uploaded.</span>
+        ) : null}
       </div>
 
       {offlinePreviewUrl ? (
@@ -163,7 +180,7 @@ export function PoseOfflineAnalysisPanel(props: {
                         : 'pose-status-pill-success'
                   }`}
                 >
-                  {offlineOverlayTone.toUpperCase()}
+                  {offlineOverlayTone === 'ok' ? 'GOOD' : offlineOverlayTone === 'warn' ? 'WARN' : 'FIX'}
                 </span>
                 <span className="pose-video-preview__message">
                   {(() => {
@@ -175,11 +192,11 @@ export function PoseOfflineAnalysisPanel(props: {
                       if (!single) return null
                       if (offlineOverlayTone !== 'ok') return single
                       const base = single.endsWith('.') ? single : `${single}.`
-                      return `${base} Nice work.`
+                      return `${base} Keep it up.`
                     }
                     const gate = (lines[0] ?? '').trim() || null
                     const mainRaw = lines.slice(1).join(' ').trim()
-                    const main = offlineOverlayTone === 'ok' ? (mainRaw ? `${mainRaw.endsWith('.') ? mainRaw : `${mainRaw}.`} Nice work.` : 'Nice work.') : mainRaw
+                    const main = offlineOverlayTone === 'ok' ? (mainRaw ? `${mainRaw.endsWith('.') ? mainRaw : `${mainRaw}.`} Keep it up.` : 'Looking strong.') : mainRaw
                     return (
                       <span className="pose-video-preview__message-lines">
                         {gate ? (
@@ -196,7 +213,7 @@ export function PoseOfflineAnalysisPanel(props: {
               </>
             ) : (
               <span className="pose-video-preview__message pose-video-preview__message-muted">
-                {offlineBusy ? 'Analyzing video... Overlay will be available after completion.' : 'Run analysis to enable replay overlay.'}
+                {offlineBusy ? 'Analyzing video... Overlay appears after completion.' : 'Run analysis to enable the replay overlay with live form feedback.'}
               </span>
             )}
           </div>
@@ -225,14 +242,24 @@ export function PoseOfflineAnalysisPanel(props: {
       {offlineProgress ? (
         <div className="pose-progress-card">
           <strong>{offlineProgress.stage}</strong>
-          <span>
+          <div className="pose-progress-bar-wrap">
+            <div
+              className="pose-progress-bar-fill"
+              style={{ width: `${offlineProgress.total > 0 ? Math.round((offlineProgress.processed / offlineProgress.total) * 100) : 0}%` }}
+            />
+          </div>
+          <span className="pose-progress-card__count">
             {offlineProgress.processed}/{offlineProgress.total}
           </span>
         </div>
       ) : null}
 
       {offlineStatusMsg ? <div className="pose-inline-note">{offlineStatusMsg}</div> : null}
-      {offlineError ? <div className="pose-error-box pose-error-box-light">{offlineError}</div> : null}
+      {offlineError ? <div className="pose-error-box pose-error-box-light">
+        <strong>Analysis could not complete</strong>
+        <p>{offlineError}</p>
+        <p className="pose-error-box__hint">Try a shorter video (under 2 min), ensure good lighting, and keep your whole body visible in frame.</p>
+      </div> : null}
     </div>
   )
 }
@@ -276,9 +303,9 @@ export function PoseOfflineReportPanel(props: {
             <p>{offlineFileSizeMbText !== 'Not selected' ? 'Click "Analyze Locally" to generate the report.' : 'Select a video file first, then click "Analyze Locally".'}</p>
           </div>
           <div className="pose-report-card pose-report-card-soft">
-            <div className="pose-report-title">How This Report Scores Your Form</div>
+            <div className="pose-report-title">How this report works</div>
             <p className="pose-report-intro">
-              Use this quick guide to understand what counts as a valid rep, how form issues are judged, and when camera quality can limit scoring.
+              The analyzer counts reps, checks form against exercise-specific rules, and flags trouble spots. Here is what each finding means:
             </p>
             <ul className="pose-criteria-list pose-criteria-list-soft">
               <li>
@@ -286,7 +313,7 @@ export function PoseOfflineReportPanel(props: {
                   <span className="pose-criteria-icon">01</span>
                   <span className="pose-criteria-label">Counted rep</span>
                 </div>
-                <span className="pose-criteria-text">A rep is counted only when the analyzer sees a complete movement cycle, not just part of the motion.</span>
+                <span className="pose-criteria-text">A rep is counted only when the analyzer sees a complete movement cycle — not just part of the motion.</span>
               </li>
               <li>
                 <div className="pose-criteria-item-head">
@@ -294,16 +321,25 @@ export function PoseOfflineReportPanel(props: {
                   <span className="pose-criteria-label">Form check</span>
                 </div>
                 <span className="pose-criteria-text">
-                  Form issues are judged with rule thresholds plus multi-frame stability, so a single noisy frame does not decide the result.
+                  Issues are judged across multiple frames for stability, so a single noisy frame won't decide the result.
                 </span>
               </li>
               <li>
                 <div className="pose-criteria-item-head">
                   <span className="pose-criteria-icon">03</span>
-                  <span className="pose-criteria-label">Gate note</span>
+                  <span className="pose-criteria-label">Camera quality</span>
                 </div>
                 <span className="pose-criteria-text">
-                  If camera angle or keypoint quality is unstable, that rep may be counted but excluded from valid scoring.
+                  Poor lighting, partial body visibility, or unsteady camera angle may cause some reps to be counted but not scored.
+                </span>
+              </li>
+              <li>
+                <div className="pose-criteria-item-head">
+                  <span className="pose-criteria-icon">04</span>
+                  <span className="pose-criteria-label">Pro tip</span>
+                </div>
+                <span className="pose-criteria-text">
+                  For best results: place the camera at hip height, keep 2-3 meters distance, and ensure shoulders-to-ankles stay fully visible.
                 </span>
               </li>
             </ul>

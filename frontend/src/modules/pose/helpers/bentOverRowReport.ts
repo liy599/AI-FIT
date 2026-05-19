@@ -53,9 +53,13 @@ export function buildBentOverRowAlignedReport(input: {
       const ratio = input.analyzedFrameCount > 0 ? count / input.analyzedFrameCount : 0
       const text = message.toLowerCase()
       const isFrontWarn = text.includes('face the camera') || text.includes('front')
+      const isSideWarn = text.includes('side view')
       const isLowConfidenceWarn = text.includes('low keypoint confidence') || text.includes('confidence')
       if ((isFrontWarn || isLowConfidenceWarn) && avgTrackingQuality >= 0.62) {
         return ratio >= 0.35
+      }
+      if (isSideWarn && avgTrackingQuality >= 0.62) {
+        return ratio >= 0.25
       }
       return true
     })
@@ -84,15 +88,14 @@ export function buildBentOverRowAlignedReport(input: {
           {
             code: 'NO_OBVIOUS_ISSUES',
             severity: 'info' as const,
-            message: 'No obvious issues detected during analyzer replay.',
+            message: 'No major issues were detected.',
             atFrame: null
           }
         ]
 
-  const summaryPrefix = 'Video replay analysis'
   const summary = input.lastFeedback
-    ? `${summaryPrefix}: total ${input.lastFeedback.session.totalReps}, correct ${input.lastFeedback.session.correctReps}, accuracy ${input.lastFeedback.session.accuracyPct}%`
-    : `${summaryPrefix}: no stable pose frames were detected.`
+    ? `${input.lastFeedback.session.totalReps} reps detected. ${input.lastFeedback.session.correctReps} correct, ${input.lastFeedback.session.incorrectReps} incorrect.`
+    : 'No stable body pose was detected. Try brighter light and keep your full body in frame.'
 
   const suggestions = buildBentOverRowReplaySuggestions(sortedIssues, fallbackSuggestion)
   const totalReps = input.lastFeedback?.session.totalReps ?? 0
@@ -147,6 +150,11 @@ export function buildBentOverRowAlignedReport(input: {
       symmetryGap: input.lastFeedback?.kneeVerticalAngle ?? null,
       frontAlignment: input.lastFeedback?.offsetAngle ?? null,
       trackingQuality: input.lastFeedback?.trackingQuality ?? null,
+      lastRepResult: input.lastFeedback?.lastRepResult ?? null,
+      lastRepMessage: input.lastFeedback?.lastRepMessage ?? null,
+      lastRepReasonCodes: input.lastFeedback?.lastRepReasonCodes ?? [],
+      lastRepReasonLabels: input.lastFeedback?.lastRepReasonLabels ?? [],
+      lastRepFrameCount: input.lastFeedback?.lastRepFrameCount ?? null,
       avgTrackingQuality: Math.round(avgTrackingQuality * 100) / 100,
       currentSuggestion,
       warnings: input.lastFeedback?.warnings ?? [],
@@ -184,6 +192,7 @@ export function buildBentOverRowVideoReplayReport(input: {
   onProgress?: (processed: number, total: number) => void
 }): PoseAnalysisReport {
   const analyzer = new BentOverRowVideoAnalyzer()
+  analyzer.setAnalyzerFps(input.fps)
   const stats = collectAnalyzerReplayStats({ analyzer, exerciseSlug: 'bent-over-row', nativeFrames: input.nativeFrames, onProgress: input.onProgress })
 
   return buildBentOverRowAlignedReport({

@@ -1,4 +1,4 @@
-﻿export type PoseRuntimeRules = {
+export type PoseRuntimeRules = {
   tempoFastThresholdSec: number
   pushup: {
     bodyLineWarnRatio: number
@@ -74,12 +74,15 @@ export const DEFAULT_POSE_RUNTIME_RULES: PoseRuntimeRules = {
       topRangeMinDeg: 70
     },
     bentOverRow: {
-      trackingQualityMin: 0.28,
-      torsoLeanWarnDeg: 35,
-      torsoLeanFailDeg: 50,
-      symmetryWarnDeg: 18,
-      symmetryFailDeg: 28,
-      topRangeMinDeg: 90
+      trackingQualityMin: 0.2,
+      torsoLeanWarnDeg: 60,
+      torsoLeanFailDeg: 75,
+      kneeStraightWarnDeg: 160,
+      kneeStraightFailDeg: 168,
+      kneeStraightFailMinFrames: 2,
+      symmetryWarnDeg: 25,
+      symmetryFailDeg: 35,
+      topRangeMinDeg: 44
     }
   }
 }

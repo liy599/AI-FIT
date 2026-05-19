@@ -80,15 +80,14 @@ export function buildLateralRaiseAlignedReport(input: {
           {
             code: 'NO_OBVIOUS_ISSUES',
             severity: 'info' as const,
-            message: 'No obvious issues detected during analyzer replay.',
+            message: 'No major issues were detected.',
             atFrame: null
           }
         ]
 
-  const summaryPrefix = 'Video replay analysis'
   const summary = input.lastFeedback
-    ? `${summaryPrefix}: total ${input.lastFeedback.session.totalReps}, correct ${input.lastFeedback.session.correctReps}, accuracy ${input.lastFeedback.session.accuracyPct}%`
-    : `${summaryPrefix}: no stable pose frames were detected.`
+    ? `${input.lastFeedback.session.totalReps} reps detected. ${input.lastFeedback.session.correctReps} correct, ${input.lastFeedback.session.incorrectReps} incorrect.`
+    : 'No stable body pose was detected. Try brighter light and keep your full body in frame.'
 
   const suggestions = buildLateralRaiseReplaySuggestions(sortedIssues, fallbackSuggestion)
   const totalReps = input.lastFeedback?.session.totalReps ?? 0

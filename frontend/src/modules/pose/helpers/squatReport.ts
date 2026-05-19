@@ -62,7 +62,7 @@ export function buildSquatAlignedReport(input: {
     issues.push({
       code: 'KNEE_FORWARD_EXCESSIVE',
       severity: ratio >= 0.45 ? 'error' : ratio >= 0.2 ? 'warning' : 'info',
-      message: `Knee forward drift detected in ${kneeForwardCount}/${effectiveReps} assessed reps (${Math.round(ratio * 100)}%).`,
+      message: `In ${kneeForwardCount} of ${effectiveReps} scored reps, your knees moved too far forward.`,
       atFrame: null
     })
   }
@@ -72,7 +72,7 @@ export function buildSquatAlignedReport(input: {
     issues.push({
       code: 'FORWARD_LEAN_EXCESSIVE',
       severity: ratio >= 0.45 ? 'error' : ratio >= 0.2 ? 'warning' : 'info',
-      message: `Excessive torso lean detected in ${forwardLeanCount}/${effectiveReps} assessed reps (${Math.round(ratio * 100)}%).`,
+      message: `In ${forwardLeanCount} of ${effectiveReps} scored reps, you leaned forward too much.`,
       atFrame: null
     })
   }
@@ -92,7 +92,7 @@ export function buildSquatAlignedReport(input: {
     issues.push({
       code: 'REPS_UNASSESSED',
       severity: ratio >= 0.35 ? 'warning' : 'info',
-      message: `${unassessedReps}/${totalReps} reps could not be quality-assessed due to unstable or incomplete keypoints.`,
+      message: `${unassessedReps} of ${totalReps} reps could not be scored because the video tracking was unclear (lighting, body not fully visible, or occlusion).`,
       atFrame: null
     })
   }
@@ -134,7 +134,7 @@ export function buildSquatAlignedReport(input: {
     issues.push({
       code: 'DESCENT_TOO_FAST',
       severity: fastRepRatio >= 0.65 ? 'warning' : 'info',
-      message: `Tempo is fast in ${unifiedFastRepCount}/${effectiveReps} assessed reps (${Math.round(fastRepRatio * 100)}%).`,
+      message: `In ${unifiedFastRepCount} of ${effectiveReps} scored reps, you moved too fast.`,
       atFrame: null
     })
   }
@@ -149,7 +149,7 @@ export function buildSquatAlignedReport(input: {
     issues.push({
       code: 'TEMPO_TOO_SLOW',
       severity: slowRepRatio >= 0.65 ? 'warning' : 'info',
-      message: `Tempo is slow in ${sessionSlowRepCount}/${effectiveReps} assessed reps (${Math.round(slowRepRatio * 100)}%).`,
+      message: `In ${sessionSlowRepCount} of ${effectiveReps} scored reps, you moved very slowly or paused too long.`,
       atFrame: null
     })
   }
@@ -172,15 +172,14 @@ export function buildSquatAlignedReport(input: {
     issues.push({
       code: 'NO_OBVIOUS_ISSUES',
       severity: 'info',
-      message: 'No obvious issues detected during analyzer replay.',
+      message: 'No major issues were detected.',
       atFrame: null
     })
   }
 
-  const summaryPrefix = 'Video replay analysis'
   const summary = input.lastFeedback
-    ? `${summaryPrefix}: total ${totalReps}, effective ${effectiveReps}, unassessed ${unassessedReps}, correct ${correctReps}, incorrect ${incorrectReps}, accuracy ${input.lastFeedback.session.accuracyPct}%, avg rep ${input.lastFeedback.session.avgRepDurationSec ?? '-'}s.`
-    : `${summaryPrefix}: no stable pose frames were detected.`
+    ? `${totalReps} reps detected. ${correctReps} correct, ${incorrectReps} incorrect.`
+    : 'No stable body pose was detected. Try brighter light and keep your full body in frame.'
   const suggestions = buildSquatReplaySuggestions(input.lastFeedback, issues, fallbackSuggestion)
   const keyMetrics = {
     totalReps,

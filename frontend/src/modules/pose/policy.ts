@@ -95,6 +95,9 @@ export function usePosePolicyRuntime(): PosePolicyRuntime {
           trackingQualityMin: clampNumber(Number(posePolicy?.rules?.analyzer?.bent_over_row?.tracking_quality_min ?? DEFAULT_POSE_RUNTIME_RULES.analyzerTuning.bentOverRow.trackingQualityMin), 0.05, 0.95),
           torsoLeanWarnDeg: clampNumber(Number(posePolicy?.rules?.analyzer?.bent_over_row?.torso_lean_warn_deg ?? DEFAULT_POSE_RUNTIME_RULES.analyzerTuning.bentOverRow.torsoLeanWarnDeg), 5, 90),
           torsoLeanFailDeg: clampNumber(Number(posePolicy?.rules?.analyzer?.bent_over_row?.torso_lean_fail_deg ?? DEFAULT_POSE_RUNTIME_RULES.analyzerTuning.bentOverRow.torsoLeanFailDeg), 5, 110),
+          kneeStraightWarnDeg: clampNumber(Number(posePolicy?.rules?.analyzer?.bent_over_row?.knee_straight_warn_deg ?? DEFAULT_POSE_RUNTIME_RULES.analyzerTuning.bentOverRow.kneeStraightWarnDeg), 120, 180),
+          kneeStraightFailDeg: clampNumber(Number(posePolicy?.rules?.analyzer?.bent_over_row?.knee_straight_fail_deg ?? DEFAULT_POSE_RUNTIME_RULES.analyzerTuning.bentOverRow.kneeStraightFailDeg), 120, 180),
+          kneeStraightFailMinFrames: clampNumber(Number(posePolicy?.rules?.analyzer?.bent_over_row?.knee_straight_fail_min_frames ?? DEFAULT_POSE_RUNTIME_RULES.analyzerTuning.bentOverRow.kneeStraightFailMinFrames), 1, 30),
           symmetryWarnDeg: clampNumber(Number(posePolicy?.rules?.analyzer?.bent_over_row?.symmetry_warn_deg ?? DEFAULT_POSE_RUNTIME_RULES.analyzerTuning.bentOverRow.symmetryWarnDeg), 1, 80),
           symmetryFailDeg: clampNumber(Number(posePolicy?.rules?.analyzer?.bent_over_row?.symmetry_fail_deg ?? DEFAULT_POSE_RUNTIME_RULES.analyzerTuning.bentOverRow.symmetryFailDeg), 1, 100),
           topRangeMinDeg: clampNumber(Number(posePolicy?.rules?.analyzer?.bent_over_row?.top_range_min_deg ?? DEFAULT_POSE_RUNTIME_RULES.analyzerTuning.bentOverRow.topRangeMinDeg), 30, 160)

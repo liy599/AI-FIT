@@ -46,8 +46,18 @@ export function ReportVisualization(props: { report: PoseAnalysisReport }) {
   })
   const maxFindingCards = 6
   const visibleFindings = repFindingsNotable.slice(0, maxFindingCards)
+  const visualFindings = visibleFindings.filter((item) => {
+    const url = typeof item.snapshotDataUrl === 'string' ? item.snapshotDataUrl : null
+    return url && url.length > 0
+  })
+  const visualTotal = repFindingsNotable.filter((item) => {
+    const url = typeof item.snapshotDataUrl === 'string' ? item.snapshotDataUrl : null
+    return url && url.length > 0
+  }).length
   const exercise = asRecord(report.exercise)
   const exerciseSlug = String(exercise?.id ?? '').toLowerCase() || 'squat'
+  const analyzerName = details && typeof details.analyzer === 'string' ? details.analyzer : null
+  void analyzerName
   const topIssueCards = buildTopIssueCards({
     issues,
     repFindings: repFindingsProblem,
@@ -80,9 +90,9 @@ export function ReportVisualization(props: { report: PoseAnalysisReport }) {
           <div className="pose-report-title">Top Issues</div>
           {topIssueCards.length === 0 ? (
             totalReps === 0 ? (
-              <div className="pose-muted-copy">No reps detected yet. Check camera angle and ensure a full rep cycle is captured.</div>
+              <div className="pose-muted-copy">No reps detected yet. For best results: record from hip height, keep your full body visible, and use good front lighting.</div>
             ) : (
-              <div className="pose-muted-copy">No obvious issues detected</div>
+              <div className="pose-muted-copy">No obvious issues detected — your form looks consistent. Keep up the good work.</div>
             )
           ) : null}
           <div className="pose-report-issue-list">
@@ -102,9 +112,9 @@ export function ReportVisualization(props: { report: PoseAnalysisReport }) {
           <div className="pose-report-title">What To Fix</div>
           {suggestions.length === 0 ? (
             totalReps === 0 ? (
-              <div className="pose-muted-copy">No rep-level suggestions because no complete reps were detected.</div>
+              <div className="pose-muted-copy">No suggestions yet — the analyzer needs at least one complete rep to give targeted advice.</div>
             ) : (
-              <div className="pose-muted-copy">No suggestions</div>
+              <div className="pose-muted-copy">No specific fixes flagged — your technique looks solid. Keep filming to track progress over time.</div>
             )
           ) : null}
           <ol className="pose-report-suggestions">
@@ -117,66 +127,85 @@ export function ReportVisualization(props: { report: PoseAnalysisReport }) {
 
       {totalReps === 0 ? (
         <div className="pose-report-card pose-report-highlight pose-report-highlight-soft">
-          <div className="pose-report-title">Rep Findings</div>
+          <div className="pose-report-title">Key Issues</div>
           <div className="pose-report-highlight-body">
             <strong>No reps detected.</strong>
-            <p>Try recording with a clearer camera angle, keep the full body visible, and capture the full movement range.</p>
+            <p>Try recording again with these tips: place the camera at hip height, keep 2-3 meters away, ensure your full body is visible, and use even front lighting. A side view works best for squats and push-ups.</p>
           </div>
         </div>
       ) : repFindings.length > 0 ? (
         repFindingsNotable.length > 0 ? (
-          <div className="pose-report-card">
-            <div className="pose-report-title">Rep Findings</div>
-            <div className="pose-report-issue-list">
-              {visibleFindings.map((item, index) => {
-                const repNo = typeof item.repNumber === 'number' ? item.repNumber : index + 1
-                const result = String(item.result ?? 'invalid')
-                const primaryIssue = String(item.primaryIssue ?? 'No detail')
-                const reasons = Array.isArray(item.reasons) ? item.reasons.filter((x): x is string => typeof x === 'string') : []
-                const tierRaw = typeof item.tier === 'string' ? item.tier : null
-                const tMs = pickMetricNumber(item.tMs)
-                const leadHuman = mapPoseFeedbackMessage({ exerciseSlug, message: primaryIssue })
-                const tier =
-                  tierRaw === 'gate' || tierRaw === 'warning' || tierRaw === 'issue' || tierRaw === 'rep_fail'
-                    ? tierRaw
-                    : result === 'incorrect'
-                      ? 'rep_fail'
-                      : result === 'invalid'
-                        ? 'gate'
-                        : leadHuman.tier
-                const lead = leadHuman.label
-                const moreReasons = reasons
-                  .map((reason) => mapPoseFeedbackMessage({ exerciseSlug, message: reason }).label)
-                  .filter((reason, reasonIndex, all) => !!reason && all.indexOf(reason) === reasonIndex && reason !== lead)
-                const snapshotDataUrl = typeof item.snapshotDataUrl === 'string' ? item.snapshotDataUrl : null
-                return (
-                  <div key={`${repNo}-${index}`} className="pose-report-finding">
-                    <div className="pose-report-finding__thumb">
-                      {snapshotDataUrl ? <img src={snapshotDataUrl} alt={`Rep ${repNo} snapshot`} loading="lazy" /> : <div className="pose-report-finding__thumb-placeholder" />}
-                    </div>
-                    <div className="pose-report-finding__body">
-                      <div className="pose-report-issue-head">
-                        <strong>{`Rep ${repNo}`}</strong>
-                        <span className={`pose-tier-pill pose-tier-${tier}`}>{poseTierLabel(tier)}</span>
+          visualFindings.length > 0 ? (
+            <div className="pose-report-card">
+              <div className="pose-report-title">Key Issues</div>
+              <div className="pose-report-issue-list">
+                {visualFindings.map((item, index) => {
+                  const repNo = typeof item.repNumber === 'number' ? item.repNumber : index + 1
+                  const result = String(item.result ?? 'invalid')
+                  const primaryIssue = String(item.primaryIssue ?? 'No detail')
+                  const reasons = Array.isArray(item.reasons) ? item.reasons.filter((x): x is string => typeof x === 'string') : []
+                  const tierRaw = typeof item.tier === 'string' ? item.tier : null
+                  const tMs = pickMetricNumber(item.tMs)
+                  const leadHuman = mapPoseFeedbackMessage({ exerciseSlug, message: primaryIssue })
+                  const tier =
+                    tierRaw === 'gate' || tierRaw === 'warning' || tierRaw === 'issue' || tierRaw === 'rep_fail'
+                      ? tierRaw
+                      : result === 'incorrect'
+                        ? 'rep_fail'
+                        : result === 'invalid'
+                          ? 'gate'
+                          : leadHuman.tier
+                  const lead = leadHuman.label
+                  const moreReasons = reasons
+                    .map((reason) => mapPoseFeedbackMessage({ exerciseSlug, message: reason }).label)
+                    .filter((reason, reasonIndex, all) => !!reason && all.indexOf(reason) === reasonIndex && reason !== lead)
+                  const snapshotDataUrl = typeof item.snapshotDataUrl === 'string' ? item.snapshotDataUrl : null
+                  return (
+                    <div key={`${repNo}-${index}`} className="pose-report-finding">
+                      <div className="pose-report-finding__thumb">
+                        {snapshotDataUrl ? <img src={snapshotDataUrl} alt={`Rep ${repNo} snapshot`} loading="lazy" /> : <div className="pose-report-finding__thumb-placeholder" />}
                       </div>
-                      <span>{lead}</span>
-                      {tMs !== null ? <span>{`Seen at ${formatClock(tMs)}`}</span> : null}
-                      {moreReasons.length > 0 ? <span>{`Also noticed: ${moreReasons.join(', ')}`}</span> : null}
+                      <div className="pose-report-finding__body">
+                        <div className="pose-report-issue-head">
+                          <strong>{`Rep ${repNo}`}</strong>
+                          <span className={`pose-tier-pill pose-tier-${tier}`}>{poseTierLabel(tier)}</span>
+                        </div>
+                        <span>{lead}</span>
+                        {tMs !== null ? <span>{`Seen at ${formatClock(tMs)}`}</span> : null}
+                        {moreReasons.length > 0 ? <span>{`Also: ${moreReasons.join(', ')}`}</span> : null}
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
+              {visualTotal > visualFindings.length ? (
+                <div className="pose-muted-copy">{`Showing ${visualFindings.length} of ${visualTotal} key issues`}</div>
+              ) : null}
             </div>
-            {repFindingsNotable.length > maxFindingCards ? (
-              <div className="pose-muted-copy">{`Showing ${maxFindingCards} of ${repFindingsNotable.length} findings`}</div>
-            ) : null}
-          </div>
+          ) : (
+            <div className="pose-report-card pose-report-highlight pose-report-highlight-soft">
+              <div className="pose-report-title">Key Issues</div>
+              <div className="pose-report-highlight-body">
+                {repFindingsNotable.some((item) => String(item.result ?? 'invalid') !== 'correct') ? (
+                  <>
+                    <strong>Snapshots not available</strong>
+                    <p>Issues were detected but frame snapshots could not be captured. Try re-running the analysis or check the timeline chart for more detail.</p>
+                  </>
+                ) : (
+                  <>
+                    <strong>Nice work.</strong>
+                    <p>All scored reps passed the form check with no issues. Keep the same technique and film again later to track your consistency.</p>
+                  </>
+                )}
+              </div>
+            </div>
+          )
         ) : (
           <div className="pose-report-card pose-report-highlight pose-report-highlight-good">
-            <div className="pose-report-title">Rep Findings</div>
+            <div className="pose-report-title">Key Issues</div>
             <div className="pose-report-highlight-body">
               <strong>Nice work.</strong>
-              <p>All assessed reps passed the form check. Keep the same control and camera setup next time.</p>
+              <p>All scored reps passed the form check with no issues. Keep the same technique and film again later to track your consistency.</p>
             </div>
           </div>
         )
@@ -205,7 +234,6 @@ export function ReportVisualization(props: { report: PoseAnalysisReport }) {
         </div>
       ) : null}
 
-      {timeline.length > 0 ? <PoseReportTimeline timeline={timeline} series={timelineSeries} formatLabel={prettyMetricName} /> : null}
     </div>
   )
 }

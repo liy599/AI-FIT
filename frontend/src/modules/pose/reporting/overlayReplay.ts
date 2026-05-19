@@ -47,7 +47,20 @@ export function buildOfflineOverlayFrames(input: {
     const candidates: Array<{ sourceRank: number; message: string; isGate: boolean }> = []
     if (args.distanceText) candidates.push({ sourceRank: 10, message: args.distanceText, isGate: true })
     for (const reason of f?.lastRepReasonLabels ?? []) candidates.push({ sourceRank: 4, message: reason, isGate: false })
-    if (f?.lastRepMessage) candidates.push({ sourceRank: 3, message: f.lastRepMessage, isGate: false })
+    if (f?.lastRepMessage) {
+      const lower = f.lastRepMessage.toLowerCase()
+      const hasOtherSignals =
+        (f?.lastRepReasonLabels?.length ?? 0) > 0 || (f?.issues?.length ?? 0) > 0 || ((f?.warnings as unknown[] | undefined)?.length ?? 0) > 0
+      const isGenericRepFail = lower.startsWith('rep failed')
+      if (
+        !lower.startsWith('rep completed') &&
+        !lower.startsWith('rep passed') &&
+        !lower.startsWith('rep counted') &&
+        !(isGenericRepFail && hasOtherSignals)
+      ) {
+        candidates.push({ sourceRank: 3, message: f.lastRepMessage, isGate: false })
+      }
+    }
     for (const issue of f?.issues ?? []) candidates.push({ sourceRank: 2, message: issue.message, isGate: false })
     for (const warn of (f?.warnings as unknown[] | undefined) ?? []) {
       const msg = getWarningMessage(warn)
@@ -58,6 +71,14 @@ export function buildOfflineOverlayFrames(input: {
     const mapped = candidates
       .map((c) => ({ ...c, message: (c.message ?? '').trim() }))
       .filter((c) => c.message && !seen.has(c.message) && (seen.add(c.message), true))
+      .filter((c) => {
+        if (args.exerciseSlug !== 'bent-over-row') return true
+        const lower = c.message.toLowerCase()
+        if (lower.includes('excessive torso lean')) return false
+        if (lower.includes('torso leaning')) return false
+        if (lower.includes('torso sway')) return false
+        return true
+      })
       .map((c) => ({ ...c, human: mapPoseFeedbackMessage({ exerciseSlug: args.exerciseSlug, message: c.message }) }))
 
     if (mapped.length === 0) return { main: null, gate: null }

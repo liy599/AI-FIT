@@ -18,6 +18,7 @@ import {
 import { deleteBlogById, deleteComment as deleteBlogComment, resolveBlogMediaUrl, updateBlog } from '../../modules/blog'
 import { useAuth } from '../../state/auth-context'
 import type { MyBlog, ProfileEditState, UserProfile } from '../../modules/user/profileTypes'
+import { validateHeightCm, validateWeightKg } from '../../modules/user/profileLimits'
 import { formatYmdLocal, pad2, startOfWeek } from '../../modules/user/profileDate'
 import { ProfileDetailsPanel } from '../../components/user/ProfileDetailsPanel'
 import { UserCommunityPanel } from '../../components/user/UserCommunityPanel'
@@ -325,22 +326,22 @@ export default function ProfilePage() {
 
       let nextHeight: number | null = null
       if (edit.height) {
-        const h = Number(edit.height)
-        if (!Number.isFinite(h) || h < 50 || h > 260) {
-          setError('Invalid height')
+        const result = validateHeightCm(edit.height)
+        if (result.error) {
+          setError(result.error)
           return
         }
-        nextHeight = h
+        nextHeight = result.value
       }
 
       let nextWeight: number | null = null
       if (edit.weight) {
-        const w = Number(edit.weight)
-        if (!Number.isFinite(w) || w < 20 || w > 400) {
-          setError('Invalid weight')
+        const result = validateWeightKg(edit.weight)
+        if (result.error) {
+          setError(result.error)
           return
         }
-        nextWeight = w
+        nextWeight = result.value
       }
 
       const p = await updateMyProfile<UserProfile>({
@@ -457,8 +458,8 @@ export default function ProfilePage() {
       <div className="profile-section-switch">
         {(
           [
-            { key: 'Dashboard', label: 'Exercise', detail: 'Training history, pose reports, and weekly activity.', icon: 'fa-light fa-calendar' },
-            { key: 'Blogs', label: 'Blogs', detail: 'Posts, comments, and community notifications.', icon: 'fa-light fa-pen' }
+            { key: 'Dashboard', label: 'Training Records', detail: 'Pose analyses, saved reports, and blog-ready training insights.', icon: 'fa-light fa-calendar' },
+            { key: 'Blogs', label: 'Blog Management', detail: 'Records, experience posts, comments, and notifications.', icon: 'fa-light fa-pen' }
           ] as const
         ).map((t) => (
           <button

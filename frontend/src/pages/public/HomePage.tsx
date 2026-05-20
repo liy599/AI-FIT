@@ -1,8 +1,9 @@
 ﻿import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { formatLongDate, getBlogTagLabels, HomeBlogTagPills } from '../../components/blog/BlogListParts'
 import { FallbackImage } from '../../components/ui'
 import { TrainingInsightsPanel } from '../../components/user/ExerciseDashboardPanel'
-import { displayBlogTagName, getBlogs, resolveBlogMediaUrl, type BlogCard } from '../../modules/blog'
+import { getBlogs, resolveBlogMediaUrl, type BlogCard } from '../../modules/blog'
 import { listPoseTrainings, type PoseTrainingSession } from '../../modules/pose'
 import { formatYmdLocal } from '../../modules/user/profileDate'
 import { useAuth } from '../../state/auth-context'
@@ -31,15 +32,17 @@ const HERO_SLIDES = [
   { src: '/assets/images/hero/hero_slide_4.jpg', label: 'Active recovery' }
 ] as const
 
-const DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
-  year: 'numeric',
-  month: 'short',
-  day: 'numeric'
-})
-
 // Build card image fallback based on card position
 function fallbackBlogImage(index: number) {
   return `/assets/images/blog/h2_${(index % 9) + 1}.png`
+}
+
+function formatFeaturedBlogExcerpt(value: string) {
+  return value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join('\n')
 }
 
 // Main homepage component
@@ -67,7 +70,7 @@ export default function HomePage() {
     setBlogsLoading(true)
     setBlogsError(null)
 
-    getBlogs({ page: 1, page_size: 8, auth: false, sort_by: 'view_count', sort_dir: 'desc' })
+    getBlogs({ page: 1, page_size: 8, auth: false, sort_by: 'view_count', sort_dir: 'desc', type: 'Experience' })
       .then((r) => {
         if (cancelled) return
         setBlogs(r.items)
@@ -189,31 +192,44 @@ export default function HomePage() {
   const row2 = featuredBlogs.slice(3, 6)
   const trainingInsightsPath = '/profile?tab=Dashboard#training-insights'
   const trainingInsightsLink = auth.user ? trainingInsightsPath : `/login?from=${encodeURIComponent(trainingInsightsPath)}`
+  const createBlogPath = '/blogs/new'
+  const createBlogLink = auth.user ? createBlogPath : `/login?from=${encodeURIComponent(createBlogPath)}`
 
   // Render a single blog card row
   function renderBlogRow(items: BlogCard[], rowOffset: number) {
     return items.map((b, idx) => {
-      const tagLabel = b.tags[0]?.name ? displayBlogTagName(b.tags[0].name) : 'AI FitGuard'
+      const tagLabels = getBlogTagLabels(b)
       const fallbackSrc = fallbackBlogImage(idx + rowOffset)
       const img = resolveMediaUrl(b.cover_image_url) ?? fallbackSrc
       return (
         <article className="cl_home-blog-card" key={b.id}>
           <Link to={`/blogs/${b.id}`} className="cl_home-blog-card-media">
             <FallbackImage src={img} fallbackSrc={fallbackSrc} alt={b.title} loading="lazy" />
-            <span className="cl_home-blog-card-tag">{tagLabel}</span>
+            <HomeBlogTagPills labels={tagLabels} fallback="AI FitGuard" />
           </Link>
           <div className="cl_home-blog-card-body">
             <h3 className="cl_home-blog-card-title">
               <Link to={`/blogs/${b.id}`}>{b.title}</Link>
             </h3>
-            <p className="cl_home-blog-card-excerpt">{b.excerpt}</p>
+            <p className="cl_home-blog-card-excerpt">{formatFeaturedBlogExcerpt(b.excerpt)}</p>
             <div className="cl_home-blog-card-meta">
-              <span>By {b.author.username}</span>
-              <span>{DATE_FORMATTER.format(new Date(b.created_at))}</span>
+              <div className="flex items-center gap-2">
+                <img src="/figma/icon-user.svg" alt="" className="h-3.5 w-3.5" />
+                <span>{b.author.username}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <img src="/figma/icon-calendar.svg" alt="" className="h-3.5 w-3.5" />
+                <span>{formatLongDate(b.created_at)}</span>
+              </div>
             </div>
-            <Link to={`/blogs/${b.id}`} className="cl_home-blog-card-cta">
-              Read more <Arrow15 />
-            </Link>
+            <div className="mt-auto pt-5">
+              <Link
+                to={`/blogs/${b.id}`}
+                className="blog-theme-btn inline-flex h-10 w-full items-center justify-center rounded-full border border-neutral-900 bg-white px-5 text-sm font-medium text-neutral-900 transition-colors hover:bg-neutral-900 hover:text-white"
+              >
+                Read more
+              </Link>
+            </div>
           </div>
         </article>
       )
@@ -238,7 +254,10 @@ export default function HomePage() {
             </div>
             <div className="cl_hero-carousel-overlay" aria-hidden="true" />
             <div className="cl_hero-content">
-              <h1>Train smarter.</h1>
+              <h1>
+                <span>Train smarter.</span>
+                <span>Share progress.</span>
+              </h1>
               <div className="cl_hero-content-btn">
                 <Link to="/tools/pose" className="cl_theme-btn cl_hero-btn">
                   Start Pose Coaching <Arrow15 />
@@ -329,8 +348,8 @@ export default function HomePage() {
               <p className="cl_home-blogs-empty-text">
                 Create and publish a blog post in your profile, then come back here to see it.
               </p>
-              <Link to="/profile" className="cl_home-blogs-empty-cta">
-                Create one <Arrow15 />
+              <Link to={createBlogLink} className="cl_home-blogs-empty-cta">
+                Write a post <Arrow15 />
               </Link>
             </div>
           ) : (

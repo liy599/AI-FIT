@@ -346,13 +346,7 @@ def forgot_password():
 
     user = User.query.filter_by(email=email).first()
     if user is None:
-        email_enabled = is_email_delivery_configured()
-        debug_return_code = bool(current_app.config.get("PASSWORD_RESET_DEBUG_RETURN_LINK", False))
-        if debug_return_code:
-            return jsonify({"ok": True, "email_sent": False})
-        if not email_enabled:
-            return jsonify({"error": "email delivery not configured"}), 500
-        return jsonify({"ok": True, "email_sent": True})
+        return jsonify({"error": "email not found"}), 404
 
     row = PasswordResetCode.query.filter_by(email=email).first()
     sent_at = _utcnow_seconds()

@@ -26,8 +26,14 @@ MAX_BLOG_CONTENT_LENGTH = 4000
 BLOG_TAG_ALIASES = {
     "Diet": ("Diet", "Nutrition", "\u996e\u98df"),
     "Training": ("Training", "Fitness Tips", "Training Plan", "\u8bad\u7ec3"),
+    "Record": ("Record", "Log"),
+    "Log": ("Record", "Log"),
+    "Experience": ("Experience",),
     "Other": ("Other", "Rehab", "\u5176\u5b83"),
 }
+BLOG_TOPIC_TAGS = {"Diet", "Training"}
+BLOG_POST_TYPE_TAGS = {"Record", "Experience"}
+BLOG_POST_TYPE_FILTER_TAGS = BLOG_POST_TYPE_TAGS | {"Log"}
 BLOG_VISIBILITIES = {"public", "private"}
 MAX_BLOG_IMAGES = 9
 
@@ -147,6 +153,25 @@ def _tag_filter_names(values: list[str]) -> set[str]:
     return names
 
 
+def _validate_blog_tag_selection(tag_ids) -> tuple[list[Tag], str | None]:
+    try:
+        ids = [int(t) for t in (tag_ids or [])]
+    except (TypeError, ValueError):
+        return [], "category required"
+    if not ids:
+        return [], "category required"
+
+    tags = Tag.query.filter(Tag.id.in_(ids)).all()
+    names = {"Record" if tag.name == "Log" else tag.name for tag in tags}
+    if len(tags) != len(set(ids)):
+        return [], "category required"
+    if len(names & BLOG_TOPIC_TAGS) != 1:
+        return [], "choose one topic"
+    if len(names & BLOG_POST_TYPE_TAGS) != 1:
+        return [], "choose one post type"
+    return tags, None
+
+
 def _blog_status(blog: Blog) -> str:
     if bool(blog.is_published) and blog.moderation_status == "active":
         return "published"
@@ -241,16 +266,23 @@ def list_blogs():
     page, page_size = parse_pagination(request.args, default_page_size=12)
     query_text = (request.args.get("q") or "").strip()
     tag_ids = request.args.getlist("tag")
+    post_type = (request.args.get("type") or "").strip()
     sort_by = (request.args.get("sort_by") or "created_at").strip()
     sort_dir = (request.args.get("sort_dir") or "desc").strip().lower()
 
-    q = Blog.query.filter(Blog.is_published.is_(True), Blog.moderation_status == "active", Blog.visibility == "public")
+    q = Blog.query.join(Blog.author).filter(Blog.is_published.is_(True), Blog.moderation_status == "active", Blog.visibility == "public")
     if query_text:
-        q = q.filter(or_(Blog.title.ilike(f"%{query_text}%"), Blog.content.ilike(f"%{query_text}%")))
+        q = q.filter(or_(Blog.title.ilike(f"%{query_text}%"), User.username.ilike(f"%{query_text}%")))
     if tag_ids:
         tag_names = _tag_filter_names(tag_ids)
         if tag_names:
             q = q.filter(Blog.tags.any(BlogTag.tag.has(Tag.name.in_(tag_names))))
+        else:
+            q = q.filter(Blog.id == -1)
+    if post_type:
+        post_type_names = _tag_filter_names([post_type])
+        if post_type_names & BLOG_POST_TYPE_TAGS:
+            q = q.filter(Blog.tags.any(BlogTag.tag.has(Tag.name.in_(post_type_names & BLOG_POST_TYPE_FILTER_TAGS))))
         else:
             q = q.filter(Blog.id == -1)
 
@@ -353,8 +385,9 @@ def create_blog():
     validation_error = _validate_blog_text(title, content)
     if validation_error:
         return jsonify({"error": validation_error}), 400
-    if not tag_ids:
-        return jsonify({"error": "category required"}), 400
+    tags, tag_error = _validate_blog_tag_selection(tag_ids)
+    if tag_error:
+        return jsonify({"error": tag_error}), 400
 
     blog = Blog(
         user_id=user_id,
@@ -370,13 +403,8 @@ def create_blog():
     db.session.add(blog)
     db.session.flush()
 
-    if tag_ids:
-        tags = Tag.query.filter(Tag.id.in_([int(t) for t in tag_ids])).all()
-        if not tags:
-            db.session.rollback()
-            return jsonify({"error": "category required"}), 400
-        for t in tags:
-            db.session.add(BlogTag(blog_id=blog.id, tag_id=t.id))
+    for t in tags:
+        db.session.add(BlogTag(blog_id=blog.id, tag_id=t.id))
 
     db.session.commit()
     return jsonify({"id": blog.id}), 201
@@ -430,13 +458,10 @@ def update_blog(blog_id: int):
             blog.moderation_status = "active"
             blog.moderation_restore_requested = False
     if "tag_ids" in data:
-        tag_ids = [int(t) for t in (data.get("tag_ids") or [])]
-        if not tag_ids:
-            return jsonify({"error": "category required"}), 400
+        tags, tag_error = _validate_blog_tag_selection(data.get("tag_ids"))
+        if tag_error:
+            return jsonify({"error": tag_error}), 400
         BlogTag.query.filter_by(blog_id=blog.id).delete()
-        tags = Tag.query.filter(Tag.id.in_(tag_ids)).all()
-        if not tags:
-            return jsonify({"error": "category required"}), 400
         for t in tags:
             db.session.add(BlogTag(blog_id=blog.id, tag_id=t.id))
 

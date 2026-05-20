@@ -57,6 +57,17 @@ def _blog_image_urls(blog: Blog) -> list[str]:
     return available_public_media_urls(urls)
 
 
+def _my_blog_excerpt(content: str | None) -> str:
+    lines = [
+        " ".join(line.split())
+        for line in (content or "").replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    ]
+    lines = [line for line in lines if line]
+    if not lines:
+        return ""
+    return "\n".join(line[:120] for line in lines[:2])
+
+
 def _user_public(u: User):
     return {
         "id": u.id,
@@ -119,13 +130,13 @@ def update_profile():
             return jsonify({"error": "invalid fitness_goal"}), 400
 
     if "height" in data:
-        num, err = _parse_number(data.get("height"), field="height", min_value=50, max_value=260)
+        num, err = _parse_number(data.get("height"), field="height", min_value=100, max_value=250)
         if err:
             return jsonify({"error": err}), 400
         user.height = num
 
     if "weight" in data:
-        num, err = _parse_number(data.get("weight"), field="weight", min_value=20, max_value=400)
+        num, err = _parse_number(data.get("weight"), field="weight", min_value=30, max_value=250)
         if err:
             return jsonify({"error": err}), 400
         user.weight = num
@@ -205,7 +216,7 @@ def my_blogs():
 
     q = Blog.query.filter_by(user_id=user_id)
     if query_text:
-        q = q.filter(or_(Blog.title.ilike(f"%{query_text}%"), Blog.content.ilike(f"%{query_text}%")))
+        q = q.filter(Blog.title.ilike(f"%{query_text}%"))
     if status == "published":
         q = q.filter(Blog.is_published.is_(True), Blog.moderation_status == "active")
     elif status == "draft":
@@ -232,7 +243,7 @@ def my_blogs():
                     "title": b.title,
                     "cover_image_url": public_media_url_or_none(b.cover_image_url) or (_blog_image_urls(b)[0] if _blog_image_urls(b) else None),
                     "image_urls": _blog_image_urls(b),
-                    "excerpt": (b.content or "")[:160],
+                    "excerpt": _my_blog_excerpt(b.content),
                     "is_published": b.is_published,
                     "status": _blog_status(b),
                     "visibility": b.visibility,

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { getBlogCover } from '../../components/blog/BlogListParts'
+import { getBlogCover, getBlogTagLabels } from '../../components/blog/BlogListParts'
 import { FallbackImage } from '../../components/ui'
 import {
   createBlogComment,
@@ -72,7 +72,7 @@ function CommentItem(props: {
   meId: number | null
   targetCommentId?: number | null
   depth?: number
-  onReload: () => void
+  onReload: () => Promise<void>
   onLikeUpdate: (commentId: number, liked: boolean, likeCount: number) => void
   onError: (message: string) => void
   onNotice: (message: string) => void
@@ -124,9 +124,10 @@ function CommentItem(props: {
       await createBlogComment(props.node.blog_id, { content: normalizeComment(replyText), parent_id: replyParentId })
       setReplyText('')
       setReplying(false)
+      if (!isReply) setRepliesOpen(true)
       setLocalError(null)
       setLocalNotice('Reply posted.')
-      props.onReload()
+      await props.onReload()
     } catch (e: unknown) {
       setLocalNotice(null)
       setLocalError(e instanceof Error ? e.message : 'Reply failed')
@@ -518,8 +519,12 @@ export default function BlogDetailPage() {
                           fetchPriority="high"
                           decoding="async"
                         />
-                        {blog.tags[0]?.name ? (
-                          <span className="cl_blog_details-content-img-tag blog-category-pill">{displayBlogTagName(blog.tags[0].name)}</span>
+                        {getBlogTagLabels(blog).length ? (
+                          <div className="cl_blog_details-content-img-tag-group">
+                            {getBlogTagLabels(blog).map((tag) => (
+                              <span className="cl_blog_details-content-img-tag blog-category-pill" key={tag}>{tag}</span>
+                            ))}
+                          </div>
                         ) : null}
                       </div>
                       <h3 className="cl_blog_details-content-title section-stack-sm blog-break-text">{blog.title}</h3>
@@ -686,7 +691,7 @@ export default function BlogDetailPage() {
                           blogAuthorId={blog.author.id}
                           meId={meId}
                           targetCommentId={targetCommentId}
-                          onReload={() => load().catch(() => {})}
+                          onReload={load}
                           onLikeUpdate={updateCommentLike}
                           onError={setError}
                           onNotice={showNotice}

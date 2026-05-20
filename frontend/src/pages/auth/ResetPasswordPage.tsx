@@ -35,6 +35,7 @@ export default function ResetPasswordPage() {
   const [confirmNewPassword, setConfirmNewPassword] = useState('')
   const [busyAction, setBusyAction] = useState<'send' | 'verify' | 'submit' | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const [ok, setOk] = useState(false)
   const [verifiedResetEmail, setVerifiedResetEmail] = useState<string | null>(null)
 
@@ -48,6 +49,7 @@ export default function ResetPasswordPage() {
 
   async function sendCode() {
     setError(null)
+    setNotice(null)
     if (busy) return
     const e = normalizedEmail
     if (!e) {
@@ -64,7 +66,12 @@ export default function ResetPasswordPage() {
     setBusyAction('send')
     try {
       const r = await requestPasswordReset(e)
-      if (r.reset_code) setCode(String(r.reset_code))
+      if (r.reset_code) {
+        setCode(String(r.reset_code))
+        setNotice('Reset code generated. Use the filled verification code to continue.')
+      } else {
+        setNotice('Reset code sent. Please check your email.')
+      }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Request failed'
       if (msg === 'email not found') {
@@ -87,6 +94,7 @@ export default function ResetPasswordPage() {
 
   async function verifyCode() {
     setError(null)
+    setNotice(null)
     if (busy) return
     const e = normalizedEmail
     const c = code.trim()
@@ -106,6 +114,7 @@ export default function ResetPasswordPage() {
     try {
       await verifyPasswordResetCode(e, c)
       setVerifiedResetEmail(e)
+      setNotice('Code verified. Set your new password.')
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Verification failed'
       if (msg === 'code expired') {
@@ -128,6 +137,7 @@ export default function ResetPasswordPage() {
 
   async function submit() {
     setError(null)
+    setNotice(null)
     if (busy) return
     const e = normalizedEmail
     const c = code.trim()
@@ -273,6 +283,11 @@ export default function ResetPasswordPage() {
                     {error ? (
                       <div>
                         <div className="cl_blog-widget cl_auth-alert cl_auth-alert--error mb-30">{error}</div>
+                      </div>
+                    ) : null}
+                    {notice ? (
+                      <div>
+                        <div className="cl_blog-widget cl_auth-alert cl_auth-alert--notice mb-30">{notice}</div>
                       </div>
                     ) : null}
                     {ok ? (

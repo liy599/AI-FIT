@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { formatLocalDateTimeMinute, parseApiDate } from '../../lib/datetime'
 import {
   buildPoseReportPath,
@@ -8,6 +8,7 @@ import {
   getPoseExercises,
   type PoseTrainingSession
 } from '../../modules/pose'
+import { humanizePoseReport } from '../../modules/pose/reporting'
 import { buildMonthCells, formatYmdLocal, pad2, startOfMonth, startOfWeek } from '../../modules/user/profileDate'
 
 const DAILY_SESSION_PAGE_SIZE = 3
@@ -824,16 +825,38 @@ function RecentPoseSessions(props: { sessions: PoseTrainingSession[]; onReload: 
 }
 
 function PoseSessionCard(props: { session: PoseTrainingSession; onDeleteSession: (session: PoseTrainingSession) => Promise<void> }) {
+  const navigate = useNavigate()
   const s = props.session
   const totalReps = s.sets.reduce((acc, item) => acc + (item.reps ?? 0), 0)
   const exerciseType = s.sets[0]?.exercise_type ?? 'squat'
   const exercise = getPoseExerciseByType(exerciseType)
+  const displayReport =
+    s.report && isRecord(s.report) && (isRecord(s.report.keyMetrics) || Array.isArray(s.report.issues) || Array.isArray(s.report.suggestions))
+      ? (humanizePoseReport(s.report as never) as unknown as Record<string, unknown>)
+      : s.report
   const recordName =
     s.note?.trim() ||
     buildTrainingRecordName({
       startedAt: s.started_at,
       exerciseName: exercise.displayName
     })
+
+  function writePostFromReport() {
+    if (!displayReport || !isRecord(displayReport)) return
+    navigate('/blogs/new', {
+      state: {
+        template: 'training',
+        reportDraft: buildProfileReportBlogDraft({
+          report: displayReport,
+          exerciseName: exercise.displayName,
+          startedAt: s.started_at,
+          endedAt: s.ended_at,
+          reps: totalReps
+        }),
+        reportPath: buildPoseReportPath(exercise.slug, s.id)
+      }
+    })
+  }
 
   return (
     <div className="profile-subpanel">
@@ -847,6 +870,11 @@ function PoseSessionCard(props: { session: PoseTrainingSession; onDeleteSession:
           <Link to={buildPoseReportPath(exercise.slug, s.id)} className="profile-btn-secondary">
             View Report
           </Link>
+          {displayReport && isRecord(displayReport) ? (
+            <button type="button" className="profile-btn-secondary" onClick={writePostFromReport}>
+              Write Post
+            </button>
+          ) : null}
           <button type="button" className="profile-btn-chip-danger" onClick={() => props.onDeleteSession(s).catch(() => {})}>
             Delete
           </button>
@@ -854,4 +882,48 @@ function PoseSessionCard(props: { session: PoseTrainingSession; onDeleteSession:
       </div>
     </div>
   )
+}
+
+function buildProfileReportBlogDraft(input: {
+  report: Record<string, unknown>
+  exerciseName: string
+  startedAt: string
+  endedAt: string | null
+  reps: number
+}) {
+  const keyMetrics = isRecord(input.report.keyMetrics) ? input.report.keyMetrics : {}
+  const accuracy = pickPercent(keyMetrics.formAccuracyPct ?? input.report.formAccuracyPct ?? input.report.accuracyPct)
+  const summary = typeof input.report.summary === 'string' ? input.report.summary.trim() : ''
+  const issues = Array.isArray(input.report.issues)
+    ? input.report.issues
+        .map((issue) => {
+          if (typeof issue === 'string') return issue.trim()
+          if (isRecord(issue) && typeof issue.message === 'string') return issue.message.trim()
+          return ''
+        })
+        .filter(Boolean)
+        .slice(0, 3)
+    : []
+  const suggestions = Array.isArray(input.report.suggestions)
+    ? input.report.suggestions
+        .map((suggestion) => (typeof suggestion === 'string' ? suggestion.trim() : ''))
+        .filter(Boolean)
+        .slice(0, 3)
+    : []
+
+  return {
+    exerciseName: input.exerciseName,
+    startedAt: input.startedAt,
+    endedAt: input.endedAt,
+    reps: input.reps,
+    accuracy,
+    summary,
+    issues,
+    suggestions
+  }
+}
+
+function pickPercent(value: unknown) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null
+  return `${Math.round(value)}%`
 }

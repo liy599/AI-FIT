@@ -65,11 +65,14 @@ export function displayBlogTagName(name: string) {
     'Fitness Tips': 'Training',
     'Training Plan': 'Training',
     Rehab: 'Other',
+    Log: 'Record',
+    Record: 'Record',
+    Experience: 'Experience',
   }
   return aliases[name] ?? name
 }
 
-export function getBlogs(params: { page?: number; page_size?: number; auth?: boolean; sort_by?: string; sort_dir?: 'asc' | 'desc' } = {}) {
+export function getBlogs(params: { page?: number; page_size?: number; auth?: boolean; sort_by?: string; sort_dir?: 'asc' | 'desc'; type?: 'Record' | 'Experience' } = {}) {
   const page = params.page ?? 1
   const pageSize = params.page_size ?? 20
   const auth = params.auth ?? true
@@ -78,6 +81,7 @@ export function getBlogs(params: { page?: number; page_size?: number; auth?: boo
   query.set('page_size', String(pageSize))
   if (params.sort_by) query.set('sort_by', params.sort_by)
   if (params.sort_dir) query.set('sort_dir', params.sort_dir)
+  if (params.type) query.set('type', params.type)
   return apiFetch<{ items: BlogCard[] }>(`/api/blogs?${query.toString()}`, { auth })
 }
 

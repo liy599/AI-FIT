@@ -5,6 +5,23 @@
   gap: 12px;
 }
 
+.profile-inline-field {
+  display: grid;
+  gap: 6px;
+}
+
+.profile-inline-field span {
+  color: #334155;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.profile-inline-field small {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 650;
+}
+
 .profile-edit-header-row {
   display: flex;
   align-items: center;
@@ -904,15 +921,19 @@
 }
 
 .profile-blog-excerpt {
-  display: -webkit-box;
   overflow: hidden;
   margin: 8px 0 0;
   color: #64748b;
   font-size: 0.75rem;
   line-height: 1.45;
-  overflow-wrap: anywhere;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  max-height: calc(1.45em * 2);
+}
+
+.profile-blog-excerpt-line {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .profile-blog-actions,

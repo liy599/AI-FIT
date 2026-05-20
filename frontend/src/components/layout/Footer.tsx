@@ -1,6 +1,9 @@
 ﻿import { Link } from 'react-router-dom'
+import { useAuth } from '../../state/auth-context'
 
 export default function Footer() {
+  const auth = useAuth()
+
   return (
     // Global site footer
     <footer className="cl_footer-area" aria-label="Site footer">
@@ -58,12 +61,16 @@ export default function Footer() {
               <div className="cl_footer-widget pb-20">
                 <h5 className="cl_footer-widget-title">Account</h5>
                 <ul aria-label="Account links">
-                  <li>
-                    <Link to="/login">Login</Link>
-                  </li>
-                  <li>
-                    <Link to="/register">Register</Link>
-                  </li>
+                  {!auth.user ? (
+                    <>
+                      <li>
+                        <Link to="/login">Login</Link>
+                      </li>
+                      <li>
+                        <Link to="/register">Register</Link>
+                      </li>
+                    </>
+                  ) : null}
                   <li>
                     <Link to="/profile">Profile</Link>
                   </li>

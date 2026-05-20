@@ -5,12 +5,11 @@ import { displayBlogTagName, getBlogTags, queryBlogs, type BlogCard, type BlogTa
 import { FallbackImage } from '../../components/ui'
 import { useAuth } from '../../state/auth-context'
 import {
-  estimateReadMinutes,
   FeaturedBlogGridCard,
   abbreviateBlogTitle,
   formatLongDate,
   getBlogCover,
-  getBlogTag,
+  getBlogTagLabels,
   TopViewedStack,
   useRevealOnScroll
 } from '../../components/blog/BlogListParts'
@@ -32,10 +31,18 @@ export default function BlogListPage() {
   const q = sp.get('q') ?? ''
   const page = Math.max(1, Number(sp.get('page') ?? '1') || 1)
   const sort = sp.get('sort') ?? 'created_at:desc'
+  const featuredType = sp.get('type') === 'Record' || sp.get('type') === 'Log' ? 'Record' : 'Experience'
   const tagValues = sp.getAll('tag')
   const tagKey = tagValues.join(',')
   const tagIds = useMemo(() => tagValues.map((x) => Number(x)).filter((x) => Number.isFinite(x)), [tagKey])
   const [sortBy, sortDir] = sort.split(':') as [string, 'asc' | 'desc']
+  const filterTags = useMemo(
+    () => tags.filter((tag) => {
+      const label = displayBlogTagName(tag.name)
+      return label !== 'Record' && label !== 'Experience'
+    }),
+    [tags]
+  )
 
   useEffect(() => {
     getBlogTags()
@@ -60,12 +67,13 @@ export default function BlogListPage() {
     p.set('page_size', '9')
     p.set('sort_by', sortBy)
     p.set('sort_dir', sortDir === 'asc' ? 'asc' : 'desc')
+    p.set('type', featuredType)
     if (q.trim()) p.set('q', q.trim())
     for (const t of tagIds) p.append('tag', String(t))
     return p.toString()
-  }, [page, q, sortBy, sortDir, tagIds])
+  }, [featuredType, page, q, sortBy, sortDir, tagIds])
 
-  const isDefaultBlogQuery = page === 1 && !q.trim() && tagIds.length === 0 && sortBy === 'created_at' && sortDir !== 'asc'
+  const isDefaultBlogQuery = page === 1 && !q.trim() && tagIds.length === 0 && featuredType === 'Experience' && sortBy === 'created_at' && sortDir !== 'asc'
 
   useEffect(() => {
     let cancelled = false
@@ -76,7 +84,6 @@ export default function BlogListPage() {
         if (cancelled) return
         setItems(r.items)
         setTotal(r.total)
-        if (isDefaultBlogQuery) setRecentItems(r.items.slice(0, 4))
       })
       .catch((e: unknown) => {
         if (cancelled) return
@@ -92,9 +99,9 @@ export default function BlogListPage() {
   }, [isDefaultBlogQuery, queryString])
 
   useEffect(() => {
-    if (isDefaultBlogQuery || recentItems.length) return
+    if (recentItems.length) return
     let cancelled = false
-    queryBlogs('page=1&page_size=4&sort_by=created_at&sort_dir=desc')
+    queryBlogs('page=1&page_size=4&sort_by=created_at&sort_dir=desc&type=Experience')
       .then((r) => {
         if (!cancelled) setRecentItems(r.items)
       })
@@ -102,12 +109,12 @@ export default function BlogListPage() {
     return () => {
       cancelled = true
     }
-  }, [isDefaultBlogQuery, recentItems.length])
+  }, [recentItems.length])
 
   useEffect(() => {
     let cancelled = false
     setTopViewedLoading(true)
-    queryBlogs('page=1&page_size=3&sort_by=view_count&sort_dir=desc')
+    queryBlogs('page=1&page_size=3&sort_by=view_count&sort_dir=desc&type=Experience')
       .then((r) => {
         if (!cancelled) setTopViewedItems(r.items)
       })
@@ -126,9 +133,17 @@ export default function BlogListPage() {
   const recent = recentItems
   const featured = items
   const activeRecent = recent[recentIndex] ?? recent[0] ?? null
-  const activeRecentTag = getBlogTag(activeRecent)
+  const activeRecentTags = activeRecent ? getBlogTagLabels(activeRecent) : []
   const totalPages = Math.max(1, Math.ceil(total / 9))
   const paginationItems = useMemo(() => buildPaginationItems(page, totalPages), [page, totalPages])
+
+  function formatRecentExcerpt(value: string) {
+    return value
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .join('\n')
+  }
 
   const recentReveal = useRevealOnScroll<HTMLElement>()
   const featuredReveal = useRevealOnScroll<HTMLElement>()
@@ -153,7 +168,7 @@ export default function BlogListPage() {
     setRecentIndex((current) => (current + direction + recent.length) % recent.length)
   }
 
-  function updateFilters(next: { q?: string; sort?: string; tagId?: number | null; page?: number }) {
+  function updateFilters(next: { q?: string; sort?: string; tagId?: number | null; page?: number; type?: 'Record' | 'Experience' }) {
     pendingScrollYRef.current = window.scrollY
     const params = new URLSearchParams(sp)
     if (next.q !== undefined) {
@@ -169,6 +184,10 @@ export default function BlogListPage() {
     if (next.tagId !== undefined) {
       params.delete('tag')
       if (next.tagId != null) params.append('tag', String(next.tagId))
+      params.set('page', '1')
+    }
+    if (next.type !== undefined) {
+      params.set('type', next.type)
       params.set('page', '1')
     }
     if (next.page !== undefined) {
@@ -243,7 +262,7 @@ export default function BlogListPage() {
 
           <div className="blog-list-hero-col-side">
             <div className="blog-list-hero-media-wrap">
-              <TopViewedStack blogs={topViewedItems} loading={topViewedLoading} />
+              <TopViewedStack blogs={topViewedItems} loading={topViewedLoading} emptyMessage="Published experience posts will appear here after readers start viewing them." />
             </div>
           </div>
         </div>
@@ -288,11 +307,13 @@ export default function BlogListPage() {
                         decoding="async"
                       />
                     </Link>
-                    {activeRecentTag ? (
+                    {activeRecentTags.length ? (
                       <div className="absolute left-5 top-5">
-                        <span className="blog-category-pill">
-                          {activeRecentTag}
-                        </span>
+                        <div className="blog-category-pill-group">
+                          {activeRecentTags.map((tag) => (
+                            <span className="blog-category-pill" key={tag}>{tag}</span>
+                          ))}
+                        </div>
                       </div>
                     ) : null}
                   </div>
@@ -301,11 +322,15 @@ export default function BlogListPage() {
                     <div className="text-xs font-semibold uppercase tracking-[0.12em] text-emerald-700">
                       Recent {recentIndex + 1} / {recent.length}
                     </div>
-                    <h3 className="blog-title-one-line mt-4 min-w-0 text-2xl font-semibold leading-tight tracking-tight text-neutral-900 sm:text-3xl md:text-4xl">
+                    <h3 className="blog-title-one-line blog-list-recent-title mt-4 min-w-0 font-semibold tracking-tight text-neutral-900">
                       <Link to={`/blogs/${activeRecent.id}`} title={activeRecent.title}>
                         {abbreviateBlogTitle(activeRecent.title, 44)}
                       </Link>
                     </h3>
+
+                    <p className="blog-list-recent-excerpt mt-4 text-sm leading-relaxed text-neutral-600">
+                      {formatRecentExcerpt(activeRecent.excerpt)}
+                    </p>
 
                     <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-neutral-500">
                       <div className="flex items-center gap-2">
@@ -316,16 +341,12 @@ export default function BlogListPage() {
                         <img src="/figma/icon-calendar.svg" alt="" className="h-3.5 w-3.5" />
                         <span>{formatLongDate(activeRecent.created_at)}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <img src="/figma/icon-clock.svg" alt="" className="h-3.5 w-3.5" />
-                        <span>{estimateReadMinutes(activeRecent.excerpt)} min read</span>
-                      </div>
                     </div>
 
                     <div className="mt-6">
                       <Link
                         to={`/blogs/${activeRecent.id}`}
-                        className="blog-theme-btn inline-flex h-11 items-center justify-center rounded-full bg-neutral-900 px-6 text-sm font-medium text-white"
+                        className="blog-theme-btn inline-flex h-10 w-full items-center justify-center rounded-full border border-neutral-900 bg-white px-5 text-sm font-medium text-neutral-900 transition-colors hover:bg-neutral-900 hover:text-white"
                       >
                         Read more
                       </Link>
@@ -352,8 +373,8 @@ export default function BlogListPage() {
                 ) : null}
               </>
             ) : (
-              <div className="blog-card-surface rounded-3xl p-8 text-sm text-neutral-500">
-                {loading ? 'Loading...' : 'No content'}
+              <div className="blog-card-surface blog-list-recent-empty">
+                {loading ? 'Loading...' : 'No experience posts yet.'}
               </div>
             )}
           </div>
@@ -362,10 +383,28 @@ export default function BlogListPage() {
 
       <section ref={featuredReveal.ref} className={`px-4 pt-16 md:pt-24 reveal${featuredReveal.visible ? ' visible' : ''}`}>
         <div className="mx-auto max-w-[1200px]">
-          <div className="flex flex-wrap items-center justify-between gap-6">
+          <div className="blog-list-featured-toolbar">
             <div>
-              <h2 className="text-lg font-semibold text-neutral-900">Featured Blogs</h2>
-              <span className="text-sm text-neutral-500">{total} total</span>
+              <div className="blog-list-featured-heading">
+                <h2 className="text-3xl font-semibold leading-tight tracking-tight text-neutral-900 md:text-4xl">Featured Blogs</h2>
+                <span>{total} total</span>
+              </div>
+              <div className="blog-list-type-toggle" aria-label="Featured blog type">
+                <button
+                  type="button"
+                  className={featuredType === 'Experience' ? 'is-active' : ''}
+                  onClick={() => updateFilters({ type: 'Experience' })}
+                >
+                  Experience
+                </button>
+                <button
+                  type="button"
+                  className={featuredType === 'Record' ? 'is-active' : ''}
+                  onClick={() => updateFilters({ type: 'Record' })}
+                >
+                  Record
+                </button>
+              </div>
             </div>
             <form
               className="blog-list-filterbar"
@@ -374,10 +413,10 @@ export default function BlogListPage() {
                 updateFilters({ q: searchDraft })
               }}
             >
-              <input value={searchDraft} onChange={(event) => setSearchDraft(event.target.value)} placeholder="Search blogs" />
+              <input value={searchDraft} onChange={(event) => setSearchDraft(event.target.value)} placeholder="Search blog titles or authors" />
               <select value={tagIds[0] ? String(tagIds[0]) : ''} onChange={(event) => updateFilters({ tagId: event.target.value ? Number(event.target.value) : null })}>
                 <option value="">All tags</option>
-                {tags.map((tag) => (
+                {filterTags.map((tag) => (
                   <option key={tag.id} value={tag.id}>{displayBlogTagName(tag.name)}</option>
                 ))}
               </select>
@@ -465,26 +504,13 @@ export default function BlogListPage() {
             </div>
 
             <div className="relative z-10 blog-list-join-col-side">
-              {hero ? (
-                <div className="blog-card-surface rounded-3xl p-3 text-neutral-900">
-                  <div className="blog-card-media relative overflow-hidden rounded-3xl aspect-[16/9]">
-                    <Link to={`/blogs/${hero.id}`} className="block h-full w-full">
-                      <FallbackImage
-                        className="absolute inset-0 h-full w-full object-cover"
-                        src={getBlogCover(hero)}
-                        fallbackSrc="/assets/images/blog/h2_1.png"
-                        alt={hero.title}
-                        loading="lazy"
-                        decoding="async"
-                      />
-                    </Link>
-                  </div>
-                  <h3 className="mt-4 text-base font-semibold leading-snug tracking-tight line-clamp-2">
-                    <Link to={`/blogs/${hero.id}`}>{hero.title}</Link>
-                  </h3>
-                  <div className="mt-2 text-xs text-neutral-500">{formatLongDate(hero.created_at)}</div>
-                </div>
-              ) : null}
+              <div className="blog-list-hero-media-wrap blog-list-join-stack-wrap">
+                <TopViewedStack
+                  blogs={topViewedItems.length ? topViewedItems : hero ? [hero] : []}
+                  loading={topViewedLoading}
+                  emptyMessage="Published experience posts will appear here after readers start viewing them."
+                />
+              </div>
             </div>
           </div>
         </div>

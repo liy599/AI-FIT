@@ -1,4 +1,5 @@
 import { apiFetch } from '../../lib/api'
+export { buildPaginationItems } from '../../lib/pagination'
 
 export type AdminUserItem = {
   id: number

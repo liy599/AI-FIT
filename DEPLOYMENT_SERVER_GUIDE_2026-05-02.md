@@ -1,6 +1,6 @@
 # AI-FIT VM HTTP Deployment Guide
 
-Last updated: 2026-05-18
+Last updated: 2026-05-21
 
 This guide deploys the current `main` branch to a VM with Docker Compose. The public entry is plain HTTP:
 
@@ -53,6 +53,7 @@ APP_ENV=production
 DB_AUTO_INIT=0
 SECRET_KEY=replace-with-at-least-32-random-characters
 JWT_SECRET_KEY=replace-with-at-least-32-random-characters
+DATA_ENCRYPTION_KEY=replace-with-fernet-key-generated-by-python-cryptography
 REDIS_URL=redis://redis:6379/0
 DATABASE_URL=postgresql+psycopg://app_user:replace-with-a-strong-password@db:5432/aifitguard
 FRONTEND_BASE_URL=http://137.43.49.50
@@ -69,6 +70,14 @@ AI_REPORT_TIMEOUT_SECONDS=20
 ```
 
 Use real secret values before starting production.
+
+Generate `DATA_ENCRYPTION_KEY` once and keep it stable for the lifetime of the database:
+
+```bash
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Do not rotate `DATA_ENCRYPTION_KEY` casually. It encrypts private account, profile, workout, training, and report data at rest. If the key is lost or changed without a planned re-encryption process, existing encrypted data cannot be decrypted.
 
 Validate the VM env files before starting or updating containers:
 
@@ -90,6 +99,7 @@ sh scripts/check-env.sh production
 docker-compose build backend web
 docker-compose up -d db redis
 
+docker-compose exec db pg_dump -U app_user -d aifitguard > backup-before-privacy-migration.sql
 docker-compose run --rm backend flask --app run.py db upgrade
 docker-compose run --rm backend python seed.py
 
@@ -109,6 +119,7 @@ sh scripts/check-env.sh production
 
 docker-compose build backend web
 docker-compose up -d db redis
+docker-compose exec db pg_dump -U app_user -d aifitguard > backup-before-upgrade.sql
 docker-compose run --rm backend flask --app run.py db upgrade
 docker-compose run --rm backend python seed.py
 docker-compose up -d db redis backend web
@@ -174,5 +185,20 @@ Production startup requires:
 - `DB_AUTO_INIT=0`
 - non-default `SECRET_KEY`
 - non-default `JWT_SECRET_KEY`
+- valid `DATA_ENCRYPTION_KEY`
 - explicit `CORS_ORIGINS`
 - `REDIS_URL=redis://redis:6379/0`
+
+### Privacy Migration and Encrypted Data
+
+Current production migrations encrypt private fields and remove plaintext columns for user email, profile data, workout notes, training notes, training set values, and training reports. The original training video remains browser-local; required report snapshots are stored only inside the encrypted report payload.
+
+Before running `flask db upgrade` on an existing deployment:
+
+1. Confirm `backend/.env` has a valid, stable `DATA_ENCRYPTION_KEY`.
+2. Back up the database.
+3. Run `sh scripts/check-env.sh production`.
+4. Run `docker-compose run --rm backend flask --app run.py db upgrade`.
+5. Do not start production containers if the migration fails.
+
+After migration, the database should no longer contain plaintext columns such as `users.email`, `training_sessions.note`, or `training_sets.reps`. Application APIs still return decrypted values to authorized users, so existing frontend workflows continue to work.

@@ -130,7 +130,7 @@ def test_pose_training_list_and_detail_with_date_filter(client):
 
 
 def test_pose_training_delete_own_session_only(client):
-    register_and_token(client, email="pose-delete-owner@example.com", username="pose-delete-owner")
+    register_and_token(client, email="pose-delete-owner@example.com", username="posedeleteown")
 
     response = client.post(
         "/api/pose/trainings",
@@ -146,11 +146,11 @@ def test_pose_training_delete_own_session_only(client):
     assert response.status_code == 201
     owner_session_id = response.get_json()["session"]["id"]
 
-    register_and_token(client, email="pose-delete-other@example.com", username="pose-delete-other")
+    register_and_token(client, email="pose-delete-other@example.com", username="posedeleteoth")
     denied = client.delete(f"/api/pose/trainings/{owner_session_id}", headers=auth_headers(client))
     assert denied.status_code == 404
 
-    register_and_token(client, email="pose-delete-owner-2@example.com", username="pose-delete-owner-2")
+    register_and_token(client, email="pose-delete-owner-2@example.com", username="posedelete2")
     own = client.post(
         "/api/pose/trainings",
         headers=auth_headers(client),

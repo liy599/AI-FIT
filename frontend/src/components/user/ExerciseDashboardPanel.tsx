@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { formatLocalDateTimeMinute, parseApiDate } from '../../lib/datetime'
 import {
   buildPoseReportPath,
   buildTrainingRecordName,
@@ -9,6 +8,7 @@ import {
   type PoseTrainingSession
 } from '../../modules/pose'
 import { humanizePoseReport } from '../../modules/pose/reporting'
+import { formatLocalDateTimeMinute, parseApiDate } from '../../modules/user'
 import { buildMonthCells, formatYmdLocal, pad2, startOfMonth, startOfWeek } from '../../modules/user/profileDate'
 
 const DAILY_SESSION_PAGE_SIZE = 3

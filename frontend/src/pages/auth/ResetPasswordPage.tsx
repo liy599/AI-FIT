@@ -24,6 +24,8 @@ function validatePassword(password: string, email: string, username: string) {
   return null
 }
 
+const RESET_CODE_SENT_NOTICE = 'If this email is registered, we will send a password reset code.'
+
 export default function ResetPasswordPage() {
   const [sp] = useSearchParams()
   const initialEmail = useMemo(() => sp.get('email') ?? '', [sp])
@@ -68,16 +70,12 @@ export default function ResetPasswordPage() {
       const r = await requestPasswordReset(e)
       if (r.reset_code) {
         setCode(String(r.reset_code))
-        setNotice('Reset code generated. Use the filled verification code to continue.')
+        setNotice(RESET_CODE_SENT_NOTICE)
       } else {
-        setNotice('Reset code sent. Please check your email.')
+        setNotice(RESET_CODE_SENT_NOTICE)
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Request failed'
-      if (msg === 'email not found') {
-        setError('Email not found.')
-        return
-      }
       if (msg === 'email delivery not configured') {
         setError('Password reset email is not configured on the server yet.')
         return
@@ -123,10 +121,6 @@ export default function ResetPasswordPage() {
       }
       if (msg === 'invalid code') {
         setError('Invalid verification code.')
-        return
-      }
-      if (msg === 'email not found') {
-        setError('Email not found.')
         return
       }
       setError(msg)
@@ -183,10 +177,6 @@ export default function ResetPasswordPage() {
       }
       if (msg === 'password too weak') {
         setError('Password is too weak. Use 8-20 chars and include letters and numbers.')
-        return
-      }
-      if (msg === 'email not found') {
-        setError('Email not found.')
         return
       }
       setError(msg)

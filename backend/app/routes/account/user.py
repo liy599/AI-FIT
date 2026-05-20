@@ -11,8 +11,8 @@ from sqlalchemy.orm import joinedload, load_only
 from ...extensions import db
 from ...models import Blog, Comment, Notification, User
 from ...utils.image_upload import save_public_image_upload
-from ...utils.media_url import available_public_media_urls, public_media_url_or_none
-from ...utils.pagination import parse_pagination
+from ...utils.media_url import available_public_media_urls, public_media_url_or_none, public_media_variant_url_or_none
+from ...utils.pagination import cursor_datetime, decode_cursor, encode_cursor, parse_pagination
 from ...utils.upload_access import resolve_upload_file_path
 from ..admin.users import _delete_user_associations, _remove_upload_files, _user_upload_file_paths
 
@@ -55,6 +55,34 @@ def _blog_image_urls(blog: Blog) -> list[str]:
         return []
     urls = [str(item) for item in parsed if isinstance(item, str) and item.strip()][:9]
     return available_public_media_urls(urls)
+
+
+def _blog_list_image_payload(blog: Blog) -> tuple[str | None, list[str]]:
+    image_urls = _blog_image_urls(blog)
+    display_urls = [public_media_variant_url_or_none(url, "list") or url for url in image_urls]
+    cover_url = public_media_variant_url_or_none(blog.cover_image_url, "list") or (display_urls[0] if display_urls else None)
+    return cover_url, display_urls
+
+
+def _coerce_blog_cursor_value(sort_by: str, value):
+    if sort_by in {"created_at", "updated_at"}:
+        return cursor_datetime(value)
+    return str(value) if value is not None else None
+
+
+def _apply_my_blog_cursor(query, column, *, sort_by: str, sort_dir: str, cursor: dict | None):
+    if not cursor:
+        return query
+    value = _coerce_blog_cursor_value(sort_by, cursor.get("value"))
+    try:
+        cursor_id = int(cursor.get("id"))
+    except (TypeError, ValueError):
+        cursor_id = None
+    if value is None or cursor_id is None:
+        return query
+    if sort_dir == "asc":
+        return query.filter(or_(column > value, and_(column == value, Blog.id < cursor_id)))
+    return query.filter(or_(column < value, and_(column == value, Blog.id < cursor_id)))
 
 
 def _my_blog_excerpt(content: str | None) -> str:
@@ -209,6 +237,7 @@ def upload_avatar():
 def my_blogs():
     user_id = int(get_jwt_identity())
     page, page_size = parse_pagination(request.args, default_page_size=10)
+    cursor = decode_cursor(request.args.get("cursor"))
     query_text = (request.args.get("q") or "").strip()
     status = (request.args.get("status") or "all").strip().lower()
     sort_by = (request.args.get("sort_by") or "updated_at").strip()
@@ -231,9 +260,16 @@ def my_blogs():
     }
     sort_column = sort_columns.get(sort_by, Blog.updated_at)
     order_expr = sort_column.asc() if sort_dir == "asc" else sort_column.desc()
-    q = q.order_by(order_expr, Blog.id.desc())
-    total = q.count()
-    items = q.offset((page - 1) * page_size).limit(page_size).all()
+    q = _apply_my_blog_cursor(q, sort_column, sort_by=sort_by, sort_dir=sort_dir, cursor=cursor).order_by(order_expr, Blog.id.desc())
+    total = None if cursor else q.count()
+    items = q.limit(page_size + 1).all() if cursor else q.offset((page - 1) * page_size).limit(page_size).all()
+    has_more = len(items) > page_size
+    items = items[:page_size]
+    last_item = items[-1] if has_more and items else None
+    last_value = getattr(last_item, sort_by, None) if last_item is not None else None
+    if hasattr(last_value, "isoformat"):
+        last_value = last_value.isoformat()
+    next_cursor = encode_cursor({"sort_by": sort_by, "value": last_value, "id": last_item.id}) if last_item is not None else None
 
     return jsonify(
         {
@@ -241,8 +277,8 @@ def my_blogs():
                 {
                     "id": b.id,
                     "title": b.title,
-                    "cover_image_url": public_media_url_or_none(b.cover_image_url) or (_blog_image_urls(b)[0] if _blog_image_urls(b) else None),
-                    "image_urls": _blog_image_urls(b),
+                    "cover_image_url": cover_image_url,
+                    "image_urls": image_urls,
                     "excerpt": _my_blog_excerpt(b.content),
                     "is_published": b.is_published,
                     "status": _blog_status(b),
@@ -252,10 +288,12 @@ def my_blogs():
                     "updated_at": b.updated_at.isoformat(),
                 }
                 for b in items
+                for cover_image_url, image_urls in [_blog_list_image_payload(b)]
             ],
             "page": page,
             "page_size": page_size,
             "total": total,
+            "next_cursor": next_cursor,
         }
     )
 
@@ -286,6 +324,7 @@ def _blog_status(blog: Blog) -> str:
 def my_comments():
     user_id = int(get_jwt_identity())
     page, page_size = parse_pagination(request.args, default_page_size=10)
+    cursor = decode_cursor(request.args.get("cursor"))
     query_text = (request.args.get("q") or "").strip()
     sort_by = (request.args.get("sort_by") or "latest_comment").strip()
     sort_dir = (request.args.get("sort_dir") or "desc").strip().lower()
@@ -308,7 +347,6 @@ def my_comments():
     if query_text:
         q = q.filter(or_(Comment.content.ilike(f"%{query_text}%"), Blog.title.ilike(f"%{query_text}%")))
 
-    total = db.session.query(func.count()).select_from(q.subquery()).scalar() or 0
     reverse = sort_dir != "asc"
     if sort_by == "title":
         order_expr = Blog.title.desc() if reverse else Blog.title.asc()
@@ -316,7 +354,33 @@ def my_comments():
         order_expr = func.count(Comment.id).desc() if reverse else func.count(Comment.id).asc()
     else:
         order_expr = func.max(Comment.created_at).desc() if reverse else func.max(Comment.created_at).asc()
-    rows = q.order_by(order_expr, Blog.id.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    if cursor:
+        try:
+            cursor_id = int(cursor.get("id"))
+        except (TypeError, ValueError):
+            cursor_id = None
+        value = cursor.get("value")
+        if cursor_id is not None:
+            if sort_by == "title" and isinstance(value, str):
+                q = q.filter(or_(Blog.title > value, and_(Blog.title == value, Blog.id < cursor_id)) if not reverse else or_(Blog.title < value, and_(Blog.title == value, Blog.id < cursor_id)))
+            elif sort_by == "comment_count":
+                try:
+                    count_value = int(value)
+                except (TypeError, ValueError):
+                    count_value = None
+                if count_value is not None:
+                    count_expr = func.count(Comment.id)
+                    q = q.having(or_(count_expr > count_value, and_(count_expr == count_value, Blog.id < cursor_id)) if not reverse else or_(count_expr < count_value, and_(count_expr == count_value, Blog.id < cursor_id)))
+            else:
+                dt_value = cursor_datetime(value)
+                if dt_value is not None:
+                    latest_expr = func.max(Comment.created_at)
+                    q = q.having(or_(latest_expr > dt_value, and_(latest_expr == dt_value, Blog.id < cursor_id)) if not reverse else or_(latest_expr < dt_value, and_(latest_expr == dt_value, Blog.id < cursor_id)))
+
+    total = None if cursor else (db.session.query(func.count()).select_from(q.subquery()).scalar() or 0)
+    rows = q.order_by(order_expr, Blog.id.desc()).limit(page_size + 1).all() if cursor else q.order_by(order_expr, Blog.id.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    has_more = len(rows) > page_size
+    rows = rows[:page_size]
     blog_ids = [row.blog_id for row in rows]
 
     comments_by_blog: dict[int, list[Comment]] = {blog_id: [] for blog_id in blog_ids}
@@ -343,7 +407,7 @@ def my_comments():
                 "blog": {
                     "id": row.blog_id,
                     "title": row.blog_title,
-                    "cover_image_url": public_media_url_or_none(row.cover_image_url),
+                    "cover_image_url": public_media_variant_url_or_none(row.cover_image_url, "list"),
                     "is_published": bool(row.is_published),
                     "status": status,
                     "updated_at": row.blog_updated_at.isoformat(),
@@ -363,7 +427,18 @@ def my_comments():
             }
         )
 
-    return jsonify({"items": items, "page": page, "page_size": page_size, "total": total})
+    next_cursor = None
+    if has_more and rows:
+        last = rows[-1]
+        if sort_by == "title":
+            cursor_value = last.blog_title
+        elif sort_by == "comment_count":
+            cursor_value = int(last.comment_count)
+        else:
+            cursor_value = last.latest_comment_at.isoformat()
+        next_cursor = encode_cursor({"sort_by": sort_by, "value": cursor_value, "id": last.blog_id})
+
+    return jsonify({"items": items, "page": page, "page_size": page_size, "total": total, "next_cursor": next_cursor})
 
 
 def _comment_page_for_root(root: Comment, page_size: int = 10) -> int:
@@ -375,10 +450,34 @@ def _comment_page_for_root(root: Comment, page_size: int = 10) -> int:
     return max(1, (max(1, preceding) - 1) // page_size + 1)
 
 
-def _notification_public(notification: Notification):
+def _comment_pages_for_roots(roots: list[Comment], page_size: int = 10) -> dict[int, int]:
+    root_ids = [root.id for root in roots if root is not None]
+    blog_ids = sorted({root.blog_id for root in roots if root is not None})
+    if not root_ids or not blog_ids:
+        return {}
+
+    ranked = (
+        db.session.query(
+            Comment.id.label("id"),
+            func.row_number()
+            .over(partition_by=Comment.blog_id, order_by=(Comment.created_at.asc(), Comment.id.asc()))
+            .label("position"),
+        )
+        .filter(Comment.blog_id.in_(blog_ids), Comment.parent_id.is_(None))
+        .subquery()
+    )
+    rows = db.session.query(ranked.c.id, ranked.c.position).filter(ranked.c.id.in_(root_ids)).all()
+    return {
+        int(comment_id): max(1, (max(1, int(position)) - 1) // page_size + 1)
+        for comment_id, position in rows
+    }
+
+
+def _notification_public(notification: Notification, comment_pages: dict[int, int] | None = None):
     actor = notification.actor
     blog = notification.blog
     root = notification.root_comment
+    comment_page = comment_pages.get(root.id, 1) if comment_pages is not None and root is not None else None
     return {
         "id": notification.id,
         "type": notification.type,
@@ -395,7 +494,7 @@ def _notification_public(notification: Notification):
         },
         "comment_id": notification.comment_id,
         "root_comment_id": notification.root_comment_id,
-        "comment_page": _comment_page_for_root(root) if root is not None else 1,
+        "comment_page": comment_page if comment_page is not None else (_comment_page_for_root(root) if root is not None else 1),
     }
 
 
@@ -404,6 +503,7 @@ def _notification_public(notification: Notification):
 def my_notifications():
     user_id = int(get_jwt_identity())
     page, page_size = parse_pagination(request.args, default_page_size=10)
+    cursor = decode_cursor(request.args.get("cursor"))
     q = (
         Notification.query.options(
             load_only(
@@ -419,18 +519,35 @@ def my_notifications():
             joinedload(Notification.root_comment).load_only(Comment.id, Comment.blog_id, Comment.created_at),
         )
         .filter_by(recipient_user_id=user_id)
-        .order_by(Notification.created_at.desc(), Notification.id.desc())
     )
-    total = q.count()
+    if cursor:
+        cursor_created_at = cursor_datetime(cursor.get("created_at"))
+        try:
+            cursor_id = int(cursor.get("id"))
+        except (TypeError, ValueError):
+            cursor_id = None
+        if cursor_created_at is not None and cursor_id is not None:
+            q = q.filter(or_(Notification.created_at < cursor_created_at, and_(Notification.created_at == cursor_created_at, Notification.id < cursor_id)))
+    q = q.order_by(Notification.created_at.desc(), Notification.id.desc())
+    total = None if cursor else q.count()
     unread_count = Notification.query.filter_by(recipient_user_id=user_id, is_read=False).count()
-    items = q.offset((page - 1) * page_size).limit(page_size).all()
+    items = q.limit(page_size + 1).all() if cursor else q.offset((page - 1) * page_size).limit(page_size).all()
+    has_more = len(items) > page_size
+    items = items[:page_size]
+    comment_pages = _comment_pages_for_roots([item.root_comment for item in items if item.root_comment is not None])
+    next_cursor = (
+        encode_cursor({"created_at": items[-1].created_at.isoformat(), "id": items[-1].id})
+        if has_more and items
+        else None
+    )
     return jsonify(
         {
-            "items": [_notification_public(item) for item in items],
+            "items": [_notification_public(item, comment_pages) for item in items],
             "page": page,
             "page_size": page_size,
             "total": total,
             "unread_count": unread_count,
+            "next_cursor": next_cursor,
         }
     )
 

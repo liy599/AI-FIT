@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { FallbackImage } from '../ui'
-import { buildPaginationItems } from '../../lib/pagination'
 import {
+  buildPaginationItems,
   deleteNotification,
   getMyBlogs,
   getMyComments,

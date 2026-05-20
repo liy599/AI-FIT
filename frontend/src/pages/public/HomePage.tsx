@@ -344,7 +344,7 @@ export default function HomePage() {
             </div>
           ) : blogs.length === 0 ? (
             <div className="cl_home-blogs-empty">
-              <h3 className="cl_home-blogs-empty-title">No posts yet</h3>
+              <h3 className="cl_home-blogs-empty-title">No experience posts yet</h3>
               <p className="cl_home-blogs-empty-text">
                 Create and publish a blog post in your profile, then come back here to see it.
               </p>

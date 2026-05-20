@@ -16,9 +16,10 @@ def _register(client, email, username, password="pass1234"):
 def _set_admin(app, email):
     from app.extensions import db
     from app.models import User
+    from app.utils.privacy import privacy_hash
 
     with app.app_context():
-        user = User.query.filter_by(email=email).first()
+        user = User.query.filter_by(email_hash=privacy_hash(email)).first()
         assert user is not None
         user.is_admin = True
         db.session.commit()
@@ -37,8 +38,12 @@ def _create_blog_tag(app, name="Training"):
         return tag.id
 
 
+def _create_blog_tag_ids(app, topic="Training", post_type="Record"):
+    return [_create_blog_tag(app, topic), _create_blog_tag(app, post_type)]
+
+
 def test_admin_summary_and_users_require_admin(client):
-    user_headers = _register(client, "normal-admin-test@example.com", "normal-admin-test")
+    user_headers = _register(client, "normal-admin-test@example.com", "normaladmin")
 
     r = client.get("/api/admin/summary", headers=user_headers)
     assert r.status_code == 403
@@ -114,14 +119,14 @@ def test_admin_can_delete_user_and_related_data(client, app):
 
     target_client = client.application.test_client()
     target_headers = _register(target_client, "delete-target@example.com", "delete-target")
-    tag_id = _create_blog_tag(app)
+    tag_ids = _create_blog_tag_ids(app)
     create = target_client.post(
         "/api/blogs",
         headers=target_headers,
         json={
             "title": "Delete target blog",
             "content": "Body" * 40,
-            "tag_ids": [tag_id],
+            "tag_ids": tag_ids,
             "is_published": True,
         },
     )
@@ -143,7 +148,9 @@ def test_admin_can_delete_user_and_related_data(client, app):
     assert reply.status_code == 201
 
     with app.app_context():
-        target = User.query.filter_by(email="delete-target@example.com").first()
+        from app.utils.privacy import privacy_hash
+
+        target = User.query.filter_by(email_hash=privacy_hash("delete-target@example.com")).first()
         assert target is not None
         target_id = target.id
         db.session.add(BlogView(blog_id=blog_id, viewer_key=f"user:{target_id}"))
@@ -160,7 +167,7 @@ def test_admin_can_delete_user_and_related_data(client, app):
     response = admin_client.delete(
         f"/api/admin/users/{target_id}",
         headers=admin_headers,
-        json={"confirm_username": "delete-target"},
+            json={"confirm_username": "delete-target"},
     )
     assert response.status_code == 200
     assert response.get_json()["ok"] is True
@@ -202,11 +209,11 @@ def test_admin_can_manage_blogs(client, app):
 
     author_client = client.application.test_client()
     author_headers = _register(author_client, "blog-author@example.com", "blog-author")
-    tag_id = _create_blog_tag(app)
+    tag_ids = _create_blog_tag_ids(app)
     create = author_client.post(
         "/api/blogs",
         headers=author_headers,
-        json={"title": "Admin managed blog", "content": "Body" * 40, "tag_ids": [tag_id], "is_published": True},
+        json={"title": "Admin managed blog", "content": "Body" * 40, "tag_ids": tag_ids, "is_published": True},
     )
     assert create.status_code == 201
     blog_id = create.get_json()["id"]
@@ -237,7 +244,7 @@ def test_admin_can_manage_blogs(client, app):
     draft = author_client.post(
         "/api/blogs",
         headers=author_headers,
-        json={"title": "Private draft post", "content": "Draft body" * 40, "tag_ids": [tag_id], "is_published": False},
+        json={"title": "Private draft post", "content": "Draft body" * 40, "tag_ids": tag_ids, "is_published": False},
     )
     assert draft.status_code == 201
     draft_id = draft.get_json()["id"]
@@ -256,13 +263,13 @@ def test_admin_blogs_default_sort_is_id_ascending(client, app):
     _set_admin(app, "blog-sort-admin@example.com")
 
     author_client = client.application.test_client()
-    author_headers = _register(author_client, "blog-sort-author@example.com", "blog-sort-author")
-    tag_id = _create_blog_tag(app)
+    author_headers = _register(author_client, "blog-sort-author@example.com", "blogsortauthor")
+    tag_ids = _create_blog_tag_ids(app)
     for title in ["Charlie post", "Alpha post", "Bravo post"]:
         response = author_client.post(
             "/api/blogs",
             headers=author_headers,
-            json={"title": title, "content": "Body" * 40, "tag_ids": [tag_id], "is_published": True},
+            json={"title": title, "content": "Body" * 40, "tag_ids": tag_ids, "is_published": True},
         )
         assert response.status_code == 201
 

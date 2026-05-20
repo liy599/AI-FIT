@@ -10,6 +10,17 @@ from werkzeug.utils import secure_filename
 
 
 ALLOWED_PUBLIC_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
+PUBLIC_IMAGE_VARIANTS = {
+    "cover": 960,
+    "list": 480,
+    "detail": 1280,
+}
+
+try:
+    from PIL import Image, ImageOps
+except Exception:  # pragma: no cover - deployments install Pillow via requirements.
+    Image = None
+    ImageOps = None
 
 
 def detect_public_image_extension(file: FileStorage) -> Optional[str]:
@@ -60,5 +71,24 @@ def save_public_image_upload(file: FileStorage, subdir: str, *, filename_prefix:
 
     stem = f"{filename_prefix}_{uuid.uuid4().hex}" if filename_prefix else uuid.uuid4().hex
     name = f"{stem}.{ext}"
-    file.save(os.path.join(folder, name))
+    saved_path = os.path.join(folder, name)
+    file.save(saved_path)
+    _generate_public_image_variants(saved_path, folder, stem)
     return f"/uploads/{subdir}/{name}"
+
+
+def _generate_public_image_variants(source_path: str, folder: str, stem: str) -> None:
+    if Image is None or ImageOps is None:
+        return
+    try:
+        with Image.open(source_path) as raw:
+            image = ImageOps.exif_transpose(raw)
+            for variant, max_side in PUBLIC_IMAGE_VARIANTS.items():
+                output = image.copy()
+                output.thumbnail((max_side, max_side), Image.Resampling.LANCZOS)
+                if output.mode not in {"RGB", "RGBA"}:
+                    output = output.convert("RGB")
+                variant_path = os.path.join(folder, f"{stem}_{variant}.webp")
+                output.save(variant_path, "WEBP", quality=82, method=6)
+    except Exception:
+        return

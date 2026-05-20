@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { buildPaginationItems } from '../../lib/pagination'
-import { displayBlogTagName, getBlogTags, queryBlogs, type BlogCard, type BlogTag as Tag } from '../../modules/blog'
+import { buildPaginationItems, displayBlogTagName, getBlogTags, queryBlogs, type BlogCard, type BlogTag as Tag } from '../../modules/blog'
 import { FallbackImage } from '../../components/ui'
 import { useAuth } from '../../state/auth-context'
 import {

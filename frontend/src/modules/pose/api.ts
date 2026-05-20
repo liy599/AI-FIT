@@ -128,6 +128,7 @@ export async function createPoseTraining(input: {
 export async function listPoseTrainings(params?: {
   page?: number
   page_size?: number
+  cursor?: string
   date_from?: string
   date_to?: string
   exercise_type?: string
@@ -135,11 +136,12 @@ export async function listPoseTrainings(params?: {
   const query = new URLSearchParams()
   if (params?.page) query.set('page', String(params.page))
   if (params?.page_size) query.set('page_size', String(params.page_size))
+  if (params?.cursor) query.set('cursor', params.cursor)
   if (params?.date_from) query.set('date_from', params.date_from)
   if (params?.date_to) query.set('date_to', params.date_to)
   if (params?.exercise_type) query.set('exercise_type', params.exercise_type)
   const suffix = query.toString()
-  const data = await apiFetch<{ items: PoseTrainingSession[]; page: number; page_size: number; total: number }>(
+  const data = await apiFetch<{ items: PoseTrainingSession[]; page: number; page_size: number; total: number; next_cursor?: string | null }>(
     `/api/pose/trainings${suffix ? `?${suffix}` : ''}`
   )
   return data

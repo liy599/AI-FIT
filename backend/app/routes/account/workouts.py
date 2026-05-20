@@ -5,7 +5,8 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ...extensions import db
 from ...models import WorkoutRecord
-from ...utils.pagination import parse_pagination
+from ...utils.pagination import decode_cursor, encode_cursor, parse_pagination
+from ...utils.privacy import privacy_hash
 
 bp = Blueprint("workouts", __name__)
 
@@ -15,18 +16,39 @@ bp = Blueprint("workouts", __name__)
 def list_workouts():
     user_id = int(get_jwt_identity())
     page, page_size = parse_pagination(request.args, default_page_size=12)
+    cursor = decode_cursor(request.args.get("cursor"))
 
     q = WorkoutRecord.query.filter_by(user_id=user_id)
     if request.args.get("exercise_type"):
-        q = q.filter(WorkoutRecord.exercise_type == request.args["exercise_type"])
+        q = q.filter(WorkoutRecord.exercise_type_hash == privacy_hash(request.args["exercise_type"]))
     if request.args.get("from"):
         q = q.filter(WorkoutRecord.workout_date >= date.fromisoformat(request.args["from"]))
     if request.args.get("to"):
         q = q.filter(WorkoutRecord.workout_date <= date.fromisoformat(request.args["to"]))
 
+    if cursor:
+        try:
+            cursor_date = date.fromisoformat(str(cursor.get("workout_date")))
+            cursor_id = int(cursor.get("id"))
+        except (TypeError, ValueError):
+            cursor_date = None
+            cursor_id = None
+        if cursor_date is not None and cursor_id is not None:
+            q = q.filter(
+                (WorkoutRecord.workout_date < cursor_date)
+                | ((WorkoutRecord.workout_date == cursor_date) & (WorkoutRecord.id < cursor_id))
+            )
+
     q = q.order_by(WorkoutRecord.workout_date.desc(), WorkoutRecord.id.desc())
-    total = q.count()
-    items = q.offset((page - 1) * page_size).limit(page_size).all()
+    total = None if cursor else q.count()
+    items = q.limit(page_size + 1).all() if cursor else q.offset((page - 1) * page_size).limit(page_size).all()
+    has_more = len(items) > page_size
+    items = items[:page_size]
+    next_cursor = (
+        encode_cursor({"workout_date": items[-1].workout_date.isoformat(), "id": items[-1].id})
+        if has_more and items
+        else None
+    )
 
     return jsonify(
         {
@@ -46,6 +68,7 @@ def list_workouts():
             "page": page,
             "page_size": page_size,
             "total": total,
+            "next_cursor": next_cursor,
         }
     )
 

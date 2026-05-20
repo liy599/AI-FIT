@@ -91,7 +91,7 @@ export async function extractOfflinePoseFromLocalVideo(args: ExtractOfflinePoseA
     nativeFrames,
     video: {
       id: `local-${Date.now()}`,
-      originalName: args.file.name,
+      originalName: 'local-video',
       mimeType: args.file.type || 'video/mp4',
       sizeBytes: args.file.size
     }

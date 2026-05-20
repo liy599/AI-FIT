@@ -10,6 +10,7 @@ from ...extensions import db
 from ...models import EmailVerification, PasswordResetCode, User
 from ...utils.mailer import is_email_delivery_configured, send_email_verification_email, send_password_reset_email
 from ...utils.media_url import public_media_url_or_none
+from ...utils.privacy import privacy_hash
 from ...utils.rate_limit import consume_rate_limit, get_client_ip, subject_fingerprint
 from ...utils.security import hash_password, verify_password
 
@@ -73,7 +74,7 @@ def _generate_verification_code() -> str:
 
 
 def _is_email_verified(email: str) -> bool:
-    row = EmailVerification.query.filter_by(email=email).first()
+    row = EmailVerification.query.filter_by(email_hash=privacy_hash(email)).first()
     return bool(row and row.verified_at)
 
 
@@ -89,7 +90,7 @@ def _is_code_expired(*, sent_at: Optional[datetime], ttl_seconds: int) -> bool:
 
 
 def _get_valid_password_reset_row(email: str, code: str) -> tuple[Optional[PasswordResetCode], Optional[str]]:
-    row = PasswordResetCode.query.filter_by(email=email).first()
+    row = PasswordResetCode.query.filter_by(email_hash=privacy_hash(email)).first()
     if row is None:
         return None, "invalid code"
     if row.used_at:
@@ -131,7 +132,7 @@ def register():
     if bool(current_app.config.get("EMAIL_VERIFY_REQUIRED", False)) and not _is_email_verified(email):
         return jsonify({"error": "email not verified"}), 403
 
-    if User.query.filter_by(email=email).first() is not None:
+    if User.query.filter_by(email_hash=privacy_hash(email)).first() is not None:
         return jsonify({"error": "email already exists"}), 409
     if User.query.filter_by(username=username).first() is not None:
         return jsonify({"error": "username already exists"}), 409
@@ -173,13 +174,13 @@ def request_email_verification():
         if not account_result.allowed:
             return jsonify({"error": "too many requests", "retry_after": account_result.retry_after_seconds}), 429
 
-    if User.query.filter_by(email=email).first() is not None:
+    if User.query.filter_by(email_hash=privacy_hash(email)).first() is not None:
         return jsonify({"error": "email already exists"}), 409
 
     email_enabled = is_email_delivery_configured()
     debug_return_code = bool(current_app.config.get("EMAIL_VERIFY_DEBUG_RETURN_LINK", False))
 
-    row = EmailVerification.query.filter_by(email=email).first()
+    row = EmailVerification.query.filter_by(email_hash=privacy_hash(email)).first()
     sent_at = _utcnow_seconds()
     code = _generate_verification_code()
 
@@ -240,7 +241,7 @@ def verify_email():
             return jsonify({"error": "too many requests", "retry_after": account_result.retry_after_seconds}), 429
 
     now = _utcnow_seconds()
-    row = EmailVerification.query.filter_by(email=email).first()
+    row = EmailVerification.query.filter_by(email_hash=privacy_hash(email)).first()
     if row is None:
         return jsonify({"error": "invalid code"}), 400
     if row.verified_at:
@@ -297,7 +298,7 @@ def login():
         if not account_result.allowed:
             return jsonify({"error": "too many requests", "retry_after": account_result.retry_after_seconds}), 429
 
-    user = User.query.filter_by(email=email).first()
+    user = User.query.filter_by(email_hash=privacy_hash(email)).first()
     if user is None or not verify_password(password, user.password_hash):
         return jsonify({"error": "invalid credentials"}), 401
     if user.is_disabled:
@@ -344,11 +345,11 @@ def forgot_password():
         if not account_result.allowed:
             return jsonify({"error": "too many requests", "retry_after": account_result.retry_after_seconds}), 429
 
-    user = User.query.filter_by(email=email).first()
+    user = User.query.filter_by(email_hash=privacy_hash(email)).first()
     if user is None:
-        return jsonify({"error": "email not found"}), 404
+        return jsonify({"ok": True, "email_sent": False, "reset_code": None})
 
-    row = PasswordResetCode.query.filter_by(email=email).first()
+    row = PasswordResetCode.query.filter_by(email_hash=privacy_hash(email)).first()
     sent_at = _utcnow_seconds()
     code = _generate_verification_code()
 

@@ -26,8 +26,9 @@ def _ensure_admin_seed(app: Flask) -> None:
         return
     try:
         from .models import User
+        from .utils.privacy import privacy_hash
 
-        user = User.query.filter_by(email=admin_email).first()
+        user = User.query.filter_by(email_hash=privacy_hash(admin_email)).first()
         if user is None or user.is_admin:
             return
         user.is_admin = True
@@ -138,6 +139,7 @@ def _validate_production_config(app: Flask) -> None:
 
     secret_key = str(app.config.get("SECRET_KEY", "")).strip()
     jwt_secret_key = str(app.config.get("JWT_SECRET_KEY", "")).strip()
+    data_encryption_key = str(app.config.get("DATA_ENCRYPTION_KEY", "")).strip()
     password_reset_debug = bool(app.config.get("PASSWORD_RESET_DEBUG_RETURN_LINK", False))
     email_verify_debug = bool(app.config.get("EMAIL_VERIFY_DEBUG_RETURN_LINK", False))
     if not secret_key or secret_key == "dev-secret-change-me":
@@ -146,6 +148,8 @@ def _validate_production_config(app: Flask) -> None:
         raise RuntimeError("production requires non-default JWT_SECRET_KEY")
     if len(secret_key) < 32 or len(jwt_secret_key) < 32:
         raise RuntimeError("production secrets must be at least 32 chars")
+    if not data_encryption_key:
+        raise RuntimeError("production requires DATA_ENCRYPTION_KEY for private data encryption")
     if password_reset_debug:
         raise RuntimeError("production requires PASSWORD_RESET_DEBUG_RETURN_LINK=0")
     if email_verify_debug:

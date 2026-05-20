@@ -1,5 +1,7 @@
 import { API_BASE, apiFetch, apiUpload, resolveBackendUrl } from '../../lib/api'
 import type { AuthUser } from '../../lib/auth'
+export { formatLocalDateTimeMinute, parseApiDate } from '../../lib/datetime'
+export { buildPaginationItems } from '../../lib/pagination'
 
 export { API_BASE, resolveBackendUrl }
 
@@ -100,25 +102,27 @@ export function getMyWorkouts<T>() {
   return apiFetch<{ items: T[] }>('/api/workouts?page=1&page_size=20')
 }
 
-export function getMyBlogs<T>(params: { page?: number; page_size?: number; q?: string; status?: string; sort_by?: string; sort_dir?: string } = {}) {
+export function getMyBlogs<T>(params: { page?: number; page_size?: number; cursor?: string; q?: string; status?: string; sort_by?: string; sort_dir?: string } = {}) {
   const query = new URLSearchParams()
   query.set('page', String(params.page ?? 1))
   query.set('page_size', String(params.page_size ?? 6))
+  if (params.cursor) query.set('cursor', params.cursor)
   if (params.q) query.set('q', params.q)
   if (params.status) query.set('status', params.status)
   if (params.sort_by) query.set('sort_by', params.sort_by)
   if (params.sort_dir) query.set('sort_dir', params.sort_dir)
-  return apiFetch<{ items: T[]; page: number; page_size: number; total: number }>(`/api/user/blogs?${query.toString()}`)
+  return apiFetch<{ items: T[]; page: number; page_size: number; total: number; next_cursor?: string | null }>(`/api/user/blogs?${query.toString()}`)
 }
 
-export function getMyComments<T>(params: { page?: number; page_size?: number; q?: string; sort_by?: string; sort_dir?: string } = {}) {
+export function getMyComments<T>(params: { page?: number; page_size?: number; cursor?: string; q?: string; sort_by?: string; sort_dir?: string } = {}) {
   const query = new URLSearchParams()
   query.set('page', String(params.page ?? 1))
   query.set('page_size', String(params.page_size ?? 5))
+  if (params.cursor) query.set('cursor', params.cursor)
   if (params.q) query.set('q', params.q)
   if (params.sort_by) query.set('sort_by', params.sort_by)
   if (params.sort_dir) query.set('sort_dir', params.sort_dir)
-  return apiFetch<{ items: T[]; page: number; page_size: number; total: number }>(`/api/user/comments?${query.toString()}`)
+  return apiFetch<{ items: T[]; page: number; page_size: number; total: number; next_cursor?: string | null }>(`/api/user/comments?${query.toString()}`)
 }
 
 export type UserNotification = {
@@ -133,11 +137,12 @@ export type UserNotification = {
   comment_page: number
 }
 
-export function getMyNotifications(params: { page?: number; page_size?: number } = {}) {
+export function getMyNotifications(params: { page?: number; page_size?: number; cursor?: string } = {}) {
   const query = new URLSearchParams()
   query.set('page', String(params.page ?? 1))
   query.set('page_size', String(params.page_size ?? 5))
-  return apiFetch<{ items: UserNotification[]; page: number; page_size: number; total: number; unread_count: number }>(`/api/user/notifications?${query.toString()}`)
+  if (params.cursor) query.set('cursor', params.cursor)
+  return apiFetch<{ items: UserNotification[]; page: number; page_size: number; total: number; unread_count: number; next_cursor?: string | null }>(`/api/user/notifications?${query.toString()}`)
 }
 
 export function markNotificationRead(notificationId: number) {

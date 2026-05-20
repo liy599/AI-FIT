@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { formatLocalDateTimeMinute } from '../../lib/datetime'
-import { buildPaginationItems } from '../../lib/pagination'
 import {
   buildPoseGuidePath,
   buildPoseVideoPath,
   buildPoseReportPath,
+  buildPaginationItems,
   buildTrainingRecordName,
   deletePoseTraining,
+  formatLocalDateTimeMinute,
   getPoseExercises,
   getPoseExerciseBySlug,
   getPoseExerciseByType,

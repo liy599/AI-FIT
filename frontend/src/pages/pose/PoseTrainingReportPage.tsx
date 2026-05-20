@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { formatLocalDateTimeMinute } from '../../lib/datetime'
 import {
   buildPoseGuidePath,
   buildPoseHistoryPath,
@@ -9,6 +8,7 @@ import {
   deletePoseTraining,
   DEMO_POSE_TRAINING,
   DEMO_POSE_TRAINING_ID,
+  formatLocalDateTimeMinute,
   getPoseExerciseBySlug,
   getPoseExerciseByType,
   getPoseTraining,

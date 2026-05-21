@@ -52,7 +52,7 @@ export function metricTip(key: string) {
   const map: Record<string, string> = {
     totalReps: 'All completed reps, including reps not scored for quality.',
     effectiveReps: 'Reps where the system could score form (correct or incorrect).',
-    unassessedReps: 'Reps not scored because the video tracking was unclear.',
+    unassessedReps: 'Reps not scored because the rep was incomplete (range too small) or because tracking was unclear (lighting, occlusion, or body not fully visible).',
     correctReps: 'Scored reps judged as correct form.',
     incorrectReps: 'Scored reps judged as incorrect form.',
     formAccuracyPct: 'Correct / Assessed, does not include unscored reps.',
@@ -64,6 +64,19 @@ export function metricTip(key: string) {
     slowRepCount: 'Reps flagged as too slow by tempo thresholds.'
   }
   return map[key] ?? humanizeMetricKey(key)
+}
+
+export function metricInlineHint(key: string) {
+  const map: Record<string, string> = {
+    totalReps: 'total attempts',
+    effectiveReps: 'scored reps',
+    correctReps: 'scored as correct',
+    incorrectReps: 'scored as incorrect',
+    unassessedReps: 'unscored (incomplete / unclear tracking)',
+    formAccuracyPct: 'correct ÷ scored',
+    avgRepDurationSec: 'avg seconds per rep'
+  }
+  return map[key] ?? ''
 }
 
 export function formatMetricValue(key: string, v: unknown) {
@@ -101,9 +114,10 @@ export function buildDisplayMetricCards(keyMetrics: Record<string, unknown>) {
   for (const key of priority) {
     if (hiddenKeys.has(key)) continue
     if (!(key in keyMetrics)) continue
+    const inlineHint = metricInlineHint(key)
     cards.push({
       key,
-      label: prettyMetricName(key),
+      label: inlineHint ? `${prettyMetricName(key)}（${inlineHint}）` : prettyMetricName(key),
       value: formatMetricValue(key, keyMetrics[key]),
       tip: metricTip(key),
       group: metricGroup(key)
@@ -212,7 +226,7 @@ export function buildRepQualityHighlight(args: {
         headline: 'Set captured, but form wasn\'t scored reliably',
         copy:
           unassessedReps > 0
-            ? `${unassessedReps} rep${unassessedReps > 1 ? 's were' : ' was'} counted but couldn't be scored. Try stepping back, adding more light, and keeping your full body visible from shoulders to ankles.`
+            ? `${unassessedReps} rep${unassessedReps > 1 ? 's were' : ' was'} not scored (incomplete range of motion or unclear tracking). Try stepping back, adding more light, and keeping your full body visible from shoulders to ankles.`
             : 'The analyzer needs a clearer camera angle or more stable tracking before it can score form. Try better lighting and keep your body steady in frame.'
       } as const
     }
@@ -283,11 +297,9 @@ export function buildRepQualityHighlight(args: {
 export function buildIssueMetaLine(issue: Record<string, unknown>) {
   const parts: string[] = []
   const count = pickMetricNumber(issue.count)
-  const seenMoments = normalizeDisplayedMoments(readNumberArray(issue.seenMomentsMs), TOP_ISSUE_TIME_DISPLAY)
-  const firstSeenMs = seenMoments[0] ?? pickMetricNumber(issue.firstSeenMs)
-  if (count !== null && count > 0) parts.push(`${count} ${count === 1 ? 'time' : 'times'}`)
-  if (seenMoments.length >= 2) parts.push(`at ${seenMoments.map((value) => formatClock(value)).join(', ')}`)
-  else if (firstSeenMs !== null) parts.push(`first at ${formatClock(firstSeenMs)}`)
+  const firstSeenMs = pickMetricNumber(issue.firstSeenMs, readNumberArray(issue.seenMomentsMs)[0])
+  if (count !== null && count > 0) parts.push(`Seen ${count} ${count === 1 ? 'time' : 'times'}`)
+  if (firstSeenMs !== null) parts.push(`first at ${formatClock(firstSeenMs)}`)
   else if (typeof issue.atFrame === 'number') parts.push(`frame ${issue.atFrame}`)
   return parts.join(', ')
 }
@@ -363,7 +375,7 @@ export function buildTopIssueCards(args: {
       seenLabels.add(human.label)
       upsert({
         label: human.label,
-        tier: result === 'incorrect' ? 'rep_fail' : human.tier,
+          tier: result === 'incorrect' && human.tier !== 'gate' ? 'rep_fail' : human.tier,
         count: 1,
         firstSeenMs: tMs,
         seenMomentsMs: tMs !== null ? [tMs] : []
@@ -389,7 +401,7 @@ export function buildTopIssueCards(args: {
 export function mergeIssueCounts(a: number | null | undefined, b: number | null | undefined) {
   if (a == null) return b ?? null
   if (b == null) return a
-  return Math.max(a, b)
+  return a + b
 }
 
 export function readNumberArray(value: unknown) {

@@ -180,11 +180,11 @@ export function PoseOfflineAnalysisPanel(props: {
                         : 'pose-status-pill-success'
                   }`}
                 >
-                  {offlineOverlayTone === 'ok' ? 'GOOD' : offlineOverlayTone === 'warn' ? 'WARN' : 'FIX'}
+                  {offlineOverlayTone === 'ok' ? 'OK' : offlineOverlayTone === 'warn' ? 'NOTE' : 'FIX'}
                 </span>
                 <span className="pose-video-preview__message">
                   {(() => {
-                    const text = offlineOverlayMessage ?? (offlineOverlayTone === 'ok' ? 'Good form' : '')
+                    const text = offlineOverlayMessage ?? (offlineOverlayTone === 'ok' ? 'Looks good' : '')
                     if (!text || !text.trim()) return null
                     const lines = text.split('\n').map((line) => line.trim())
                     if (lines.length <= 1) {
@@ -192,11 +192,11 @@ export function PoseOfflineAnalysisPanel(props: {
                       if (!single) return null
                       if (offlineOverlayTone !== 'ok') return single
                       const base = single.endsWith('.') ? single : `${single}.`
-                      return `${base} Keep it up.`
+                      return `${base} Keep going.`
                     }
                     const gate = (lines[0] ?? '').trim() || null
                     const mainRaw = lines.slice(1).join(' ').trim()
-                    const main = offlineOverlayTone === 'ok' ? (mainRaw ? `${mainRaw.endsWith('.') ? mainRaw : `${mainRaw}.`} Keep it up.` : 'Looking strong.') : mainRaw
+                    const main = offlineOverlayTone === 'ok' ? (mainRaw ? `${mainRaw.endsWith('.') ? mainRaw : `${mainRaw}.`} Keep going.` : 'Looks good.') : mainRaw
                     return (
                       <span className="pose-video-preview__message-lines">
                         {gate ? (

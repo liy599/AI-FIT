@@ -24,6 +24,7 @@ export type PoseAnalyzerFeedback = {
   repCount: number
   lastRepFrameCount: number | null
   inactiveSeconds: number
+  debug?: Record<string, number | string | null>
   session: {
     totalReps: number
     correctReps: number

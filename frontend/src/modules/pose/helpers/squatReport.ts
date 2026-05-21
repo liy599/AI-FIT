@@ -7,6 +7,7 @@ import { collectAnalyzerReplayStats } from './replayStats'
 import { computeReportErrorStats, sampleTimelineRows } from './reportBase'
 import { mapSuggestionFromIssue } from './suggestionMap'
 import { VIDEO_DEFAULT_SQUAT_TUNING, type SquatTempo, type SquatTuning, type SquatRepFinding, type SquatTimelineRow } from './types'
+import { isPoseDebugEnabled } from '../debugFlags'
 
 export { VIDEO_DEFAULT_SQUAT_TEMPO }
 export type { SquatTuning, SquatTempo }
@@ -17,6 +18,7 @@ export function buildSquatAlignedReport(input: {
   exercise: { id: string; name: string } | null
   video: { id: string; originalName: string; mimeType: string; sizeBytes: number } | null
   fps: number
+  tuning?: Partial<SquatTuning>
   lastFeedback: PoseAnalyzerFeedback | null
   messageFreq: Map<string, number>
   analyzedFrameCount: number
@@ -92,7 +94,7 @@ export function buildSquatAlignedReport(input: {
     issues.push({
       code: 'REPS_UNASSESSED',
       severity: ratio >= 0.35 ? 'warning' : 'info',
-      message: `${unassessedReps} of ${totalReps} reps could not be scored because the video tracking was unclear (lighting, body not fully visible, or occlusion).`,
+      message: `${unassessedReps} of ${totalReps} reps were not scored (incomplete range of motion or unclear tracking such as lighting, occlusion, or body not fully visible).`,
       atFrame: null
     })
   }
@@ -203,6 +205,7 @@ export function buildSquatAlignedReport(input: {
     { key: 'torsoFromVerticalDeg', label: 'Torso Angle' }
   ]
   const repFindings = input.repFindings ?? []
+  const effectiveTuning = { ...VIDEO_DEFAULT_SQUAT_TUNING, ...(input.tuning ?? {}) }
 
   return normalizeReportForArchive({
     version: 3,
@@ -232,10 +235,16 @@ export function buildSquatAlignedReport(input: {
       torsoAngle: input.lastFeedback?.torsoAngle ?? null,
       offsetAngle: input.lastFeedback?.offsetAngle ?? null,
       trackingQuality: input.lastFeedback?.trackingQuality ?? null,
+      lastRepResult: input.lastFeedback?.lastRepResult ?? null,
+      lastRepMessage: input.lastFeedback?.lastRepMessage ?? null,
+      lastRepReasonCodes: input.lastFeedback?.lastRepReasonCodes ?? [],
+      lastRepReasonLabels: input.lastFeedback?.lastRepReasonLabels ?? [],
+      lastRepFrameCount: input.lastFeedback?.lastRepFrameCount ?? null,
       avgTrackingQuality: Math.round(avgTrackingQuality * 100) / 100,
       currentSuggestion,
       warnings: input.lastFeedback?.warnings ?? [],
       tempo: tempoCheck,
+      ...(isPoseDebugEnabled() ? { tuning: effectiveTuning, debug: input.lastFeedback?.debug ?? null } : {}),
       timelineSeries,
       timelineSampled,
       repFindings
@@ -281,6 +290,7 @@ export function buildSquatVideoReplayReport(input: {
     exercise: input.exercise,
     video: input.video,
     fps: input.fps,
+    tuning: input.tuning,
     lastFeedback: stats.lastFeedback,
     messageFreq: stats.messageFreq,
     analyzedFrameCount: stats.analyzedFrameCount,

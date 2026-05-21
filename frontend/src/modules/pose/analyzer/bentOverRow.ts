@@ -1,5 +1,6 @@
 import type { PoseAnalyzerFeedback } from './types'
 import type { MoveNetKeypoint, MoveNetName } from '../vision/movenetTracker'
+import { isPoseDebugEnabled } from '../debugFlags'
 
 const DEFAULT_NATIVE_ANALYZER_FPS = 40
 const NATIVE_FRONT_VIEW_OK_ANGLE = 70
@@ -74,6 +75,7 @@ export const VIDEO_DEFAULT_BENT_OVER_ROW_TEMPO: BentOverRowTempo = {
 type NamedKeypoints = Record<MoveNetName, MoveNetKeypoint | undefined>
 
 export class BentOverRowVideoAnalyzer {
+  private debugEnabled = isPoseDebugEnabled()
   private repCount = 0
   private correctCount = 0
   private incorrectCount = 0
@@ -89,6 +91,12 @@ export class BentOverRowVideoAnalyzer {
   private lastRepReasonLabels: string[] = []
   private lastRepCorrections: string[] = []
   private lastRepFrameCount: number | null = null
+  private lastCompletedRepMaxKneeAngle: number | null = null
+  private lastCompletedRepKneeHardFrames: number | null = null
+  private lastCompletedRepKneeSampleFrames: number | null = null
+  private lastCompletedRepFrontViewFrames: number | null = null
+  private lastCompletedRepSideViewFrames: number | null = null
+  private lastCompletedRepAlignmentSampleFrames: number | null = null
   private enteredTop = false
   private stableS1Frames = 0
   private frameCount = 0
@@ -247,7 +255,7 @@ export class BentOverRowVideoAnalyzer {
     const primaryIssue = issues[0]?.message ?? null
     const primaryWarn = warnings[0] ?? null
 
-    return {
+    const feedback: PoseAnalyzerFeedback = {
       phase: this.stateToPhase(nextState),
       state: nextState,
       mode: 'beginner',
@@ -290,6 +298,22 @@ export class BentOverRowVideoAnalyzer {
         slowRepCount: this.slowRepCount
       }
     }
+    if (this.debugEnabled) {
+      feedback.debug = {
+        kneeAngleDeg: kneeAngleRaw !== null ? Math.round(kneeAngleRaw) : null,
+        kneeStraightWarnFrames: this.kneeStraightWarnFrames,
+        repMaxKneeAngle: this.repMaxKneeAngle > 0 ? Math.round(this.repMaxKneeAngle) : null,
+        repKneeHardFrames: this.repKneeHardFrames,
+        repKneeSampleFrames: this.repKneeSampleFrames,
+        lastCompletedRepMaxKneeAngle: this.lastCompletedRepMaxKneeAngle !== null ? Math.round(this.lastCompletedRepMaxKneeAngle) : null,
+        lastCompletedRepKneeHardFrames: this.lastCompletedRepKneeHardFrames,
+        lastCompletedRepKneeSampleFrames: this.lastCompletedRepKneeSampleFrames,
+        lastCompletedRepFrontViewFrames: this.lastCompletedRepFrontViewFrames,
+        lastCompletedRepSideViewFrames: this.lastCompletedRepSideViewFrames,
+        lastCompletedRepAlignmentSamples: this.lastCompletedRepAlignmentSampleFrames
+      }
+    }
+    return feedback
   }
 
   resetSession() {
@@ -308,6 +332,12 @@ export class BentOverRowVideoAnalyzer {
     this.lastRepReasonLabels = []
     this.lastRepCorrections = []
     this.lastRepFrameCount = null
+    this.lastCompletedRepMaxKneeAngle = null
+    this.lastCompletedRepKneeHardFrames = null
+    this.lastCompletedRepKneeSampleFrames = null
+    this.lastCompletedRepFrontViewFrames = null
+    this.lastCompletedRepSideViewFrames = null
+    this.lastCompletedRepAlignmentSampleFrames = null
     this.enteredTop = false
     this.stableS1Frames = 0
     this.frameCount = 0
@@ -418,22 +448,55 @@ export class BentOverRowVideoAnalyzer {
 
     if (nextState === 's3') this.enteredTop = true
 
+    if (this.currentState !== 's1' && nextState === 's1' && !this.enteredTop) {
+      this.lastRepResult = null
+      if (this.frameCount < NATIVE_REP_COUNT_MIN_FRAMES) {
+        this.lastRepMessage = 'Rep ignored: movement was too short to count.'
+        this.lastRepReasonCodes = ['REP_TOO_SHORT']
+        this.lastRepReasonLabels = ['Movement was too short to count']
+        this.lastRepCorrections = ['Complete a full rep: pull toward your hips, squeeze briefly at the top, then lower under control without swinging.']
+      } else {
+        this.lastRepMessage = 'Rep ignored: range of motion was too small to count.'
+        this.lastRepReasonCodes = ['MOVE_TOO_SMALL']
+        this.lastRepReasonLabels = ['Range of motion was too small']
+        this.lastRepCorrections = ['Pull all the way back until dumbbells are close to your hips/lower ribs, keep your torso angle fixed, then lower slowly.']
+      }
+      this.lastRepFrameCount = this.frameCount
+      this.repCount += 1
+      this.unassessedCount += 1
+      const repDurationSec = Math.max(0.1, this.frameCount / this.analyzerFps)
+      this.repDurationTotalSec += repDurationSec
+      this.repDurationCount += 1
+      this.frameCount = 0
+      this.enteredTop = false
+      this.repValidFrameCount = 0
+      this.repFrontBadFrames = 0
+      this.repMaxTorsoAngle = 0
+      this.repTorsoHardFrames = 0
+      this.repMaxKneeAngle = 0
+      this.repKneeHardFrames = 0
+      this.repKneeSampleFrames = 0
+      this.repPeakSymmetryGap = 0
+      this.repSymmetryHardFrames = 0
+      this.repMaxRowAngle = 0
+      this.currentState = nextState
+      return
+    }
+
     if (this.currentState !== 's1' && nextState === 's1' && this.enteredTop) {
       const enoughFrames = this.frameCount >= NATIVE_REP_COUNT_MIN_FRAMES
       if (!enoughFrames) {
         this.lastRepResult = null
-        if (this.repCount === 0) {
-          this.lastRepMessage = 'Rep ignored: movement was too short to count.'
-          this.lastRepReasonCodes = ['REP_TOO_SHORT']
-          this.lastRepReasonLabels = ['Movement was too short to count']
-          this.lastRepCorrections = ['Pull the dumbbells to your hips, pause briefly, then lower under control.']
-        } else {
-          this.lastRepMessage = null
-          this.lastRepReasonCodes = []
-          this.lastRepReasonLabels = []
-          this.lastRepCorrections = []
-        }
+        this.lastRepMessage = 'Rep ignored: movement was too short to count.'
+        this.lastRepReasonCodes = ['REP_TOO_SHORT']
+        this.lastRepReasonLabels = ['Movement was too short to count']
+        this.lastRepCorrections = ['Complete a full rep: pull toward your hips, squeeze briefly at the top, then lower under control without swinging.']
         this.lastRepFrameCount = this.frameCount
+        this.repCount += 1
+        this.unassessedCount += 1
+        const repDurationSec = Math.max(0.1, this.frameCount / this.analyzerFps)
+        this.repDurationTotalSec += repDurationSec
+        this.repDurationCount += 1
         this.frameCount = 0
         this.enteredTop = false
         this.repValidFrameCount = 0
@@ -472,7 +535,7 @@ export class BentOverRowVideoAnalyzer {
         this.lastRepMessage = 'Rep counted, but quality was not assessed due to unstable or incomplete keypoints.'
         this.lastRepReasonCodes = ['KEYPOINTS_INCOMPLETE']
         this.lastRepReasonLabels = ['Keypoints were incomplete']
-        this.lastRepCorrections = ['Improve lighting and keep shoulders, elbows, wrists, and hips visible.']
+        this.lastRepCorrections = ['Improve lighting, keep shoulders/elbows/wrists/hips visible, and avoid blocking joints with clothing or objects.']
       } else {
         const isFrontView =
           this.repAlignmentSampleFrames >= 5 && this.repFrontViewFrames / Math.max(1, this.repAlignmentSampleFrames) >= 0.5
@@ -535,6 +598,15 @@ export class BentOverRowVideoAnalyzer {
           this.lastRepReasonLabels = []
           this.lastRepCorrections = []
         }
+      }
+
+      if (this.debugEnabled) {
+        this.lastCompletedRepMaxKneeAngle = this.repMaxKneeAngle > 0 ? this.repMaxKneeAngle : null
+        this.lastCompletedRepKneeHardFrames = this.repKneeSampleFrames > 0 ? this.repKneeHardFrames : null
+        this.lastCompletedRepKneeSampleFrames = this.repKneeSampleFrames > 0 ? this.repKneeSampleFrames : null
+        this.lastCompletedRepFrontViewFrames = this.repAlignmentSampleFrames > 0 ? this.repFrontViewFrames : null
+        this.lastCompletedRepSideViewFrames = this.repAlignmentSampleFrames > 0 ? this.repSideViewFrames : null
+        this.lastCompletedRepAlignmentSampleFrames = this.repAlignmentSampleFrames > 0 ? this.repAlignmentSampleFrames : null
       }
 
       this.lastRepFrameCount = this.frameCount

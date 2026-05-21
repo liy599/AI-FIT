@@ -1,5 +1,6 @@
 import type { PoseAnalyzerFeedback } from './types'
 import type { MoveNetKeypoint, MoveNetName } from '../vision/movenetTracker'
+import { isPoseDebugEnabled } from '../debugFlags'
 
 const DEFAULT_NATIVE_ANALYZER_FPS = 40
 const NATIVE_FRONT_VIEW_OK_ANGLE = 55
@@ -54,12 +55,13 @@ export const DEFAULT_LATERAL_RAISE_TEMPO: LateralRaiseTempo = {
 
 export const VIDEO_DEFAULT_LATERAL_RAISE_TEMPO: LateralRaiseTempo = {
   repFastSec: 0.95,
-  repSlowSec: 3.0
+  repSlowSec: 3.6
 }
 
 type NamedKeypoints = Record<MoveNetName, MoveNetKeypoint | undefined>
 
 export class LateralRaiseVideoAnalyzer {
+  private debugEnabled = isPoseDebugEnabled()
   private repCount = 0
   private correctCount = 0
   private incorrectCount = 0
@@ -94,9 +96,16 @@ export class LateralRaiseVideoAnalyzer {
   private viewInvalidRepCount = 0
   private analyzerFps = DEFAULT_NATIVE_ANALYZER_FPS
   private tuning: LateralRaiseTuning = { ...DEFAULT_LATERAL_RAISE_TUNING }
-  private tempo: LateralRaiseTempo = { ...DEFAULT_LATERAL_RAISE_TEMPO }
+  private tempo: LateralRaiseTempo = { ...VIDEO_DEFAULT_LATERAL_RAISE_TEMPO }
   private smoothLeftRaise: number | null = null
   private smoothRightRaise: number | null = null
+  private lastCompletedRepMaxRaise: number | null = null
+  private lastCompletedRepTorsoHardFrames: number | null = null
+  private lastCompletedRepSymmetryHardFrames: number | null = null
+  private lastCompletedRepElbowHardFrames: number | null = null
+  private lastCompletedRepFrontBadFrames: number | null = null
+  private lastCompletedRepValidFrames: number | null = null
+  private lastCompletedRepFrames: number | null = null
 
   setTuning(next: Partial<LateralRaiseTuning>) {
     this.tuning = {
@@ -183,7 +192,7 @@ export class LateralRaiseVideoAnalyzer {
     const primaryIssue = issues[0]?.message ?? null
     const primaryWarn = warnings[0] ?? null
 
-    return {
+    const feedback: PoseAnalyzerFeedback = {
       phase: this.stateToPhase(nextState),
       state: nextState,
       mode: 'beginner',
@@ -226,6 +235,43 @@ export class LateralRaiseVideoAnalyzer {
         slowRepCount: this.slowRepCount
       }
     }
+    if (this.debugEnabled) {
+      feedback.debug = {
+        leftRaiseDeg: leftRaise !== null ? Math.round(leftRaise) : null,
+        rightRaiseDeg: rightRaise !== null ? Math.round(rightRaise) : null,
+        raiseDeg: armRaise !== null ? Math.round(armRaise) : null,
+        elbowAngleDeg: elbowAngle !== null ? Math.round(elbowAngle) : null,
+        torsoAngleDeg: torsoAngle !== null ? Math.round(torsoAngle) : null,
+        symmetryGapDeg: symmetryGap !== null ? Math.round(symmetryGap) : null,
+        frontAlignmentDeg: frontAlignment !== null ? Math.round(frontAlignment) : null,
+        stableS1Frames: this.stableS1Frames,
+        repMaxRaiseDeg: this.repMaxRaise > 0 ? Math.round(this.repMaxRaise) : null,
+        repPeakTorsoAngleDeg: this.repPeakTorsoAngle > 0 ? Math.round(this.repPeakTorsoAngle) : null,
+        repTorsoHardFrames: this.repTorsoHardFrames,
+        repPeakSymmetryGapDeg: this.repPeakSymmetryGap > 0 ? Math.round(this.repPeakSymmetryGap) : null,
+        repSymmetryHardFrames: this.repSymmetryHardFrames,
+        repMinElbowAngleDeg: this.repMinElbowAngle < 180 ? Math.round(this.repMinElbowAngle) : null,
+        repElbowHardFrames: this.repElbowHardFrames,
+        repFrontBadFrames: this.repFrontBadFrames,
+        repValidFrameCount: this.repValidFrameCount,
+        repFrameCount: this.frameCount,
+        lastCompletedRepMaxRaiseDeg: this.lastCompletedRepMaxRaise !== null ? Math.round(this.lastCompletedRepMaxRaise) : null,
+        lastCompletedRepTorsoHardFrames: this.lastCompletedRepTorsoHardFrames,
+        lastCompletedRepSymmetryHardFrames: this.lastCompletedRepSymmetryHardFrames,
+        lastCompletedRepElbowHardFrames: this.lastCompletedRepElbowHardFrames,
+        lastCompletedRepFrontBadFrames: this.lastCompletedRepFrontBadFrames,
+        lastCompletedRepValidFrames: this.lastCompletedRepValidFrames,
+        lastCompletedRepFrames: this.lastCompletedRepFrames,
+        tuningTopRangeMinDeg: this.tuning.topRangeMinDeg,
+        tuningTorsoSwayFailDeg: this.tuning.torsoSwayFailDeg,
+        tuningTorsoSwayFailMinFrames: this.tuning.torsoSwayFailMinFrames,
+        tuningSymmetryFailDeg: this.tuning.symmetryFailDeg,
+        tuningSymmetryFailMinFrames: this.tuning.symmetryFailMinFrames,
+        tuningElbowCurlFailDeg: this.tuning.elbowCurlFailDeg,
+        tuningElbowCurlFailMinFrames: this.tuning.elbowCurlFailMinFrames
+      }
+    }
+    return feedback
   }
 
   resetSession() {
@@ -263,6 +309,13 @@ export class LateralRaiseVideoAnalyzer {
     this.viewInvalidRepCount = 0
     this.smoothLeftRaise = null
     this.smoothRightRaise = null
+    this.lastCompletedRepMaxRaise = null
+    this.lastCompletedRepTorsoHardFrames = null
+    this.lastCompletedRepSymmetryHardFrames = null
+    this.lastCompletedRepElbowHardFrames = null
+    this.lastCompletedRepFrontBadFrames = null
+    this.lastCompletedRepValidFrames = null
+    this.lastCompletedRepFrames = null
   }
 
   private updateState(
@@ -319,6 +372,40 @@ export class LateralRaiseVideoAnalyzer {
 
     if (nextState === 's3') this.enteredTop = true
 
+    if (this.currentState !== 's1' && nextState === 's1' && !this.enteredTop) {
+      this.lastRepResult = null
+      if (this.frameCount < NATIVE_REP_COUNT_MIN_FRAMES) {
+        this.lastRepMessage = 'Rep ignored: movement was too short to count.'
+        this.lastRepReasonCodes = ['REP_TOO_SHORT']
+        this.lastRepReasonLabels = ['Movement was too short to count']
+        this.lastRepCorrections = ['Complete a full rep: raise both dumbbells to shoulder height, pause briefly, then lower under control.']
+      } else {
+        this.lastRepMessage = 'Rep ignored: arms did not reach shoulder height.'
+        this.lastRepReasonCodes = ['TOP_RANGE_INSUFFICIENT']
+        this.lastRepReasonLabels = ['Arms did not reach shoulder height']
+        this.lastRepCorrections = ['Raise to shoulder height (upper arms roughly parallel to the floor), keep elbows softly bent, then lower slowly without swinging.']
+      }
+      this.lastRepFrameCount = this.frameCount
+      this.repCount += 1
+      this.unassessedCount += 1
+      const repDurationSec = Math.max(0.1, this.frameCount / this.analyzerFps)
+      this.repDurationTotalSec += repDurationSec
+      this.repDurationCount += 1
+      this.frameCount = 0
+      this.enteredTop = false
+      this.repValidFrameCount = 0
+      this.repFrontBadFrames = 0
+      this.repPeakTorsoAngle = 0
+      this.repTorsoHardFrames = 0
+      this.repPeakSymmetryGap = 0
+      this.repSymmetryHardFrames = 0
+      this.repMinElbowAngle = 180
+      this.repElbowHardFrames = 0
+      this.repMaxRaise = 0
+      this.currentState = nextState
+      return
+    }
+
     if (this.currentState !== 's1' && nextState === 's1' && this.enteredTop) {
       const enoughFrames = this.frameCount >= NATIVE_REP_COUNT_MIN_FRAMES
       if (!enoughFrames) {
@@ -326,8 +413,13 @@ export class LateralRaiseVideoAnalyzer {
         this.lastRepMessage = 'Rep ignored: movement was too short to count.'
         this.lastRepReasonCodes = ['REP_TOO_SHORT']
         this.lastRepReasonLabels = ['Movement was too short to count']
-        this.lastRepCorrections = ['Raise to shoulder height, pause briefly, then lower under control.']
+        this.lastRepCorrections = ['Complete a full rep: raise both dumbbells to shoulder height, pause briefly, then lower under control.']
         this.lastRepFrameCount = this.frameCount
+        this.repCount += 1
+        this.unassessedCount += 1
+        const repDurationSec = Math.max(0.1, this.frameCount / this.analyzerFps)
+        this.repDurationTotalSec += repDurationSec
+        this.repDurationCount += 1
         this.frameCount = 0
         this.enteredTop = false
         this.currentState = nextState
@@ -345,9 +437,7 @@ export class LateralRaiseVideoAnalyzer {
       this.repDurationTotalSec += repDurationSec
       this.repDurationCount += 1
       const tempoTooFast = repDurationSec < this.tempo.repFastSec
-      const tempoTooSlow = repDurationSec > this.tempo.repSlowSec
       if (tempoTooFast) this.fastRepCount += 1
-      if (tempoTooSlow) this.slowRepCount += 1
       if (frontBadRatio > NATIVE_FRONT_VIEW_FAIL_RATIO) this.viewInvalidRepCount += 1
 
       if (!assessable) {
@@ -356,7 +446,7 @@ export class LateralRaiseVideoAnalyzer {
         this.lastRepMessage = 'Rep counted, but quality was not assessed due to unstable or incomplete keypoints.'
         this.lastRepReasonCodes = ['KEYPOINTS_INCOMPLETE']
         this.lastRepReasonLabels = ['Keypoints were incomplete']
-        this.lastRepCorrections = ['Improve lighting and keep shoulders, elbows, wrists, and torso visible.']
+        this.lastRepCorrections = ['Improve lighting, keep shoulders/elbows/wrists/hips visible, and avoid blocking joints with clothing or objects.']
       } else {
         const topInsufficient = this.repMaxRaise < this.tuning.topRangeMinDeg
         const torsoSwayFailed =
@@ -366,7 +456,7 @@ export class LateralRaiseVideoAnalyzer {
         const elbowCurlFailed =
           this.repMinElbowAngle <= this.tuning.elbowCurlFailDeg && this.repElbowHardFrames >= this.tuning.elbowCurlFailMinFrames
 
-        if (topInsufficient || torsoSwayFailed || symmetryFailed || elbowCurlFailed || tempoTooFast || tempoTooSlow) {
+        if (topInsufficient || torsoSwayFailed || symmetryFailed || elbowCurlFailed || tempoTooFast) {
           this.incorrectCount += 1
           this.lastRepResult = 'incorrect'
           const reasonCodes: string[] = []
@@ -402,11 +492,6 @@ export class LateralRaiseVideoAnalyzer {
             reasonLabels.push('Rep tempo was too fast')
             corrections.push('Slow down: lift up under control, brief pause at the top, then lower with control.')
           }
-          if (tempoTooSlow) {
-            reasonCodes.push('TEMPO_TOO_SLOW')
-            reasonLabels.push('Rep tempo was too slow')
-            corrections.push('Keep control, but avoid long stalls; use a smoother continuous rhythm.')
-          }
 
           this.lastRepReasonCodes = reasonCodes
           this.lastRepReasonLabels = reasonLabels
@@ -420,6 +505,16 @@ export class LateralRaiseVideoAnalyzer {
           this.lastRepReasonLabels = []
           this.lastRepCorrections = []
         }
+      }
+
+      if (this.debugEnabled) {
+        this.lastCompletedRepMaxRaise = this.repMaxRaise > 0 ? this.repMaxRaise : null
+        this.lastCompletedRepTorsoHardFrames = this.repTorsoHardFrames
+        this.lastCompletedRepSymmetryHardFrames = this.repSymmetryHardFrames
+        this.lastCompletedRepElbowHardFrames = this.repElbowHardFrames
+        this.lastCompletedRepFrontBadFrames = this.repFrontBadFrames
+        this.lastCompletedRepValidFrames = this.repValidFrameCount
+        this.lastCompletedRepFrames = this.frameCount
       }
 
       this.lastRepFrameCount = this.frameCount
@@ -535,8 +630,8 @@ export class LateralRaiseVideoAnalyzer {
 
   private angleFromVerticalDeg(top?: { x: number; y: number; score: number } | null, bottom?: { x: number; y: number; score: number } | null) {
     if (!top || !bottom) return null
-    const dx = top.x - bottom.x
-    const dy = top.y - bottom.y
+    const dx = bottom.x - top.x
+    const dy = bottom.y - top.y
     const mag = Math.hypot(dx, dy)
     if (!mag) return null
     const cos = Math.min(1, Math.max(-1, dy / mag))

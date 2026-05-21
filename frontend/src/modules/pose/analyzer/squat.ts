@@ -1,5 +1,6 @@
 import type { MoveNetKeypoint } from '../vision/movenetTracker'
 import type { PoseAnalyzerFeedback } from './types'
+import { isPoseDebugEnabled } from '../debugFlags'
 
 const KNEE_FORWARD_WARN_RATIO = 0.048
 const KNEE_FORWARD_FAIL_RATIO = 0.053
@@ -73,6 +74,7 @@ export const VIDEO_DEFAULT_SQUAT_TEMPO: SquatTempo = {
 }
 
 export class SquatVideoAnalyzer {
+  private debugEnabled = isPoseDebugEnabled()
   private repCount = 0
   private correctCount = 0
   private incorrectCount = 0
@@ -98,6 +100,13 @@ export class SquatVideoAnalyzer {
   private repForwardLeanHardFrames = 0
   private repValidFrameCount = 0
   private repSideViewBadFrames = 0
+  private lastCompletedRepPeakKneeForwardRatio = 0
+  private lastCompletedRepKneeForwardHardFrames = 0
+  private lastCompletedRepPeakTorsoLeanAngle = 0
+  private lastCompletedRepForwardLeanHardFrames = 0
+  private lastCompletedRepValidFrameCount = 0
+  private lastCompletedRepSideViewBadFrames = 0
+  private lastCompletedRepFrameCount = 0
   private repDurationTotalSec = 0
   private repDurationCount = 0
   private fastRepCount = 0
@@ -239,7 +248,7 @@ export class SquatVideoAnalyzer {
     const primaryIssue = issues[0]?.message ?? null
     const primaryWarn = warnings[0] ?? null
 
-    return {
+    const feedback: PoseAnalyzerFeedback = {
       phase: this.stateToPhase(nextState),
       state: nextState,
       mode: 'beginner',
@@ -282,6 +291,47 @@ export class SquatVideoAnalyzer {
         slowRepCount: this.slowRepCount
       }
     }
+    if (this.debugEnabled) {
+      feedback.debug = {
+        kneeForwardRatio: kneeForwardRatio !== null ? Math.round(kneeForwardRatio * 1000) / 1000 : null,
+        torsoAngleDeg: torsoAngle !== null ? Math.round(torsoAngle) : null,
+        heldTorsoAngleDeg: heldTorsoAngle !== null ? Math.round(heldTorsoAngle) : null,
+        sideViewWarning: sideViewWarning ? 1 : 0,
+        trackingQualityRaw: Math.round(trackingQuality * 1000) / 1000,
+        lowerBodyQuality: Math.round(lowerBodyQuality * 1000) / 1000,
+        stableS1Frames: this.stableS1Frames,
+        stableValidFrames: this.stableValidFrames,
+        repActive: this.repActive ? 1 : 0,
+        enteredBottom: this.enteredBottom ? 1 : 0,
+        enteredBottomReliable: this.enteredBottomReliable ? 1 : 0,
+        repPeakKneeForwardRatio: Math.round(this.repPeakKneeForwardRatio * 1000) / 1000,
+        repKneeForwardHardFrames: this.repKneeForwardHardFrames,
+        repPeakTorsoLeanAngleDeg: Math.round(this.repPeakTorsoLeanAngle),
+        repForwardLeanHardFrames: this.repForwardLeanHardFrames,
+        repValidFrameCount: this.repValidFrameCount,
+        repSideViewBadFrames: this.repSideViewBadFrames,
+        repFrameCount: this.frameCount,
+        lastCompletedRepPeakKneeForwardRatio: Math.round(this.lastCompletedRepPeakKneeForwardRatio * 1000) / 1000,
+        lastCompletedRepKneeForwardHardFrames: this.lastCompletedRepKneeForwardHardFrames,
+        lastCompletedRepPeakTorsoLeanAngleDeg: Math.round(this.lastCompletedRepPeakTorsoLeanAngle),
+        lastCompletedRepForwardLeanHardFrames: this.lastCompletedRepForwardLeanHardFrames,
+        lastCompletedRepValidFrameCount: this.lastCompletedRepValidFrameCount,
+        lastCompletedRepSideViewBadFrames: this.lastCompletedRepSideViewBadFrames,
+        lastCompletedRepFrameCount: this.lastCompletedRepFrameCount,
+        analyzerFps: this.analyzerFps,
+        torsoPeakHoldFrames: this.torsoPeakHoldFrames,
+        tuningKneeForwardWarnRatio: this.tuning.kneeForwardWarnRatio,
+        tuningKneeForwardFailRatio: this.tuning.kneeForwardFailRatio,
+        tuningKneeForwardFailMinFrames: this.tuning.kneeForwardFailMinFrames,
+        tuningForwardLeanWarnDeg: this.tuning.forwardLeanWarnDeg,
+        tuningForwardLeanFailDeg: this.tuning.forwardLeanFailDeg,
+        tuningForwardLeanFailMinFrames: this.tuning.forwardLeanFailMinFrames,
+        tuningTrackingQualityMin: this.tuning.trackingQualityMin,
+        tempoRepFastSec: this.tempo.repFastSec,
+        tempoRepSlowSec: this.tempo.repSlowSec
+      }
+    }
+    return feedback
   }
 
   resetSession() {
@@ -310,6 +360,13 @@ export class SquatVideoAnalyzer {
     this.repForwardLeanHardFrames = 0
     this.repValidFrameCount = 0
     this.repSideViewBadFrames = 0
+    this.lastCompletedRepPeakKneeForwardRatio = 0
+    this.lastCompletedRepKneeForwardHardFrames = 0
+    this.lastCompletedRepPeakTorsoLeanAngle = 0
+    this.lastCompletedRepForwardLeanHardFrames = 0
+    this.lastCompletedRepValidFrameCount = 0
+    this.lastCompletedRepSideViewBadFrames = 0
+    this.lastCompletedRepFrameCount = 0
     this.repDurationTotalSec = 0
     this.repDurationCount = 0
     this.fastRepCount = 0
@@ -371,6 +428,46 @@ export class SquatVideoAnalyzer {
       }
     }
 
+    if (this.repActive && this.currentState !== 's1' && nextState === 's1' && !this.enteredBottom) {
+      this.lastRepResult = null
+      this.lastRepMessage = 'Rep ignored: depth was insufficient to count.'
+      this.lastRepReasonCodes = ['DEPTH_INSUFFICIENT']
+      this.lastRepReasonLabels = ['Depth was insufficient']
+      this.lastRepCorrections = ['Go deeper until hips reach about knee height (or slightly below) while keeping heels down, then stand up smoothly with control.']
+      this.lastRepFrameCount = this.frameCount
+      this.lastCompletedRepPeakKneeForwardRatio = this.repPeakKneeForwardRatio
+      this.lastCompletedRepKneeForwardHardFrames = this.repKneeForwardHardFrames
+      this.lastCompletedRepPeakTorsoLeanAngle = this.repPeakTorsoLeanAngle
+      this.lastCompletedRepForwardLeanHardFrames = this.repForwardLeanHardFrames
+      this.lastCompletedRepValidFrameCount = this.repValidFrameCount
+      this.lastCompletedRepSideViewBadFrames = this.repSideViewBadFrames
+      this.lastCompletedRepFrameCount = this.frameCount
+      this.repCount += 1
+      this.unassessedCount += 1
+      this.lastCompletedRepPeakTorsoLeanAngle = this.repPeakTorsoLeanAngle
+      this.lastCompletedRepForwardLeanHardFrames = this.repForwardLeanHardFrames
+      this.lastCompletedRepValidFrameCount = this.repValidFrameCount
+      this.lastCompletedRepSideViewBadFrames = this.repSideViewBadFrames
+      this.lastCompletedRepFrameCount = this.frameCount
+      this.repCount += 1
+      this.unassessedCount += 1
+      const repDurationSec = Math.max(0.1, this.frameCount / this.analyzerFps)
+      this.repDurationTotalSec += repDurationSec
+      this.repDurationCount += 1
+      this.frameCount = 0
+      this.enteredBottom = false
+      this.enteredBottomReliable = false
+      this.repActive = false
+      this.repPeakKneeForwardRatio = 0
+      this.repKneeForwardHardFrames = 0
+      this.repPeakTorsoLeanAngle = 0
+      this.repForwardLeanHardFrames = 0
+      this.repValidFrameCount = 0
+      this.repSideViewBadFrames = 0
+      this.currentState = nextState
+      return
+    }
+
     if (this.repActive && this.currentState !== 's1' && nextState === 's1' && this.enteredBottom) {
       const enoughForCounting = this.repValidFrameCount >= REP_COUNT_MIN_FRAMES && this.enteredBottomReliable
       if (!enoughForCounting) {
@@ -378,8 +475,20 @@ export class SquatVideoAnalyzer {
         this.lastRepMessage = 'Rep ignored: tracking was not stable enough to count.'
         this.lastRepReasonCodes = ['LOW_CONFIDENCE_REP_IGNORED']
         this.lastRepReasonLabels = ['Tracking was not stable enough to count']
-        this.lastRepCorrections = ['Step back until your full body is visible and keep key joints in frame.']
+        this.lastRepCorrections = ['Improve lighting, step back so your full body is visible, and keep the camera steady so tracking stays stable.']
         this.lastRepFrameCount = this.frameCount
+        this.lastCompletedRepPeakKneeForwardRatio = this.repPeakKneeForwardRatio
+        this.lastCompletedRepKneeForwardHardFrames = this.repKneeForwardHardFrames
+        this.lastCompletedRepPeakTorsoLeanAngle = this.repPeakTorsoLeanAngle
+        this.lastCompletedRepForwardLeanHardFrames = this.repForwardLeanHardFrames
+        this.lastCompletedRepValidFrameCount = this.repValidFrameCount
+        this.lastCompletedRepSideViewBadFrames = this.repSideViewBadFrames
+        this.lastCompletedRepFrameCount = this.frameCount
+        this.repCount += 1
+        this.unassessedCount += 1
+        const repDurationSec = Math.max(0.1, this.frameCount / this.analyzerFps)
+        this.repDurationTotalSec += repDurationSec
+        this.repDurationCount += 1
         this.frameCount = 0
         this.enteredBottom = false
         this.enteredBottomReliable = false
@@ -403,8 +512,13 @@ export class SquatVideoAnalyzer {
         this.lastRepMessage = 'Rep ignored: keypoints were incomplete or unstable.'
         this.lastRepReasonCodes = ['KEYPOINTS_INCOMPLETE_REP_IGNORED']
         this.lastRepReasonLabels = ['Keypoints were incomplete or unstable']
-        this.lastRepCorrections = ['Step back slightly and keep shoulders, hips, knees, and ankles visible.']
+        this.lastRepCorrections = ['Step back slightly and keep shoulders, hips, knees, and ankles fully visible with even front lighting (avoid occlusion).']
         this.lastRepFrameCount = this.frameCount
+        this.repCount += 1
+        this.unassessedCount += 1
+        const repDurationSec = Math.max(0.1, this.frameCount / this.analyzerFps)
+        this.repDurationTotalSec += repDurationSec
+        this.repDurationCount += 1
         this.frameCount = 0
         this.enteredBottom = false
         this.enteredBottomReliable = false
@@ -504,6 +618,13 @@ export class SquatVideoAnalyzer {
       }
 
       this.lastRepFrameCount = this.frameCount
+      this.lastCompletedRepPeakKneeForwardRatio = this.repPeakKneeForwardRatio
+      this.lastCompletedRepKneeForwardHardFrames = this.repKneeForwardHardFrames
+      this.lastCompletedRepPeakTorsoLeanAngle = this.repPeakTorsoLeanAngle
+      this.lastCompletedRepForwardLeanHardFrames = this.repForwardLeanHardFrames
+      this.lastCompletedRepValidFrameCount = this.repValidFrameCount
+      this.lastCompletedRepSideViewBadFrames = this.repSideViewBadFrames
+      this.lastCompletedRepFrameCount = this.frameCount
       this.frameCount = 0
       this.enteredBottom = false
       this.enteredBottomReliable = false

@@ -75,15 +75,33 @@ export function collectAnalyzerReplayStats(input: {
         const result: SquatRepFinding['result'] =
           feedback.lastRepResult === 'correct' ? 'correct' : feedback.lastRepResult === 'incorrect' ? 'incorrect' : 'invalid'
         const reasons = feedback.lastRepReasonLabels.length > 0 ? [...feedback.lastRepReasonLabels] : []
+        const repIgnoredMessage = typeof feedback.lastRepMessage === 'string' ? feedback.lastRepMessage.trim() : ''
+        const repIgnoredLower = repIgnoredMessage.toLowerCase()
+        const incompleteCodes = new Set([
+          'DEPTH_INSUFFICIENT',
+          'TOP_RANGE_INSUFFICIENT',
+          'RANGE_TOO_SMALL',
+          'MOVE_TOO_SMALL',
+          'ROW_RANGE_INSUFFICIENT'
+        ])
+        const hasIncompleteCode = (feedback.lastRepReasonCodes ?? []).some((code) => incompleteCodes.has(code))
+        const incompleteByText =
+          repIgnoredLower.startsWith('rep ignored') &&
+          (repIgnoredLower.includes('depth') ||
+            repIgnoredLower.includes('range of motion') ||
+            repIgnoredLower.includes('range') ||
+            repIgnoredLower.includes('arms did not reach') ||
+            repIgnoredLower.includes('movement was too small'))
+        const tags = repIgnoredLower.startsWith('rep ignored') && (hasIncompleteCode || incompleteByText) ? ['Incomplete'] : undefined
         const repWindowEntries = [...repWindowMessageEntries]
         const repTierFromWindow =
           pickRepTierFromWindow(input.exerciseSlug, repWindowEntries, recentlyUsedPrimaryIssues)
         const positiveLabels = [
-          'Rep passed quality check — good control.',
-          'Clean rep — form looks solid.',
-          'Nice rep — stayed within form standards.',
-          'Good form on this rep.',
-          'Rep looks good — consistent technique.'
+          'Looks good.',
+          'Good rep.',
+          'Nice rep.',
+          'Good control.',
+          'Keep going.'
         ]
         const repEndTms = frame.tMs
         const resolvedPrimaryIssue = resolvePrimaryIssue({
@@ -126,6 +144,7 @@ export function collectAnalyzerReplayStats(input: {
                     : resolvedPrimaryIssue.tier,
             primaryIssue: repIndex < delta ? 'Rep detected (details unavailable)' : primaryIssue,
             reasons: repIndex < delta ? [] : reasons,
+            tags: repIndex < delta ? undefined : tags,
             atFrame: estFrame,
             tMs: repIndex < delta ? estTms : issueTms
           })
@@ -230,10 +249,15 @@ function resolvePrimaryIssue(args: {
   }
 
   if (result === 'incorrect') {
-    const pickByPriority = (candidates: string[]) => {
-      const scored = candidates.map((msg) => {
+    const formReasons = reasons.filter((r) => {
+      const human = mapPoseFeedbackMessage({ exerciseSlug, message: r })
+      return human.tier !== 'gate'
+    })
+    if (formReasons.length > 0) {
+      const scored = formReasons.map((msg) => {
         const lower = msg.toLowerCase()
-        const score =
+        const human = mapPoseFeedbackMessage({ exerciseSlug, message: msg })
+        const baseScore =
           exerciseSlug === 'bent-over-row' && lower.includes('knees were too straight')
             ? 100
             : lower.includes('knees were too straight')
@@ -247,27 +271,26 @@ function resolvePrimaryIssue(args: {
                     : lower.includes('arms were not pulled evenly')
                       ? 30
                       : 10
-        return { msg, score }
+        const freshBonus = recentlyUsed.includes(human.label) ? 0 : 25
+        const squatBalanceBonus =
+          exerciseSlug === 'squat' && (lower.includes('torso leaned too far forward') || lower.includes('excessive forward torso lean'))
+            ? 10
+            : 0
+        return { msg, human, score: baseScore + freshBonus + squatBalanceBonus }
       })
       scored.sort((a, b) => b.score - a.score)
-      return scored[0]?.msg ?? null
-    }
-
-    const formReasons = reasons.filter((r) => {
-      const human = mapPoseFeedbackMessage({ exerciseSlug, message: r })
-      return human.tier !== 'gate'
-    })
-    const priority = pickByPriority(formReasons)
-    if (priority) {
-      const human = mapPoseFeedbackMessage({ exerciseSlug, message: priority })
-      return { message: human.label, tier: human.tier, tMs: findFirstMessageTms(priority) }
+      const pick = scored[0]
+      if (pick) return { message: pick.human.label, tier: pick.human.tier, tMs: findFirstMessageTms(pick.msg) }
     }
   }
 
   if (result === 'correct') {
-    const msg = repTierFromWindow?.message ?? positiveLabels[correctCount % positiveLabels.length]!
-    const tMs = repTierFromWindow?.tMs ?? repEndTms
-    return { message: msg, tier: repTierFromWindow?.tier ?? 'gate', tMs }
+    if (repTierFromWindow && repTierFromWindow.tier === 'warning') {
+      const human = mapPoseFeedbackMessage({ exerciseSlug, message: repTierFromWindow.message })
+      return { message: human.label, tier: 'warning', tMs: repTierFromWindow.tMs }
+    }
+    const msg = positiveLabels[correctCount % positiveLabels.length]!
+    return { message: msg, tier: 'gate', tMs: repEndTms }
   }
 
   if (repTierFromWindow) {

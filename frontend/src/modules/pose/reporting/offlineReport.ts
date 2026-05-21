@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿import { humanizePoseReport } from './copy'
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿import { humanizePoseReport } from './copy'
 import { extractNativePoseFromVideoUrlWithMoveNet, type MoveNetNativeFrame } from '../vision/movenetPose'
 import type { PoseAnalysisReport } from './types'
 import type { PosePolicy } from '../api'
@@ -60,7 +60,8 @@ export function resolveOfflineViewAngle(exerciseSlug: string, fallback: 'unknown
 
 // The original video stays local; only sampled MoveNet keypoints feed report generation.
 export async function extractOfflinePoseFromLocalVideo(args: ExtractOfflinePoseArgs): Promise<ExtractedOfflinePose> {
-  const offlineTargetFps = Number(args.posePolicy?.offline?.analysis_target_fps ?? 40)
+  const offlineTargetFpsRaw = Number(args.posePolicy?.offline?.analysis_target_fps ?? 30)
+  const offlineTargetFps = Number.isFinite(offlineTargetFpsRaw) ? Math.max(1, Math.min(30, Math.round(offlineTargetFpsRaw))) : 30
   const offlineAnalysisLimitSec = Number(args.posePolicy?.offline?.analysis_limit_seconds ?? 120)
   const offlineAnalysisMaxFrames = Math.max(1, Math.floor(offlineTargetFps * offlineAnalysisLimitSec))
   const extracted = await extractNativePoseFromVideoUrlWithMoveNet(args.objectUrl, {
@@ -119,6 +120,7 @@ export function buildOfflinePoseReport(args: BuildOfflineReportArgs): PoseAnalys
       : args.exercise.slug === 'lateral-raise'
           ? buildLateralRaiseVideoReplayReport({
               ...baseInput,
+              tuning: args.poseRuntimeRules.analyzerTuning.lateralRaise,
               tempoFastThresholdSec: args.tempoFastThresholdSec,
               rules: args.poseRuntimeRules.lateralRaise,
               onProgress: (processed: number, total: number) => args.setOfflineProgress({ stage: 'Replaying lateral-raise video analyzer', processed, total })
@@ -126,11 +128,13 @@ export function buildOfflinePoseReport(args: BuildOfflineReportArgs): PoseAnalys
         : args.exercise.slug === 'bent-over-row'
             ? buildBentOverRowVideoReplayReport({
                 ...baseInput,
+                tuning: args.poseRuntimeRules.analyzerTuning.bentOverRow,
                 rules: args.poseRuntimeRules.bentOverRow,
                 onProgress: (processed: number, total: number) => args.setOfflineProgress({ stage: 'Replaying bent-over-row video analyzer', processed, total })
               })
             : buildPushupVideoReplayReport({
                 ...baseInput,
+                tuning: args.poseRuntimeRules.analyzerTuning.pushup,
                 tempoFastThresholdSec: args.tempoFastThresholdSec,
                 rules: args.poseRuntimeRules.pushup,
                 onProgress: (processed: number, total: number) => args.setOfflineProgress({ stage: 'Replaying push-up video analyzer', processed, total })

@@ -21,6 +21,7 @@ export type SquatRepFinding = {
   tier?: 'gate' | 'warning' | 'issue' | 'rep_fail'
   primaryIssue: string
   reasons: string[]
+  tags?: string[]
   atFrame: number
   tMs: number
 }

@@ -3,6 +3,7 @@ import type { OfflineReplayData, OfflineOverlayTone } from '../types'
 import { findClosestTmsIndex } from '../../reporting/overlayReplay'
 import { drawPoseJoints17 } from '../../vision/draw'
 import type { MoveNetNativeFrame } from '../../vision/movenetPose'
+import { isPoseDebugEnabled } from '../../debugFlags'
 
 type SnapshotOptions = {
   maxSide: number
@@ -45,13 +46,15 @@ export async function attachRepFindingSnapshots(args: AttachSnapshotsArgs): Prom
     let lastSnapshotMediaSec: number | null = null
     const usedSignatures = new Set<string>()
     const usedTimeKeys = new Set<number>()
-    const MIN_SNAPSHOT_DELTA_SEC = 0.25
+    const MIN_SNAPSHOT_DELTA_SEC = 0.8
     for (let i = 0; i < repFindings.length; i++) {
       const finding = repFindings[i]!
       const snapshotDataUrlExisting = typeof finding.snapshotDataUrl === 'string' ? finding.snapshotDataUrl : null
       const findingTms = asNumber(finding.tMs)
       const result = String(finding.result ?? 'invalid')
-      const eligible = result !== 'correct' && snapshotCount < options.maxSnapshots
+      const tier = typeof finding.tier === 'string' ? finding.tier : null
+      const eligibleTier = tier === 'warning' || tier === 'issue' || tier === 'rep_fail'
+      const eligible = snapshotCount < options.maxSnapshots && eligibleTier
       if (findingTms === null || !eligible) {
         nextRepFindings.push(finding)
         continue
@@ -65,6 +68,8 @@ export async function attachRepFindingSnapshots(args: AttachSnapshotsArgs): Prom
       const baseOverlayIdx = findClosestTmsIndex(args.replayData.overlayFrames, findingTms)
       const baseOverlayTms = args.replayData.overlayFrames[baseOverlayIdx]?.tMs ?? findingTms
       const baseSec = Math.max(0, baseOverlayTms / 1000)
+      const tags = Array.isArray(finding.tags) ? finding.tags.filter((x): x is string => typeof x === 'string') : []
+      const minDeltaSec = tags.includes('Incomplete') ? 0.25 : MIN_SNAPSHOT_DELTA_SEC
 
       try {
         const capture = await captureUniqueFrame({
@@ -76,7 +81,7 @@ export async function attachRepFindingSnapshots(args: AttachSnapshotsArgs): Prom
           lastSnapshotMediaSec,
           usedSignatures,
           usedTimeKeys,
-          minDeltaSec: MIN_SNAPSHOT_DELTA_SEC
+          minDeltaSec
         })
 
         if (!capture) {
@@ -96,10 +101,22 @@ export async function attachRepFindingSnapshots(args: AttachSnapshotsArgs): Prom
         if (joints.length > 0) drawPoseJoints17(ctx, joints, width, height, toneToColor(tone), { mirror: false })
 
         const dataUrl = canvas.toDataURL('image/jpeg', options.jpegQuality)
-        nextRepFindings.push({
-          ...finding,
-          snapshotDataUrl: dataUrl
-        })
+        const isDebug = isPoseDebugEnabled()
+        nextRepFindings.push(
+          isDebug
+            ? {
+                ...finding,
+                snapshotDataUrl: dataUrl,
+                snapshotTms,
+                snapshotBaseTms: baseOverlayTms,
+                snapshotSignature: capture.signature,
+                snapshotTimeKey: timeKey(capture.mediaSec)
+              }
+            : {
+                ...finding,
+                snapshotDataUrl: dataUrl
+              }
+        )
         snapshotCount += 1
       } catch {
         nextRepFindings.push(finding)
@@ -287,30 +304,49 @@ async function seekAndCaptureFrame(args: {
 function frameSignature(ctx: CanvasRenderingContext2D, width: number, height: number) {
   const w = Math.max(1, Math.floor(width))
   const h = Math.max(1, Math.floor(height))
-  const out: number[] = []
-  let light = 0
-  const grid = 8
-  for (let gy = 0; gy < grid; gy++) {
-    for (let gx = 0; gx < grid; gx++) {
-      const px = Math.max(0, Math.min(w - 1, Math.floor(((gx + 0.5) / grid) * w)))
-      const py = Math.max(0, Math.min(h - 1, Math.floor(((gy + 0.5) / grid) * h)))
+  let sum = 0
+  let sumSq = 0
+  const sampleW = 9
+  const sampleH = 8
+  const g: number[] = []
+  for (let y = 0; y < sampleH; y++) {
+    for (let x = 0; x < sampleW; x++) {
+      const px = Math.max(0, Math.min(w - 1, Math.floor(((x + 0.5) / sampleW) * w)))
+      const py = Math.max(0, Math.min(h - 1, Math.floor(((y + 0.5) / sampleH) * h)))
       const data = ctx.getImageData(px, py, 1, 1).data
       const r = (data[0] ?? 0) | 0
-      const g = (data[1] ?? 0) | 0
+      const gg = (data[1] ?? 0) | 0
       const b = (data[2] ?? 0) | 0
-      const l = (r * 3 + g * 4 + b) >> 3
-      out.push(l >> 4)
-      light += l
+      const l = (r * 3 + gg * 4 + b) >> 3
+      g.push(l)
+      sum += l
+      sumSq += l * l
     }
   }
-  const isBlack = light <= grid * grid * 2
-  return { signature: out.join(''), isBlack }
+  const n = g.length
+  const avg = n > 0 ? sum / n : 0
+  const variance = n > 0 ? sumSq / n - avg * avg : 0
+  const isBlack = avg <= 3 || (avg <= 10 && variance <= 10)
+  let bits = ''
+  for (let y = 0; y < sampleH; y++) {
+    const row = y * sampleW
+    for (let x = 0; x < sampleW - 1; x++) {
+      bits += g[row + x]! > g[row + x + 1]! ? '1' : '0'
+    }
+  }
+  return { signature: bits, isBlack }
 }
 
 type FrameCapture = { mediaSec: number; signature: string }
 
-const STANDARD_OFFSETS = [0, 0.15, -0.15, 0.35, -0.35, 0.7, -0.7, 1.2, -1.2, 2.5, -2.5, 4, -4]
-const WIDE_OFFSETS = [6, -6, 8, -8, 3.5, -3.5]
+function buildOffsets() {
+  const offsets: number[] = [0]
+  const steps = [0.12, 0.24, 0.36, 0.48, 0.6, 0.75, 0.9, 1.1, 1.3, 1.6, 1.9, 2.2, 2.6, 3.0, 3.6, 4.2, 5.0, 6.0]
+  for (const step of steps) {
+    offsets.push(step, -step)
+  }
+  return offsets
+}
 
 function timeKey(sec: number) {
   if (!Number.isFinite(sec)) return 0
@@ -348,10 +384,5 @@ async function captureUniqueFrame(args: {
     return null
   }
 
-  let result = await probe(STANDARD_OFFSETS)
-  if (!result) {
-    result = await probe(WIDE_OFFSETS)
-  }
-
-  return result
+  return await probe(buildOffsets())
 }

@@ -1,13 +1,14 @@
 import { normalizeReportForArchive } from '../../../lib/report/unified'
 import type { PoseAnalysisReport } from '../reporting/types'
 import type { PoseAnalyzerFeedback } from '../analyzer/types'
-import { BentOverRowVideoAnalyzer } from '../analyzer/bentOverRow'
+import { BentOverRowVideoAnalyzer, DEFAULT_BENT_OVER_ROW_TUNING, type BentOverRowTuning } from '../analyzer/bentOverRow'
 import type { MoveNetKeypoint } from '../vision/movenetTracker'
 import { collectAnalyzerReplayStats } from './replayStats'
 import { computeReportErrorStats, sampleTimelineRows, toIssueCode } from './reportBase'
 import { mapSuggestionFromIssue } from './suggestionMap'
 import type { SquatRepFinding, SquatTimelineRow } from './types'
 import { DEFAULT_POSE_RUNTIME_RULES, severityFromRatio, type PoseRuntimeRules } from './policyRules'
+import { isPoseDebugEnabled } from '../debugFlags'
 
 export function buildBentOverRowAlignedReport(input: {
   taskId: string
@@ -15,6 +16,7 @@ export function buildBentOverRowAlignedReport(input: {
   exercise: { id: string; name: string } | null
   video: { id: string; originalName: string; mimeType: string; sizeBytes: number } | null
   fps: number
+  tuning?: Partial<BentOverRowTuning>
   lastFeedback: PoseAnalyzerFeedback | null
   messageFreq: Map<string, number>
   analyzedFrameCount: number
@@ -124,6 +126,7 @@ export function buildBentOverRowAlignedReport(input: {
     { key: 'torsoFromVerticalDeg', label: 'Torso Angle' }
   ]
   const repFindings = input.repFindings ?? []
+  const effectiveTuning = { ...DEFAULT_BENT_OVER_ROW_TUNING, ...(input.tuning ?? {}) }
 
   return normalizeReportForArchive({
     version: 3,
@@ -158,6 +161,7 @@ export function buildBentOverRowAlignedReport(input: {
       avgTrackingQuality: Math.round(avgTrackingQuality * 100) / 100,
       currentSuggestion,
       warnings: input.lastFeedback?.warnings ?? [],
+      ...(isPoseDebugEnabled() ? { tuning: effectiveTuning, debug: input.lastFeedback?.debug ?? null } : {}),
       timelineSeries,
       timelineSampled,
       repFindings
@@ -188,11 +192,13 @@ export function buildBentOverRowVideoReplayReport(input: {
   video: { id: string; originalName: string; mimeType: string; sizeBytes: number } | null
   fps: number
   nativeFrames: Array<{ tMs: number; keypoints: MoveNetKeypoint[] }>
+  tuning?: Partial<BentOverRowTuning>
   rules?: PoseRuntimeRules['bentOverRow']
   onProgress?: (processed: number, total: number) => void
 }): PoseAnalysisReport {
   const analyzer = new BentOverRowVideoAnalyzer()
   analyzer.setAnalyzerFps(input.fps)
+  analyzer.setTuning({ ...DEFAULT_BENT_OVER_ROW_TUNING, ...(input.tuning ?? {}) })
   const stats = collectAnalyzerReplayStats({ analyzer, exerciseSlug: 'bent-over-row', nativeFrames: input.nativeFrames, onProgress: input.onProgress })
 
   return buildBentOverRowAlignedReport({
@@ -201,6 +207,7 @@ export function buildBentOverRowVideoReplayReport(input: {
     exercise: input.exercise,
     video: input.video,
     fps: input.fps,
+    tuning: input.tuning,
     lastFeedback: stats.lastFeedback,
     messageFreq: stats.messageFreq,
     analyzedFrameCount: stats.analyzedFrameCount,

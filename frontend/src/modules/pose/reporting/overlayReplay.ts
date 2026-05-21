@@ -3,7 +3,7 @@ import { configureAnalyzer, createAnalyzer } from '../helpers'
 import { type PoseAnalyzerFeedback } from '../analyzer/types'
 import { DistanceTracker } from '../vision/distanceTracker'
 import type { MoveNetNativeFrame } from '../vision/movenetPose'
-import type { OfflineOverlayFrame } from '../runtime/types'
+import type { OfflineOverlayFrame, OfflineOverlayTone } from '../runtime/types'
 
 const OVERLAY_TONE_FOR_TIER = {
   gate: 'ok',
@@ -45,7 +45,6 @@ export function buildOfflineOverlayFrames(input: {
   const pickMainOverlayTip = (args: { exerciseSlug: string; feedback: PoseAnalyzerFeedback | null; distanceText: string | null }): { main: PoseHumanFeedback | null; gate: PoseHumanFeedback | null } => {
     const f = args.feedback
     const candidates: Array<{ sourceRank: number; message: string; isGate: boolean }> = []
-    if (args.distanceText) candidates.push({ sourceRank: 10, message: args.distanceText, isGate: true })
     for (const reason of f?.lastRepReasonLabels ?? []) candidates.push({ sourceRank: 4, message: reason, isGate: false })
     if (f?.lastRepMessage) {
       const lower = f.lastRepMessage.toLowerCase()
@@ -110,6 +109,9 @@ export function buildOfflineOverlayFrames(input: {
 
   const total = input.nativeFrames.length
   const out: OfflineOverlayFrame[] = []
+  let repStartIdx: number | null = null
+  let lastRepCount = 0
+  let lastRepEndIdx = -1
   for (let i = 0; i < input.nativeFrames.length; i++) {
     const native = input.nativeFrames[i]!
     const hasNative = Array.isArray(native.keypoints) && native.keypoints.length > 0
@@ -123,7 +125,7 @@ export function buildOfflineOverlayFrames(input: {
     const { main, gate } = pickMainOverlayTip({ exerciseSlug: input.exerciseSlug, feedback, distanceText })
 
     const combinedShortHint =
-      gate && main ? `${gate.shortHint} 路 ${main.shortHint}` : gate?.shortHint ?? main?.shortHint ?? null
+      main?.shortHint ?? gate?.shortHint ?? null
 
     out.push({
       tMs,
@@ -133,6 +135,60 @@ export function buildOfflineOverlayFrames(input: {
       mainHint: main?.shortHint ?? null,
       distance
     })
+
+    if (feedback && repStartIdx === null) {
+      const state = String(feedback.state ?? '')
+      if (state && state !== 's1') repStartIdx = i
+    }
+
+    if (feedback && feedback.repCount > lastRepCount) {
+      const start = repStartIdx ?? Math.max(0, lastRepEndIdx + 1)
+      const end = i
+      const repTone: OfflineOverlayTone = feedback.lastRepResult === 'incorrect' ? 'bad' : feedback.lastRepResult === 'correct' ? 'ok' : 'warn'
+      const repHintShort =
+        feedback.lastRepResult === 'correct'
+          ? 'Looks good.'
+          : (() => {
+              const raw = (feedback.lastRepReasonLabels?.[0] ?? feedback.lastRepMessage ?? '').trim()
+              if (!raw) return 'Fix form.'
+              const lower = raw.toLowerCase()
+              const human = mapPoseFeedbackMessage({ exerciseSlug: input.exerciseSlug, message: raw })
+              if (
+                input.exerciseSlug === 'squat' &&
+                human.shortHint === 'Knees forward.' &&
+                (lower.includes('knees drifted too far forward') ||
+                  lower.includes('knee drifted too far ahead') ||
+                  lower.includes('knee drifted too far ahead of ankle'))
+              ) {
+                return feedback.repCount % 2 === 0 ? 'Knees forward.' : 'Hips back.'
+              }
+              return human.shortHint
+            })()
+      const repHintMessage =
+        feedback.lastRepResult === 'correct'
+          ? repHintShort
+          : (() => {
+              const raw = (feedback.lastRepReasonLabels?.[0] ?? feedback.lastRepMessage ?? '').trim()
+              if (!raw) return repHintShort
+              return mapPoseFeedbackMessage({ exerciseSlug: input.exerciseSlug, message: raw }).label
+            })()
+
+      for (let j = start; j <= end; j++) {
+        const prev = out[j]
+        if (!prev) continue
+        const gateHint = prev.gateHint ?? null
+        const includeGateHint = feedback.lastRepResult === null
+        out[j] = {
+          ...prev,
+          tone: repTone,
+          mainHint: repHintShort,
+          message: includeGateHint && gateHint ? `${gateHint}\n${repHintMessage}` : repHintMessage
+        }
+      }
+      repStartIdx = null
+      lastRepCount = feedback.repCount
+      lastRepEndIdx = i
+    }
     if (input.onProgress && ((i + 1) % 40 === 0 || i === input.nativeFrames.length - 1)) input.onProgress(i + 1, total)
   }
   return out

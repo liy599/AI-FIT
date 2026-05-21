@@ -1,4 +1,4 @@
-﻿import type { MoveNetKeypoint, MoveNetName } from './movenetTracker'
+import type { MoveNetKeypoint, MoveNetName } from './movenetTracker'
 import { MOVENET_NAMES, MoveNetStabilizer } from './movenetTracker'
 
 type MoveNetPoint = { x: number; y: number; score: number; name: string }
@@ -174,7 +174,7 @@ export async function extractNativePoseFromVideoUrlWithMoveNet(
 ): Promise<{ fps: number; nativeFrames: MoveNetNativeFrame[] }> {
   const {
     maxFrames = 4000,
-    targetFps = 40,
+    targetFps = 30,
     maxDurationSec,
     minVisibility = 0.2,
     enableStabilizer = true,
@@ -253,7 +253,7 @@ function chooseFpsForDuration(input: { durationSec: number; targetFps: number; m
   const target = Math.max(1, Math.min(60, Math.round(input.targetFps)))
   const budgetFps = Math.max(1, Math.floor(Math.max(1, input.maxFrames) / durationSec))
   const maxFps = Math.max(1, Math.min(target, budgetFps))
-  const candidates = [60, 50, 40, 25, 20, 10, 8, 5, 4, 2, 1]
+  const candidates = [60, 50, 40, 30, 25, 20, 10, 8, 5, 4, 2, 1]
   for (const v of candidates) {
     if (v <= maxFps) return v
   }

@@ -1,13 +1,14 @@
 import { normalizeReportForArchive } from '../../../lib/report/unified'
 import type { PoseAnalysisReport } from '../reporting/types'
 import type { PoseAnalyzerFeedback } from '../analyzer/types'
-import { PushupVideoAnalyzer } from '../analyzer/pushup'
+import { DEFAULT_PUSHUP_TUNING, PushupVideoAnalyzer, type PushupTuning } from '../analyzer/pushup'
 import type { MoveNetKeypoint } from '../vision/movenetTracker'
 import { collectAnalyzerReplayStats } from './replayStats'
 import { computeReportErrorStats, sampleTimelineRows, toIssueCode } from './reportBase'
 import { mapSuggestionFromIssue } from './suggestionMap'
 import type { SquatRepFinding, SquatTimelineRow } from './types'
 import { DEFAULT_POSE_RUNTIME_RULES, severityFromRatio, type PoseRuntimeRules } from './policyRules'
+import { isPoseDebugEnabled } from '../debugFlags'
 
 export function buildPushupAlignedReport(input: {
   taskId: string
@@ -15,6 +16,7 @@ export function buildPushupAlignedReport(input: {
   exercise: { id: string; name: string } | null
   video: { id: string; originalName: string; mimeType: string; sizeBytes: number } | null
   fps: number
+  tuning?: Partial<PushupTuning>
   lastFeedback: PoseAnalyzerFeedback | null
   messageFreq: Map<string, number>
   analyzedFrameCount: number
@@ -116,7 +118,7 @@ export function buildPushupAlignedReport(input: {
     issues.push({
       code: 'REPS_UNASSESSED',
       severity: ratio >= 0.35 ? 'warning' : 'info',
-      message: `${unassessedReps} of ${totalReps} reps could not be scored because the video tracking was unclear (lighting, body not fully visible, or occlusion).`,
+      message: `${unassessedReps} of ${totalReps} reps were not scored (incomplete range of motion or unclear tracking such as lighting, occlusion, or body not fully visible).`,
       atFrame: null
     })
   }
@@ -199,6 +201,7 @@ export function buildPushupAlignedReport(input: {
     { key: 'hipAngleDeg', label: 'Body Line Angle' },
     { key: 'torsoFromVerticalDeg', label: 'Torso Angle' }
   ]
+  const effectiveTuning = { ...DEFAULT_PUSHUP_TUNING, ...(input.tuning ?? {}) }
 
   return normalizeReportForArchive({
     version: 3,
@@ -231,10 +234,16 @@ export function buildPushupAlignedReport(input: {
       torsoAngle: input.lastFeedback?.torsoAngle ?? null,
       sideAlignment: input.lastFeedback?.offsetAngle ?? null,
       trackingQuality: input.lastFeedback?.trackingQuality ?? null,
+      lastRepResult: input.lastFeedback?.lastRepResult ?? null,
+      lastRepMessage: input.lastFeedback?.lastRepMessage ?? null,
+      lastRepReasonCodes: input.lastFeedback?.lastRepReasonCodes ?? [],
+      lastRepReasonLabels: input.lastFeedback?.lastRepReasonLabels ?? [],
+      lastRepFrameCount: input.lastFeedback?.lastRepFrameCount ?? null,
       avgTrackingQuality: Math.round(avgTrackingQuality * 100) / 100,
       currentSuggestion,
       warnings: input.lastFeedback?.warnings ?? [],
       tempo: tempoCheck,
+      ...(isPoseDebugEnabled() ? { tuning: effectiveTuning, debug: input.lastFeedback?.debug ?? null } : {}),
       timelineSeries,
       timelineSampled,
       repFindings
@@ -265,11 +274,13 @@ export function buildPushupVideoReplayReport(input: {
   video: { id: string; originalName: string; mimeType: string; sizeBytes: number } | null
   fps: number
   nativeFrames: Array<{ tMs: number; keypoints: MoveNetKeypoint[] }>
+  tuning?: Partial<PushupTuning>
   tempoFastThresholdSec?: number
   rules?: PoseRuntimeRules['pushup']
   onProgress?: (processed: number, total: number) => void
 }): PoseAnalysisReport {
   const analyzer = new PushupVideoAnalyzer()
+  analyzer.setTuning({ ...DEFAULT_PUSHUP_TUNING, ...(input.tuning ?? {}) })
   const stats = collectAnalyzerReplayStats({ analyzer, exerciseSlug: 'pushup', nativeFrames: input.nativeFrames, onProgress: input.onProgress })
 
   return buildPushupAlignedReport({
@@ -278,6 +289,7 @@ export function buildPushupVideoReplayReport(input: {
     exercise: input.exercise,
     video: input.video,
     fps: input.fps,
+    tuning: input.tuning,
     lastFeedback: stats.lastFeedback,
     messageFreq: stats.messageFreq,
     analyzedFrameCount: stats.analyzedFrameCount,

@@ -1,5 +1,6 @@
 import type { PoseAnalyzerFeedback } from './types'
 import type { MoveNetKeypoint, MoveNetName } from '../vision/movenetTracker'
+import { isPoseDebugEnabled } from '../debugFlags'
 
 const ASSUMED_ANALYZER_FPS = 24
 const REP_FAST_SEC = 0.85
@@ -48,6 +49,7 @@ export const DEFAULT_PUSHUP_TUNING: PushupTuning = {
 }
 
 export class PushupVideoAnalyzer {
+  private debugEnabled = isPoseDebugEnabled()
   private repCount = 0
   private correctCount = 0
   private incorrectCount = 0
@@ -106,6 +108,7 @@ export class PushupVideoAnalyzer {
     const torsoTiltSigned = this.signedAngleFromHorizontalDeg(shoulder, hip)
     const torsoAngle = torsoTiltSigned !== null ? Math.round(Math.abs(torsoTiltSigned)) : null
     const bodyLineAngle = this.angleDeg(shoulder, hip, ankle)
+    const hipLineDelta = this.hipLineDelta(shoulder, hip, ankle)
     const sideAlignment = this.sideAlignmentDeg(shoulder, otherShoulder)
     const trackingQuality = this.avgScore(map, [
       'left_shoulder',
@@ -134,17 +137,23 @@ export class PushupVideoAnalyzer {
       warnings.push('Side view unstable. Rotate to a clearer side view for more stable push-up tracking.')
     }
     const hipsSaggingNow = torsoTiltSigned !== null && torsoTiltSigned > this.tuning.hipSagHardDeg
+    const hipsPikeNow = torsoTiltSigned !== null && torsoTiltSigned < -this.tuning.hipPikeHardDeg
     const bodyLineBadNow = bodyLineAngle !== null && bodyLineAngle < this.tuning.bodyLineFailAngle
-    if (hipsSaggingNow || bodyLineBadNow) {
+    const hipBelowLine = hipLineDelta !== null && hipLineDelta > 0.01
+    const hipAboveLine = hipLineDelta !== null && hipLineDelta < -0.01
+
+    if (hipsSaggingNow || (bodyLineBadNow && hipBelowLine)) {
       issues.push({
-        message: 'Hips sagging detected. Keep shoulders, hips, and ankles aligned in one line.',
+        message: 'Hips dropped detected. Brace your core and keep a straight line from shoulders to ankles.',
+        joints: ['left_shoulder', 'right_shoulder', 'left_hip', 'right_hip', 'left_ankle', 'right_ankle']
+      })
+    } else if (hipsPikeNow || (bodyLineBadNow && hipAboveLine)) {
+      issues.push({
+        message: 'Hips too high detected. Lower hips to keep a straight line from shoulders to ankles.',
         joints: ['left_shoulder', 'right_shoulder', 'left_hip', 'right_hip', 'left_ankle', 'right_ankle']
       })
     } else if (bodyLineAngle !== null && bodyLineAngle < 168) {
-      warnings.push('Body line not stable. Keep shoulders, hips, and ankles aligned in one line.')
-    }
-    if (torsoTiltSigned !== null && torsoTiltSigned < -this.tuning.hipPikeHardDeg) {
-      warnings.push('Hips too high detected. Lower hips slightly to keep a stable plank line during reps.')
+      warnings.push('Body line not stable. Keep a straight line from shoulders to ankles.')
     }
     if (nextState === 's3' && elbowAngle !== null && elbowAngle > this.tuning.depthRequiredElbowAngle) {
       warnings.push('Depth insufficient. Bend elbows more at the bottom position.')
@@ -155,6 +164,7 @@ export class PushupVideoAnalyzer {
       isCountingPaused,
       elbowAngle: elbowAngle ?? null,
       bodyLineAngle,
+      hipLineDelta,
       torsoTiltSigned,
       sideAlignment,
       trackingQuality
@@ -162,7 +172,7 @@ export class PushupVideoAnalyzer {
     const primaryIssue = issues[0]?.message ?? null
     const primaryWarn = warnings[0] ?? null
 
-    return {
+    const feedback: PoseAnalyzerFeedback = {
       phase: this.stateToPhase(nextState),
       state: nextState,
       mode: 'beginner',
@@ -205,6 +215,37 @@ export class PushupVideoAnalyzer {
         slowRepCount: this.slowRepCount
       }
     }
+    if (this.debugEnabled) {
+      feedback.debug = {
+        elbowAngleDeg: elbowAngle !== null ? Math.round(elbowAngle) : null,
+        bodyLineAngleDeg: bodyLineAngle !== null ? Math.round(bodyLineAngle) : null,
+        torsoTiltSignedDeg: torsoTiltSigned !== null ? Math.round(torsoTiltSigned) : null,
+        sideAlignmentDeg: sideAlignment !== null ? Math.round(sideAlignment) : null,
+        stableTopFrames: this.stableTopFrames,
+        repArmed: this.repArmed ? 1 : 0,
+        repActive: this.repActive ? 1 : 0,
+        enteredBottom: this.enteredBottom ? 1 : 0,
+        repActiveFrames: this.repActiveFrames,
+        repMinElbowAngleDeg: this.repMinElbowAngle !== null ? Math.round(this.repMinElbowAngle) : null,
+        repDepthGoodFrames: this.repDepthGoodFrames,
+        repReliableFrameCount: this.repReliableFrameCount,
+        repBottomFrames: this.repBottomFrames,
+        repSideViewHardFrames: this.repSideViewHardFrames,
+        repBodyLineHardFrames: this.repBodyLineHardFrames,
+        repHipSagHardFrames: this.repHipSagHardFrames,
+        repHipPikeHardFrames: this.repHipPikeHardFrames,
+        repLowConfidenceFrames: this.repLowConfidenceFrames,
+        repFrameCount: this.frameCount,
+        tuningTrackingQualityMinForCount: this.tuning.trackingQualityMinForCount,
+        tuningTrackingQualityMinForAssess: this.tuning.trackingQualityMinForAssess,
+        tuningSideViewWarnDeg: this.tuning.sideViewWarnDeg,
+        tuningDepthRequiredElbowAngle: this.tuning.depthRequiredElbowAngle,
+        tuningBodyLineFailAngle: this.tuning.bodyLineFailAngle,
+        tuningHipSagHardDeg: this.tuning.hipSagHardDeg,
+        tuningHipPikeHardDeg: this.tuning.hipPikeHardDeg
+      }
+    }
+    return feedback
   }
 
   resetSession() {
@@ -249,6 +290,7 @@ export class PushupVideoAnalyzer {
     isCountingPaused: boolean
     elbowAngle: number | null
     bodyLineAngle: number | null
+    hipLineDelta: number | null
     torsoTiltSigned: number | null
     sideAlignment: number | null
     trackingQuality: number
@@ -306,7 +348,13 @@ export class PushupVideoAnalyzer {
       if (isReliable) this.repReliableFrameCount += 1
       if (input.sideAlignment !== null && input.sideAlignment > SIDE_VIEW_HARD_DEG) this.repSideViewHardFrames += 1
       if (input.trackingQuality < this.tuning.trackingQualityMinForAssess) this.repLowConfidenceFrames += 1
-      if (input.bodyLineAngle !== null && input.bodyLineAngle < this.tuning.bodyLineFailAngle) this.repBodyLineHardFrames += 1
+      if (input.bodyLineAngle !== null && input.bodyLineAngle < this.tuning.bodyLineFailAngle) {
+        this.repBodyLineHardFrames += 1
+        if (input.hipLineDelta !== null) {
+          if (input.hipLineDelta > 0.01) this.repHipSagHardFrames += 1
+          else if (input.hipLineDelta < -0.01) this.repHipPikeHardFrames += 1
+        }
+      }
       if (input.torsoTiltSigned !== null && input.torsoTiltSigned > this.tuning.hipSagHardDeg) this.repHipSagHardFrames += 1
       if (input.torsoTiltSigned !== null && input.torsoTiltSigned < -this.tuning.hipPikeHardDeg) this.repHipPikeHardFrames += 1
     }
@@ -319,6 +367,17 @@ export class PushupVideoAnalyzer {
     }
     if (this.currentState !== 's1' && nextState === 's1') {
       if (!this.enteredBottom) {
+        this.lastRepResult = null
+        this.lastRepMessage = 'Rep ignored: depth was insufficient to count.'
+        this.lastRepReasonCodes = ['DEPTH_INSUFFICIENT']
+        this.lastRepReasonLabels = ['Depth was insufficient']
+        this.lastRepCorrections = ['Lower until elbows bend clearly (around 90°), keep a straight body line, then press back up to the top position with control.']
+        this.lastRepFrameCount = this.frameCount
+        this.repCount += 1
+        this.unassessedCount += 1
+        const repDurationSec = Math.max(0.1, this.frameCount / ASSUMED_ANALYZER_FPS)
+        this.repDurationTotalSec += repDurationSec
+        this.repDurationCount += 1
         this.repActive = false
         this.repArmed = false
         this.stableTopFrames = 0
@@ -342,8 +401,13 @@ export class PushupVideoAnalyzer {
         this.lastRepMessage = 'Rep ignored: movement was too short to count.'
         this.lastRepReasonCodes = ['REP_TOO_SHORT']
         this.lastRepReasonLabels = ['Movement was too short to count']
-        this.lastRepCorrections = ['Use a full range and finish the top position before the next rep.']
+        this.lastRepCorrections = ['Complete a full rep each time: lower under control, then press back up to the top position before starting the next rep.']
         this.lastRepFrameCount = this.frameCount
+        this.repCount += 1
+        this.unassessedCount += 1
+        const repDurationSec = Math.max(0.1, this.frameCount / ASSUMED_ANALYZER_FPS)
+        this.repDurationTotalSec += repDurationSec
+        this.repDurationCount += 1
         this.repActive = false
         this.repArmed = false
         this.stableTopFrames = 0
@@ -368,8 +432,13 @@ export class PushupVideoAnalyzer {
         this.lastRepMessage = 'Rep ignored: movement was too small to count.'
         this.lastRepReasonCodes = ['MOVE_TOO_SMALL']
         this.lastRepReasonLabels = ['Movement was too small to count']
-        this.lastRepCorrections = ['Lower further and complete a full press to lockout before the next rep.']
+        this.lastRepCorrections = ['Make the rep bigger: lower further, then press all the way back up to the top position before the next rep.']
         this.lastRepFrameCount = this.frameCount
+        this.repCount += 1
+        this.unassessedCount += 1
+        const repDurationSec = Math.max(0.1, this.frameCount / ASSUMED_ANALYZER_FPS)
+        this.repDurationTotalSec += repDurationSec
+        this.repDurationCount += 1
         this.repActive = false
         this.repArmed = false
         this.stableTopFrames = 0
@@ -396,8 +465,13 @@ export class PushupVideoAnalyzer {
         this.lastRepMessage = 'Rep ignored: range of motion was too small to count.'
         this.lastRepReasonCodes = ['RANGE_TOO_SMALL']
         this.lastRepReasonLabels = ['Range of motion was too small']
-        this.lastRepCorrections = ['Lower further to bend elbows more, then press back up to complete the rep.']
+        this.lastRepCorrections = ['Lower further so elbows bend clearly, then press back up to fully complete the rep at the top position.']
         this.lastRepFrameCount = this.frameCount
+        this.repCount += 1
+        this.unassessedCount += 1
+        const repDurationSec = Math.max(0.1, this.frameCount / ASSUMED_ANALYZER_FPS)
+        this.repDurationTotalSec += repDurationSec
+        this.repDurationCount += 1
         this.repActive = false
         this.repArmed = false
         this.stableTopFrames = 0
@@ -433,6 +507,8 @@ export class PushupVideoAnalyzer {
         const hipsSagFailed = this.repHipSagHardFrames >= HIP_SAG_HARD_MIN_FRAMES
         const hipsPikeFailed = this.repHipPikeHardFrames >= HIP_PIKE_HARD_MIN_FRAMES
         const bodyLineFailed = this.repBodyLineHardFrames >= BODY_LINE_FAIL_MIN_FRAMES
+        const bodyLinePikeLike = bodyLineFailed && this.repHipPikeHardFrames > this.repHipSagHardFrames
+        const bodyLineSagLike = bodyLineFailed && !bodyLinePikeLike
 
         if (!depthOk || hipsSagFailed || hipsPikeFailed || bodyLineFailed) {
           this.incorrectCount += 1
@@ -446,13 +522,13 @@ export class PushupVideoAnalyzer {
             reasonLabels.push('Depth was insufficient')
             corrections.push('Lower further until elbows bend clearly, then press back up under control.')
           }
-          if (hipsSagFailed || bodyLineFailed) {
+          if (hipsSagFailed || bodyLineSagLike) {
             this.forwardLeanCount += 1
             reasonCodes.push('HIPS_SAGGING')
             reasonLabels.push('Hips dropped during the rep')
             corrections.push('Brace your core and keep shoulders, hips, and ankles in one line.')
           }
-          if (hipsPikeFailed) {
+          if (hipsPikeFailed || bodyLinePikeLike) {
             this.backwardLeanCount += 1
             reasonCodes.push('HIPS_TOO_HIGH')
             reasonLabels.push('Hips were too high during the rep')
@@ -585,6 +661,19 @@ export class PushupVideoAnalyzer {
     const shoulderSpanX = Math.abs(shoulder.x - otherShoulder.x)
     const shoulderSpanY = Math.abs(shoulder.y - otherShoulder.y) + 1e-6
     return (Math.atan2(shoulderSpanX, shoulderSpanY) * 180) / Math.PI
+  }
+
+  private hipLineDelta(shoulder?: MoveNetKeypoint | null, hip?: MoveNetKeypoint | null, ankle?: MoveNetKeypoint | null): number | null {
+    if (!shoulder || !hip || !ankle) return null
+    if (Math.min(this.score(shoulder), this.score(hip), this.score(ankle)) < 0.15) return null
+    const dx = ankle.x - shoulder.x
+    const dy = ankle.y - shoulder.y
+    const mag = Math.hypot(dx, dy)
+    if (!mag) return null
+    const t = ((hip.x - shoulder.x) * dx + (hip.y - shoulder.y) * dy) / (mag * mag)
+    const clampedT = Math.max(0, Math.min(1, t))
+    const yOnLine = shoulder.y + dy * clampedT
+    return hip.y - yOnLine
   }
 
   private byName(keypoints: MoveNetKeypoint[]) {

@@ -48,22 +48,22 @@ export const DEFAULT_POSE_RUNTIME_RULES: PoseRuntimeRules = {
   },
   analyzerTuning: {
     squat: {
-      kneeForwardWarnRatio: 0.045,
-      kneeForwardFailRatio: 0.058,
-      kneeForwardFailMinFrames: 2,
-      forwardLeanWarnDeg: 40,
-      forwardLeanFailDeg: 55,
-      forwardLeanFailMinFrames: 5,
+      kneeForwardWarnRatio: 0.028,
+      kneeForwardFailRatio: 0.037,
+      kneeForwardFailMinFrames: 4,
+      forwardLeanWarnDeg: 32,
+      forwardLeanFailDeg: 42,
+      forwardLeanFailMinFrames: 4,
       trackingQualityMin: 0.28
     },
     pushup: {
       trackingQualityMinForCount: 0.22,
       trackingQualityMinForAssess: 0.3,
       sideViewWarnDeg: 55,
-      depthRequiredElbowAngle: 130,
-      bodyLineFailAngle: 145,
+      depthRequiredElbowAngle: 170,
+      bodyLineFailAngle: 130,
       hipSagHardDeg: 28,
-      hipPikeHardDeg: 28
+      hipPikeHardDeg: 20
     },
     lateralRaise: {
       trackingQualityMin: 0.28,
@@ -106,5 +106,3 @@ export function severityFromRatio(
   if (ratio >= thresholds.warnRatio) return 'warning'
   return 'info'
 }
-
-

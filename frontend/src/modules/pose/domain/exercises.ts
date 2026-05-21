@@ -84,6 +84,19 @@ export function getPoseExerciseByType(exerciseType: string | null | undefined): 
   return POSE_EXERCISES.squat
 }
 
+export function getPoseExercises(): PoseExerciseDefinition[] {
+  return [
+    POSE_EXERCISES.squat,
+    POSE_EXERCISES.pushup,
+    POSE_EXERCISES['bent-over-row'],
+    POSE_EXERCISES['lateral-raise']
+  ]
+}
+
+export function isPoseExerciseSlug(value: string | null | undefined): value is PoseExerciseSlug {
+  return value === 'squat' || value === 'lateral-raise' || value === 'pushup' || value === 'bent-over-row'
+}
+
 export function buildPoseGuidePath(slug: PoseExerciseSlug) {
   return `/tools/pose/${slug}`
 }
@@ -92,8 +105,8 @@ export function buildPoseVideoPath(slug: PoseExerciseSlug) {
   return `/tools/pose/${slug}/video`
 }
 
-export function buildPoseHistoryPath(slug: PoseExerciseSlug) {
-  return `/tools/pose/${slug}/history`
+export function buildPoseHistoryPath(slug?: PoseExerciseSlug) {
+  return slug ? `/tools/pose/history?exercise=${encodeURIComponent(slug)}` : '/tools/pose/history'
 }
 
 export function buildPoseReportPath(slug: PoseExerciseSlug, sessionId: string | number) {

@@ -1,33 +1,13 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
-
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify
 from flask_jwt_extended import get_jwt_identity, jwt_required
+from sqlalchemy import case, func
 
 from ...extensions import db
-from ...models import FoodMealRecord, TrainingSession, User, UserFeedback, WorkoutRecord
+from ...models import Blog, User
 
 bp = Blueprint("admin", __name__)
-
-DEFAULT_RETENTION_DAYS = {
-    "feedback": 365,
-    "workouts": 365,
-    "meals": 365,
-    "trainings": 365,
-}
-
-
-def _to_bool(value) -> bool:
-    if value is True:
-        return True
-    if value is False or value is None:
-        return False
-    if isinstance(value, int):
-        return value != 0
-    if isinstance(value, str):
-        return value.strip().lower() in {"1", "true", "yes", "on"}
-    return False
 
 
 def _admin_guard() -> tuple[bool, User | None]:
@@ -35,74 +15,72 @@ def _admin_guard() -> tuple[bool, User | None]:
     user = db.session.get(User, user_id)
     if user is None:
         return False, None
-    if not user.is_admin:
+    if user.is_disabled or not user.is_admin:
         return False, user
     return True, user
 
 
-def _get_retention_days(payload: dict | None) -> dict[str, int]:
-    payload = payload or {}
-    custom = payload.get("retention_days") if isinstance(payload.get("retention_days"), dict) else {}
-    result: dict[str, int] = {}
-    for key, default_value in DEFAULT_RETENTION_DAYS.items():
-        raw = custom.get(key, default_value)
-        try:
-            value = int(raw)
-        except (TypeError, ValueError):
-            value = default_value
-        result[key] = max(1, value)
-    return result
-
-
-def _cutoff(days: int) -> datetime:
-    return datetime.utcnow() - timedelta(days=days)
-
-
-@bp.get("/data-lifecycle/policy")
+@bp.get("/summary")
 @jwt_required()
-def get_policy():
-    allowed, _ = _admin_guard()
-    if not allowed:
-        return jsonify({"error": "forbidden"}), 403
-    return jsonify({"retention_days": DEFAULT_RETENTION_DAYS})
-
-
-@bp.post("/data-lifecycle/cleanup")
-@jwt_required()
-def run_cleanup():
+def get_summary():
     allowed, _ = _admin_guard()
     if not allowed:
         return jsonify({"error": "forbidden"}), 403
 
-    data = request.get_json(silent=True) or {}
-    dry_run = _to_bool(data.get("dry_run", True))
-    retention_days = _get_retention_days(data)
-    summary: dict[str, dict] = {}
+    user_counts = db.session.query(
+        func.count(User.id),
+        func.sum(case((User.is_disabled.is_(True), 1), else_=0)),
+        func.sum(case((User.is_admin.is_(True), 1), else_=0)),
+    ).filter(Blog.visibility == "public").one()
+    blog_counts = db.session.query(
+        func.count(Blog.id),
+        func.sum(
+            case(
+                (
+                    Blog.is_published.is_(True)
+                    & (Blog.moderation_status == "active")
+                    & (Blog.visibility == "public"),
+                    1,
+                ),
+                else_=0,
+            )
+        ),
+        func.sum(
+            case(
+                (
+                    Blog.is_published.is_(False)
+                    & (Blog.moderation_status != "unpublished"),
+                    1,
+                ),
+                else_=0,
+            )
+        ),
+        func.sum(case((Blog.moderation_status == "unpublished", 1), else_=0)),
+        func.sum(case((Blog.moderation_restore_requested.is_(True), 1), else_=0)),
+    ).one()
 
-    def count_and_maybe_delete(name: str, query, *, delete_mode: bool = True):
-        matched = query.count()
-        deleted = 0
-        if delete_mode and not dry_run and matched:
-            deleted = query.delete(synchronize_session=False)
-        summary[name] = {"matched": matched, "deleted": deleted if not dry_run else 0}
+    total_users = int(user_counts[0] or 0)
+    disabled_users = int(user_counts[1] or 0)
+    admin_users = int(user_counts[2] or 0)
+    total_blogs = int(blog_counts[0] or 0)
+    published_blogs = int(blog_counts[1] or 0)
+    draft_blogs = int(blog_counts[2] or 0)
+    unpublished_blogs = int(blog_counts[3] or 0)
+    restore_requested_blogs = int(blog_counts[4] or 0)
 
-    count_and_maybe_delete(
-        "feedback",
-        UserFeedback.query.filter(UserFeedback.created_at < _cutoff(retention_days["feedback"])),
+    return jsonify(
+        {
+            "users": {
+                "total": total_users,
+                "disabled": disabled_users,
+                "admins": admin_users,
+            },
+            "blogs": {
+                "total": total_blogs,
+                "published": published_blogs,
+                "drafts": draft_blogs,
+                "unpublished": unpublished_blogs,
+                "restore_requested": restore_requested_blogs,
+            },
+        }
     )
-    count_and_maybe_delete(
-        "workouts",
-        WorkoutRecord.query.filter(WorkoutRecord.created_at < _cutoff(retention_days["workouts"])),
-    )
-    count_and_maybe_delete(
-        "meals",
-        FoodMealRecord.query.filter(FoodMealRecord.created_at < _cutoff(retention_days["meals"])),
-    )
-    count_and_maybe_delete(
-        "trainings",
-        TrainingSession.query.filter(TrainingSession.created_at < _cutoff(retention_days["trainings"])),
-    )
-    if not dry_run:
-        db.session.commit()
-
-    return jsonify({"ok": True, "dry_run": dry_run, "retention_days": retention_days, "summary": summary})

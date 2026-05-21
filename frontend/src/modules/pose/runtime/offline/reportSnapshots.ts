@@ -3,6 +3,7 @@ import type { OfflineReplayData, OfflineOverlayTone } from '../types'
 import { findClosestTmsIndex } from '../../reporting/overlayReplay'
 import { drawPoseJoints17 } from '../../vision/draw'
 import type { MoveNetNativeFrame } from '../../vision/movenetPose'
+import { isPoseDebugEnabled } from '../../debugFlags'
 
 type SnapshotOptions = {
   maxSide: number
@@ -43,15 +44,17 @@ export async function attachRepFindingSnapshots(args: AttachSnapshotsArgs): Prom
     const nextRepFindings: RepFindingRecord[] = []
     let snapshotCount = 0
     let lastSnapshotMediaSec: number | null = null
-    let lastSnapshotSig: string | null = null
-    const OFFSETS_SEC = [0, 0.4, -0.4, 1.2, -1.2, 2.5, -2.5, 4, -4]
-    const MIN_SNAPSHOT_DELTA_SEC = 0.3
+    const usedSignatures = new Set<string>()
+    const usedTimeKeys = new Set<number>()
+    const MIN_SNAPSHOT_DELTA_SEC = 0.8
     for (let i = 0; i < repFindings.length; i++) {
       const finding = repFindings[i]!
       const snapshotDataUrlExisting = typeof finding.snapshotDataUrl === 'string' ? finding.snapshotDataUrl : null
       const findingTms = asNumber(finding.tMs)
       const result = String(finding.result ?? 'invalid')
-      const eligible = result !== 'correct' && snapshotCount < options.maxSnapshots
+      const tier = typeof finding.tier === 'string' ? finding.tier : null
+      const eligibleTier = tier === 'warning' || tier === 'issue' || tier === 'rep_fail'
+      const eligible = snapshotCount < options.maxSnapshots && eligibleTier
       if (findingTms === null || !eligible) {
         nextRepFindings.push(finding)
         continue
@@ -62,47 +65,58 @@ export async function attachRepFindingSnapshots(args: AttachSnapshotsArgs): Prom
         if (args.onProgress) args.onProgress(snapshotCount, options.maxSnapshots)
         continue
       }
-      const atFrame = asIndex(finding.atFrame)
-      const baseTms =
-        atFrame !== null && args.replayData.overlayFrames[atFrame]?.tMs !== undefined ? args.replayData.overlayFrames[atFrame]!.tMs : findingTms
-      const baseSec = Math.max(0, baseTms / 1000)
+      const baseOverlayIdx = findClosestTmsIndex(args.replayData.overlayFrames, findingTms)
+      const baseOverlayTms = args.replayData.overlayFrames[baseOverlayIdx]?.tMs ?? findingTms
+      const baseSec = Math.max(0, baseOverlayTms / 1000)
+      const tags = Array.isArray(finding.tags) ? finding.tags.filter((x): x is string => typeof x === 'string') : []
+      const minDeltaSec = tags.includes('Incomplete') ? 0.25 : MIN_SNAPSHOT_DELTA_SEC
 
       try {
-        let capturedMediaSec: number | null = null
-        let capturedSig: string | null = null
-        for (const offset of OFFSETS_SEC) {
-          const target = baseSec + offset
-          if (lastSnapshotMediaSec !== null && Math.abs(target - lastSnapshotMediaSec) < MIN_SNAPSHOT_DELTA_SEC) continue
-          const got = await seekVideoAndGetPresentedSec(video, target)
-          const safeMediaSec = Number.isFinite(got) ? Math.max(0, got) : Math.max(0, video.currentTime || 0)
+        const capture = await captureUniqueFrame({
+          video,
+          ctx,
+          width,
+          height,
+          baseSec,
+          lastSnapshotMediaSec,
+          usedSignatures,
+          usedTimeKeys,
+          minDeltaSec
+        })
 
-          ctx.setTransform(1, 0, 0, 1, 0, 0)
-          ctx.clearRect(0, 0, width, height)
-          ctx.drawImage(video, 0, 0, width, height)
-          const sig = frameSignature(ctx, width, height)
-          if (sig.isBlack) continue
-          if (capturedMediaSec === null) {
-            capturedMediaSec = safeMediaSec
-            capturedSig = sig.signature
-          }
-          if (lastSnapshotSig === null || (sig.signature && sig.signature !== lastSnapshotSig)) {
-            capturedMediaSec = safeMediaSec
-            capturedSig = sig.signature
-            break
-          }
+        if (!capture) {
+          nextRepFindings.push(finding)
+          if (args.onProgress) args.onProgress(snapshotCount, options.maxSnapshots)
+          continue
         }
 
-        const finalMediaSec = capturedMediaSec !== null ? capturedMediaSec : Math.max(0, video.currentTime || 0)
-        lastSnapshotMediaSec = finalMediaSec
-        lastSnapshotSig = capturedSig ?? lastSnapshotSig
+        lastSnapshotMediaSec = capture.mediaSec
+        usedSignatures.add(capture.signature)
+        usedTimeKeys.add(timeKey(capture.mediaSec))
 
-        const snapshotTms = Math.max(0, finalMediaSec * 1000)
+        const snapshotTms = Math.max(0, capture.mediaSec * 1000)
         const idx = findClosestTmsIndex(args.replayData.overlayFrames, snapshotTms)
         const joints = (args.replayData.nativeFrames[idx]?.keypoints ?? []) as MoveNetNativeFrame['keypoints']
         const tone = args.replayData.overlayFrames[idx]?.tone ?? 'ok'
         if (joints.length > 0) drawPoseJoints17(ctx, joints, width, height, toneToColor(tone), { mirror: false })
+
         const dataUrl = canvas.toDataURL('image/jpeg', options.jpegQuality)
-        nextRepFindings.push({ ...finding, snapshotDataUrl: dataUrl })
+        const isDebug = isPoseDebugEnabled()
+        nextRepFindings.push(
+          isDebug
+            ? {
+                ...finding,
+                snapshotDataUrl: dataUrl,
+                snapshotTms,
+                snapshotBaseTms: baseOverlayTms,
+                snapshotSignature: capture.signature,
+                snapshotTimeKey: timeKey(capture.mediaSec)
+              }
+            : {
+                ...finding,
+                snapshotDataUrl: dataUrl
+              }
+        )
         snapshotCount += 1
       } catch {
         nextRepFindings.push(finding)
@@ -125,13 +139,6 @@ function asNumber(value: unknown): number | null {
   if (typeof value !== 'number') return null
   if (!Number.isFinite(value)) return null
   return value
-}
-
-function asIndex(value: unknown): number | null {
-  if (typeof value !== 'number') return null
-  if (!Number.isFinite(value)) return null
-  const v = Math.floor(value)
-  return v >= 0 ? v : null
 }
 
 function toneToColor(tone: OfflineOverlayTone): 'ok' | 'warn' | 'bad' {
@@ -223,61 +230,159 @@ async function warmupVideo(video: HTMLVideoElement) {
   } catch {}
 }
 
-async function seekVideo(video: HTMLVideoElement, timeSec: number) {
-  const safe = Math.min(Math.max(0, timeSec), Math.max(0, (video.duration || 0) - 1e-3))
-  if (Math.abs(video.currentTime - safe) < 1e-4) return
+async function seekAndCaptureFrame(args: {
+  video: HTMLVideoElement
+  ctx: CanvasRenderingContext2D
+  width: number
+  height: number
+  targetTimeSec: number
+}): Promise<(FrameCapture & { isBlack: boolean }) | null> {
+  const { video, ctx, width, height, targetTimeSec } = args
+  const safe = Math.min(Math.max(0, targetTimeSec), Math.max(0, (video.duration || 0) - 1e-3))
 
   await new Promise<void>((resolve, reject) => {
     const onSeeked = () => resolve()
-    const onError = () => reject(new Error('Video seek failed'))
+    const onError = () => reject(new Error('seek failed'))
     video.addEventListener('seeked', onSeeked, { once: true })
     video.addEventListener('error', onError, { once: true })
     video.currentTime = safe
   })
-  await waitForPresentedFrame(video, 200)
-}
 
-async function seekVideoAndGetPresentedSec(video: HTMLVideoElement, timeSec: number) {
-  const safe = Math.min(Math.max(0, timeSec), Math.max(0, (video.duration || 0) - 1e-3))
-  try {
-    await seekVideo(video, safe)
-  } catch {}
-  try {
-    await video.play()
-  } catch {}
-  const presented = await waitForPresentedFrame(video, 350)
-  try {
-    video.pause()
-  } catch {}
-  return presented
+  try { await video.play() } catch {}
+
+  const v = video as unknown as {
+    requestVideoFrameCallback?: (cb: (now: number, meta?: { mediaTime?: number }) => void) => number
+  }
+  const rvfc = v.requestVideoFrameCallback
+  if (typeof rvfc !== 'function') {
+    try { video.pause() } catch {}
+    await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())))
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    ctx.clearRect(0, 0, width, height)
+    ctx.drawImage(video, 0, 0, width, height)
+    const sig = frameSignature(ctx, width, height)
+    const mediaSec = Number.isFinite(video.currentTime) ? video.currentTime : safe
+    return { mediaSec, signature: sig.signature, isBlack: sig.isBlack }
+  }
+
+  return await new Promise<(FrameCapture & { isBlack: boolean }) | null>((resolve) => {
+    const timeoutId = window.setTimeout(() => {
+      try { video.pause() } catch {}
+      ctx.setTransform(1, 0, 0, 1, 0, 0)
+      ctx.clearRect(0, 0, width, height)
+      ctx.drawImage(video, 0, 0, width, height)
+      const sig = frameSignature(ctx, width, height)
+      const mediaSec = Number.isFinite(video.currentTime) ? video.currentTime : safe
+      resolve({ mediaSec, signature: sig.signature, isBlack: sig.isBlack })
+    }, 600)
+
+    try {
+      rvfc((_now, meta) => {
+        window.clearTimeout(timeoutId)
+        try { video.pause() } catch {}
+        ctx.setTransform(1, 0, 0, 1, 0, 0)
+        ctx.clearRect(0, 0, width, height)
+        ctx.drawImage(video, 0, 0, width, height)
+        const sig = frameSignature(ctx, width, height)
+        const mediaTimeSec = typeof meta?.mediaTime === 'number' && Number.isFinite(meta.mediaTime) ? meta.mediaTime : video.currentTime
+        const mediaSec = Number.isFinite(mediaTimeSec) ? mediaTimeSec : safe
+        resolve({ mediaSec, signature: sig.signature, isBlack: sig.isBlack })
+      })
+    } catch {
+      window.clearTimeout(timeoutId)
+      try { video.pause() } catch {}
+      ctx.setTransform(1, 0, 0, 1, 0, 0)
+      ctx.clearRect(0, 0, width, height)
+      ctx.drawImage(video, 0, 0, width, height)
+      const sig = frameSignature(ctx, width, height)
+      const mediaSec = Number.isFinite(video.currentTime) ? video.currentTime : safe
+      resolve({ mediaSec, signature: sig.signature, isBlack: sig.isBlack })
+    }
+  })
 }
 
 function frameSignature(ctx: CanvasRenderingContext2D, width: number, height: number) {
   const w = Math.max(1, Math.floor(width))
   const h = Math.max(1, Math.floor(height))
-  const points: Array<[number, number]> = [
-    [Math.floor(w * 0.12), Math.floor(h * 0.15)],
-    [Math.floor(w * 0.5), Math.floor(h * 0.2)],
-    [Math.floor(w * 0.85), Math.floor(h * 0.18)],
-    [Math.floor(w * 0.18), Math.floor(h * 0.5)],
-    [Math.floor(w * 0.5), Math.floor(h * 0.5)],
-    [Math.floor(w * 0.82), Math.floor(h * 0.52)],
-    [Math.floor(w * 0.12), Math.floor(h * 0.82)],
-    [Math.floor(w * 0.5), Math.floor(h * 0.8)],
-    [Math.floor(w * 0.85), Math.floor(h * 0.84)]
-  ]
-  const out: number[] = []
-  let light = 0
-  for (const [x, y] of points) {
-    const px = Math.max(0, Math.min(w - 1, x))
-    const py = Math.max(0, Math.min(h - 1, y))
-    const data = ctx.getImageData(px, py, 1, 1).data
-    const r = (data[0] ?? 0) | 0
-    const g = (data[1] ?? 0) | 0
-    const b = (data[2] ?? 0) | 0
-    out.push(r, g, b)
-    light += r + g + b
+  let sum = 0
+  let sumSq = 0
+  const sampleW = 9
+  const sampleH = 8
+  const g: number[] = []
+  for (let y = 0; y < sampleH; y++) {
+    for (let x = 0; x < sampleW; x++) {
+      const px = Math.max(0, Math.min(w - 1, Math.floor(((x + 0.5) / sampleW) * w)))
+      const py = Math.max(0, Math.min(h - 1, Math.floor(((y + 0.5) / sampleH) * h)))
+      const data = ctx.getImageData(px, py, 1, 1).data
+      const r = (data[0] ?? 0) | 0
+      const gg = (data[1] ?? 0) | 0
+      const b = (data[2] ?? 0) | 0
+      const l = (r * 3 + gg * 4 + b) >> 3
+      g.push(l)
+      sum += l
+      sumSq += l * l
+    }
   }
-  const isBlack = light <= 9 * 3 * 2
-  return { signature: out.join(','), isBlack }
+  const n = g.length
+  const avg = n > 0 ? sum / n : 0
+  const variance = n > 0 ? sumSq / n - avg * avg : 0
+  const isBlack = avg <= 3 || (avg <= 10 && variance <= 10)
+  let bits = ''
+  for (let y = 0; y < sampleH; y++) {
+    const row = y * sampleW
+    for (let x = 0; x < sampleW - 1; x++) {
+      bits += g[row + x]! > g[row + x + 1]! ? '1' : '0'
+    }
+  }
+  return { signature: bits, isBlack }
+}
+
+type FrameCapture = { mediaSec: number; signature: string }
+
+function buildOffsets() {
+  const offsets: number[] = [0]
+  const steps = [0.12, 0.24, 0.36, 0.48, 0.6, 0.75, 0.9, 1.1, 1.3, 1.6, 1.9, 2.2, 2.6, 3.0, 3.6, 4.2, 5.0, 6.0]
+  for (const step of steps) {
+    offsets.push(step, -step)
+  }
+  return offsets
+}
+
+function timeKey(sec: number) {
+  if (!Number.isFinite(sec)) return 0
+  return Math.max(0, Math.round(sec * 20))
+}
+
+async function captureUniqueFrame(args: {
+  video: HTMLVideoElement
+  ctx: CanvasRenderingContext2D
+  width: number
+  height: number
+  baseSec: number
+  lastSnapshotMediaSec: number | null
+  usedSignatures: Set<string>
+  usedTimeKeys: Set<number>
+  minDeltaSec: number
+}): Promise<FrameCapture | null> {
+  const { video, ctx, width, height, baseSec, lastSnapshotMediaSec, usedSignatures, usedTimeKeys, minDeltaSec } = args
+
+  const probe = async (offsets: number[]): Promise<FrameCapture | null> => {
+    for (const offset of offsets) {
+      const target = baseSec + offset
+      if (target < 0) continue
+      if (lastSnapshotMediaSec !== null && Math.abs(target - lastSnapshotMediaSec) < minDeltaSec) continue
+
+      const capture = await seekAndCaptureFrame({ video, ctx, width, height, targetTimeSec: target })
+      if (!capture) continue
+      if (capture.isBlack) continue
+      if (usedTimeKeys.has(timeKey(capture.mediaSec))) continue
+      if (!usedSignatures.has(capture.signature)) {
+        return { mediaSec: capture.mediaSec, signature: capture.signature }
+      }
+      continue
+    }
+    return null
+  }
+
+  return await probe(buildOffsets())
 }

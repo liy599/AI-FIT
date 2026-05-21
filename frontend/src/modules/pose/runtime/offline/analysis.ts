@@ -14,6 +14,7 @@ import {
 } from '../../reporting/offlineReport'
 import { buildOfflineOverlayFrames } from '../../reporting/overlayReplay'
 import { attachRepFindingSnapshots } from './reportSnapshots'
+import { isPoseDebugEnabled } from '../../debugFlags'
 
 type ExerciseMeta = {
   id: string
@@ -122,7 +123,7 @@ export function useOfflinePoseAnalysis(args: UseOfflinePoseAnalysisArgs) {
 
       const taskId = `local-${Date.now()}`
       const analyzerTuning = resolveAnalyzerTuning(exercise.slug, poseRuntimeRules)
-      const report = buildOfflinePoseReport({
+      let report = buildOfflinePoseReport({
         taskId,
         exercise,
         effectiveViewAngle,
@@ -143,6 +144,41 @@ export function useOfflinePoseAnalysis(args: UseOfflinePoseAnalysisArgs) {
       })
       offlineReplayDataRef.current = { fps: extracted.fps, nativeFrames: extracted.nativeFrames, overlayFrames }
       setOfflineOverlayReady(true)
+
+      if (isPoseDebugEnabled()) {
+        const toneCounts = { ok: 0, warn: 0, bad: 0 } as Record<OfflineOverlayTone, number>
+        const topBadMsgs = new Map<string, number>()
+        const topWarnMsgs = new Map<string, number>()
+        for (const frame of overlayFrames) {
+          toneCounts[frame.tone] = (toneCounts[frame.tone] ?? 0) + 1
+          const hint = frame.mainHint ?? frame.gateHint ?? '?'
+          if (frame.tone === 'bad') topBadMsgs.set(hint, (topBadMsgs.get(hint) ?? 0) + 1)
+          if (frame.tone === 'warn') topWarnMsgs.set(hint, (topWarnMsgs.get(hint) ?? 0) + 1)
+        }
+        const totalOverlay = overlayFrames.length
+        const topBad = [...topBadMsgs.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5)
+          .map(([msg, n]) => `${msg} (×${n})`)
+          .join('; ')
+        const topWarn = [...topWarnMsgs.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5)
+          .map(([msg, n]) => `${msg} (×${n})`)
+          .join('; ')
+        const overlayToneStats = {
+          total: totalOverlay,
+          ok: toneCounts.ok,
+          warn: toneCounts.warn,
+          bad: toneCounts.bad,
+          okPct: totalOverlay > 0 ? Math.round((toneCounts.ok / totalOverlay) * 100) : 0,
+          warnPct: totalOverlay > 0 ? Math.round((toneCounts.warn / totalOverlay) * 100) : 0,
+          badPct: totalOverlay > 0 ? Math.round((toneCounts.bad / totalOverlay) * 100) : 0,
+          topBad,
+          topWarn
+        }
+        report = { ...report, details: { ...(report.details as Record<string, unknown> ?? {}), overlayToneStats } }
+      }
 
       let reportWithSnapshots = report
       try {

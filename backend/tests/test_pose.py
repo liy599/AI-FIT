@@ -51,7 +51,7 @@ def test_pose_policy_version_switch_is_traceable(client):
     assert policy_response.status_code == 200
     assert policy_response.get_json()["version"] == "2026-05-04.test-switch"
 
-    token = register_and_token(client, email="pose-policy-switch@example.com", username="pose-policy-switch")
+    token = register_and_token(client, email="pose-policy-switch@example.com", username="pose-switch")
     _ = token
     response = client.post(
         "/api/pose/trainings",
@@ -127,6 +127,50 @@ def test_pose_training_list_and_detail_with_date_filter(client):
     detail = response.get_json()["session"]
     assert detail["id"] == newer_id
     assert detail["report"]["summary"] == "newer"
+
+
+def test_pose_training_delete_own_session_only(client):
+    register_and_token(client, email="pose-delete-owner@example.com", username="posedeleteown")
+
+    response = client.post(
+        "/api/pose/trainings",
+        headers=auth_headers(client),
+        json={
+            "started_at": "2026-04-12T08:00:00Z",
+            "ended_at": "2026-04-12T08:05:00Z",
+            "exercise_type": "squat",
+            "sets": [{"reps": 8}],
+            "report": {"summary": "owner report"},
+        },
+    )
+    assert response.status_code == 201
+    owner_session_id = response.get_json()["session"]["id"]
+
+    register_and_token(client, email="pose-delete-other@example.com", username="posedeleteoth")
+    denied = client.delete(f"/api/pose/trainings/{owner_session_id}", headers=auth_headers(client))
+    assert denied.status_code == 404
+
+    register_and_token(client, email="pose-delete-owner-2@example.com", username="posedelete2")
+    own = client.post(
+        "/api/pose/trainings",
+        headers=auth_headers(client),
+        json={
+            "started_at": "2026-04-13T08:00:00Z",
+            "ended_at": "2026-04-13T08:05:00Z",
+            "exercise_type": "pushup",
+            "sets": [{"reps": 11}],
+            "report": {"summary": "delete me"},
+        },
+    )
+    assert own.status_code == 201
+    own_session_id = own.get_json()["session"]["id"]
+
+    deleted = client.delete(f"/api/pose/trainings/{own_session_id}", headers=auth_headers(client))
+    assert deleted.status_code == 200
+    assert deleted.get_json()["ok"] is True
+
+    missing = client.get(f"/api/pose/trainings/{own_session_id}")
+    assert missing.status_code == 404
 
 
 def test_pose_policy_contract_shape(client):

@@ -1,13 +1,14 @@
 import { normalizeReportForArchive } from '../../../lib/report/unified'
 import type { PoseAnalysisReport } from '../reporting/types'
 import type { PoseAnalyzerFeedback } from '../analyzer/types'
-import { PushupVideoAnalyzer } from '../analyzer/pushup'
+import { DEFAULT_PUSHUP_TUNING, PushupVideoAnalyzer, type PushupTuning } from '../analyzer/pushup'
 import type { MoveNetKeypoint } from '../vision/movenetTracker'
 import { collectAnalyzerReplayStats } from './replayStats'
 import { computeReportErrorStats, sampleTimelineRows, toIssueCode } from './reportBase'
 import { mapSuggestionFromIssue } from './suggestionMap'
 import type { SquatRepFinding, SquatTimelineRow } from './types'
 import { DEFAULT_POSE_RUNTIME_RULES, severityFromRatio, type PoseRuntimeRules } from './policyRules'
+import { isPoseDebugEnabled } from '../debugFlags'
 
 export function buildPushupAlignedReport(input: {
   taskId: string
@@ -15,6 +16,7 @@ export function buildPushupAlignedReport(input: {
   exercise: { id: string; name: string } | null
   video: { id: string; originalName: string; mimeType: string; sizeBytes: number } | null
   fps: number
+  tuning?: Partial<PushupTuning>
   lastFeedback: PoseAnalyzerFeedback | null
   messageFreq: Map<string, number>
   analyzedFrameCount: number
@@ -80,7 +82,7 @@ export function buildPushupAlignedReport(input: {
     issues.push({
       code: 'DEPTH_INSUFFICIENT',
       severity: severityFromRatio(ratio, { warnRatio: rules.depthWarnRatio, failRatio: rules.depthFailRatio }),
-      message: `Depth insufficient in ${depthInsufficientCount}/${effectiveReps} assessed reps (${Math.round(ratio * 100)}%).`,
+      message: `In ${depthInsufficientCount} of ${effectiveReps} scored reps, you did not go low enough.`,
       atFrame: null
     })
   }
@@ -89,7 +91,7 @@ export function buildPushupAlignedReport(input: {
     issues.push({
       code: 'HIPS_SAGGING',
       severity: severityFromRatio(ratio, { warnRatio: rules.bodyLineWarnRatio, failRatio: rules.bodyLineFailRatio }),
-      message: `Hips sagging detected in ${hipsSagCount}/${effectiveReps} assessed reps (${Math.round(ratio * 100)}%).`,
+      message: `In ${hipsSagCount} of ${effectiveReps} scored reps, your hips dropped and your body line was not straight.`,
       atFrame: null
     })
   }
@@ -98,7 +100,7 @@ export function buildPushupAlignedReport(input: {
     issues.push({
       code: 'HIPS_TOO_HIGH',
       severity: severityFromRatio(ratio, { warnRatio: rules.bodyLineWarnRatio, failRatio: rules.bodyLineFailRatio }),
-      message: `Hips too high detected in ${hipsHighCount}/${effectiveReps} assessed reps (${Math.round(ratio * 100)}%).`,
+      message: `In ${hipsHighCount} of ${effectiveReps} scored reps, your hips were too high (body was angled like an upside-down V).`,
       atFrame: null
     })
   }
@@ -116,7 +118,7 @@ export function buildPushupAlignedReport(input: {
     issues.push({
       code: 'REPS_UNASSESSED',
       severity: ratio >= 0.35 ? 'warning' : 'info',
-      message: `${unassessedReps}/${totalReps} reps could not be quality-assessed due to unstable tracking (lighting/occlusion/partial body).`,
+      message: `${unassessedReps} of ${totalReps} reps were not scored (incomplete range of motion or unclear tracking such as lighting, occlusion, or body not fully visible).`,
       atFrame: null
     })
   }
@@ -147,7 +149,7 @@ export function buildPushupAlignedReport(input: {
     issues.push({
       code: 'NO_OBVIOUS_ISSUES',
       severity: 'info',
-      message: 'No obvious issues detected during analyzer replay.',
+      message: 'No major issues were detected.',
       atFrame: null
     })
   }
@@ -168,10 +170,9 @@ export function buildPushupAlignedReport(input: {
     })
   }
 
-  const summaryPrefix = 'Video replay analysis'
   const summary = input.lastFeedback
-    ? `${summaryPrefix}: total ${input.lastFeedback.session.totalReps}, correct ${input.lastFeedback.session.correctReps}, accuracy ${input.lastFeedback.session.accuracyPct}%`
-    : `${summaryPrefix}: no stable pose frames were detected.`
+    ? `${input.lastFeedback.session.totalReps} reps detected. ${input.lastFeedback.session.correctReps} correct, ${input.lastFeedback.session.incorrectReps} incorrect.`
+    : 'No stable body pose was detected. Try brighter light and keep your full body in frame.'
 
   const suggestions = buildPushupReplaySuggestions(input.lastFeedback, sortedIssues, tempoCheck, fallbackSuggestion)
   const keyMetrics = {
@@ -200,6 +201,7 @@ export function buildPushupAlignedReport(input: {
     { key: 'hipAngleDeg', label: 'Body Line Angle' },
     { key: 'torsoFromVerticalDeg', label: 'Torso Angle' }
   ]
+  const effectiveTuning = { ...DEFAULT_PUSHUP_TUNING, ...(input.tuning ?? {}) }
 
   return normalizeReportForArchive({
     version: 3,
@@ -232,10 +234,16 @@ export function buildPushupAlignedReport(input: {
       torsoAngle: input.lastFeedback?.torsoAngle ?? null,
       sideAlignment: input.lastFeedback?.offsetAngle ?? null,
       trackingQuality: input.lastFeedback?.trackingQuality ?? null,
+      lastRepResult: input.lastFeedback?.lastRepResult ?? null,
+      lastRepMessage: input.lastFeedback?.lastRepMessage ?? null,
+      lastRepReasonCodes: input.lastFeedback?.lastRepReasonCodes ?? [],
+      lastRepReasonLabels: input.lastFeedback?.lastRepReasonLabels ?? [],
+      lastRepFrameCount: input.lastFeedback?.lastRepFrameCount ?? null,
       avgTrackingQuality: Math.round(avgTrackingQuality * 100) / 100,
       currentSuggestion,
       warnings: input.lastFeedback?.warnings ?? [],
       tempo: tempoCheck,
+      ...(isPoseDebugEnabled() ? { tuning: effectiveTuning, debug: input.lastFeedback?.debug ?? null } : {}),
       timelineSeries,
       timelineSampled,
       repFindings
@@ -266,11 +274,13 @@ export function buildPushupVideoReplayReport(input: {
   video: { id: string; originalName: string; mimeType: string; sizeBytes: number } | null
   fps: number
   nativeFrames: Array<{ tMs: number; keypoints: MoveNetKeypoint[] }>
+  tuning?: Partial<PushupTuning>
   tempoFastThresholdSec?: number
   rules?: PoseRuntimeRules['pushup']
   onProgress?: (processed: number, total: number) => void
 }): PoseAnalysisReport {
   const analyzer = new PushupVideoAnalyzer()
+  analyzer.setTuning({ ...DEFAULT_PUSHUP_TUNING, ...(input.tuning ?? {}) })
   const stats = collectAnalyzerReplayStats({ analyzer, exerciseSlug: 'pushup', nativeFrames: input.nativeFrames, onProgress: input.onProgress })
 
   return buildPushupAlignedReport({
@@ -279,6 +289,7 @@ export function buildPushupVideoReplayReport(input: {
     exercise: input.exercise,
     video: input.video,
     fps: input.fps,
+    tuning: input.tuning,
     lastFeedback: stats.lastFeedback,
     messageFreq: stats.messageFreq,
     analyzedFrameCount: stats.analyzedFrameCount,

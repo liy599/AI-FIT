@@ -1,61 +1,85 @@
-# 后端配置
+# Backend Configuration
 
-## 必需安全配置
-- `APP_ENV`：生产环境必须设置为 `production`。
-- `DB_AUTO_INIT`：生产环境必须为 `0`，schema 由 migration 管理；非生产环境只影响启动 seed 行为。
-- `SECRET_KEY`：Flask 签名密钥。
-- `JWT_SECRET_KEY`：JWT 签名密钥。
-- `DATABASE_URL`：SQLAlchemy 数据库连接串。
-- `FRONTEND_BASE_URL`：前端标准 origin。
-- `ADMIN_EMAIL`：管理员身份标识，用于受限 API。
-- `REDIS_URL`：生产环境必须配置，用于分布式限流。
+## Database
 
-## Pose Policy 配置
-- `POSE_POLICY_LIVE_TARGET_FPS`
-- `POSE_POLICY_LIVE_SESSION_LIMIT_SECONDS`
-- `POSE_POLICY_OFFLINE_MAX_VIDEO_BYTES`
-- `POSE_POLICY_OFFLINE_ANALYSIS_LIMIT_SECONDS`
-- `POSE_POLICY_OFFLINE_ANALYSIS_TARGET_FPS`
-- `POSE_POLICY_OFFLINE_ALLOWED_ACTIONS`
+- `DATABASE_URL`: SQLAlchemy connection URL. Local host development usually uses `postgresql+psycopg://aifitguard:aifitguard@localhost:5432/aifitguard`.
+- `DB_POOL_RECYCLE_SECONDS`: SQLAlchemy pool recycle interval. Default: `1800`.
+- `DB_AUTO_INIT`: legacy compatibility flag. The application does not create production schema at runtime; schema must be managed by Alembic migrations. Production must set `DB_AUTO_INIT=0`.
 
-以上配置由后端读取，并通过 `GET /api/pose/policy` 返回。前端运行行为应由后端 policy 控制，避免在页面里硬编码策略常量。
+Run migrations before starting or releasing the backend:
 
-## 可选能力
-- `AI_REPORT_*` / `STEPFUN_*`：AI 增强能力配置，当前用于食物识别等非 Pose 主链路能力。
+```powershell
+flask --app run.py db upgrade
+```
 
-## 限流配置
+Check migration drift:
+
+```powershell
+flask --app run.py db check
+flask --app run.py db current
+flask --app run.py db heads
+```
+
+## Required Production Settings
+
+- `APP_ENV=production`
+- `SECRET_KEY`: at least 32 random characters.
+- `JWT_SECRET_KEY`: at least 32 random characters.
+- `DATA_ENCRYPTION_KEY`: Fernet key for private user data encryption.
+- `DATABASE_URL`: production PostgreSQL URL.
+- `CORS_ORIGINS`: explicit frontend origin list.
+- `FRONTEND_BASE_URL`: public frontend origin.
+- `REDIS_URL`: required for distributed rate limiting.
+- `DB_AUTO_INIT=0`
+- `PASSWORD_RESET_DEBUG_RETURN_LINK=0`
+- `EMAIL_VERIFY_DEBUG_RETURN_LINK=0`
+
+If `EMAIL_VERIFY_REQUIRED=1`, production must also configure:
+
+- `SMTP_HOST`
+- `SMTP_FROM`
+
+## Local Development
+
+Use `backend/.env.example` as a template. It intentionally contains only local defaults and placeholders. Do not put production secrets in example files.
+
+`scripts/dev.ps1` creates a minimal local `.env` if one is missing, starts PostgreSQL/Redis through Docker Compose, runs `flask db upgrade`, and starts the backend.
+
+## Private Data Encryption
+
+Generate `DATA_ENCRYPTION_KEY` with:
+
+```powershell
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Private account, profile, workout, and training fields are encrypted at rest. Lookup fields such as email and exercise type use keyed hashes for equality queries. Production refuses to start without `DATA_ENCRYPTION_KEY`, and encryption failures fail closed instead of storing plaintext.
+
+## Email
+
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_USERNAME`
+- `SMTP_PASSWORD`
+- `SMTP_USE_TLS`
+- `SMTP_USE_SSL`
+- `SMTP_FROM`
+
+For local development, use debug-return flags instead of real SMTP credentials.
+
+## Uploads
+
+- `UPLOAD_PUBLIC_PREFIXES`: comma-separated upload prefixes that can be served publicly, default `avatars,blog_covers`.
+- `UPLOAD_SIGNED_URL_TTL_SECONDS`: signed upload URL TTL for non-public files.
+
+## Rate Limits
+
 - `RATE_LIMIT_ENABLED`
 - `AUTH_LOGIN_*`
 - `AUTH_FORGOT_*`
-- `FEEDBACK_*`
+- `AUTH_EMAIL_REQUEST_*`
+- `BLOG_CREATE_DAILY_LIMIT_PER_USER`
 
-## 运维规则
-- `.env.example` 不能包含真实生产密钥。
-- 如果密钥曾被提交到仓库，必须立即轮换。
+## Pose Policy
 
-## 生产部署实践
-- 不要直接把 `.env.example` 当作运行时配置。
-- 在服务器上创建真实运行时 env 文件，例如 `/etc/aifit/backend.env`，或通过容器/编排平台注入 secret。
-- 使用强密钥：
-  - `SECRET_KEY`：至少 32 字节随机值。
-  - `JWT_SECRET_KEY`：至少 32 字节随机值。
-  - `DATA_ENCRYPTION_KEY`：使用 Fernet 兼容 key。
-- 生产环境显式设置：
-  - `APP_ENV=production`
-  - `DB_AUTO_INIT=0`
-  - `FRONTEND_BASE_URL=https://your-frontend-domain`
-  - `CORS_ORIGINS=https://your-frontend-domain`
-  - `DATABASE_URL=postgresql+psycopg://<user>:<pass>@<db-host>:5432/<db-name>`
-  - `REDIS_URL=redis://<redis-host>:6379/0`
-  - Pose 推理保持本地化；后端 Pose video/task/server-analysis 接口按设计不可用。
-
-## 迁移流程
-- 先安装依赖并设置 env。
-- 首次初始化 migration 仓库：
-  - `flask --app run.py db init`
-- 模型变更后创建 migration：
-  - `flask --app run.py db migrate -m "describe change"`
-- 应用 migration：
-  - `flask --app run.py db upgrade`
-- 生产启动应用前必须先执行 `db upgrade`。
-- 应用运行时不负责自动创建生产 schema，schema 必须由 migration 管理。
+Pose policy values are read from environment variables and returned through `GET /api/pose/policy`. The frontend should consume this endpoint instead of hardcoding policy values in pages.

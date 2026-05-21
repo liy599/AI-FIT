@@ -12,12 +12,12 @@ export function asRecord(v: unknown): Record<string, unknown> | null {
 export function prettyMetricName(key: string) {
   const map: Record<string, string> = {
     totalReps: 'Total Reps',
-    effectiveReps: 'Effective',
-    unassessedReps: 'Invalid',
-    correctReps: 'Correct Reps',
-    incorrectReps: 'Incorrect Reps',
-    formAccuracyPct: 'Form Accuracy Rate',
-    assessedRepPct: 'Assessed Rep Rate',
+    effectiveReps: 'Scored Reps',
+    unassessedReps: 'Not Scored',
+    correctReps: 'Correct',
+    incorrectReps: 'Incorrect',
+    formAccuracyPct: 'Form Accuracy',
+    assessedRepPct: 'Scored Rate',
     sideViewInvalidReps: 'Invalid Reps (Side View)',
     effectiveFps: 'Analysis Frame Rate (FPS)',
     reps: 'Reps',
@@ -50,13 +50,13 @@ export function prettyMetricName(key: string) {
 
 export function metricTip(key: string) {
   const map: Record<string, string> = {
-    totalReps: 'All completed reps, including reps not used for valid scoring.',
-    effectiveReps: 'Reps fully assessed as either correct or incorrect.',
-    unassessedReps: 'Completed reps excluded from validity scoring (invalid reps).',
-    correctReps: 'Assessed reps judged as correct form.',
-    incorrectReps: 'Assessed reps judged as incorrect form.',
-    formAccuracyPct: 'Correct / (Correct + Incorrect), excludes unassessed reps.',
-    assessedRepPct: 'Effective Reps / Total Reps.',
+    totalReps: 'All completed reps, including reps not scored for quality.',
+    effectiveReps: 'Reps where the system could score form (correct or incorrect).',
+    unassessedReps: 'Reps not scored because the rep was incomplete (range too small) or because tracking was unclear (lighting, occlusion, or body not fully visible).',
+    correctReps: 'Scored reps judged as correct form.',
+    incorrectReps: 'Scored reps judged as incorrect form.',
+    formAccuracyPct: 'Correct / Assessed, does not include unscored reps.',
+    assessedRepPct: 'Scored Reps / Total Reps.',
     sideViewInvalidReps: 'Reps excluded because side-view alignment was unstable.',
     effectiveFps: 'Observed processing frame rate during analysis.',
     avgRepDurationSec: 'Average duration per completed rep.',
@@ -64,6 +64,19 @@ export function metricTip(key: string) {
     slowRepCount: 'Reps flagged as too slow by tempo thresholds.'
   }
   return map[key] ?? humanizeMetricKey(key)
+}
+
+export function metricInlineHint(key: string) {
+  const map: Record<string, string> = {
+    totalReps: 'total attempts',
+    effectiveReps: 'scored reps',
+    correctReps: 'scored as correct',
+    incorrectReps: 'scored as incorrect',
+    unassessedReps: 'unscored (incomplete / unclear tracking)',
+    formAccuracyPct: 'correct ÷ scored',
+    avgRepDurationSec: 'avg seconds per rep'
+  }
+  return map[key] ?? ''
 }
 
 export function formatMetricValue(key: string, v: unknown) {
@@ -89,6 +102,8 @@ export function buildDisplayMetricCards(keyMetrics: Record<string, unknown>) {
   const priority = [
     'totalReps',
     'effectiveReps',
+    'correctReps',
+    'incorrectReps',
     'unassessedReps',
     'formAccuracyPct',
     'avgRepDurationSec'
@@ -99,9 +114,10 @@ export function buildDisplayMetricCards(keyMetrics: Record<string, unknown>) {
   for (const key of priority) {
     if (hiddenKeys.has(key)) continue
     if (!(key in keyMetrics)) continue
+    const inlineHint = metricInlineHint(key)
     cards.push({
       key,
-      label: prettyMetricName(key),
+      label: inlineHint ? `${prettyMetricName(key)}（${inlineHint}）` : prettyMetricName(key),
       value: formatMetricValue(key, keyMetrics[key]),
       tip: metricTip(key),
       group: metricGroup(key)
@@ -169,7 +185,7 @@ export function toFiniteNumber(v: unknown) {
 
 export function metricGroup(key: string) {
   if (key === 'totalReps' || key === 'effectiveReps') return 'Reps'
-  if (key === 'unassessedReps' || key === 'formAccuracyPct') return 'Form'
+  if (key === 'correctReps' || key === 'incorrectReps' || key === 'unassessedReps' || key === 'formAccuracyPct') return 'Form'
   if (key === 'fastRepCount' || key === 'slowRepCount' || key === 'avgRepDurationSec' || key === 'effectiveFps') return 'Tempo'
   return 'Other'
 }
@@ -200,45 +216,45 @@ export function buildRepQualityHighlight(args: {
       return {
         tone: 'soft',
         headline: 'No reps detected',
-        copy: 'The report did not detect a complete rep cycle. Try a clearer camera angle, keep your full body visible, and ensure the whole movement is captured.'
+        copy: 'The analyzer couldn\'t detect a complete rep cycle. For best results: keep your full body visible, use good front lighting, and record from a steady angle at hip height.'
       } as const
     }
 
     if (effectiveReps === 0 && totalReps > 0) {
       return {
         tone: 'soft',
-        headline: 'Set captured, but form was not scored reliably',
+        headline: 'Set captured, but form wasn\'t scored reliably',
         copy:
           unassessedReps > 0
-            ? `The report could not assess ${unassessedReps} rep${unassessedReps > 1 ? 's' : ''} reliably. Improve camera angle and keep the full body visible.`
-            : 'The report needs a clearer camera angle or more stable pose tracking before it can score form reliably.'
+            ? `${unassessedReps} rep${unassessedReps > 1 ? 's were' : ' was'} not scored (incomplete range of motion or unclear tracking). Try stepping back, adding more light, and keeping your full body visible from shoulders to ankles.`
+            : 'The analyzer needs a clearer camera angle or more stable tracking before it can score form. Try better lighting and keep your body steady in frame.'
       } as const
     }
     if (effectiveReps > 0 && (incorrectReps >= effectiveReps || formAccuracyPct === 0)) {
       return {
         tone: 'warn',
-        headline: topIssue ? mapPoseFeedbackMessage({ exerciseSlug, message: topIssue }).label : 'Most assessed reps need correction',
-        copy: `Form accuracy was ${Math.round(formAccuracyPct ?? 0)}%, so the set needs form fixes before it can be considered stable.`
+        headline: topIssue ? mapPoseFeedbackMessage({ exerciseSlug, message: topIssue }).label : 'Most reps need correction',
+        copy: `Form accuracy was ${Math.round(formAccuracyPct ?? 0)}% — nearly every rep needs work. Focus on fixing the main issue before your next set.`
       } as const
     }
     if (effectiveReps > 0 && incorrectReps > 0) {
       return {
         tone: 'warn',
         headline: topIssue ? mapPoseFeedbackMessage({ exerciseSlug, message: topIssue }).label : 'Form was inconsistent across the set',
-        copy: `Only ${correctReps} of ${effectiveReps} assessed reps passed the form check. Focus on the main issue before the next set.`
+        copy: `Only ${correctReps} of ${effectiveReps} scored reps passed the form check. Focus on the main correction and you should see improvement next time.`
       } as const
     }
     if (effectiveReps > 0 && incorrectReps === 0 && (formAccuracyPct ?? 0) >= 95) {
       return {
         tone: 'good',
-        headline: 'Strong set overall',
-        copy: 'Great job - all assessed reps passed the form check. Keep the same control and camera setup next time.'
+        headline: 'Strong set — great control',
+        copy: `All ${effectiveReps} scored reps passed with clean form. To make it harder, try adding weight, adding reps, or moving more slowly.`
       } as const
     }
     return {
       tone: 'soft',
-      headline: 'Set complete with limited quality detail',
-      copy: 'The report counted the set, but there was not enough rep-level detail to highlight one specific correction.'
+      headline: 'Set complete with limited detail',
+      copy: 'The set was counted, but there wasn\'t enough rep-level detail to highlight a specific correction. Try recording again with better lighting and a steadier camera angle.'
     } as const
   }
 
@@ -265,8 +281,8 @@ export function buildRepQualityHighlight(args: {
   if (!top) {
     return {
       tone: 'good',
-      headline: 'Strong set overall',
-      copy: 'Great job - your assessed reps stayed consistent and controlled.'
+      headline: 'Solid set — consistent form',
+      copy: 'All scored reps stayed consistent and controlled. Keep it up — try adding more reps or moving more slowly to keep progressing.'
     } as const
   }
 
@@ -274,18 +290,16 @@ export function buildRepQualityHighlight(args: {
   return {
     tone: meta.tier === 'rep_fail' || meta.tier === 'issue' ? 'warn' : 'soft',
     headline: label,
-    copy: meta.count > 1 ? `This was the most common rep issue and appeared in ${meta.count} reps.` : 'This was the main rep issue in the set.'
+    copy: meta.count > 1 ? `This issue appeared in ${meta.count} of your reps — the most common form breakdown in this set.` : 'This was the main form issue in your set — focus on correcting it first.'
   } as const
 }
 
 export function buildIssueMetaLine(issue: Record<string, unknown>) {
   const parts: string[] = []
   const count = pickMetricNumber(issue.count)
-  const seenMoments = normalizeDisplayedMoments(readNumberArray(issue.seenMomentsMs), TOP_ISSUE_TIME_DISPLAY)
-  const firstSeenMs = seenMoments[0] ?? pickMetricNumber(issue.firstSeenMs)
-  if (count !== null && count > 0) parts.push(`${count} ${count === 1 ? 'time' : 'times'}`)
-  if (seenMoments.length >= 2) parts.push(`at ${seenMoments.map((value) => formatClock(value)).join(', ')}`)
-  else if (firstSeenMs !== null) parts.push(`first at ${formatClock(firstSeenMs)}`)
+  const firstSeenMs = pickMetricNumber(issue.firstSeenMs, readNumberArray(issue.seenMomentsMs)[0])
+  if (count !== null && count > 0) parts.push(`Seen ${count} ${count === 1 ? 'time' : 'times'}`)
+  if (firstSeenMs !== null) parts.push(`first at ${formatClock(firstSeenMs)}`)
   else if (typeof issue.atFrame === 'number') parts.push(`frame ${issue.atFrame}`)
   return parts.join(', ')
 }
@@ -361,7 +375,7 @@ export function buildTopIssueCards(args: {
       seenLabels.add(human.label)
       upsert({
         label: human.label,
-        tier: result === 'incorrect' ? 'rep_fail' : human.tier,
+          tier: result === 'incorrect' && human.tier !== 'gate' ? 'rep_fail' : human.tier,
         count: 1,
         firstSeenMs: tMs,
         seenMomentsMs: tMs !== null ? [tMs] : []
@@ -387,7 +401,7 @@ export function buildTopIssueCards(args: {
 export function mergeIssueCounts(a: number | null | undefined, b: number | null | undefined) {
   if (a == null) return b ?? null
   if (b == null) return a
-  return Math.max(a, b)
+  return a + b
 }
 
 export function readNumberArray(value: unknown) {
@@ -406,5 +420,3 @@ export function normalizeDisplayedMoments(values: number[], options: { maxMoment
   }
   return out
 }
-
-

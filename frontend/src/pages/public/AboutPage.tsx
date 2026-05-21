@@ -3,9 +3,6 @@ import { Link } from 'react-router-dom'
 
 type Member = {
   name: string
-  role: string
-  bio: string
-  details: string
   image?: string
 }
 
@@ -13,45 +10,27 @@ export default function AboutPage() {
   const members = useMemo<Member[]>(
     () => [
       {
-        name: 'Member A',
-        role: 'Full-stack / Architecture',
-        bio: 'Owns system architecture, APIs, and deployment.',
-        details: 'Responsible for backend API design, database modeling, deployment, and overall technical delivery.',
+        name: 'Li Yukun',
         image: '/assets/images/team/lyk.jpg'
       },
       {
-        name: 'Member B',
-        role: 'Frontend / UX',
-        bio: 'Owns UI and interactions.',
-        details: 'Responsible for navigation, animations, shared components, and usability.',
+        name: 'Xu Jiale',
         image: '/assets/images/team/xjl.png'
       },
       {
-        name: 'Member C',
-        role: 'AI / Vision',
-        bio: 'Explores pose and food recognition.',
-        details: 'Evaluates TF.js models and browser-side inference approaches (MoveNet/YOLOv8).',
+        name: 'Zheng Zexing',
         image: '/assets/images/team/zzx.png'
       },
       {
-        name: 'Member D',
-        role: 'Data / QA',
-        bio: 'Owns testing and data visualization.',
-        details: 'Responsible for reporting logic, API verification, and improving test coverage.',
+        name: 'Chen Hongyue',
         image: '/assets/images/team/chy.png'
       },
       {
-        name: 'Member E',
-        role: 'Content / Community',
-        bio: 'Owns blog content and tagging.',
-        details: 'Responsible for tag strategy, content templates, and community interaction experience.',
+        name: 'Dong Hanze',
         image: '/assets/images/team/dhz.jpg'
       },
       {
-        name: 'Member F',
-        role: 'Product',
-        bio: 'Owns requirements and acceptance.',
-        details: 'Responsible for requirement breakdown, acceptance criteria, and optimizing user flows.',
+        name: 'Zhang Jialu',
         image: '/assets/images/team/zjl.jpg'
       }
     ],
@@ -61,8 +40,6 @@ export default function AboutPage() {
   const [active, setActive] = useState<Member | null>(null)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const closeRef = useRef<HTMLButtonElement | null>(null)
-  const [aboutVisual, setAboutVisual] = useState<'gym' | 'food'>('gym')
-
   useEffect(() => {
     if (!active) {
       triggerRef.current?.focus()
@@ -70,13 +47,6 @@ export default function AboutPage() {
     }
     closeRef.current?.focus()
   }, [active])
-
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      setAboutVisual((v) => (v === 'gym' ? 'food' : 'gym'))
-    }, 3800)
-    return () => window.clearInterval(id)
-  }, [])
 
   useEffect(() => {
     if (!active) return
@@ -113,19 +83,14 @@ export default function AboutPage() {
             <div className="about-two-col">
               <div>
                 <div className="cl_about-img">
-                  <div className={`cl_about-visual-stack ${aboutVisual === 'food' ? 'is-food' : 'is-gym'}`}>
+                  <div className="cl_about-visual-stack is-gym">
                     <div className="cl_about-visual-label" aria-hidden="true">
-                      {aboutVisual === 'food' ? 'Nutrition' : 'Training'}
+                      Training
                     </div>
                     <img
                       className="cl_about-visual-base"
                       src="/assets/images/about/about_privacy_gym.jpg"
                       alt="Gym equipment"
-                    />
-                    <img
-                      className={`cl_about-visual-top${aboutVisual === 'food' ? ' is-active' : ''}`}
-                      src="/assets/images/about/about_privacy_food.jpg"
-                      alt="Healthy chickpea salad bowl"
                     />
                     <div className="cl_about-visual-badge" aria-hidden="true">
                       <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -151,25 +116,33 @@ export default function AboutPage() {
                 <div className="cl_about-content about-content-offset">
                   <div className="cl_section-area mb-35">
                     <span className="cl_section-subtitle cl_section-subtitle-about">AI FitGuard</span>
-                    <h2 className="cl_section-title cl_section-title-small mb-25">A privacy-first fitness and nutrition assistant</h2>
-                    <p className="cl_section-text mb-0">
-                      AI FitGuard helps you get reliable training guidance and nutrition insights without specialized hardware. Whenever possible, video/image inference runs locally in your browser, and the platform combines community features to support long-term progress.
-                    </p>
+                    <h2 className="cl_section-title cl_section-title-small mb-25">A privacy-first fitness assistant</h2>
+                    <div className="cl_section-text about-feature-points">
+                      <p>Browser-based pose analysis helps users review movement quality without specialized hardware.</p>
+                      <p>Video inference runs locally whenever possible to support a privacy-first training workflow.</p>
+                      <p>Blogs, comments, tags, and personal records connect training insights with long-term progress.</p>
+                    </div>
                   </div>
                   <ul className="cl_about-content-list">
                     <li>
                       <i className="fa-sharp fa-light fa-check"></i>Pose video analysis
                     </li>
                     <li>
-                      <i className="fa-sharp fa-light fa-check"></i>Food & nutrition tracking
-                    </li>
-                    <li>
                       <i className="fa-sharp fa-light fa-check"></i>Community blogs and comments
                     </li>
                   </ul>
                   <div className="cl_about-content-btn">
-                    <Link to="/tools/pose" className="cl_theme-btn">
-                      Try Pose Tool
+                    <Link to="/tools/pose" className="cl_theme-btn about-hero-cta">
+                      Start Pose Coaching
+                      <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path
+                          d="M12.9613 11.8986C12.9805 11.8986 13.3488 11.678 13.7796 11.4083C14.2103 11.1385 14.5543 10.9016 14.544 10.882C14.5336 10.8624 14.3268 10.583 14.0842 10.2612C13.5972 9.61499 13.1283 8.76064 12.9205 8.14091C12.273 6.2094 12.571 4.2037 13.7462 2.58473L14.0454 2.17245L13.4757 1.6028L12.9061 1.03311L12.5295 1.30145C10.0626 3.05956 7.10577 2.85727 4.48433 0.751109C4.31316 0.613566 4.16681 0.507421 4.15907 0.515159C4.08782 0.586408 3.19178 2.05146 3.192 2.09632C3.19215 2.12877 3.34886 2.26146 3.54023 2.3911C5.65916 3.8268 8.08355 4.29492 9.95758 3.63031L10.4071 3.4709L4.15728 9.74345L0.205318 13.7098L1.3582 14.8627L5.33478 10.9006L11.5926 4.66555L11.403 5.24471C10.911 6.74715 11.1125 8.52771 11.9778 10.3229C12.2243 10.8344 12.8883 11.8983 12.9613 11.8986Z"
+                          fill="currentColor"
+                        />
+                      </svg>
+                    </Link>
+                    <Link to="/blogs" className="cl_theme-btn about-hero-cta">
+                      Read Community Posts
                       <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path
                           d="M12.9613 11.8986C12.9805 11.8986 13.3488 11.678 13.7796 11.4083C14.2103 11.1385 14.5543 10.9016 14.544 10.882C14.5336 10.8624 14.3268 10.583 14.0842 10.2612C13.5972 9.61499 13.1283 8.76064 12.9205 8.14091C12.273 6.2094 12.571 4.2037 13.7462 2.58473L14.0454 2.17245L13.4757 1.6028L12.9061 1.03311L12.5295 1.30145C10.0626 3.05956 7.10577 2.85727 4.48433 0.751109C4.31316 0.613566 4.16681 0.507421 4.15907 0.515159C4.08782 0.586408 3.19178 2.05146 3.192 2.09632C3.19215 2.12877 3.34886 2.26146 3.54023 2.3911C5.65916 3.8268 8.08355 4.29492 9.95758 3.63031L10.4071 3.4709L4.15728 9.74345L0.205318 13.7098L1.3582 14.8627L5.33478 10.9006L11.5926 4.66555L11.403 5.24471C10.911 6.74715 11.1125 8.52771 11.9778 10.3229C12.2243 10.8344 12.8883 11.8983 12.9613 11.8986Z"
@@ -191,7 +164,6 @@ export default function AboutPage() {
             <div className="page-row-center">
               <div className="page-col-team-head">
                 <div className="cl_section-area text-center mb-30 pb-2">
-                  <span className="cl_section-subtitle">Our Team</span>
                   <h2 className="cl_section-title cl_section-title-white mb-0">Team</h2>
                 </div>
               </div>
@@ -229,7 +201,6 @@ export default function AboutPage() {
                           {m.name}
                         </button>
                       </h4>
-                      <span>{m.role}</span>
                     </div>
                   </div>
                 </div>
@@ -254,8 +225,6 @@ export default function AboutPage() {
             <h4 className="cl_blog-widget-title mb-30" id="about-member-title">
               {active.name}
             </h4>
-            <p>{active.role}</p>
-            <p className="about-member-modal-details">{active.details}</p>
             <div className="about-member-modal-actions">
               <button type="button" className="text-link-btn" onClick={() => setActive(null)} ref={closeRef}>
                 Close

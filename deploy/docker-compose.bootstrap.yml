@@ -1,4 +1,0 @@
-services:
-  caddy:
-    volumes:
-      - ./deploy/Caddyfile.bootstrap:/etc/caddy/Caddyfile:ro

@@ -17,44 +17,47 @@ export type PoseTeachingCopy = {
 
 const TEACHING_COPY_BY_SLUG: Record<string, PoseTeachingCopy> = {
   pushup: {
-    cameraAngle: 'Place your camera at a true side view (about 90°) so your whole body stays in frame.',
+    cameraAngle: 'Use a true side view (about 90°). Place the camera around hip height, step back 2–3 meters, and keep your full body (shoulders to ankles) visible.',
     tipsLines: [
-      'Start in a straight line from head to heels.',
-      'Hands under shoulders, core tight.',
-      'Lower with control until elbows reach about 90°.',
-      'Keep elbows slightly tucked (not flared).',
-      'Press up by pushing the floor away; avoid hips sagging or piking; keep neck neutral.'
+      'Start in a straight line from head to heels — squeeze glutes and brace your core.',
+      'Hands under shoulders; keep wrists stacked and neck neutral.',
+      'Lower with control until elbows bend clearly (around 90°) while keeping the body line.',
+      'Keep elbows slightly tucked (do not flare wide).',
+      'Press back up to the top position before starting the next rep.',
+      'Avoid hips sagging or piking — shoulders, hips, and ankles should rise together.'
     ]
   },
   'bent-over-row': {
-    cameraAngle: 'Use a side view (about 60°-90°) to clearly see your hip hinge and dumbbell path.',
+    cameraAngle: 'Use a side view (about 60°–90°) at hip height. Keep the torso, elbows, and dumbbells visible so the pull path and torso stability can be evaluated.',
     tipsLines: [
       'Hinge at the hips with a flat back; knees softly bent; chest proud.',
-      'Keep your torso angle stable.',
-      'Pull dumbbells toward lower ribs/waist by driving elbows back close to your body.',
-      'Pause briefly at the top.',
-      'Lower slowly without swinging; avoid shrugging; avoid using momentum.'
+      'Lock in your torso angle and keep it steady throughout the rep.',
+      'Drive elbows back close to the body and pull toward lower ribs/waist.',
+      'Pull all the way back until dumbbells are close to the hips/lower ribs, then squeeze briefly.',
+      'Lower slowly and stay controlled — do not swing or use momentum.',
+      'Keep shoulders down (no shrugging) and keep wrists neutral.'
     ]
   },
   'lateral-raise': {
-    cameraAngle: 'Set the camera directly in front (0°) so both arms are equally visible.',
+    cameraAngle: 'Set the camera directly in front (0°). Place it around chest-to-hip height and ensure both arms (shoulders to wrists) stay fully visible the whole time.',
     tipsLines: [
-      'Stand tall with a slight bend in the elbows.',
-      'Raise dumbbells to about shoulder height.',
-      "Keep shoulders down (don't shrug) and wrists neutral.",
-      'Lead with elbows slightly higher than wrists.',
-      "Control the lowering phase; avoid rocking your torso to 'cheat' the weight up."
+      'Stand tall with a slight bend in the elbows and wrists neutral.',
+      'Raise both arms together to about shoulder height (upper arms roughly parallel to the floor).',
+      "Keep shoulders down (don't shrug) and keep the neck relaxed.",
+      'Lead slightly with the elbows and keep wrists under control (do not curl).',
+      'Lower slowly and smoothly — the lowering phase matters.',
+      "Avoid rocking the torso or using momentum to 'cheat' the weight up."
     ]
   },
   squat: {
-    cameraAngle: 'Use a 30°-45° front angle (or a true side view at 90°) to capture hips, knees, and ankles clearly.',
+    cameraAngle: 'Use a 30°–45° front angle (or a true side view at 90°). Place the camera at hip height and keep hips, knees, and ankles visible throughout.',
     tipsLines: [
       'Feet about shoulder-width; toes slightly out; brace core before descending.',
-      'Sit hips down and back; let knees track over toes.',
-      'Keep heels planted and chest up.',
-      'Aim for depth you can control.',
-      'Stand by pushing the floor away and driving hips up.',
-      'Avoid knees collapsing inward; avoid bouncing at the bottom.'
+      'Sit hips down and back; let knees track over toes (do not cave inward).',
+      'Keep heels planted and chest up; stay balanced over mid-foot.',
+      'Go to a depth you can control (hips around knee height or deeper if comfortable).',
+      'Stand up by pushing the floor away and driving hips up smoothly.',
+      'Avoid bouncing at the bottom — stay controlled through the full range.'
     ]
   }
 }

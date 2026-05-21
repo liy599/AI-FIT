@@ -29,7 +29,7 @@ function stripApiSuffix(base: string) {
   return base.endsWith('/api') ? base.slice(0, -4) : base
 }
 
-export type ApiError = { error?: string; msg?: string; message?: string }
+export type ApiError = { error?: string; msg?: string; message?: string; retry_after?: number }
 const AUTH_EXPIRED_EVENT = 'aifit:auth-expired'
 
 function buildUrl(path: string) {
@@ -102,11 +102,24 @@ async function throwIfNotOk(res: Response) {
 function extractErrorMessage(data: unknown, res: Response) {
   if (typeof data === 'object' && data) {
     const apiError = data as ApiError
+    const retryMessage = formatRetryAfterMessage(apiError)
+    if (retryMessage) return retryMessage
     if (typeof apiError.error === 'string' && apiError.error.trim()) return apiError.error
     if (typeof apiError.msg === 'string' && apiError.msg.trim()) return apiError.msg
     if (typeof apiError.message === 'string' && apiError.message.trim()) return apiError.message
   }
   return res.statusText || `Request failed (${res.status})`
+}
+
+function formatRetryAfterMessage(apiError: ApiError) {
+  const raw = apiError.error ?? apiError.msg ?? apiError.message ?? ''
+  if (raw.toLowerCase() !== 'too many requests') return null
+  const retryAfter = Number(apiError.retry_after)
+  if (!Number.isFinite(retryAfter) || retryAfter <= 0) return 'Too many requests. Please try again later.'
+  const rounded = Math.ceil(retryAfter)
+  if (rounded < 60) return `Too many requests. Please try again in ${rounded} second${rounded === 1 ? '' : 's'}.`
+  const minutes = Math.ceil(rounded / 60)
+  return `Too many requests. Please try again in ${minutes} minute${minutes === 1 ? '' : 's'}.`
 }
 
 function isAuthExpiredMessage(message: string) {
@@ -146,8 +159,10 @@ export async function apiFetch<T>(
   options?: RequestInit & { auth?: boolean }
 ): Promise<T> {
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
     ...buildHeaders(options)
+  }
+  if (options?.body != null && !('Content-Type' in headers)) {
+    headers['Content-Type'] = 'application/json'
   }
   if (isMutationMethod(options?.method)) {
     const csrfToken = readCookie('csrf_access_token')

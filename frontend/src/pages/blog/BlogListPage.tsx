@@ -1,15 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { getBlogTags, queryBlogs, type BlogCard, type BlogTag as Tag } from '../../modules/blog'
+import { buildPaginationItems, displayBlogTagName, getBlogTags, queryBlogs, type BlogCard, type BlogTag as Tag } from '../../modules/blog'
+import { FallbackImage } from '../../components/ui'
 import { useAuth } from '../../state/auth-context'
 import {
-  BlogTeaserCard,
-  clamp01,
-  estimateReadMinutes,
   FeaturedBlogGridCard,
+  abbreviateBlogTitle,
   formatLongDate,
-  getViewCount,
-  resolveMediaUrl,
+  getBlogCover,
+  getBlogTagLabels,
   TopViewedStack,
   useRevealOnScroll
 } from '../../components/blog/BlogListParts'
@@ -18,12 +17,31 @@ export default function BlogListPage() {
   const [sp, setSp] = useSearchParams()
   const [tags, setTags] = useState<Tag[]>([])
   const [items, setItems] = useState<BlogCard[]>([])
+  const [recentItems, setRecentItems] = useState<BlogCard[]>([])
+  const [topViewedItems, setTopViewedItems] = useState<BlogCard[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [topViewedLoading, setTopViewedLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [recentIndex, setRecentIndex] = useState(0)
+  const [searchDraft, setSearchDraft] = useState(sp.get('q') ?? '')
+  const pendingScrollYRef = useRef<number | null>(null)
 
   const q = sp.get('q') ?? ''
-  const tagIds = sp.getAll('tag').map((x) => Number(x)).filter((x) => Number.isFinite(x))
+  const page = Math.max(1, Number(sp.get('page') ?? '1') || 1)
+  const sort = sp.get('sort') ?? 'created_at:desc'
+  const featuredType = sp.get('type') === 'Record' || sp.get('type') === 'Log' ? 'Record' : 'Experience'
+  const tagValues = sp.getAll('tag')
+  const tagKey = tagValues.join(',')
+  const tagIds = useMemo(() => tagValues.map((x) => Number(x)).filter((x) => Number.isFinite(x)), [tagKey])
+  const [sortBy, sortDir] = sort.split(':') as [string, 'asc' | 'desc']
+  const filterTags = useMemo(
+    () => tags.filter((tag) => {
+      const label = displayBlogTagName(tag.name)
+      return label !== 'Record' && label !== 'Experience'
+    }),
+    [tags]
+  )
 
   useEffect(() => {
     getBlogTags()
@@ -31,14 +49,30 @@ export default function BlogListPage() {
       .catch(() => {})
   }, [])
 
+  useEffect(() => {
+    setSearchDraft(q)
+  }, [q])
+
+  useEffect(() => {
+    if (pendingScrollYRef.current == null) return
+    const y = pendingScrollYRef.current
+    pendingScrollYRef.current = null
+    window.requestAnimationFrame(() => window.scrollTo({ top: y, left: 0 }))
+  }, [sp])
+
   const queryString = useMemo(() => {
     const p = new URLSearchParams()
-    p.set('page', '1')
-    p.set('page_size', '24')
+    p.set('page', String(page))
+    p.set('page_size', '9')
+    p.set('sort_by', sortBy)
+    p.set('sort_dir', sortDir === 'asc' ? 'asc' : 'desc')
+    p.set('type', featuredType)
     if (q.trim()) p.set('q', q.trim())
     for (const t of tagIds) p.append('tag', String(t))
     return p.toString()
-  }, [q, tagIds])
+  }, [featuredType, page, q, sortBy, sortDir, tagIds])
+
+  const isDefaultBlogQuery = page === 1 && !q.trim() && tagIds.length === 0 && featuredType === 'Experience' && sortBy === 'created_at' && sortDir !== 'asc'
 
   useEffect(() => {
     let cancelled = false
@@ -61,60 +95,112 @@ export default function BlogListPage() {
     return () => {
       cancelled = true
     }
-  }, [queryString])
+  }, [isDefaultBlogQuery, queryString])
 
-  function toggleTag(id: number) {
-    const next = new URLSearchParams(sp)
-    const has = tagIds.includes(id)
-    next.delete('tag')
-    const kept = has ? tagIds.filter((t) => t !== id) : [...tagIds, id]
-    kept.forEach((t) => next.append('tag', String(t)))
-    setSp(next)
+  useEffect(() => {
+    if (recentItems.length) return
+    let cancelled = false
+    queryBlogs('page=1&page_size=4&sort_by=created_at&sort_dir=desc&type=Experience')
+      .then((r) => {
+        if (!cancelled) setRecentItems(r.items)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [recentItems.length])
+
+  useEffect(() => {
+    let cancelled = false
+    setTopViewedLoading(true)
+    queryBlogs('page=1&page_size=3&sort_by=view_count&sort_dir=desc&type=Experience')
+      .then((r) => {
+        if (!cancelled) setTopViewedItems(r.items)
+      })
+      .catch(() => {
+        if (!cancelled) setTopViewedItems([])
+      })
+      .finally(() => {
+        if (!cancelled) setTopViewedLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const hero = recentItems[0] ?? items[0]
+  const recent = recentItems
+  const featured = items
+  const activeRecent = recent[recentIndex] ?? recent[0] ?? null
+  const activeRecentTags = activeRecent ? getBlogTagLabels(activeRecent) : []
+  const totalPages = Math.max(1, Math.ceil(total / 9))
+  const paginationItems = useMemo(() => buildPaginationItems(page, totalPages), [page, totalPages])
+
+  function formatRecentExcerpt(value: string) {
+    return value
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .join('\n')
   }
 
-  const categoryPills = useMemo(() => {
-    const fallback = [
-      'Hobbies',
-      'Gaming',
-      'Automotive',
-      'Pet Care',
-      'Science',
-      'Work Life',
-      'Social Issues',
-      'Entertainment',
-      'Travel & Culture',
-      'Technology',
-      'Lifestyle',
-    ]
-
-    if (!tags.length) return fallback.map((name) => ({ name, id: null as number | null }))
-    const sorted = [...tags].sort((a, b) => a.name.localeCompare(b.name))
-    return sorted.slice(0, 12).map((t) => ({ name: t.name, id: t.id as number | null }))
-  }, [tags])
-
-  const hero = items[0]
-  const recent = items.slice(0, 4)
-  const featured = items.slice(4, 11)
-  const popular = items.slice(11, 17)
-
-  const featuredCount = featured.length || 6
-  const popularCount = popular.length || 6
-  const featuredProgress = clamp01(featuredCount / 6)
-  const popularProgress = clamp01(popularCount / 6)
-  const topViewed = useMemo(() => {
-    if (!items.length) return []
-    const sorted = [...items].sort((a, b) => getViewCount(b) - getViewCount(a))
-    const best = sorted.slice(0, 3)
-    const hasViews = best.some((b) => getViewCount(b) > 0)
-    if (!hasViews) return items.slice(0, 3)
-    return best
-  }, [items])
-
   const recentReveal = useRevealOnScroll<HTMLElement>()
-  const categoriesReveal = useRevealOnScroll<HTMLElement>()
   const featuredReveal = useRevealOnScroll<HTMLElement>()
   const joinReveal = useRevealOnScroll<HTMLElement>()
   const featuredGridReveal = useRevealOnScroll<HTMLDivElement>()
+
+  useEffect(() => {
+    if (recentIndex < recent.length) return
+    setRecentIndex(0)
+  }, [recent.length, recentIndex])
+
+  useEffect(() => {
+    if (recent.length <= 1) return
+    const id = window.setInterval(() => {
+      setRecentIndex((current) => (current + 1) % recent.length)
+    }, 4500)
+    return () => window.clearInterval(id)
+  }, [recent.length])
+
+  function shiftRecent(direction: -1 | 1) {
+    if (!recent.length) return
+    setRecentIndex((current) => (current + direction + recent.length) % recent.length)
+  }
+
+  function updateFilters(next: { q?: string; sort?: string; tagId?: number | null; page?: number; type?: 'Record' | 'Experience' }) {
+    pendingScrollYRef.current = window.scrollY
+    const params = new URLSearchParams(sp)
+    if (next.q !== undefined) {
+      const text = next.q.trim()
+      if (text) params.set('q', text)
+      else params.delete('q')
+      params.set('page', '1')
+    }
+    if (next.sort !== undefined) {
+      params.set('sort', next.sort)
+      params.set('page', '1')
+    }
+    if (next.tagId !== undefined) {
+      params.delete('tag')
+      if (next.tagId != null) params.append('tag', String(next.tagId))
+      params.set('page', '1')
+    }
+    if (next.type !== undefined) {
+      params.set('type', next.type)
+      params.set('page', '1')
+    }
+    if (next.page !== undefined) {
+      params.set('page', String(Math.max(1, next.page)))
+    }
+    setSp(params, { preventScrollReset: true })
+  }
+
+  const previewBlogs = recent.length
+    ? {
+        prev: recent[(recentIndex - 1 + recent.length) % recent.length],
+        next: recent[(recentIndex + 1) % recent.length],
+      }
+    : { prev: null, next: null }
 
   return (
     <main className="bg-white">
@@ -175,7 +261,7 @@ export default function BlogListPage() {
 
           <div className="blog-list-hero-col-side">
             <div className="blog-list-hero-media-wrap">
-              <TopViewedStack blogs={topViewed} loading={loading} />
+              <TopViewedStack blogs={topViewedItems} loading={topViewedLoading} emptyMessage="Published experience posts will appear here after readers start viewing them." />
             </div>
           </div>
         </div>
@@ -192,138 +278,202 @@ export default function BlogListPage() {
 
           {error ? <div className="mt-6 text-sm text-red-600">{error}</div> : null}
 
-          <div className="mt-10 blog-list-recent-grid">
-            <div className="blog-list-recent-col-main">
-              {recent[0] ? (
-                <article>
-                  <div className="blog-card-media relative overflow-hidden rounded-3xl aspect-[16/9]">
-                    <Link to={`/blogs/${recent[0].id}`} className="block h-full w-full">
-                      <img
+          <div className="blog-list-recent-stage mt-10">
+            {activeRecent ? (
+              <>
+                <button type="button" className="blog-list-recent-side-btn blog-list-recent-side-btn--prev" aria-label="Previous recent blog" onClick={() => shiftRecent(-1)}>
+                  <i className="fa-regular fa-arrow-left" aria-hidden="true" />
+                </button>
+                <button type="button" className="blog-list-recent-side-btn blog-list-recent-side-btn--next" aria-label="Next recent blog" onClick={() => shiftRecent(1)}>
+                  <i className="fa-regular fa-arrow-right" aria-hidden="true" />
+                </button>
+
+                {previewBlogs.prev ? (
+                  <button type="button" className="blog-list-recent-shadow blog-list-recent-shadow--left" onClick={() => shiftRecent(-1)} aria-label="Show previous recent blog">
+                    <FallbackImage src={getBlogCover(previewBlogs.prev)} fallbackSrc="/assets/images/blog/h2_2.png" alt="" />
+                  </button>
+                ) : null}
+
+                <article className="blog-card-surface blog-list-recent-focus rounded-3xl p-3 md:p-5">
+                  <div className="blog-list-recent-focus-media blog-card-media relative overflow-hidden rounded-3xl">
+                    <Link to={`/blogs/${activeRecent.id}`} className="block h-full w-full">
+                      <FallbackImage
                         className="absolute inset-0 h-full w-full object-cover"
-                        src={resolveMediaUrl(recent[0].cover_image_url) ?? '/figma/recent-1.png'}
-                        alt={recent[0].title}
+                        src={getBlogCover(activeRecent)}
+                        fallbackSrc="/assets/images/blog/h2_1.png"
+                        alt={activeRecent.title}
                         fetchPriority="high"
                         decoding="async"
                       />
                     </Link>
-                    <div className="absolute left-5 top-5">
-                      <span className="inline-flex items-center rounded-full bg-white px-3 py-1 text-[11px] font-medium text-neutral-900">
-                        {recent[0].tags[0]?.name ?? 'Our Blog'}
-                      </span>
-                    </div>
+                    {activeRecentTags.length ? (
+                      <div className="absolute left-5 top-5">
+                        <div className="blog-category-pill-group">
+                          {activeRecentTags.map((tag) => (
+                            <span className="blog-category-pill" key={tag}>{tag}</span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
 
-                  <h3 className="mt-6 text-2xl font-semibold leading-tight tracking-tight text-neutral-900 sm:text-3xl md:text-4xl">
-                    <Link to={`/blogs/${recent[0].id}`}>{recent[0].title}</Link>
-                  </h3>
+                  <div className="blog-list-recent-focus-copy">
+                    <div className="text-xs font-semibold uppercase tracking-[0.12em] text-emerald-700">
+                      Recent {recentIndex + 1} / {recent.length}
+                    </div>
+                    <h3 className="blog-title-one-line blog-list-recent-title mt-4 min-w-0 font-semibold tracking-tight text-neutral-900">
+                      <Link to={`/blogs/${activeRecent.id}`} title={activeRecent.title}>
+                        {abbreviateBlogTitle(activeRecent.title, 44)}
+                      </Link>
+                    </h3>
 
-                  <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-neutral-500">
-                    <div className="flex items-center gap-2">
-                      <img src="/figma/icon-user.svg" alt="" className="h-3.5 w-3.5" />
-                      <span>{recent[0].author.username}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <img src="/figma/icon-calendar.svg" alt="" className="h-3.5 w-3.5" />
-                      <span>{formatLongDate(recent[0].created_at)}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <img src="/figma/icon-clock.svg" alt="" className="h-3.5 w-3.5" />
-                      <span>{estimateReadMinutes(recent[0].excerpt)} min read</span>
-                    </div>
-                  </div>
+                    <p className="blog-list-recent-excerpt mt-4 text-sm leading-relaxed text-neutral-600">
+                      {formatRecentExcerpt(activeRecent.excerpt)}
+                    </p>
 
-                  <div className="mt-6">
-                    <Link
-                      to={`/blogs/${recent[0].id}`}
-                      className="blog-theme-btn inline-flex h-11 items-center justify-center rounded-full bg-neutral-900 px-6 text-sm font-medium text-white"
-                    >
-                      Read more
-                    </Link>
+                    <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-neutral-500">
+                      <div className="flex items-center gap-2">
+                        <img src="/figma/icon-user.svg" alt="" className="h-3.5 w-3.5" />
+                        <span>{activeRecent.author.username}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <img src="/figma/icon-calendar.svg" alt="" className="h-3.5 w-3.5" />
+                        <span>{formatLongDate(activeRecent.created_at)}</span>
+                      </div>
+                    </div>
+
+                    <div className="mt-6">
+                      <Link
+                        to={`/blogs/${activeRecent.id}`}
+                        className="blog-theme-btn inline-flex h-10 w-full items-center justify-center rounded-full border border-neutral-900 bg-white px-5 text-sm font-medium text-neutral-900 transition-colors hover:bg-neutral-900 hover:text-white"
+                      >
+                        Read more
+                      </Link>
+                    </div>
+
+                    <div className="mt-6 flex gap-2">
+                      {recent.map((item, index) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          className={`blog-list-recent-dot${index === recentIndex ? ' is-active' : ''}`}
+                          aria-label={`Show recent blog ${index + 1}`}
+                          onClick={() => setRecentIndex(index)}
+                        />
+                      ))}
+                    </div>
                   </div>
                 </article>
-              ) : (
-                <div className="blog-card-surface rounded-3xl p-8 text-sm text-neutral-500">
-                  {loading ? 'Loading...' : 'No content'}
-                </div>
-              )}
-            </div>
 
-            <div className="blog-list-recent-col-side">
-              <div className="grid grid-cols-1 gap-8">
-                {recent.slice(1, 4).map((b, idx) => (
-                  <article key={b.id} className="blog-card-surface rounded-3xl p-3">
-                    <div className="flex items-start gap-[13px]">
-                      <div className="blog-card-media relative h-[110px] w-[150px] flex-none overflow-hidden rounded-2xl sm:h-[120px] sm:w-[170px]">
-                        <Link to={`/blogs/${b.id}`} className="block h-full w-full">
-                          <img
-                            className="absolute inset-0 h-full w-full object-cover"
-                            src={
-                              resolveMediaUrl(b.cover_image_url) ??
-                              (idx === 0 ? '/figma/recent-2.png' : idx === 1 ? '/figma/recent-3.png' : '/figma/featured-1.png')
-                            }
-                            alt={b.title}
-                            loading="lazy"
-                            decoding="async"
-                          />
-                        </Link>
-                        <div className="absolute left-3 top-3">
-                          <span className="inline-flex items-center rounded-full bg-white px-2.5 py-1 text-[10px] font-medium text-neutral-900">
-                            {b.tags[0]?.name ?? 'Our Blog'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <h4 className="text-lg font-semibold leading-snug tracking-tight text-neutral-900 line-clamp-2">
-                          <Link to={`/blogs/${b.id}`}>{b.title}</Link>
-                        </h4>
-                        <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-neutral-500">
-                          <div className="flex items-center gap-2">
-                            <img src="/figma/icon-calendar.svg" alt="" className="h-3.5 w-3.5" />
-                            <span>{formatLongDate(b.created_at)}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <img src="/figma/icon-clock.svg" alt="" className="h-3.5 w-3.5" />
-                            <span>{estimateReadMinutes(b.excerpt)} min read</span>
-                          </div>
-                        </div>
-
-                        <div className="mt-4">
-                          <Link
-                            to={`/blogs/${b.id}`}
-                            className="blog-theme-btn inline-flex h-10 items-center justify-center gap-2 rounded-full border border-neutral-300 bg-white px-5 text-xs font-medium text-neutral-900"
-                          >
-                            Read more
-                            <span className="text-base leading-none">{'>'}</span>
-                          </Link>
-                        </div>
-                      </div>
-                    </div>
-                  </article>
-                ))}
+                {previewBlogs.next ? (
+                  <button type="button" className="blog-list-recent-shadow blog-list-recent-shadow--right" onClick={() => shiftRecent(1)} aria-label="Show next recent blog">
+                    <FallbackImage src={getBlogCover(previewBlogs.next)} fallbackSrc="/assets/images/blog/h2_3.png" alt="" />
+                  </button>
+                ) : null}
+              </>
+            ) : (
+              <div className="blog-card-surface blog-list-recent-empty">
+                {loading ? 'Loading...' : 'No experience posts yet.'}
               </div>
-            </div>
+            )}
           </div>
         </div>
       </section>
 
       <section ref={featuredReveal.ref} className={`px-4 pt-16 md:pt-24 reveal${featuredReveal.visible ? ' visible' : ''}`}>
         <div className="mx-auto max-w-[1200px]">
-          <div className="flex items-center justify-between gap-6">
-            <h2 className="text-lg font-semibold text-neutral-900">Featured Blogs</h2>
+          <div className="blog-list-featured-toolbar">
+            <div>
+              <div className="blog-list-featured-heading">
+                <h2 className="text-3xl font-semibold leading-tight tracking-tight text-neutral-900 md:text-4xl">Featured Blogs</h2>
+                <span>{total} total</span>
+              </div>
+              <div className="blog-list-type-toggle" aria-label="Featured blog type">
+                <button
+                  type="button"
+                  className={featuredType === 'Experience' ? 'is-active' : ''}
+                  onClick={() => updateFilters({ type: 'Experience' })}
+                >
+                  Experience
+                </button>
+                <button
+                  type="button"
+                  className={featuredType === 'Record' ? 'is-active' : ''}
+                  onClick={() => updateFilters({ type: 'Record' })}
+                >
+                  Record
+                </button>
+              </div>
+            </div>
+            <form
+              className="blog-list-filterbar"
+              onSubmit={(event) => {
+                event.preventDefault()
+                updateFilters({ q: searchDraft })
+              }}
+            >
+              <input value={searchDraft} onChange={(event) => setSearchDraft(event.target.value)} placeholder="Search blog titles or authors" />
+              <select value={tagIds[0] ? String(tagIds[0]) : ''} onChange={(event) => updateFilters({ tagId: event.target.value ? Number(event.target.value) : null })}>
+                <option value="">All tags</option>
+                {filterTags.map((tag) => (
+                  <option key={tag.id} value={tag.id}>{displayBlogTagName(tag.name)}</option>
+                ))}
+              </select>
+              <select value={sort} onChange={(event) => updateFilters({ sort: event.target.value })}>
+                <option value="created_at:desc">Newest</option>
+                <option value="created_at:asc">Oldest</option>
+                <option value="view_count:desc">Most viewed</option>
+                <option value="like_count:desc">Most liked</option>
+              </select>
+              <button type="submit">Search</button>
+            </form>
           </div>
 
           <div
             ref={featuredGridReveal.ref}
             className={`mt-8 blog-list-featured-grid reveal-stagger${featuredGridReveal.visible ? ' visible' : ''}`}
           >
-            {featured.slice(0, 3).map((b, idx) => (
+            {featured.map((b, idx) => (
               <FeaturedBlogGridCard
                 key={b.id}
                 blog={b}
-                placeholderSrc={idx === 0 ? '/figma/featured-1.png' : idx === 1 ? '/figma/featured-2.png' : '/figma/featured-3.png'}
+                placeholderSrc={idx === 0 ? '/assets/images/blog/h2_1.png' : idx === 1 ? '/assets/images/blog/h2_2.png' : '/assets/images/blog/h2_3.png'}
               />
             ))}
+            {!loading && featured.length === 0 ? (
+              <div className="blog-card-surface rounded-3xl p-8 text-sm text-neutral-500">No blogs found.</div>
+            ) : null}
+          </div>
+          <div className="blog-list-pagination">
+            <button type="button" disabled={page <= 1} onClick={() => updateFilters({ page: 1 })}>
+              First
+            </button>
+            <button type="button" disabled={page <= 1} onClick={() => updateFilters({ page: page - 1 })}>
+              Prev
+            </button>
+            <div className="blog-list-page-numbers" aria-label="Featured blog pages">
+              {paginationItems.map((item, index) =>
+                item === 'ellipsis' ? (
+                  <span key={`ellipsis-${index}`} className="blog-list-page-ellipsis">...</span>
+                ) : (
+                  <button
+                    key={item}
+                    type="button"
+                    className={item === page ? 'is-active' : ''}
+                    aria-current={item === page ? 'page' : undefined}
+                    onClick={() => updateFilters({ page: item })}
+                  >
+                    {item}
+                  </button>
+                )
+              )}
+            </div>
+            <button type="button" disabled={page >= totalPages} onClick={() => updateFilters({ page: page + 1 })}>
+              Next
+            </button>
+            <button type="button" disabled={page >= totalPages} onClick={() => updateFilters({ page: totalPages })}>
+              Last
+            </button>
           </div>
         </div>
       </section>
@@ -353,25 +503,13 @@ export default function BlogListPage() {
             </div>
 
             <div className="relative z-10 blog-list-join-col-side">
-              {hero ? (
-                <div className="blog-card-surface rounded-3xl p-3 text-neutral-900">
-                  <div className="blog-card-media relative overflow-hidden rounded-3xl aspect-[16/9]">
-                    <Link to={`/blogs/${hero.id}`} className="block h-full w-full">
-                      <img
-                        className="absolute inset-0 h-full w-full object-cover"
-                        src={resolveMediaUrl(hero.cover_image_url) ?? '/figma/hero-card.png'}
-                        alt={hero.title}
-                        loading="lazy"
-                        decoding="async"
-                      />
-                    </Link>
-                  </div>
-                  <h3 className="mt-4 text-base font-semibold leading-snug tracking-tight line-clamp-2">
-                    <Link to={`/blogs/${hero.id}`}>{hero.title}</Link>
-                  </h3>
-                  <div className="mt-2 text-xs text-neutral-500">{formatLongDate(hero.created_at)}</div>
-                </div>
-              ) : null}
+              <div className="blog-list-hero-media-wrap blog-list-join-stack-wrap">
+                <TopViewedStack
+                  blogs={topViewedItems.length ? topViewedItems : hero ? [hero] : []}
+                  loading={topViewedLoading}
+                  emptyMessage="Published experience posts will appear here after readers start viewing them."
+                />
+              </div>
             </div>
           </div>
         </div>

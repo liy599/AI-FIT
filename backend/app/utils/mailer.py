@@ -7,6 +7,18 @@ from email.message import EmailMessage
 from flask import current_app
 
 
+def _format_ttl(ttl_seconds: int) -> str:
+    if ttl_seconds <= 0:
+        return "a short time"
+    if ttl_seconds % 3600 == 0:
+        hours = ttl_seconds // 3600
+        return f"{hours} hour" if hours == 1 else f"{hours} hours"
+    if ttl_seconds % 60 == 0:
+        minutes = ttl_seconds // 60
+        return f"{minutes} minute" if minutes == 1 else f"{minutes} minutes"
+    return f"{ttl_seconds} seconds"
+
+
 def is_email_delivery_configured() -> bool:
     cfg = current_app.config
     host = str(cfg.get("SMTP_HOST") or "").strip()
@@ -31,7 +43,7 @@ def send_text_email(*, to_email: str, subject: str, body: str) -> None:
 
     msg = EmailMessage()
     msg["Subject"] = subject
-    msg["From"] = sender
+    msg["From"] = sender if "<" in sender else f"AI Fit Guard <{sender}>"
     msg["To"] = to_email
     msg.set_content(body)
 
@@ -49,16 +61,53 @@ def send_text_email(*, to_email: str, subject: str, body: str) -> None:
         server.send_message(msg)
 
 
-def send_password_reset_email(*, to_email: str, reset_link: str) -> None:
-    subject = str(current_app.config.get("PASSWORD_RESET_EMAIL_SUBJECT") or "Reset your password")
-    body = "\n".join(
+def send_password_reset_email(*, to_email: str, reset_code: str) -> None:
+    ttl_seconds = int(current_app.config.get("PASSWORD_RESET_TOKEN_TTL_SECONDS", 60 * 60))
+    ttl = _format_ttl(ttl_seconds)
+    subject = str(current_app.config.get("PASSWORD_RESET_EMAIL_SUBJECT") or "[AI Fit Guard] Password reset code")
+    body_lines = [
+        "Hello,",
+        "",
+        "We received a request to reset the password for your AI Fit Guard account.",
+        "",
+        "Your password reset code is:",
+        reset_code,
+        "",
+        f"This code will expire in {ttl}.",
+    ]
+    body_lines.extend(
         [
-            "We received a request to reset your password.",
             "",
-            "Open this link to set a new password:",
-            reset_link,
+            "If you did not request this, you can safely ignore this email.",
             "",
-            "If you did not request a password reset, you can ignore this email.",
+            "AI Fit Guard",
         ]
     )
+    body = "\n".join(body_lines)
+    send_text_email(to_email=to_email, subject=subject, body=body)
+
+
+def send_email_verification_email(*, to_email: str, verification_code: str) -> None:
+    ttl_seconds = int(current_app.config.get("EMAIL_VERIFY_TOKEN_TTL_SECONDS", 60 * 60))
+    ttl = _format_ttl(ttl_seconds)
+    subject = str(current_app.config.get("EMAIL_VERIFY_EMAIL_SUBJECT") or "[AI Fit Guard] Email verification code")
+    body_lines = [
+        "Hello,",
+        "",
+        "We received a request to verify this email address for your AI Fit Guard account.",
+        "",
+        "Your email verification code is:",
+        verification_code,
+        "",
+        f"This code will expire in {ttl}.",
+    ]
+    body_lines.extend(
+        [
+            "",
+            "If you did not request this, you can safely ignore this email.",
+            "",
+            "AI Fit Guard",
+        ]
+    )
+    body = "\n".join(body_lines)
     send_text_email(to_email=to_email, subject=subject, body=body)

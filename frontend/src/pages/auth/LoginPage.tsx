@@ -1,7 +1,12 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { loginByPassword, requestPasswordReset } from '../../modules/user'
+import { PasswordField } from '../../components/ui'
+import { loginByPassword } from '../../modules/user'
 import { useAuth } from '../../state/auth-context'
+
+function isValidEmail(email: string) {
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())
+}
 
 export default function LoginPage() {
   const auth = useAuth()
@@ -20,28 +25,12 @@ export default function LoginPage() {
   const fromQuery = qs.get('from')
   const effectiveFrom = fromQuery || from
 
-  function buildResetPath(resetLink?: string) {
-    if (!resetLink) return null
-    try {
-      const u = new URL(resetLink, window.location.origin)
-      if (u.pathname === '/reset-password') return `${u.pathname}${u.search}${u.hash}`
-      const token = u.searchParams.get('token')
-      if (token) return `/reset-password?token=${encodeURIComponent(token)}`
-      return null
-    } catch {
-      if (resetLink.includes('token=')) {
-        const token = resetLink.split('token=')[1]?.split('&')[0]
-        if (token) return `/reset-password?token=${encodeURIComponent(token)}`
-      }
-      return null
-    }
-  }
-
   async function submit() {
     setError(null)
     setNotice(null)
     if (busy) return
-    if (!email.trim()) {
+    const normalizedEmail = email.trim().toLowerCase()
+    if (!normalizedEmail) {
       setError('Email is required.')
       return
     }
@@ -51,7 +40,7 @@ export default function LoginPage() {
     }
     setBusy(true)
     try {
-      const r = await loginByPassword(email, password)
+      const r = await loginByPassword(normalizedEmail, password)
       auth.setAuth(r.user)
       nav(effectiveFrom, { replace: true })
     } catch (e: unknown) {
@@ -64,63 +53,28 @@ export default function LoginPage() {
   async function forgot() {
     setError(null)
     setNotice(null)
-    if (!email.trim()) {
-      setError('Email is required.')
+    const normalizedEmail = email.trim().toLowerCase()
+    if (normalizedEmail && !isValidEmail(normalizedEmail)) {
+      setError('Invalid email format.')
       return
     }
-    try {
-      const r = await requestPasswordReset(email)
-      const path = buildResetPath(r.reset_link)
-      if (path) {
-        nav(path, { replace: true })
-        return
-      }
-      setNotice('A password reset link has been sent to your email (if the account exists). Please check your inbox.')
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Request failed'
-      if (msg === 'email not found') {
-        setError('Email not found.')
-        return
-      }
-      if (msg === 'email delivery not configured') {
-        setError('Password reset email is not configured on the server yet.')
-        return
-      }
-      if (msg === 'email delivery failed') {
-        setError('Failed to send password reset email. Please try again later.')
-        return
-      }
-      setError(msg)
+    if (!normalizedEmail) {
+      nav('/reset-password', { replace: true })
+      return
     }
+    const q = new URLSearchParams()
+    q.set('email', normalizedEmail)
+    nav(`/reset-password?${q.toString()}`, { replace: true })
   }
 
   return (
     <>
-      <section className="cl_breadcrumb-area brand-page-theme">
-        <div className="cl_breadcrumb-wrap brand-page-hero" data-background="/assets/images/bg/breadcrumb.png">
-          <div className="page-container">
-            <div className="page-row-center">
-              <div className="page-col-breadcrumb">
-                <div className="cl_breadcrumb-content">
-                  <h2 className="cl_breadcrumb-content-title">Login</h2>
-                  <div className="cl_breadcrumb-content-list">
-                    <Link to="/">Home</Link>
-                    <span>Login</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="pt-100 pb-100 brand-page-body auth-page-body">
+      <section className="pt-100 pb-100 brand-page-body auth-page-body auth-primary-page">
         <div className="page-container">
           <div className="page-row-center">
             <div className="page-col-auth">
               <div className="cl_blog_details-reply">
                 <h3 className="cl_blog_details-reply-title">Sign in</h3>
-                <p>Sign in with your email and password (after signing in you can access your profile and more).</p>
                 {reason === 'session_expired' ? (
                   <div className="cl_blog-widget cl_auth-alert cl_auth-alert--notice mb-30">
                     Your session has expired. Please sign in again.
@@ -144,6 +98,7 @@ export default function LoginPage() {
                           type="email"
                           id="email"
                           required
+                          autoComplete="email"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                         />
@@ -154,10 +109,10 @@ export default function LoginPage() {
                         <label htmlFor="password">
                           Password<span>*</span>
                         </label>
-                        <input
-                          type="password"
+                        <PasswordField
                           id="password"
                           required
+                          autoComplete="current-password"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                         />
@@ -175,8 +130,8 @@ export default function LoginPage() {
                     ) : null}
                     <div>
                       <div className="cl_blog_details-reply-item">
-                        <button type="submit">
-                          Login
+                        <button type="submit" disabled={busy}>
+                          {busy ? 'Signing in...' : 'Login'}
                         </button>
                       </div>
                     </div>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { resolveBlogMediaUrl, type BlogCard } from '../../modules/blog'
+import { displayBlogTagName, resolveBlogMediaUrl, type BlogCard } from '../../modules/blog'
+import { FallbackImage } from '../ui'
 
 export function resolveMediaUrl(url: string | null | undefined) {
   return resolveBlogMediaUrl(url)
@@ -30,6 +31,79 @@ export function getViewCount(blog: BlogCard) {
   const vcc = (blog as unknown as { views?: unknown; view_count?: unknown; viewCount?: unknown }).viewCount
   const n = Number(v ?? vc ?? vcc ?? 0)
   return Number.isFinite(n) ? n : 0
+}
+
+const BLOG_FALLBACK_IMAGES = [
+  '/assets/images/blog/blog_list-1.png',
+  '/assets/images/blog/blog_list-2.png',
+  '/assets/images/blog/blog_list-3.png',
+  '/assets/images/blog/blog-classic-1.png',
+  '/assets/images/blog/blog_details-1.png',
+  '/assets/images/blog/h2_1.png',
+]
+
+export function getBlogCover(blog: Pick<BlogCard, 'id' | 'cover_image_url' | 'image_urls'> | null | undefined, placeholderSrc?: string) {
+  if (!blog) return placeholderSrc ?? BLOG_FALLBACK_IMAGES[0]
+  const firstImage = Array.isArray(blog.image_urls) ? blog.image_urls[0] : null
+  return resolveMediaUrl(blog.cover_image_url) ?? resolveMediaUrl(firstImage) ?? BLOG_FALLBACK_IMAGES[Math.abs(blog.id) % BLOG_FALLBACK_IMAGES.length]
+}
+
+export function getBlogTag(blog: Pick<BlogCard, 'tags'> | null | undefined) {
+  return getBlogTagLabels(blog)[0] ?? null
+}
+
+export function getBlogTagLabel(blog: Pick<BlogCard, 'tags'> | null | undefined) {
+  const labels = getBlogTagLabels(blog)
+  return labels.length ? labels.join(' · ') : null
+}
+
+export function getBlogTagLabels(blog: Pick<BlogCard, 'tags'> | null | undefined) {
+  const labels = (blog?.tags ?? []).map((tag) => displayBlogTagName(tag.name))
+  const topic = labels.find((name) => name === 'Diet' || name === 'Training')
+  const postType = labels.find((name) => name === 'Record' || name === 'Experience')
+  if (topic && postType) return [topic, postType]
+  return labels.slice(0, 2)
+}
+
+function BlogCategoryPills({ labels }: { labels: string[] }) {
+  if (!labels.length) return null
+  return (
+    <div className="blog-category-pill-group">
+      {labels.map((label) => (
+        <span className="blog-category-pill" key={label}>
+          {label}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+export function HomeBlogTagPills({ labels, fallback }: { labels: string[]; fallback?: string }) {
+  const displayLabels = labels.length ? labels : fallback ? [fallback] : []
+  if (!displayLabels.length) return null
+  return (
+    <div className="cl_home-blog-card-tag-group">
+      {displayLabels.map((label) => (
+        <span className="cl_home-blog-card-tag" key={label}>
+          {label}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+export function abbreviateBlogTitle(title: string, maxLength = 48) {
+  const normalized = title.replace(/\s+/g, ' ').trim()
+  if (normalized.length <= maxLength) return normalized
+  return `${normalized.slice(0, Math.max(1, maxLength - 1))}...`
+}
+
+function formatFeaturedExcerpt(value: string) {
+  return value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join('\n')
 }
 
 export function useRevealOnScroll<T extends HTMLElement>() {
@@ -80,8 +154,8 @@ export function BlogTeaserCard({
   placeholderSrc: string
   variant: TeaserVariant
 }) {
-  const cover = resolveMediaUrl(blog.cover_image_url) ?? placeholderSrc
-  const tag = blog.tags[0]?.name ?? 'Our Blog'
+  const cover = getBlogCover(blog, placeholderSrc)
+  const tagLabels = getBlogTagLabels(blog)
   const minutes = estimateReadMinutes(blog.excerpt)
 
   const baseCard = 'blog-card-surface rounded-3xl overflow-hidden'
@@ -106,13 +180,13 @@ export function BlogTeaserCard({
       <div className="p-3">
         <div className={imageWrap}>
           <Link to={`/blogs/${blog.id}`} className="block h-full w-full">
-            <img className="absolute inset-0 h-full w-full object-cover" src={cover} alt={blog.title} loading="lazy" decoding="async" />
+            <FallbackImage className="absolute inset-0 h-full w-full object-cover" src={cover} fallbackSrc={placeholderSrc} alt={blog.title} loading="lazy" decoding="async" />
           </Link>
-          <div className="absolute left-4 top-4">
-            <span className="inline-flex items-center rounded-full bg-white/95 px-3 py-1 text-[11px] font-medium text-neutral-900 shadow-sm">
-              {tag}
-            </span>
-          </div>
+          {tagLabels.length ? (
+            <div className="absolute left-4 top-4">
+              <BlogCategoryPills labels={tagLabels} />
+            </div>
+          ) : null}
         </div>
 
         <h3 className={titleClass}>
@@ -145,45 +219,30 @@ export function FeaturedBlogGridCard({
   blog: BlogCard
   placeholderSrc: string
 }) {
-  const cover = resolveMediaUrl(blog.cover_image_url) ?? placeholderSrc
-  const tag = blog.tags[0]?.name ?? 'Our Blog'
-  const minutes = estimateReadMinutes(blog.excerpt)
+  const cover = getBlogCover(blog, placeholderSrc)
+  const tagLabels = getBlogTagLabels(blog)
 
   return (
-    <article className="blog-card-surface group rounded-xl transition-[transform,box-shadow] duration-200 hover:-translate-y-1 hover:shadow-md">
-      <div className="flex h-full flex-col p-3">
-        <div className="blog-card-media relative overflow-hidden rounded-xl aspect-[16/9]">
-          <Link to={`/blogs/${blog.id}`} className="block h-full w-full">
-            <img
-              className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
-              src={cover}
-              alt={blog.title}
-              loading="lazy"
-              decoding="async"
-            />
-          </Link>
-          <div className="absolute left-4 top-4">
-            <span className="inline-flex items-center rounded-full bg-white/95 px-3 py-1 text-[11px] font-medium text-neutral-900 shadow-sm">
-              {tag}
-            </span>
-          </div>
-        </div>
-
-        <h3 className="mt-4 text-base font-semibold leading-snug tracking-tight text-neutral-900 line-clamp-2">
+    <article className="cl_home-blog-card blog-list-featured-home-card">
+      <Link to={`/blogs/${blog.id}`} className="cl_home-blog-card-media">
+        <FallbackImage src={cover} fallbackSrc={placeholderSrc} alt={blog.title} loading="lazy" decoding="async" />
+        <HomeBlogTagPills labels={tagLabels} fallback="AI FitGuard" />
+      </Link>
+      <div className="cl_home-blog-card-body">
+        <h3 className="cl_home-blog-card-title">
           <Link to={`/blogs/${blog.id}`}>{blog.title}</Link>
         </h3>
-
-        <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-neutral-500">
+        <p className="cl_home-blog-card-excerpt">{formatFeaturedExcerpt(blog.excerpt)}</p>
+        <div className="cl_home-blog-card-meta">
+          <div className="flex items-center gap-2">
+            <img src="/figma/icon-user.svg" alt="" className="h-3.5 w-3.5" />
+            <span>{blog.author.username}</span>
+          </div>
           <div className="flex items-center gap-2">
             <img src="/figma/icon-calendar.svg" alt="" className="h-3.5 w-3.5" />
             <span>{formatLongDate(blog.created_at)}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <img src="/figma/icon-clock.svg" alt="" className="h-3.5 w-3.5" />
-            <span>{minutes} min read</span>
-          </div>
         </div>
-
         <div className="mt-auto pt-5">
           <Link
             to={`/blogs/${blog.id}`}
@@ -201,62 +260,53 @@ function TopViewedStackCard({
   blog,
   placeholderSrc,
 }: {
-  blog: BlogCard | null
+  blog: BlogCard
   placeholderSrc: string
 }) {
-  const cover = blog ? resolveMediaUrl(blog.cover_image_url) ?? placeholderSrc : placeholderSrc
-  const tag = blog?.tags[0]?.name ?? 'Popular'
-  const title = blog?.title ?? 'Popular blog'
-  const author = blog?.author.username ?? 'Wordcraft'
-  const date = blog?.created_at ? formatLongDate(blog.created_at) : null
-  const minutes = blog ? estimateReadMinutes(blog.excerpt) : null
+  const cover = getBlogCover(blog, placeholderSrc)
+  const tagLabels = getBlogTagLabels(blog)
+  const title = blog.title
+  const displayTitle = abbreviateBlogTitle(title, 28)
+  const author = blog.author.username
+  const date = formatLongDate(blog.created_at)
 
   return (
-    <div className="blog-card-surface w-[320px] sm:w-[380px] md:w-[420px] scale-75 origin-bottom rounded-[28px] p-3 shadow-[0_22px_70px_rgba(0,0,0,0.12)]">
+    <div className="blog-card-surface blog-stack-card-surface w-[300px] sm:w-[350px] md:w-[390px] scale-75 origin-bottom rounded-[28px] p-3 shadow-[0_22px_70px_rgba(0,0,0,0.12)]">
       <div className="blog-card-media relative overflow-hidden rounded-[28px] aspect-[16/10]">
-        {blog ? (
-          <Link to={`/blogs/${blog.id}`} className="block h-full w-full">
-            <img className="absolute inset-0 h-full w-full object-cover" src={cover} alt={title} loading="lazy" decoding="async" />
-          </Link>
-        ) : (
-          <img className="absolute inset-0 h-full w-full object-cover" src={cover} alt="" loading="lazy" decoding="async" />
-        )}
-        <div className="absolute left-4 top-4">
-          <span className="inline-flex items-center rounded-full bg-white/95 px-3 py-1 text-[11px] font-medium text-neutral-900 shadow-sm">
-            {tag}
-          </span>
-        </div>
+        <Link to={`/blogs/${blog.id}`} className="block h-full w-full">
+          <FallbackImage className="absolute inset-0 h-full w-full object-cover" src={cover} fallbackSrc={placeholderSrc} alt={title} loading="lazy" decoding="async" />
+        </Link>
+        {tagLabels.length ? (
+          <div className="absolute left-4 top-4">
+            <BlogCategoryPills labels={tagLabels} />
+          </div>
+        ) : null}
       </div>
 
       <div className="px-2 pb-2 pt-4">
-        <div className="text-[11px] font-medium tracking-wide text-neutral-500">{author}</div>
-        <div className="mt-1 text-base font-semibold leading-snug tracking-tight text-neutral-900 line-clamp-2">
-          {blog ? <Link to={`/blogs/${blog.id}`}>{title}</Link> : title}
+        <div className="blog-stack-title mt-1 min-w-0 text-base font-semibold leading-snug tracking-tight text-neutral-900">
+          <Link to={`/blogs/${blog.id}`} title={title}>{displayTitle}</Link>
         </div>
 
-        {blog ? (
-          <>
-            <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-neutral-500">
-              <div className="flex items-center gap-2">
-                <img src="/figma/icon-calendar.svg" alt="" className="h-3.5 w-3.5" />
-                <span>{date}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <img src="/figma/icon-clock.svg" alt="" className="h-3.5 w-3.5" />
-                <span>{minutes} min read</span>
-              </div>
-            </div>
+        <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-neutral-500">
+          <div className="flex items-center gap-2">
+            <img src="/figma/icon-user.svg" alt="" className="h-3.5 w-3.5" />
+            <span>{author}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <img src="/figma/icon-calendar.svg" alt="" className="h-3.5 w-3.5" />
+            <span>{date}</span>
+          </div>
+        </div>
 
-            <div className="mt-4">
-              <Link
-                to={`/blogs/${blog.id}`}
-                className="blog-theme-btn inline-flex h-11 items-center justify-center rounded-full border border-neutral-900 bg-white px-6 text-sm font-medium text-neutral-900"
-              >
-                Read more
-              </Link>
-            </div>
-          </>
-        ) : null}
+        <div className="mt-4">
+          <Link
+            to={`/blogs/${blog.id}`}
+            className="blog-theme-btn inline-flex h-10 w-full items-center justify-center rounded-full border border-neutral-900 bg-white px-5 text-sm font-medium text-neutral-900 transition-colors hover:bg-neutral-900 hover:text-white"
+          >
+            Read more
+          </Link>
+        </div>
       </div>
     </div>
   )
@@ -270,7 +320,7 @@ function getStackClass(position: number, count: number) {
   return 'blog-stack-pos-back'
 }
 
-export function TopViewedStack({ blogs, loading }: { blogs: BlogCard[]; loading: boolean }) {
+export function TopViewedStack({ blogs, loading, emptyMessage = 'No popular blogs yet' }: { blogs: BlogCard[]; loading: boolean; emptyMessage?: string }) {
   const [step, setStep] = useState(0)
   const [fading, setFading] = useState(false)
 
@@ -279,11 +329,12 @@ export function TopViewedStack({ blogs, loading }: { blogs: BlogCard[]; loading:
     return window.matchMedia('(prefers-reduced-motion: reduce)').matches
   }, [])
 
-  const padded = useMemo(() => {
-    const out: (BlogCard | null)[] = blogs.slice(0, 3)
-    while (out.length < 3) out.push(null)
-    return out
-  }, [blogs])
+  const stackBlogs = useMemo(() => blogs.slice(0, 3), [blogs])
+
+  useEffect(() => {
+    if (step < stackBlogs.length || stackBlogs.length === 0) return
+    setStep(0)
+  }, [stackBlogs.length, step])
 
   useEffect(() => {
     if (reducedMotion) return
@@ -310,13 +361,47 @@ export function TopViewedStack({ blogs, loading }: { blogs: BlogCard[]; loading:
     }
   }, [blogs.length, reducedMotion, step])
 
-  const visible = reducedMotion ? padded : padded.slice(step)
+  const visible = reducedMotion ? stackBlogs : stackBlogs.slice(step)
   const count = visible.length
 
+  if (!loading && stackBlogs.length > 0 && stackBlogs.length < 3) {
+    return (
+      <div className="relative mx-auto h-[285px] w-full max-w-[520px] overflow-visible sm:h-[315px]">
+        {stackBlogs
+          .slice()
+          .reverse()
+          .map((blog, rIndex) => {
+            const position = stackBlogs.length - 1 - rIndex
+            const stackClass = getStackClass(position, stackBlogs.length)
+            return (
+              <div
+                key={blog.id}
+                className={`blog-stack-card absolute bottom-0 left-1/2 transition-[transform,opacity] duration-700 ease-out ${stackClass}`}
+              >
+                <TopViewedStackCard
+                  blog={blog}
+                  placeholderSrc={position === 0 ? '/assets/images/blog/h2_2.png' : '/assets/images/blog/h2_3.png'}
+                />
+              </div>
+            )
+          })}
+      </div>
+    )
+  }
+
   return (
-    <div className="relative mx-auto h-[285px] w-full max-w-[520px] sm:h-[315px]">
+    <div className="relative mx-auto h-[285px] w-full max-w-[520px] overflow-hidden sm:h-[315px]">
       {loading && blogs.length === 0 ? (
         <div className="absolute inset-0 flex items-end justify-center pb-2 text-sm text-neutral-500">Loading...</div>
+      ) : null}
+      {!loading && blogs.length === 0 ? (
+        <div className="blog-stack-empty">
+          <div className="blog-stack-empty-icon">
+            <i className="fa-light fa-pen-line" aria-hidden="true"></i>
+          </div>
+          <strong>No experience posts yet</strong>
+          <span>{emptyMessage}</span>
+        </div>
       ) : null}
 
       {visible
@@ -331,17 +416,17 @@ export function TopViewedStack({ blogs, loading }: { blogs: BlogCard[]; loading:
 
           return (
             <div
-              key={blog?.id ?? `placeholder-${position}`}
+              key={blog.id}
               className={`blog-stack-card absolute bottom-0 left-1/2 transition-[transform,opacity] duration-700 ease-out ${stackClass} ${fadeClass}`}
             >
               <TopViewedStackCard
                 blog={blog}
                 placeholderSrc={
                   position === 0
-                    ? '/figma/featured-2.png'
+                    ? '/assets/images/blog/h2_2.png'
                     : position === 1
-                      ? '/figma/featured-3.png'
-                      : '/figma/featured-4.png'
+                      ? '/assets/images/blog/h2_3.png'
+                      : '/assets/images/blog/h2_4.png'
                 }
               />
             </div>

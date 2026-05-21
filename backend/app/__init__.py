@@ -6,7 +6,6 @@ from werkzeug.exceptions import RequestEntityTooLarge
 
 from .config import Config
 from .extensions import cors, db, jwt, migrate
-from .services.food.catalog_runtime import ensure_food_seed_data
 try:
     from .services.pose.server_inference_worker import start_server_inference_worker
 except Exception:
@@ -27,8 +26,9 @@ def _ensure_admin_seed(app: Flask) -> None:
         return
     try:
         from .models import User
+        from .utils.privacy import privacy_hash
 
-        user = User.query.filter_by(email=admin_email).first()
+        user = User.query.filter_by(email_hash=privacy_hash(admin_email)).first()
         if user is None or user.is_admin:
             return
         user.is_admin = True
@@ -74,16 +74,12 @@ def create_app(config_object=Config):
     from .routes.account.auth import bp as auth_bp
     from .routes.account.user import bp as user_bp
     from .routes.account.workouts import bp as workouts_bp
-    from .routes.account.feedback import bp as feedback_bp
+    from .routes.admin.blogs import bp as admin_blogs_bp
     from .routes.admin.lifecycle import bp as admin_bp
     from .routes.admin.users import bp as admin_users_bp
     from .routes.blog.blogs import bp as blogs_bp
     from .routes.blog.comments import bp as comments_bp
     from .routes.blog.tags import bp as tags_bp
-    from .routes.food.foods import bp as foods_bp
-    from .routes.food.meals import bp as meals_bp
-    from .routes.food.meta import bp as food_bp
-    from .routes.food.recognize import bp as recognize_bp
     from .routes.pose.api import bp as pose_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
@@ -92,13 +88,9 @@ def create_app(config_object=Config):
     app.register_blueprint(tags_bp, url_prefix="/api/tags")
     app.register_blueprint(blogs_bp, url_prefix="/api/blogs")
     app.register_blueprint(comments_bp, url_prefix="/api")
-    app.register_blueprint(feedback_bp, url_prefix="/api/feedback")
-    app.register_blueprint(food_bp, url_prefix="/api/food")
-    app.register_blueprint(foods_bp, url_prefix="/api/foods")
-    app.register_blueprint(meals_bp, url_prefix="/api/meals")
     app.register_blueprint(pose_bp, url_prefix="/api/pose")
-    app.register_blueprint(recognize_bp, url_prefix="/api/recognize")
     app.register_blueprint(admin_bp, url_prefix="/api/admin")
+    app.register_blueprint(admin_blogs_bp, url_prefix="/api/admin")
     app.register_blueprint(admin_users_bp, url_prefix="/api/admin")
 
     @app.get("/api/health")
@@ -133,8 +125,6 @@ def create_app(config_object=Config):
         return jsonify({"error": "file too large (max 80MB)"}), 413
 
     with app.app_context():
-        if (not _is_cli_migration()) and bool(app.config.get("DB_AUTO_INIT", True)):
-            ensure_food_seed_data()
         if not _is_cli_migration():
             _ensure_admin_seed(app)
         if not _is_cli_migration():
@@ -149,20 +139,30 @@ def _validate_production_config(app: Flask) -> None:
 
     secret_key = str(app.config.get("SECRET_KEY", "")).strip()
     jwt_secret_key = str(app.config.get("JWT_SECRET_KEY", "")).strip()
+    data_encryption_key = str(app.config.get("DATA_ENCRYPTION_KEY", "")).strip()
     password_reset_debug = bool(app.config.get("PASSWORD_RESET_DEBUG_RETURN_LINK", False))
+    email_verify_debug = bool(app.config.get("EMAIL_VERIFY_DEBUG_RETURN_LINK", False))
     if not secret_key or secret_key == "dev-secret-change-me":
         raise RuntimeError("production requires non-default SECRET_KEY")
     if not jwt_secret_key or jwt_secret_key == "dev-jwt-secret-change-me":
         raise RuntimeError("production requires non-default JWT_SECRET_KEY")
     if len(secret_key) < 32 or len(jwt_secret_key) < 32:
         raise RuntimeError("production secrets must be at least 32 chars")
+    if not data_encryption_key:
+        raise RuntimeError("production requires DATA_ENCRYPTION_KEY for private data encryption")
     if password_reset_debug:
         raise RuntimeError("production requires PASSWORD_RESET_DEBUG_RETURN_LINK=0")
+    if email_verify_debug:
+        raise RuntimeError("production requires EMAIL_VERIFY_DEBUG_RETURN_LINK=0")
     cors_origins = str(app.config.get("CORS_ORIGINS", "")).strip()
     redis_url = str(app.config.get("REDIS_URL", "")).strip()
+    smtp_host = str(app.config.get("SMTP_HOST", "")).strip()
+    smtp_from = str(app.config.get("SMTP_FROM", "")).strip()
     if not cors_origins:
         raise RuntimeError("production requires explicit CORS_ORIGINS")
     if not redis_url:
         raise RuntimeError("production requires REDIS_URL for distributed rate limiting")
+    if bool(app.config.get("EMAIL_VERIFY_REQUIRED", True)) and (not smtp_host or not smtp_from):
+        raise RuntimeError("production requires SMTP_HOST and SMTP_FROM when EMAIL_VERIFY_REQUIRED=1")
     if bool(app.config.get("DB_AUTO_INIT", True)):
         raise RuntimeError("production requires DB_AUTO_INIT=0; run migrations explicitly")

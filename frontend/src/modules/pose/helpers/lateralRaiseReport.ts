@@ -1,13 +1,14 @@
 import { normalizeReportForArchive } from '../../../lib/report/unified'
 import type { PoseAnalysisReport } from '../reporting/types'
 import type { PoseAnalyzerFeedback } from '../analyzer/types'
-import { LateralRaiseVideoAnalyzer } from '../analyzer/lateralRaise'
+import { DEFAULT_LATERAL_RAISE_TUNING, LateralRaiseVideoAnalyzer, type LateralRaiseTuning } from '../analyzer/lateralRaise'
 import type { MoveNetKeypoint } from '../vision/movenetTracker'
 import { collectAnalyzerReplayStats } from './replayStats'
 import { computeReportErrorStats, sampleTimelineRows, toIssueCode } from './reportBase'
 import { mapSuggestionFromIssue } from './suggestionMap'
-import type { SquatTimelineRow } from './types'
+import type { SquatRepFinding, SquatTimelineRow } from './types'
 import { DEFAULT_POSE_RUNTIME_RULES, severityFromRatio, type PoseRuntimeRules } from './policyRules'
+import { isPoseDebugEnabled } from '../debugFlags'
 
 export function buildLateralRaiseAlignedReport(input: {
   taskId: string
@@ -15,11 +16,13 @@ export function buildLateralRaiseAlignedReport(input: {
   exercise: { id: string; name: string } | null
   video: { id: string; originalName: string; mimeType: string; sizeBytes: number } | null
   fps: number
+  tuning?: Partial<LateralRaiseTuning>
   lastFeedback: PoseAnalyzerFeedback | null
   messageFreq: Map<string, number>
   analyzedFrameCount: number
   trackingQualitySamples: number[]
   timelineRows: SquatTimelineRow[]
+  repFindings?: SquatRepFinding[]
   tempoFastThresholdSec?: number
   rules?: PoseRuntimeRules['lateralRaise']
 }): PoseAnalysisReport {
@@ -80,15 +83,14 @@ export function buildLateralRaiseAlignedReport(input: {
           {
             code: 'NO_OBVIOUS_ISSUES',
             severity: 'info' as const,
-            message: 'No obvious issues detected during analyzer replay.',
+            message: 'No major issues were detected.',
             atFrame: null
           }
         ]
 
-  const summaryPrefix = 'Video replay analysis'
   const summary = input.lastFeedback
-    ? `${summaryPrefix}: total ${input.lastFeedback.session.totalReps}, correct ${input.lastFeedback.session.correctReps}, accuracy ${input.lastFeedback.session.accuracyPct}%`
-    : `${summaryPrefix}: no stable pose frames were detected.`
+    ? `${input.lastFeedback.session.totalReps} reps detected. ${input.lastFeedback.session.correctReps} correct, ${input.lastFeedback.session.incorrectReps} incorrect.`
+    : 'No stable body pose was detected. Try brighter light and keep your full body in frame.'
 
   const suggestions = buildLateralRaiseReplaySuggestions(sortedIssues, fallbackSuggestion)
   const totalReps = input.lastFeedback?.session.totalReps ?? 0
@@ -116,6 +118,8 @@ export function buildLateralRaiseAlignedReport(input: {
     { key: 'hipAngleDeg', label: 'Elbow Angle' },
     { key: 'torsoFromVerticalDeg', label: 'Torso Angle' }
   ]
+  const repFindings = input.repFindings ?? []
+  const effectiveTuning = { ...DEFAULT_LATERAL_RAISE_TUNING, ...(input.tuning ?? {}) }
 
   return normalizeReportForArchive({
     version: 3,
@@ -142,11 +146,18 @@ export function buildLateralRaiseAlignedReport(input: {
       symmetryGap: input.lastFeedback?.kneeVerticalAngle ?? null,
       frontAlignment: input.lastFeedback?.offsetAngle ?? null,
       trackingQuality: input.lastFeedback?.trackingQuality ?? null,
+      lastRepResult: input.lastFeedback?.lastRepResult ?? null,
+      lastRepMessage: input.lastFeedback?.lastRepMessage ?? null,
+      lastRepReasonCodes: input.lastFeedback?.lastRepReasonCodes ?? [],
+      lastRepReasonLabels: input.lastFeedback?.lastRepReasonLabels ?? [],
+      lastRepFrameCount: input.lastFeedback?.lastRepFrameCount ?? null,
       avgTrackingQuality: Math.round(avgTrackingQuality * 100) / 100,
       currentSuggestion,
       warnings: input.lastFeedback?.warnings ?? [],
+      ...(isPoseDebugEnabled() ? { tuning: effectiveTuning, debug: input.lastFeedback?.debug ?? null } : {}),
       timelineSeries,
-      timelineSampled
+      timelineSampled,
+      repFindings
     },
     sections: {
       overview: {
@@ -161,7 +172,8 @@ export function buildLateralRaiseAlignedReport(input: {
       errorStats: computeReportErrorStats(issues),
       suggestions,
       timelineSeries,
-      timelineSampled
+      timelineSampled,
+      repFindings
     }
   })
 }
@@ -173,11 +185,14 @@ export function buildLateralRaiseVideoReplayReport(input: {
   video: { id: string; originalName: string; mimeType: string; sizeBytes: number } | null
   fps: number
   nativeFrames: Array<{ tMs: number; keypoints: MoveNetKeypoint[] }>
+  tuning?: Partial<LateralRaiseTuning>
   tempoFastThresholdSec?: number
   rules?: PoseRuntimeRules['lateralRaise']
   onProgress?: (processed: number, total: number) => void
 }): PoseAnalysisReport {
   const analyzer = new LateralRaiseVideoAnalyzer()
+  analyzer.setAnalyzerFps(input.fps)
+  analyzer.setTuning({ ...DEFAULT_LATERAL_RAISE_TUNING, ...(input.tuning ?? {}) })
   const stats = collectAnalyzerReplayStats({ analyzer, exerciseSlug: 'lateral-raise', nativeFrames: input.nativeFrames, onProgress: input.onProgress })
 
   return buildLateralRaiseAlignedReport({
@@ -186,11 +201,13 @@ export function buildLateralRaiseVideoReplayReport(input: {
     exercise: input.exercise,
     video: input.video,
     fps: input.fps,
+    tuning: input.tuning,
     lastFeedback: stats.lastFeedback,
     messageFreq: stats.messageFreq,
     analyzedFrameCount: stats.analyzedFrameCount,
     trackingQualitySamples: stats.trackingQualitySamples,
     timelineRows: stats.timelineRows,
+    repFindings: stats.repFindings,
     rules: input.rules
   })
 }

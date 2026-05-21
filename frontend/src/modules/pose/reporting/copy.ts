@@ -46,10 +46,10 @@ export function poseTierRank(tier: PoseFeedbackTier) {
 }
 
 export function poseTierLabel(tier: PoseFeedbackTier) {
-  if (tier === 'rep_fail') return 'Rep Fail'
-  if (tier === 'issue') return 'Issue'
-  if (tier === 'warning') return 'Warning'
-  return 'Gate'
+  if (tier === 'rep_fail') return 'Incorrect'
+  if (tier === 'issue') return 'Important'
+  if (tier === 'warning') return 'Note'
+  return 'Camera'
 }
 
 export function mapPoseFeedbackMessage(args: { exerciseSlug: string; message: string }): PoseHumanFeedback {
@@ -64,19 +64,28 @@ export function mapPoseFeedbackMessage(args: { exerciseSlug: string; message: st
     }
   }
 
-  if (text === 'too close' || text.includes('too close')) {
-    return { tier: 'gate', label: 'You are too close to the camera. Step back so your full body stays visible.', shortHint: 'Step back (too close).' }
+  const normalized = text.replace(/[.!?]/g, '').trim()
+  if (normalized === 'too close') {
+    return { tier: 'gate', label: 'Step back a bit — your body is too close to the camera for full tracking.', shortHint: 'Step back.' }
   }
-  if (text === 'too far' || text.includes('too far')) {
-    return { tier: 'gate', label: 'You are too far from the camera. Step closer so key joints stay visible.', shortHint: 'Step closer (too far).' }
+  if (normalized === 'too far') {
+    return { tier: 'gate', label: 'Step a little closer — the camera can\'t see your joints clearly at this distance.', shortHint: 'Step closer.' }
+  }
+
+  if (
+    text === 'knees drifted too far forward' ||
+    text.includes('knee drifted too far ahead of ankle') ||
+    text.includes('knee drifted too far ahead')
+  ) {
+    return { tier: 'rep_fail', label: 'Knees went too far forward. Start by sitting hips back.', shortHint: 'Knees forward.' }
   }
 
   if (text.startsWith('fix camera angle') || text.startsWith("i can't")) {
     if (text.includes('face the camera') || text.includes('front view')) {
-      return { tier: 'gate', label: raw, shortHint: 'Face the camera.' }
+      return { tier: 'gate', label: 'Face the camera directly so both sides of your body stay visible.', shortHint: 'Face the camera.' }
     }
     if (text.includes('side view') || text.includes('side-view')) {
-      return { tier: 'gate', label: raw, shortHint: 'Turn sideways (about 90°).' }
+      return { tier: 'gate', label: 'Turn sideways (about 90°) so the camera can see your profile clearly.', shortHint: 'Turn sideways.' }
     }
     if (
       text.includes('low keypoint confidence') ||
@@ -84,7 +93,7 @@ export function mapPoseFeedbackMessage(args: { exerciseSlug: string; message: st
       text.includes('lighting') ||
       text.includes('visible')
     ) {
-      return { tier: 'gate', label: raw, shortHint: 'Brighter light; no occlusion.' }
+      return { tier: 'gate', label: 'Brighten the room — dim light makes it hard to track your joints accurately.', shortHint: 'Brighter light.' }
     }
     if (
       text.includes('keypoints were incomplete') ||
@@ -92,7 +101,7 @@ export function mapPoseFeedbackMessage(args: { exerciseSlug: string; message: st
       text.includes('full body') ||
       text.includes('in frame')
     ) {
-      return { tier: 'gate', label: raw, shortHint: 'Full body in frame.' }
+      return { tier: 'gate', label: 'Make sure your full body (shoulders to ankles) stays in the frame the whole time.', shortHint: 'Full body in frame.' }
     }
     return { tier: 'gate', label: raw, shortHint: 'Adjust camera setup.' }
   }
@@ -114,36 +123,37 @@ export function mapPoseFeedbackMessage(args: { exerciseSlug: string; message: st
     text.includes('unstable tracking')
   if (isRepFailed || isRepIgnored) {
     if (text.includes('depth was insufficient') || text.includes('range of motion was too small') || text.includes('arms did not reach shoulder height')) {
-      return { tier: 'rep_fail', label: 'Go deeper / higher - hit full range of motion, then return with control.', shortHint: 'Full range of motion.' }
+      return { tier: 'rep_fail', label: 'Make the movement bigger. Reach the bottom position, then return to the top with control.', shortHint: 'Use full range.' }
     }
     if (text.includes('knees drifted too far forward') || text.includes('knee drifted too far') || text.includes('knee drifted too far ahead')) {
-      return { tier: 'rep_fail', label: 'Push hips back first - keep your knees from drifting too far forward.', shortHint: 'Hips back, shins vertical.' }
+      return { tier: 'rep_fail', label: 'Knees went too far forward. Start by sitting hips back.', shortHint: 'Knees forward.' }
     }
     if (text.includes('torso leaned too far forward') || text.includes('excessive forward torso lean') || text.includes('excessive torso lean')) {
-      return { tier: 'rep_fail', label: 'Keep your chest up - brace your core and avoid excessive forward lean.', shortHint: 'Chest up, brace core.' }
+      return { tier: 'rep_fail', label: 'Keep your chest up and tighten your stomach muscles so you do not fold forward.', shortHint: 'Chest up.' }
     }
     if (text.includes('arms were not raised evenly') || text.includes('arms were not pulled evenly') || text.includes('symmetry')) {
-      return { tier: 'rep_fail', label: 'Match left and right - move both arms evenly through the rep.', shortHint: 'Match left/right.' }
+      const tier = args.exerciseSlug === 'bent-over-row' ? 'warning' : 'rep_fail'
+      return { tier, label: 'Move both arms together — same timing and same height on both sides.', shortHint: 'Match both sides.' }
     }
     if (text.includes('elbows bent too much') || text.includes('elbow curl')) {
-      return { tier: 'rep_fail', label: 'Stop turning it into a curl - keep a soft elbow bend and move from the shoulder.', shortHint: 'Soft elbows, move at shoulder.' }
+      return { tier: 'rep_fail', label: 'Do not turn this into an arm curl. Keep a small bend in the elbows and move from the shoulders.', shortHint: 'Not an arm curl.' }
     }
     if (text.includes('movement was too short') || text.includes('movement was too small')) {
-      return { tier: 'rep_fail', label: 'Make the rep bigger - complete the full movement before changing direction.', shortHint: 'Bigger rep, full cycle.' }
+      return { tier: 'rep_fail', label: 'This rep was too small. Complete the full movement before changing direction.', shortHint: 'Bigger rep.' }
     }
     if (text.includes('too fast')) {
-      return { tier: 'rep_fail', label: 'Slow down - control the movement and keep the tempo steady.', shortHint: 'Slow down.' }
+      return { tier: 'rep_fail', label: 'Slow down and stay in control. Move at a steady speed.', shortHint: 'Slow down.' }
     }
     if (text.includes('too slow')) {
-      return { tier: 'rep_fail', label: 'Keep it moving - avoid long stalls and use a smooth rhythm.', shortHint: 'Smooth rhythm.' }
+      return { tier: 'rep_fail', label: 'Do not pause too long. Keep a smooth, continuous rhythm.', shortHint: 'Keep moving.' }
     }
-    return { tier: 'rep_fail', label: 'Redo the rep with control before counting the next one.', shortHint: 'Redo the rep.' }
+    return { tier: 'rep_fail', label: 'Redo this rep with control and focus on the main form point.', shortHint: 'Redo rep.' }
   }
 
   if (isRepUnassessed) {
     return {
       tier: 'gate',
-      label: "Form quality can't be assessed reliably yet. Keep a stable view and improve lighting.",
+      label: 'This rep couldn\'t be scored — try better lighting and keep your full body steady in frame.',
       shortHint: 'Stable view + lighting.'
     }
   }
@@ -160,44 +170,86 @@ export function mapPoseFeedbackMessage(args: { exerciseSlug: string; message: st
     text.includes('in frame')
   if (isGate) {
     if (text.includes('face the camera')) {
-      return { tier: 'gate', label: 'Fix camera angle: face the camera so both arms stay visible.', shortHint: 'Face the camera.' }
+      return { tier: 'gate', label: 'Face the camera so both arms are visible.', shortHint: 'Face the camera.' }
     }
     if (text.includes('side view') || text.includes('side-view')) {
       return {
         tier: 'gate',
-        label: 'Fix camera angle: use a clear side view (about 90°) and keep your full body in frame.',
-        shortHint: 'Turn sideways (about 90°).'
+        label: 'Turn sideways (about 90°) so your body is easier to track.',
+        shortHint: 'Turn sideways (90°).'
       }
     }
     if (text.includes('low keypoint confidence') || text.includes('keypoint confidence')) {
-      return { tier: 'gate', label: "I can't see you clearly - improve lighting and keep key joints visible.", shortHint: 'Brighter light; joints visible.' }
+      return { tier: 'gate', label: 'Add more light and keep your whole body visible.', shortHint: 'More light.' }
     }
     if (text.includes('keypoints were incomplete')) {
-      return { tier: 'gate', label: "I can't track your full body - step back and keep shoulders, hips, knees, and ankles visible.", shortHint: 'Full body in frame.' }
+      return { tier: 'gate', label: 'Step back so shoulders, hips, knees, and ankles are all visible.', shortHint: 'Full body visible.' }
     }
     if (text.includes('no valid pose frames')) {
-      return { tier: 'gate', label: 'No stable pose detected - keep your whole body in frame and try again.', shortHint: 'Full body in frame.' }
+      return { tier: 'gate', label: 'Stand in the center and keep your whole body visible.', shortHint: 'Center in frame.' }
     }
-    return { tier: 'gate', label: 'Camera view is not usable yet - adjust angle and keep your full body visible.', shortHint: 'Adjust the camera view.' }
+    return { tier: 'gate', label: 'Adjust the camera: steady view, full body visible.', shortHint: 'Adjust camera.' }
   }
 
   if (text.includes('hips dropped') || text.includes('hips sag') || text.includes('body line')) {
-    return { tier: 'issue', label: 'Brace your core. Keep a straight line from shoulders to ankles.', shortHint: 'Straight line.' }
+    return { tier: 'issue', label: 'Brace your core and keep a straight line from shoulders to ankles.', shortHint: 'Straight line.' }
   }
   if (text.includes('hips were too high') || text.includes('hips too high') || text.includes('pike')) {
-    return { tier: 'issue', label: 'Lower hips slightly. Keep a straight line from shoulders to ankles.', shortHint: 'Lower hips.' }
+    return { tier: 'issue', label: 'Lower your hips to keep a straight line from shoulders to ankles.', shortHint: 'Lower hips.' }
   }
-  if (text.includes('excessive forward torso lean') || text.includes('excessive torso lean') || text.includes('torso sway')) {
-    return { tier: 'issue', label: 'Keep your torso stable - brace your core and avoid swinging or excessive lean.', shortHint: 'Torso stable.' }
+  if (text.includes('hips are rising') || text.includes('hips rising')) {
+    return { tier: 'issue', label: 'Move hips and shoulders together (don’t lift hips first).', shortHint: 'Move together.' }
+  }
+  if (text.includes('too upright') || text.includes('hinge at the hips')) {
+    return { tier: 'warning', label: 'Keep the same back angle (don’t stand up).', shortHint: 'Keep back angle.' }
+  }
+  if (text.includes('knees were too straight') || text.includes('knees too straight') || text.includes('lock out your legs')) {
+    const tier = args.exerciseSlug === 'bent-over-row' ? 'issue' : 'warning'
+    return { tier, label: 'Bend your knees slightly (don’t lock them).', shortHint: 'Bend knees.' }
+  }
+  if (text.includes('close enough to hips') || text.includes('pull the dumbbells closer') || text.includes('full contraction')) {
+    const tier = args.exerciseSlug === 'bent-over-row' ? 'warning' : 'rep_fail'
+    return { tier, label: 'Pull all the way to your hips, then squeeze.', shortHint: 'Pull to hips.' }
+  }
+  if (
+    text.includes('torso leaning') ||
+    text.includes('torso leaned too far forward') ||
+    text.includes('leaned forward too much') ||
+    text.includes('excessive forward torso lean') ||
+    text.includes('excessive torso lean') ||
+    text.includes('torso sway')
+  ) {
+    if (args.exerciseSlug === 'squat') {
+      return { tier: 'issue', label: 'Keep your chest up (don’t lean forward).', shortHint: 'Chest up.' }
+    }
+    const tier = args.exerciseSlug === 'bent-over-row' ? 'warning' : 'issue'
+    return { tier, label: 'Keep your upper body steady. Brace your core and avoid swinging.', shortHint: 'No swinging.' }
+  }
+  if (text.includes('depth insufficient') || text.includes('go deeper')) {
+    const tier = args.exerciseSlug === 'pushup' ? 'warning' : 'rep_fail'
+    return { tier, label: 'Lower more: bend elbows more at the bottom.', shortHint: 'Lower more.' }
   }
   if (text.includes('knee drift') || text.includes('knee is moving too far forward')) {
-    return { tier: 'issue', label: 'Push hips back first - keep your knees tracking over toes with shins more vertical.', shortHint: 'Hips back, knees track.' }
+    return { tier: 'issue', label: 'Push hips back first (don’t let knees slide forward).', shortHint: 'Hips back.' }
   }
-  if (text.includes('symmetry')) {
-    return { tier: 'issue', label: 'Match left and right - keep both arms moving evenly.', shortHint: 'Match left/right.' }
+  if (text.includes('symmetry') || text.includes('arms were not pulled evenly') || text.includes('pull both arms evenly')) {
+    const tier = args.exerciseSlug === 'bent-over-row' ? 'warning' : 'issue'
+    return { tier, label: 'Keep both sides even.', shortHint: 'Even sides.' }
   }
   if (text.includes('avoid turning this into an elbow curl') || text.includes('elbow curl')) {
-    return { tier: 'warning', label: 'Keep elbows softly fixed - lead with elbows and raise from the shoulders.', shortHint: 'Soft elbows.' }
+    return { tier: 'warning', label: 'Move from your shoulders (keep elbows softly bent).', shortHint: 'From shoulders.' }
+  }
+  if (text.includes('arms did not reach shoulder height')) {
+    return { tier: 'warning', label: 'Lift higher — reach about shoulder height, then lower under control.', shortHint: 'Lift higher.' }
+  }
+  if (text.includes('arms were not raised evenly')) {
+    return { tier: 'issue', label: 'Arms were uneven. Lift both sides together to the same height.', shortHint: 'Uneven arms.' }
+  }
+  if (text.includes('movement was too short to count')) {
+    return { tier: 'warning', label: 'Make a bigger rep. Lift up, then lower all the way down with control.', shortHint: 'Bigger rep.' }
+  }
+  if (text.includes('elbows bent too much')) {
+    return { tier: 'issue', label: 'Do not curl. Keep a small bend in the elbows and lift from the shoulders.', shortHint: 'No curl.' }
   }
 
   return { tier: 'warning', label: raw, shortHint: raw.length > 48 ? `${raw.slice(0, 45)}...` : raw }
@@ -233,27 +285,30 @@ export function buildCoachSummaryFromReport(input: {
   const lines: string[] = []
 
   if (topProblems.length > 0) {
-    lines.push('Focus:')
+    lines.push('Focus on:')
     for (const item of topProblems) lines.push(`- ${cleanSummaryLine(item)}`)
+  } else if (accuracy && parseInt(accuracy) >= 95) {
+    lines.push('Focus on:')
+    lines.push('- Your form is solid. Keep this technique and gradually increase intensity.')
   } else {
-    lines.push('Focus:')
-    lines.push('- Keep your form consistent.')
+    lines.push('Focus on:')
+    lines.push('- Keep your form consistent and controlled through every rep.')
   }
 
   if (fixes.length > 0) {
-    lines.push('Fix:')
+    lines.push('Try:')
     for (const item of fixes) lines.push(`- ${cleanSummaryLine(item)}`)
   } else {
-    lines.push('Fix:')
-    lines.push('- Keep your tempo steady and use the full range of motion.')
+    lines.push('Try:')
+    lines.push('- Maintain a steady tempo and use your full range of motion.')
   }
 
   if (gateNotes.length > 0) {
-    lines.push('Note:')
+    lines.push('Camera note:')
     lines.push(`- ${cleanSummaryLine(gateNotes[0])}`)
   }
 
-  return `${exercise} coach summary${accuracy ? ` (${accuracy} form accuracy)` : ''}: ${lines.join('\n')}`
+  return `${exercise} Analysis${accuracy ? ` (${accuracy} form accuracy)` : ''}: ${lines.join('\n')}`
 }
 
 export function humanizePoseReport(report: PoseReportLike): PoseReportLike {
@@ -313,4 +368,3 @@ function cleanSummaryLine(text: string) {
   if (!trimmed) return ''
   return trimmed.replace(/[./\s]+$/g, '').trim() + '.'
 }
-

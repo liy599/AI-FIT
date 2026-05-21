@@ -7,17 +7,21 @@ export {
   buildPoseHistoryPath,
   buildPoseReportPath,
   buildPoseVideoPath,
+  getPoseExercises,
   getPoseExerciseBySlug,
-  getPoseExerciseByType
+  getPoseExerciseByType,
+  isPoseExerciseSlug
 } from './domain/exercises'
 export { buildTrainingRecordName } from './domain/trainingName'
+export { formatLocalDateTimeMinute } from '../../lib/datetime'
+export { buildPaginationItems } from '../../lib/pagination'
 export { type TrackingState } from './vision/movenetTracker'
 export { type PoseAnalysisReport } from './reporting/types'
 export { type PoseAnalyzerFeedback } from './analyzer/types'
 export { DEMO_POSE_TRAINING, DEMO_POSE_TRAINING_ID } from './trainingMock'
 export { LabelWithTip, MetricCard, MetricCardPlaceholder } from '../../components/pose/PoseMetricWidgets'
 export { ReportVisualization } from '../../components/pose/PoseToolWidgets'
-export { createPoseTraining, getPosePolicy, getPoseTraining, listPoseTrainings, updatePoseTrainingReport } from './api'
+export { createPoseTraining, deletePoseTraining, getPosePolicy, getPoseTraining, listPoseTrainings, updatePoseTrainingReport } from './api'
 export type { PosePolicy, PoseTrainingSession } from './api'
 export { humanizePoseReport, mapPoseFeedbackMessage, poseTierLabel } from './reporting'
 export { formatDuration } from './helpers/reportBase'

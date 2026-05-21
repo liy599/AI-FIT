@@ -1,61 +1,193 @@
-﻿import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { confirmPasswordReset } from '../../modules/user'
+import { PasswordField } from '../../components/ui'
+import { confirmPasswordReset, requestPasswordReset, verifyPasswordResetCode } from '../../modules/user'
+
+function isValidEmail(email: string) {
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())
+}
+
+function validatePassword(password: string, email: string, username: string) {
+  if (!password.trim()) return 'New password is required.'
+  if (password.length < 8 || password.length > 20) return 'Password length must be 8-20.'
+  if (/\s/.test(password)) return 'Password cannot contain whitespace.'
+  if (/^[0-9]+$/.test(password)) return 'Password is too weak. Use 8-20 chars and include letters and numbers.'
+  const lower = password.toLowerCase()
+  if (['12345678', 'password', '123456789', 'qwerty123'].includes(lower)) {
+    return 'Password is too weak. Use 8-20 chars and include letters and numbers.'
+  }
+  if (email && lower === email.toLowerCase()) return 'Password is too weak. Use 8-20 chars and include letters and numbers.'
+  if (username && lower === username.toLowerCase()) return 'Password is too weak. Use 8-20 chars and include letters and numbers.'
+  if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+    return 'Password is too weak. Use 8-20 chars and include letters and numbers.'
+  }
+  return null
+}
+
+const RESET_CODE_SENT_NOTICE = 'If this email is registered, we will send a password reset code.'
 
 export default function ResetPasswordPage() {
   const [sp] = useSearchParams()
-  const token = useMemo(() => sp.get('token') ?? '', [sp])
+  const initialEmail = useMemo(() => sp.get('email') ?? '', [sp])
   const nav = useNavigate()
 
+  const [email, setEmail] = useState('')
+  const [code, setCode] = useState('')
   const [newPassword, setNewPassword] = useState('')
-  const [busy, setBusy] = useState(false)
+  const [confirmNewPassword, setConfirmNewPassword] = useState('')
+  const [busyAction, setBusyAction] = useState<'send' | 'verify' | 'submit' | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const [ok, setOk] = useState(false)
+  const [verifiedResetEmail, setVerifiedResetEmail] = useState<string | null>(null)
+
+  const normalizedEmail = email.trim().toLowerCase()
+  const codeVerified = Boolean(verifiedResetEmail && normalizedEmail === verifiedResetEmail)
+  const busy = Boolean(busyAction)
+
+  useEffect(() => {
+    if (initialEmail && !email) setEmail(initialEmail)
+  }, [email, initialEmail])
+
+  async function sendCode() {
+    setError(null)
+    setNotice(null)
+    if (busy) return
+    const e = normalizedEmail
+    if (!e) {
+      setError('Email is required.')
+      return
+    }
+    if (!isValidEmail(e)) {
+      setError('Invalid email format.')
+      return
+    }
+    setVerifiedResetEmail(null)
+    setNewPassword('')
+    setConfirmNewPassword('')
+    setBusyAction('send')
+    try {
+      const r = await requestPasswordReset(e)
+      if (r.reset_code) {
+        setCode(String(r.reset_code))
+        setNotice(RESET_CODE_SENT_NOTICE)
+      } else {
+        setNotice(RESET_CODE_SENT_NOTICE)
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Request failed'
+      if (msg === 'email delivery not configured') {
+        setError('Password reset email is not configured on the server yet.')
+        return
+      }
+      if (msg === 'email delivery failed') {
+        setError('Failed to send reset code. Please try again later.')
+        return
+      }
+      setError(msg)
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  async function verifyCode() {
+    setError(null)
+    setNotice(null)
+    if (busy) return
+    const e = normalizedEmail
+    const c = code.trim()
+    if (!e) {
+      setError('Email is required.')
+      return
+    }
+    if (!isValidEmail(e)) {
+      setError('Invalid email format.')
+      return
+    }
+    if (!/^[0-9]{6}$/.test(c)) {
+      setError('Verification code must be 6 digits.')
+      return
+    }
+    setBusyAction('verify')
+    try {
+      await verifyPasswordResetCode(e, c)
+      setVerifiedResetEmail(e)
+      setNotice('Code verified. Set your new password.')
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Verification failed'
+      if (msg === 'code expired') {
+        setError('This verification code has expired. Please request a new one.')
+        return
+      }
+      if (msg === 'invalid code') {
+        setError('Invalid verification code.')
+        return
+      }
+      setError(msg)
+    } finally {
+      setBusyAction(null)
+    }
+  }
 
   async function submit() {
     setError(null)
+    setNotice(null)
     if (busy) return
-    if (!token.trim()) {
-      setError('Token is required.')
+    const e = normalizedEmail
+    const c = code.trim()
+    if (!codeVerified) {
+      setError('Please verify the reset code first.')
       return
     }
-    if (!newPassword.trim()) {
-      setError('New password is required.')
+    if (!confirmNewPassword.trim()) {
+      setError('Please confirm your new password.')
       return
     }
-    setBusy(true)
+    if (newPassword !== confirmNewPassword) {
+      setError('Passwords do not match.')
+      return
+    }
+    const passwordErr = validatePassword(newPassword, e, '')
+    if (passwordErr) {
+      setError(passwordErr)
+      return
+    }
+    setBusyAction('submit')
     try {
-      await confirmPasswordReset(token, newPassword)
+      await confirmPasswordReset(e, c, newPassword)
       setOk(true)
       setTimeout(() => nav('/login'), 800)
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Reset failed')
+      const msg = e instanceof Error ? e.message : 'Reset failed'
+      if (msg === 'code expired') {
+        setError('This verification code has expired. Please request a new one.')
+        return
+      }
+      if (msg === 'invalid code') {
+        setError('Invalid verification code.')
+        return
+      }
+      if (msg === 'password length must be 8-20') {
+        setError('Password length must be 8-20.')
+        return
+      }
+      if (msg === 'password cannot contain whitespace') {
+        setError('Password cannot contain whitespace.')
+        return
+      }
+      if (msg === 'password too weak') {
+        setError('Password is too weak. Use 8-20 chars and include letters and numbers.')
+        return
+      }
+      setError(msg)
     } finally {
-      setBusy(false)
+      setBusyAction(null)
     }
   }
 
   return (
     <>
-      <section className="cl_breadcrumb-area brand-page-theme">
-        <div className="cl_breadcrumb-wrap brand-page-hero" data-background="/assets/images/bg/breadcrumb.png">
-          <div className="page-container">
-            <div className="page-row-center">
-              <div className="page-col-breadcrumb">
-                <div className="cl_breadcrumb-content">
-                  <h2 className="cl_breadcrumb-content-title">Reset Password</h2>
-                  <div className="cl_breadcrumb-content-list">
-                    <Link to="/">Home</Link>
-                    <span>Reset</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="pt-100 pb-100 brand-page-body auth-page-body">
+      <section className="pt-100 pb-100 brand-page-body auth-page-body auth-primary-page">
         <div className="page-container">
           <div className="page-row-center">
             <div className="page-col-auth">
@@ -72,21 +204,80 @@ export default function ResetPasswordPage() {
                   <div className="auth-form-grid">
                     <div>
                       <div className="cl_blog_details-reply-item">
-                        <label htmlFor="newPassword">
-                          New password<span>*</span>
+                        <label htmlFor="email">
+                          Email<span>*</span>
                         </label>
                         <input
-                          id="newPassword"
-                          type="password"
+                          id="email"
+                          type="email"
                           required
-                          value={newPassword}
-                          onChange={(e) => setNewPassword(e.target.value)}
+                          value={email}
+                          onChange={(e) => {
+                            setEmail(e.target.value)
+                            setVerifiedResetEmail(null)
+                            setNewPassword('')
+                            setConfirmNewPassword('')
+                          }}
                         />
                       </div>
                     </div>
+                    {!codeVerified ? (
+                      <div>
+                        <div className="cl_blog_details-reply-item">
+                          <label htmlFor="code">
+                            Verification code<span>*</span>
+                          </label>
+                          <input
+                            id="code"
+                            type="text"
+                            inputMode="numeric"
+                            required
+                            value={code}
+                            onChange={(e) => setCode(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+                    {codeVerified ? (
+                      <div>
+                        <div className="cl_blog_details-reply-item">
+                          <label htmlFor="newPassword">
+                            New password<span>*</span>
+                          </label>
+                          <PasswordField
+                            id="newPassword"
+                            required
+                            autoComplete="new-password"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+                    {codeVerified ? (
+                      <div>
+                        <div className="cl_blog_details-reply-item">
+                          <label htmlFor="confirmNewPassword">
+                            Confirm new password<span>*</span>
+                          </label>
+                          <PasswordField
+                            id="confirmNewPassword"
+                            required
+                            autoComplete="new-password"
+                            value={confirmNewPassword}
+                            onChange={(e) => setConfirmNewPassword(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    ) : null}
                     {error ? (
                       <div>
                         <div className="cl_blog-widget cl_auth-alert cl_auth-alert--error mb-30">{error}</div>
+                      </div>
+                    ) : null}
+                    {notice ? (
+                      <div>
+                        <div className="cl_blog-widget cl_auth-alert cl_auth-alert--notice mb-30">{notice}</div>
                       </div>
                     ) : null}
                     {ok ? (
@@ -96,13 +287,33 @@ export default function ResetPasswordPage() {
                         </div>
                       </div>
                     ) : null}
-                    <div>
-                      <div className="cl_blog_details-reply-item">
-                        <button type="submit">
-                          Confirm
-                        </button>
+                    {!codeVerified ? (
+                      <div>
+                        <div className="cl_blog_details-reply-item">
+                          <button type="button" onClick={() => sendCode().catch(() => {})} disabled={busy}>
+                            {busyAction === 'send' ? 'Sending...' : 'Send reset code'}
+                          </button>
+                        </div>
                       </div>
-                    </div>
+                    ) : null}
+                    {!codeVerified ? (
+                      <div>
+                        <div className="cl_blog_details-reply-item">
+                          <button type="button" onClick={() => verifyCode().catch(() => {})} disabled={busy}>
+                            {busyAction === 'verify' ? 'Verifying...' : 'Verify code'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                    {codeVerified ? (
+                      <div>
+                        <div className="cl_blog_details-reply-item">
+                          <button type="submit" disabled={busy}>
+                            {busyAction === 'submit' ? 'Confirming...' : 'Confirm'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
                     <div>
                       <div className="cl_blog-widget cl_auth-switch">
                         <Link to="/login">Back to login</Link>

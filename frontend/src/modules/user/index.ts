@@ -1,7 +1,11 @@
 import { API_BASE, apiFetch, apiUpload, resolveBackendUrl } from '../../lib/api'
 import type { AuthUser } from '../../lib/auth'
+export { formatLocalDateTimeMinute, parseApiDate } from '../../lib/datetime'
+export { buildPaginationItems } from '../../lib/pagination'
 
 export { API_BASE, resolveBackendUrl }
+
+export const NOTIFICATIONS_CHANGED_EVENT = 'aifitguard:notifications-changed'
 
 export function loginByPassword(email: string, password: string) {
   return apiFetch<{
@@ -16,10 +20,38 @@ export function registerByPassword(email: string, username: string, password: st
 }
 
 export function requestPasswordReset(email: string) {
-  return apiFetch<{ ok: boolean; reset_link?: string; email_sent?: boolean }>('/api/auth/forgot-password', {
+  return apiFetch<{ ok: boolean; email_sent?: boolean; reset_code?: string }>('/api/auth/forgot-password', {
     method: 'POST',
     auth: false,
     body: JSON.stringify({ email })
+  })
+}
+
+export function requestEmailVerification(email: string) {
+  return apiFetch<{ ok: boolean; email_sent?: boolean; verification_code?: string }>(
+    '/api/auth/request-email-verification',
+    {
+      method: 'POST',
+      auth: false,
+      body: JSON.stringify({ email })
+    }
+  )
+}
+
+export function verifyEmail(email: string, code: string) {
+  return apiFetch<{ ok: boolean; email: string }>('/api/auth/verify-email', {
+    method: 'POST',
+    auth: false,
+    body: JSON.stringify({ email, code })
+  })
+}
+
+export function getEmailVerificationStatus(email: string) {
+  const query = new URLSearchParams()
+  query.set('email', email)
+  return apiFetch<{ ok: boolean; email_verified: boolean }>(`/api/auth/email-verification-status?${query.toString()}`, {
+    method: 'GET',
+    auth: false
   })
 }
 
@@ -29,11 +61,19 @@ export function logoutSession() {
   })
 }
 
-export function confirmPasswordReset(token: string, newPassword: string) {
+export function confirmPasswordReset(email: string, code: string, newPassword: string) {
   return apiFetch('/api/auth/reset-password', {
     method: 'POST',
     auth: false,
-    body: JSON.stringify({ token, new_password: newPassword })
+    body: JSON.stringify({ email, code, new_password: newPassword })
+  })
+}
+
+export function verifyPasswordResetCode(email: string, code: string) {
+  return apiFetch<{ ok: boolean; email: string }>('/api/auth/verify-reset-code', {
+    method: 'POST',
+    auth: false,
+    body: JSON.stringify({ email, code })
   })
 }
 
@@ -43,6 +83,13 @@ export function getMyProfile<T>() {
 
 export function updateMyProfile<T>(payload: Record<string, unknown>) {
   return apiFetch<T>('/api/user/profile', { method: 'PUT', body: JSON.stringify(payload) })
+}
+
+export function deleteMyAccount(confirmUsername: string) {
+  return apiFetch<{ ok: boolean }>('/api/user/account', {
+    method: 'DELETE',
+    body: JSON.stringify({ confirm_username: confirmUsername })
+  })
 }
 
 export function uploadMyAvatar(file: File) {
@@ -55,41 +102,53 @@ export function getMyWorkouts<T>() {
   return apiFetch<{ items: T[] }>('/api/workouts?page=1&page_size=20')
 }
 
-export function getMyMeals<T>() {
-  return apiFetch<{ items: T[] }>('/api/meals/history?page=1&page_size=20')
-}
-
-export function listMyMealHistory<T>(params?: { page?: number; page_size?: number }) {
+export function getMyBlogs<T>(params: { page?: number; page_size?: number; cursor?: string; q?: string; status?: string; sort_by?: string; sort_dir?: string } = {}) {
   const query = new URLSearchParams()
-  if (params?.page) query.set('page', String(params.page))
-  if (params?.page_size) query.set('page_size', String(params.page_size))
-  const suffix = query.toString()
-  return apiFetch<{ items: T[]; page: number; page_size: number; total: number }>(`/api/meals/history${suffix ? `?${suffix}` : ''}`)
+  query.set('page', String(params.page ?? 1))
+  query.set('page_size', String(params.page_size ?? 6))
+  if (params.cursor) query.set('cursor', params.cursor)
+  if (params.q) query.set('q', params.q)
+  if (params.status) query.set('status', params.status)
+  if (params.sort_by) query.set('sort_by', params.sort_by)
+  if (params.sort_dir) query.set('sort_dir', params.sort_dir)
+  return apiFetch<{ items: T[]; page: number; page_size: number; total: number; next_cursor?: string | null }>(`/api/user/blogs?${query.toString()}`)
 }
 
-export function getMyBlogs<T>() {
-  return apiFetch<{ items: T[] }>('/api/user/blogs?page=1&page_size=20')
+export function getMyComments<T>(params: { page?: number; page_size?: number; cursor?: string; q?: string; sort_by?: string; sort_dir?: string } = {}) {
+  const query = new URLSearchParams()
+  query.set('page', String(params.page ?? 1))
+  query.set('page_size', String(params.page_size ?? 5))
+  if (params.cursor) query.set('cursor', params.cursor)
+  if (params.q) query.set('q', params.q)
+  if (params.sort_by) query.set('sort_by', params.sort_by)
+  if (params.sort_dir) query.set('sort_dir', params.sort_dir)
+  return apiFetch<{ items: T[]; page: number; page_size: number; total: number; next_cursor?: string | null }>(`/api/user/comments?${query.toString()}`)
 }
 
-export function getMyComments<T>() {
-  return apiFetch<{ items: T[] }>('/api/user/comments?page=1&page_size=20')
+export type UserNotification = {
+  id: number
+  type: 'comment_reply'
+  is_read: boolean
+  created_at: string
+  actor: { id: number; username: string; avatar_url: string | null }
+  blog: { id: number; title: string }
+  comment_id: number
+  root_comment_id: number
+  comment_page: number
 }
 
-export function previewOrDeleteMyData(payload: Record<string, unknown>) {
-  return apiFetch('/api/user/data-lifecycle/delete', {
-    method: 'POST',
-    body: JSON.stringify(payload)
-  })
+export function getMyNotifications(params: { page?: number; page_size?: number; cursor?: string } = {}) {
+  const query = new URLSearchParams()
+  query.set('page', String(params.page ?? 1))
+  query.set('page_size', String(params.page_size ?? 5))
+  if (params.cursor) query.set('cursor', params.cursor)
+  return apiFetch<{ items: UserNotification[]; page: number; page_size: number; total: number; unread_count: number; next_cursor?: string | null }>(`/api/user/notifications?${query.toString()}`)
 }
 
-export function getAdminLifecyclePolicy<T>() {
-  return apiFetch<T>('/api/admin/data-lifecycle/policy')
+export function markNotificationRead(notificationId: number) {
+  return apiFetch<{ ok: boolean }>(`/api/user/notifications/${notificationId}/read`, { method: 'POST' })
 }
 
-export function runAdminLifecycleCleanup<T>(payload: Record<string, unknown>) {
-  return apiFetch<T>('/api/admin/data-lifecycle/cleanup', {
-    method: 'POST',
-    body: JSON.stringify(payload)
-  })
+export function deleteNotification(notificationId: number) {
+  return apiFetch<{ ok: boolean }>(`/api/user/notifications/${notificationId}`, { method: 'DELETE' })
 }
-

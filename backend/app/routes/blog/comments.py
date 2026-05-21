@@ -4,11 +4,13 @@ from typing import Dict, List, Optional
 
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required, verify_jwt_in_request
+from sqlalchemy import or_
 from sqlalchemy.orm import joinedload
 
 from ...extensions import db
 from ...models import Blog, Comment, CommentLike, Notification, User
-from ...utils.pagination import parse_pagination
+from ...utils.media_url import public_media_url_or_none
+from ...utils.pagination import cursor_datetime, decode_cursor, encode_cursor, parse_pagination
 
 bp = Blueprint("comments", __name__)
 MIN_COMMENT_LENGTH = 1
@@ -40,7 +42,7 @@ def _comment_public(c: Comment, liked_by_me: bool):
     return {
         "id": c.id,
         "blog_id": c.blog_id,
-        "user": {"id": c.author.id, "username": c.author.username, "avatar_url": c.author.avatar_url},
+        "user": {"id": c.author.id, "username": c.author.username, "avatar_url": public_media_url_or_none(c.author.avatar_url)},
         "parent_id": c.parent_id,
         "content": c.content,
         "like_count": c.like_count,
@@ -100,16 +102,29 @@ def list_comments(blog_id: int):
         return jsonify({"error": "not found"}), 404
 
     page, page_size = parse_pagination(request.args, default_page_size=10)
+    cursor = decode_cursor(request.args.get("cursor"))
 
     root_query = Comment.query.filter_by(blog_id=blog_id, parent_id=None)
-    total = root_query.count()
+    if cursor:
+        cursor_created_at = cursor_datetime(cursor.get("created_at"))
+        try:
+            cursor_id = int(cursor.get("id"))
+        except (TypeError, ValueError):
+            cursor_id = None
+        if cursor_created_at is not None and cursor_id is not None:
+            root_query = root_query.filter(
+                or_(Comment.created_at > cursor_created_at, (Comment.created_at == cursor_created_at) & (Comment.id > cursor_id))
+            )
+    total = None if cursor else root_query.count()
     roots = (
         root_query.options(joinedload(Comment.author))
         .order_by(Comment.created_at.asc(), Comment.id.asc())
-        .offset((page - 1) * page_size)
-        .limit(page_size)
+        .offset(0 if cursor else (page - 1) * page_size)
+        .limit(page_size + 1 if cursor else page_size)
         .all()
     )
+    has_more = len(roots) > page_size
+    roots = roots[:page_size]
 
     replies = []
     root_ids = [comment.id for comment in roots]
@@ -162,7 +177,12 @@ def list_comments(blog_id: int):
         item["replies"] = [build_reply(child) for child in replies_by_root.get(node.id, [])]
         return item
 
-    return jsonify({"items": [build_root(c) for c in roots], "page": page, "page_size": page_size, "total": total})
+    next_cursor = (
+        encode_cursor({"created_at": roots[-1].created_at.isoformat(), "id": roots[-1].id})
+        if has_more and roots
+        else None
+    )
+    return jsonify({"items": [build_root(c) for c in roots], "page": page, "page_size": page_size, "total": total, "next_cursor": next_cursor})
 
 
 @bp.post("/blogs/<int:blog_id>/comments")

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from app.extensions import db
 from app.models import Blog, Comment, Tag
 
@@ -10,12 +12,22 @@ def _auth_headers(client, email="u@example.com", username="user1"):
     return {"X-CSRF-TOKEN": csrf_token} if csrf_token else {}
 
 
-def test_blog_list_detail_like_and_comment(client, app):
+def _blog_tag_ids(app, topic="Training", post_type="Record"):
     with app.app_context():
-        t = Tag(name="Fitness Tips")
-        db.session.add(t)
+        ids = []
+        for name in (topic, post_type):
+            tag = Tag.query.filter_by(name=name).first()
+            if tag is None:
+                tag = Tag(name=name)
+                db.session.add(tag)
+                db.session.flush()
+            ids.append(tag.id)
         db.session.commit()
-        tag_id = t.id
+        return ids
+
+
+def test_blog_list_detail_like_and_comment(client, app):
+    tag_ids = _blog_tag_ids(app, topic="Fitness Tips")
 
     headers = _auth_headers(client)
 
@@ -25,7 +37,7 @@ def test_blog_list_detail_like_and_comment(client, app):
         json={
             "title": "Hello fitness training blog post",
             "content": "World " * 50,
-            "tag_ids": [tag_id],
+            "tag_ids": tag_ids,
             "is_published": True,
         },
     )
@@ -63,11 +75,7 @@ def test_blog_list_detail_like_and_comment(client, app):
 
 
 def test_blog_tag_filter_uses_canonical_aliases(client, app):
-    with app.app_context():
-        legacy = Tag(name="Nutrition")
-        db.session.add(legacy)
-        db.session.commit()
-        legacy_id = legacy.id
+    tag_ids = _blog_tag_ids(app, topic="Nutrition")
 
     headers = _auth_headers(client, email="diet@example.com", username="dietuser")
     r = client.post(
@@ -76,7 +84,7 @@ def test_blog_tag_filter_uses_canonical_aliases(client, app):
         json={
             "title": "Healthy meal prep for training",
             "content": "A short nutrition post.",
-            "tag_ids": [legacy_id],
+            "tag_ids": tag_ids,
             "is_published": True,
         },
     )
@@ -94,11 +102,7 @@ def test_blog_tag_filter_uses_canonical_aliases(client, app):
 
 
 def test_my_blogs_returns_user_blog_list(client, app):
-    with app.app_context():
-        t = Tag(name="Profile Blogs")
-        db.session.add(t)
-        db.session.commit()
-        tag_id = t.id
+    tag_ids = _blog_tag_ids(app)
 
     headers = _auth_headers(client, email="my-blogs@example.com", username="myblogs")
     create = client.post(
@@ -107,7 +111,7 @@ def test_my_blogs_returns_user_blog_list(client, app):
         json={
             "title": "My profile blog",
             "content": "Profile blog content",
-            "tag_ids": [tag_id],
+            "tag_ids": tag_ids,
             "is_published": True,
         },
     )
@@ -121,12 +125,27 @@ def test_my_blogs_returns_user_blog_list(client, app):
     assert payload["items"][0]["status"] == "published"
 
 
+def test_blog_create_daily_limit_per_user(client, app):
+    app.config["BLOG_CREATE_DAILY_LIMIT_PER_USER"] = 1
+    tag_ids = _blog_tag_ids(app)
+
+    headers = _auth_headers(client, email="daily-limit@example.com", username="dailylimit")
+    payload = {
+        "title": "First daily post",
+        "content": "Daily post content",
+        "tag_ids": tag_ids,
+        "is_published": True,
+    }
+    first = client.post("/api/blogs", headers=headers, json=payload)
+    assert first.status_code == 201
+
+    second = client.post("/api/blogs", headers=headers, json={**payload, "title": "Second daily post"})
+    assert second.status_code == 429
+    assert "daily blog limit" in second.get_json()["error"]
+
+
 def test_comment_like_requires_public_blog(client, app):
-    with app.app_context():
-        t = Tag(name="Training")
-        db.session.add(t)
-        db.session.commit()
-        tag_id = t.id
+    tag_ids = _blog_tag_ids(app)
 
     headers = _auth_headers(client, email="comment-like@example.com", username="commentlike")
     create = client.post(
@@ -135,7 +154,7 @@ def test_comment_like_requires_public_blog(client, app):
         json={
             "title": "Comment privacy boundary post",
             "content": "Public body before moderation.",
-            "tag_ids": [tag_id],
+            "tag_ids": tag_ids,
             "is_published": True,
         },
     )
@@ -157,11 +176,7 @@ def test_comment_like_requires_public_blog(client, app):
 
 
 def test_comment_reply_creates_notification_with_target_page(client, app):
-    with app.app_context():
-        t = Tag(name="Training")
-        db.session.add(t)
-        db.session.commit()
-        tag_id = t.id
+    tag_ids = _blog_tag_ids(app)
 
     author_headers = _auth_headers(client, email="notify-author@example.com", username="notifyauthor")
     create = client.post(
@@ -170,7 +185,7 @@ def test_comment_reply_creates_notification_with_target_page(client, app):
         json={
             "title": "Reply notification post",
             "content": "Public discussion body.",
-            "tag_ids": [tag_id],
+            "tag_ids": tag_ids,
             "is_published": True,
         },
     )
@@ -207,20 +222,16 @@ def test_comment_reply_creates_notification_with_target_page(client, app):
 
 
 def test_deleting_parent_comment_preserves_replies(client, app):
-    with app.app_context():
-        t = Tag(name="Training")
-        db.session.add(t)
-        db.session.commit()
-        tag_id = t.id
+    tag_ids = _blog_tag_ids(app)
 
-    author_headers = _auth_headers(client, email="delete-parent-author@example.com", username="deleteparentauthor")
+    author_headers = _auth_headers(client, email="delete-parent-author@example.com", username="deleteauthor")
     create = client.post(
         "/api/blogs",
         headers=author_headers,
         json={
             "title": "Comment parent delete post",
             "content": "Public discussion body.",
-            "tag_ids": [tag_id],
+            "tag_ids": tag_ids,
             "is_published": True,
         },
     )
@@ -228,7 +239,7 @@ def test_deleting_parent_comment_preserves_replies(client, app):
     blog_id = create.get_json()["id"]
 
     commenter = app.test_client()
-    commenter_headers = _auth_headers(commenter, email="delete-parent-commenter@example.com", username="deleteparentcommenter")
+    commenter_headers = _auth_headers(commenter, email="delete-parent-commenter@example.com", username="deletecommenter")
     root = commenter.post(f"/api/blogs/{blog_id}/comments", headers=commenter_headers, json={"content": "Parent"})
     assert root.status_code == 201
     root_id = root.get_json()["id"]
@@ -248,11 +259,7 @@ def test_deleting_parent_comment_preserves_replies(client, app):
 
 
 def test_author_can_read_existing_comments_after_moving_blog_to_draft(client, app):
-    with app.app_context():
-        t = Tag(name="Training")
-        db.session.add(t)
-        db.session.commit()
-        tag_id = t.id
+    tag_ids = _blog_tag_ids(app)
 
     author_headers = _auth_headers(client, email="draft-comments@example.com", username="draftcomments")
     create = client.post(
@@ -261,7 +268,7 @@ def test_author_can_read_existing_comments_after_moving_blog_to_draft(client, ap
         json={
             "title": "Published post with comments",
             "content": "Public before becoming a draft.",
-            "tag_ids": [tag_id],
+            "tag_ids": tag_ids,
             "is_published": True,
         },
     )
@@ -287,11 +294,12 @@ def test_author_can_read_existing_comments_after_moving_blog_to_draft(client, ap
 
 
 def test_private_published_blog_is_owner_only_and_not_interactive(client, app):
-    with app.app_context():
-        t = Tag(name="Other")
-        db.session.add(t)
-        db.session.commit()
-        tag_id = t.id
+    tag_ids = _blog_tag_ids(app)
+
+    upload_dir = Path(app.config["UPLOAD_FOLDER"]) / "blog_covers"
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    (upload_dir / "a.png").write_bytes(b"cover-a")
+    (upload_dir / "b.png").write_bytes(b"cover-b")
 
     headers = _auth_headers(client, email="private-blog@example.com", username="privateblog")
     create = client.post(
@@ -300,7 +308,7 @@ def test_private_published_blog_is_owner_only_and_not_interactive(client, app):
         json={
             "title": "Private progress update",
             "content": "Private caption with training context.",
-            "tag_ids": [tag_id],
+            "tag_ids": tag_ids,
             "is_published": True,
             "visibility": "private",
             "image_urls": ["/uploads/blog_covers/a.png", "/uploads/blog_covers/b.png"],
@@ -322,3 +330,34 @@ def test_private_published_blog_is_owner_only_and_not_interactive(client, app):
     assert anonymous.get(f"/api/blogs/{blog_id}").status_code == 404
     assert client.post(f"/api/blogs/{blog_id}/like", headers=headers).status_code == 404
     assert client.post(f"/api/blogs/{blog_id}/comments", headers=headers, json={"content": "No public interaction"}).status_code == 404
+
+
+def test_missing_upload_urls_are_omitted_from_blog_payloads(client, app):
+    tag_ids = _blog_tag_ids(app)
+
+    headers = _auth_headers(client, email="missing-cover@example.com", username="missingcover")
+    create = client.post(
+        "/api/blogs",
+        headers=headers,
+        json={
+            "title": "Missing uploaded cover",
+            "content": "Public post with an upload path left over from a previous local instance.",
+            "tag_ids": tag_ids,
+            "is_published": True,
+            "cover_image_url": "/uploads/blog_covers/missing-cover.png",
+            "image_urls": ["/uploads/blog_covers/missing-a.png"],
+        },
+    )
+    assert create.status_code == 201
+    blog_id = create.get_json()["id"]
+
+    listing = client.get("/api/blogs")
+    assert listing.status_code == 200
+    listed = listing.get_json()["items"][0]
+    assert listed["cover_image_url"] is None
+    assert listed["image_urls"] == []
+
+    detail = client.get(f"/api/blogs/{blog_id}", headers=headers)
+    assert detail.status_code == 200
+    assert detail.get_json()["cover_image_url"] is None
+    assert detail.get_json()["image_urls"] == []

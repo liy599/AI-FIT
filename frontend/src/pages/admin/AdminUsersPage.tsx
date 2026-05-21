@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { buildPaginationItems } from '../../lib/pagination'
 import {
+  buildPaginationItems,
   deleteAdminUser,
   getAdminSummary,
   getAdminUserContact,

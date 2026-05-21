@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
-import { createBlog, displayBlogTagName, getBlogDetail, getBlogTags, resolveBlogMediaUrl, updateBlog, uploadBlogCover, type BlogTag } from '../../modules/blog'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { formatLongDate, HomeBlogTagPills } from '../../components/blog/BlogListParts'
+import { FallbackImage } from '../../components/ui'
+import { createBlog, displayBlogTagName, formatLocalDateTimeMinute, getBlogDetail, getBlogTags, resolveBlogMediaUrl, updateBlog, uploadBlogCover, type BlogTag } from '../../modules/blog'
 
 function resolveMediaUrl(url: string | null | undefined) {
   return resolveBlogMediaUrl(url)
@@ -22,12 +24,97 @@ const CONTENT_MIN_LENGTH = 1
 const CONTENT_MAX_LENGTH = 4000
 const MAX_BLOG_IMAGES = 9
 const ALLOWED_IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'webp'])
+const TOPIC_TAG_NAMES = ['Diet', 'Training'] as const
+const POST_TYPE_TAG_NAMES = ['Record', 'Experience'] as const
 
 const defaultCovers = [
   { label: 'Diet', url: '/assets/images/blog/blog_list-1.png' },
   { label: 'Training', url: '/assets/images/blog/blog_list-2.png' },
   { label: 'Other', url: '/assets/images/blog/blog_details-1.png' },
 ]
+
+const blogTemplates = [
+  {
+    key: 'diet',
+    label: 'Diet Record',
+    description: 'Record meals, hydration, and nutrition notes for the day.',
+    title: 'Daily Diet Record',
+    cover: defaultCovers[0].url,
+    topic: 'Diet',
+    postType: 'Record',
+    content: [
+      'Daily Diet Record',
+      '',
+      'Date:',
+      '',
+      'Breakfast:',
+      '-',
+      '',
+      'Lunch:',
+      '-',
+      '',
+      'Dinner:',
+      '-',
+      '',
+      'Snacks:',
+      '-',
+      '',
+      'Hydration:',
+      '-',
+      '',
+      'Energy and appetite:',
+      '-',
+      '',
+      'Notes for tomorrow:',
+      '-'
+    ].join('\n')
+  },
+  {
+    key: 'training',
+    label: 'Training Record',
+    description: 'Draft a post from one pose training report.',
+    title: 'Training Report Notes',
+    cover: defaultCovers[1].url,
+    topic: 'Training',
+    postType: 'Record',
+    content: [
+      'Training Report Notes',
+      '',
+      'Date:',
+      '',
+      'Exercise:',
+      '-',
+      '',
+      'Report summary:',
+      '- Avg Accuracy:',
+      '- Result:',
+      '',
+      'Main feedback:',
+      '-',
+      '',
+      'What I will improve next:',
+      '-',
+      '',
+      'Personal note:',
+      '-'
+    ].join('\n')
+  }
+] as const
+
+type ReportDraftState = {
+  template?: string
+  reportPath?: string | null
+  reportDraft?: {
+    exerciseName?: string
+    startedAt?: string
+    endedAt?: string | null
+    reps?: number
+    accuracy?: string | null
+    summary?: string
+    issues?: string[]
+    suggestions?: string[]
+  }
+}
 
 function normalizeTitle(value: string) {
   return value.replace(/\s+/g, ' ').trim()
@@ -50,8 +137,86 @@ function validateLength(label: string, length: number, min: number, max: number)
   return null
 }
 
+function isTagNamed(tag: BlogTag, names: readonly string[]) {
+  const displayName = displayBlogTagName(tag.name)
+  return names.includes(tag.name) || names.includes(displayName)
+}
+
+function findTagIdByName(tags: BlogTag[], name: string) {
+  return tags.find((tag) => isTagNamed(tag, [name]))?.id
+}
+
+function getSelectedTagId(tags: BlogTag[], tagIds: number[], names: readonly string[]) {
+  return tags.find((tag) => tagIds.includes(tag.id) && isTagNamed(tag, names))?.id ?? null
+}
+
+function replaceTagGroup(currentIds: number[], tags: BlogTag[], groupNames: readonly string[], nextId: number) {
+  const groupIds = new Set(tags.filter((tag) => isTagNamed(tag, groupNames)).map((tag) => tag.id))
+  return [...currentIds.filter((id) => !groupIds.has(id)), nextId]
+}
+
+function getEditorPreviewTagLabels(tags: BlogTag[], tagIds: number[]) {
+  const selectedLabels = tags.filter((tag) => tagIds.includes(tag.id)).map((tag) => displayBlogTagName(tag.name))
+  const topic = selectedLabels.find((name) => name === 'Diet' || name === 'Training')
+  const postType = selectedLabels.find((name) => name === 'Record' || name === 'Experience')
+  const labels: string[] = []
+  if (topic) labels.push(topic)
+  if (postType) labels.push(postType)
+  return labels
+}
+
+function formatPreviewExcerpt(value: string) {
+  return value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join('\n')
+}
+
+function buildTrainingReportBlogContent(reportDraft: NonNullable<ReportDraftState['reportDraft']>) {
+  const startedAt = formatReportDraftDate(reportDraft.startedAt)
+  const exerciseName = reportDraft.exerciseName?.trim() || '-'
+  const accuracy = reportDraft.accuracy?.trim() || '-'
+  const reps = typeof reportDraft.reps === 'number' && Number.isFinite(reportDraft.reps) ? String(reportDraft.reps) : '-'
+  const summary = reportDraft.summary?.trim() || '-'
+  const issues = formatBulletLines(reportDraft.issues, '-')
+  const suggestions = formatBulletLines(reportDraft.suggestions, '-')
+
+  return [
+    'Training Report Notes',
+    '',
+    `Date: ${startedAt}`,
+    '',
+    `Exercise: ${exerciseName}`,
+    '',
+    'Report summary:',
+    `- Avg Accuracy: ${accuracy}`,
+    `- Total Reps: ${reps}`,
+    `- Result: ${summary}`,
+    '',
+    'Main feedback:',
+    issues,
+    '',
+    'What I will improve next:',
+    suggestions,
+    '',
+    'Personal note:',
+    '-'
+  ].join('\n')
+}
+
+function formatReportDraftDate(value: string | undefined) {
+  return value ? formatLocalDateTimeMinute(value) : '-'
+}
+
+function formatBulletLines(items: string[] | undefined, fallback: string) {
+  const lines = (items ?? []).map((item) => item.trim()).filter(Boolean)
+  return lines.length ? lines.map((item) => `- ${item}`).join('\n') : fallback
+}
+
 export default function BlogEditorPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const params = useParams()
   const editId = params.id ? Number(params.id) : null
   const isEditingBlog = editId != null && Number.isFinite(editId)
@@ -60,6 +225,7 @@ export default function BlogEditorPage() {
   const [notice, setNotice] = useState<string | null>(null)
   const [loading, setLoading] = useState(isEditingBlog)
   const [blogStatus, setBlogStatus] = useState<'published' | 'unpublished' | 'draft'>('draft')
+  const reportDraftApplied = useRef(false)
 
   const [coverUploading, setCoverUploading] = useState(false)
 
@@ -73,21 +239,55 @@ export default function BlogEditorPage() {
     image_urls: []
   })
 
-  const selectedCover = blog.image_urls[0] ?? blog.cover_image_url ?? defaultCovers[0].url
+  const selectedCover = blog.cover_image_url ?? blog.image_urls[0] ?? defaultCovers[0].url
   const normalizedTitle = normalizeTitle(blog.title)
   const normalizedContent = normalizeContent(blog.content)
   const titleLength = normalizedTitle.length
   const contentLength = normalizedContent.length
   const titleError = validateLength('Title', titleLength, TITLE_MIN_LENGTH, TITLE_MAX_LENGTH)
   const contentError = validateLength('Content', contentLength, CONTENT_MIN_LENGTH, CONTENT_MAX_LENGTH)
-  const categoryError = blog.tag_ids.length === 0 ? 'Choose one category' : null
+  const selectedTopicTagId = getSelectedTagId(tags, blog.tag_ids, TOPIC_TAG_NAMES)
+  const selectedPostTypeTagId = getSelectedTagId(tags, blog.tag_ids, POST_TYPE_TAG_NAMES)
+  const topicTags = TOPIC_TAG_NAMES.map((name) => tags.find((tag) => isTagNamed(tag, [name]))).filter((tag): tag is BlogTag => Boolean(tag))
+  const postTypeTags = POST_TYPE_TAG_NAMES.map((name) => tags.find((tag) => isTagNamed(tag, [name]))).filter((tag): tag is BlogTag => Boolean(tag))
+  const categoryError = !selectedTopicTagId ? 'Choose one topic' : !selectedPostTypeTagId ? 'Choose one post type' : null
   const submitHelp = titleError ?? contentError ?? categoryError
+  const previewTagLabels = getEditorPreviewTagLabels(tags, blog.tag_ids)
+  const previewTitle = normalizedTitle || 'Blog title preview'
+  const previewExcerpt = formatPreviewExcerpt(normalizedContent) || 'Your post summary will appear here as you write.'
+  const showNoticeBlogLink = notice?.includes('Profile > Blogs')
+  const stateReportPath = (location.state as ReportDraftState | null)?.reportPath ?? null
 
   useEffect(() => {
     getBlogTags()
       .then(setTags)
       .catch(() => {})
   }, [])
+
+  useEffect(() => {
+    if (isEditingBlog || reportDraftApplied.current) return
+    if (tags.length === 0) return
+    const state = location.state as ReportDraftState | null
+    if (state?.template !== 'training' || !state.reportDraft) return
+    const template = blogTemplates.find((item) => item.key === 'training')
+    if (!template) return
+
+    const topicTagId = findTagIdByName(tags, template.topic)
+    const postTypeTagId = findTagIdByName(tags, template.postType)
+    const exerciseName = state.reportDraft.exerciseName?.trim() || 'Training'
+    const content = buildTrainingReportBlogContent(state.reportDraft)
+    setBlog((current) => ({
+      ...current,
+      title: `${exerciseName} Training Report`,
+      content,
+      tag_ids: [topicTagId, postTypeTagId].filter((id): id is number => Boolean(id)),
+      cover_image_url: template.cover,
+      image_urls: []
+    }))
+    setNotice('Training report template applied.')
+    setError(null)
+    reportDraftApplied.current = true
+  }, [isEditingBlog, location.state, tags])
 
   useEffect(() => {
     if (!isEditingBlog || editId == null) return
@@ -155,8 +355,13 @@ export default function BlogEditorPage() {
         uploaded.push(r.cover_image_url)
       }
       setBlog((b) => {
+        const hadUploadedImages = b.image_urls.length > 0
         const image_urls = [...b.image_urls, ...uploaded].slice(0, MAX_BLOG_IMAGES)
-        return { ...b, image_urls, cover_image_url: image_urls[0] ?? b.cover_image_url }
+        return {
+          ...b,
+          image_urls,
+          cover_image_url: hadUploadedImages ? b.cover_image_url : uploaded[0] ?? b.cover_image_url ?? image_urls[0] ?? null,
+        }
       })
       setNotice('Images uploaded')
     } catch (e: unknown) {
@@ -202,7 +407,6 @@ export default function BlogEditorPage() {
         return
       }
       const r = await createBlog({ ...blog, title: normalizedTitle, content: normalizedContent, cover_image_url: selectedCover, image_urls: blog.image_urls })
-      setBlog({ title: '', content: '', tag_ids: [], is_published: false, visibility: 'public', cover_image_url: null, image_urls: [] })
       if (publishNow) {
         navigate(`/blogs/${r.id}`)
         return
@@ -211,6 +415,21 @@ export default function BlogEditorPage() {
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : isEditingBlog ? 'Save failed' : 'Create failed')
     }
+  }
+
+  function applyTemplate(template: (typeof blogTemplates)[number]) {
+    const topicTagId = findTagIdByName(tags, template.topic)
+    const postTypeTagId = findTagIdByName(tags, template.postType)
+    setBlog((current) => ({
+      ...current,
+      title: template.title,
+      content: template.content,
+      tag_ids: [topicTagId, postTypeTagId].filter((id): id is number => Boolean(id)),
+      cover_image_url: template.cover,
+      image_urls: []
+    }))
+    setNotice(`${template.label} template applied.`)
+    setError(null)
   }
 
   const buttonText = isEditingBlog ? 'Save changes' : blog.is_published ? 'Publish' : 'Save Draft'
@@ -246,26 +465,39 @@ export default function BlogEditorPage() {
                 <p className="max-w-2xl text-sm text-slate-600">
                   {blogStatus === 'unpublished'
                     ? 'This post was disabled by an admin. You can edit it here, then request restore from Profile > Blogs.'
-                    : 'Choose one category, a default cover, and write a clear post for the community.'}
+                    : 'Choose a topic and post type, pick a cover, and write a clear post for the community.'}
                 </p>
               </div>
-              <Link to="/blogs" className="profile-btn-secondary">Back to blogs</Link>
+              <div className="blog-editor-head-actions">
+                {stateReportPath ? <Link to={stateReportPath} className="profile-btn-secondary">Open Saved Report</Link> : null}
+                <button type="button" className="profile-btn-secondary" onClick={() => navigate(-1)}>Back</button>
+              </div>
             </div>
           </div>
 
           {error ? <div className="cl_blog-widget mb-30 border-rose-200 bg-rose-50 text-sm text-rose-700">{error}</div> : null}
-          {notice ? (
-            <div className="cl_blog-widget mb-30 border-emerald-200 bg-emerald-50 text-sm text-emerald-700">
-              <span>{notice}</span>
-              <Link to="/profile?tab=Blogs" className="ml-10 font-semibold underline">Open My Blogs</Link>
-            </div>
-          ) : null}
-
           {loading ? <div className="cl_blog-widget mb-30 text-sm text-slate-600">Loading post...</div> : null}
 
           {!loading ? <div className="cl_blog-widget blog-editor-panel mb-0">
             <div className="blog-editor-grid">
               <div className="blog-editor-form">
+                {!isEditingBlog ? (
+                  <div className="blog-template-panel">
+                    <div>
+                      <div className="blog-editor-label">Blog templates</div>
+                      <small>Start with a daily diet or training structure, then edit it freely.</small>
+                    </div>
+                    <div className="blog-template-grid">
+                      {blogTemplates.map((template) => (
+                        <button key={template.key} type="button" className="blog-template-card" onClick={() => applyTemplate(template)}>
+                          <strong>{template.label}</strong>
+                          <span>{template.description}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
                 <label>
                   <span>Title</span>
                   <input
@@ -293,23 +525,40 @@ export default function BlogEditorPage() {
                 </label>
 
                 <div>
-                  <div className="blog-editor-label">Category</div>
-                  <div className="blog-editor-choice-row">
-                    {tags.map((t) => {
-                      const active = blog.tag_ids.includes(t.id)
-                      return (
-                        <button
-                          key={t.id}
-                          type="button"
-                          className={`blog-editor-choice${active ? ' is-active' : ''}`}
-                          onClick={() => setBlog((b) => ({ ...b, tag_ids: [t.id] }))}
-                        >
-                          {displayBlogTagName(t.name)}
-                        </button>
-                      )
-                    })}
+                  <div className="blog-editor-taxonomy-grid">
+                    <div>
+                      <div className="blog-editor-label">Topic <span>*</span></div>
+                      <div className="blog-editor-choice-row">
+                        {topicTags.map((t) => (
+                          <button
+                            key={t.id}
+                            type="button"
+                            className={`blog-editor-choice${selectedTopicTagId === t.id ? ' is-active' : ''}`}
+                            onClick={() => setBlog((b) => ({ ...b, tag_ids: replaceTagGroup(b.tag_ids, tags, TOPIC_TAG_NAMES, t.id) }))}
+                          >
+                            {displayBlogTagName(t.name)}
+                          </button>
+                        ))}
+                      </div>
+                      {!selectedTopicTagId ? <small className="blog-field-error">Choose one topic</small> : null}
+                    </div>
+                    <div>
+                      <div className="blog-editor-label">Post Type <span>*</span></div>
+                      <div className="blog-editor-choice-row">
+                        {postTypeTags.map((t) => (
+                          <button
+                            key={t.id}
+                            type="button"
+                            className={`blog-editor-choice${selectedPostTypeTagId === t.id ? ' is-active' : ''}`}
+                            onClick={() => setBlog((b) => ({ ...b, tag_ids: replaceTagGroup(b.tag_ids, tags, POST_TYPE_TAG_NAMES, t.id) }))}
+                          >
+                            {displayBlogTagName(t.name)}
+                          </button>
+                        ))}
+                      </div>
+                      {!selectedPostTypeTagId ? <small className="blog-field-error">Choose one post type</small> : null}
+                    </div>
                   </div>
-                  {categoryError ? <small className="blog-field-error">{categoryError}</small> : null}
                 </div>
 
                 <div>
@@ -362,29 +611,85 @@ export default function BlogEditorPage() {
               </div>
 
               <aside className="blog-editor-cover">
-                <div className="blog-editor-label">Images</div>
-                <div className="blog-editor-cover-preview">
-                  <img src={resolveMediaUrl(selectedCover) ?? selectedCover} alt="Selected cover preview" />
-                </div>
-                <p>Up to 9 images. First image becomes the cover.</p>
+                <div className="blog-editor-label">Cover and Images</div>
+                <article className="cl_home-blog-card blog-editor-preview-card">
+                  <div className="cl_home-blog-card-media">
+                    <FallbackImage
+                      src={resolveMediaUrl(selectedCover) ?? selectedCover}
+                      fallbackSrc="/assets/images/blog/blog_list-1.png"
+                      alt="Selected cover preview"
+                    />
+                    <HomeBlogTagPills labels={previewTagLabels} fallback="AI FitGuard" />
+                  </div>
+                  <div className="cl_home-blog-card-body">
+                    <h3 className="cl_home-blog-card-title">
+                      <span>{previewTitle}</span>
+                    </h3>
+                    <p className="cl_home-blog-card-excerpt">{previewExcerpt}</p>
+                    <div className="cl_home-blog-card-meta">
+                      <div className="flex items-center gap-2">
+                        <img src="/figma/icon-user.svg" alt="" className="h-3.5 w-3.5" />
+                        <span>You</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <img src="/figma/icon-calendar.svg" alt="" className="h-3.5 w-3.5" />
+                        <span>{formatLongDate(new Date().toISOString())}</span>
+                      </div>
+                    </div>
+                    <div className="mt-auto pt-5">
+                      <span className="blog-theme-btn inline-flex h-10 w-full items-center justify-center rounded-full border border-neutral-900 bg-white px-5 text-sm font-medium text-neutral-900">
+                        Read more
+                      </span>
+                    </div>
+                  </div>
+                </article>
+                <ol className="blog-editor-image-notes">
+                  <li>Choose a default cover or upload up to 9 images.</li>
+                  <li>The first uploaded image becomes the cover automatically.</li>
+                  <li>Click any uploaded image to set it as the cover; use x to remove it.</li>
+                </ol>
                 {blog.image_urls.length ? (
                   <div className="blog-editor-image-grid">
                     {blog.image_urls.map((url, index) => (
-                      <button
+                      <div
                         key={`${url}-${index}`}
-                        type="button"
-                        title="Remove image"
-                        onClick={() => setBlog((b) => {
-                          const image_urls = b.image_urls.filter((_, i) => i !== index)
-                          return { ...b, image_urls, cover_image_url: image_urls[0] ?? null }
-                        })}
+                        className={`blog-editor-image-item${selectedCover === url ? ' is-active' : ''}`}
                       >
-                        <img src={resolveMediaUrl(url) ?? url} alt={`Uploaded image ${index + 1}`} />
-                        <span>{index + 1}</span>
-                      </button>
+                        <button
+                          type="button"
+                          className="blog-editor-image-select"
+                          title="Set as cover"
+                          onClick={() => setBlog((b) => ({ ...b, cover_image_url: url }))}
+                        >
+                          <FallbackImage
+                            src={resolveMediaUrl(url) ?? url}
+                            fallbackSrc="/assets/images/blog/blog_list-1.png"
+                            alt={`Uploaded image ${index + 1}`}
+                          />
+                          <span>{selectedCover === url ? 'Cover' : index + 1}</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="blog-editor-image-remove"
+                          title="Remove image"
+                          aria-label={`Remove uploaded image ${index + 1}`}
+                          onClick={() => setBlog((b) => {
+                            const removedUrl = b.image_urls[index]
+                            const image_urls = b.image_urls.filter((_, i) => i !== index)
+                            const cover_image_url = b.cover_image_url === removedUrl ? image_urls[0] ?? null : b.cover_image_url
+                            return { ...b, image_urls, cover_image_url }
+                          })}
+                        >
+                          x
+                        </button>
+                      </div>
                     ))}
                   </div>
                 ) : null}
+                <div className="blog-editor-cover-section-title">
+                  <span>Default covers</span>
+                  <small>Click one to set the preview cover.</small>
+                </div>
                 <div className="blog-editor-cover-options">
                   {defaultCovers.map((cover) => (
                     <button
@@ -405,7 +710,6 @@ export default function BlogEditorPage() {
                   >
                     {coverUploading ? 'Uploading...' : 'Upload images'}
                   </label>
-                  <span className="blog-editor-upload-hint">Click an image to remove it.</span>
                   <input
                     id="blog-image-upload"
                     type="file"
@@ -424,6 +728,13 @@ export default function BlogEditorPage() {
               </aside>
             </div>
           </div> : null}
+
+          {notice ? (
+            <div className="cl_blog-widget mt-30 mb-0 border-emerald-200 bg-emerald-50 text-sm text-emerald-700">
+              <span>{notice}</span>
+              {showNoticeBlogLink ? <Link to="/profile?tab=Blogs" className="ml-10 font-semibold underline">Open My Blogs</Link> : null}
+            </div>
+          ) : null}
         </div>
       </section>
     </>

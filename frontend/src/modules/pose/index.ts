@@ -13,6 +13,8 @@ export {
   isPoseExerciseSlug
 } from './domain/exercises'
 export { buildTrainingRecordName } from './domain/trainingName'
+export { formatLocalDateTimeMinute } from '../../lib/datetime'
+export { buildPaginationItems } from '../../lib/pagination'
 export { type TrackingState } from './vision/movenetTracker'
 export { type PoseAnalysisReport } from './reporting/types'
 export { type PoseAnalyzerFeedback } from './analyzer/types'

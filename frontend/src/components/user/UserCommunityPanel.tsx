@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { buildPaginationItems } from '../../lib/pagination'
+import { FallbackImage } from '../ui'
 import {
+  buildPaginationItems,
   deleteNotification,
   getMyBlogs,
   getMyComments,
@@ -52,6 +53,16 @@ function validateComment(value: string) {
   if (!text.length) return 'Comment is required'
   if (text.length > COMMENT_MAX_LENGTH) return `Comment must be at most ${COMMENT_MAX_LENGTH} characters`
   return null
+}
+
+function formatBlogExcerptLines(value: string) {
+  return value
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/[ \t\f\v]+/g, ' ').trim())
+    .filter(Boolean)
+    .slice(0, 2)
 }
 
 function Pagination(props: { page: number; total: number; pageSize: number; onPage: (page: number) => void }) {
@@ -343,7 +354,7 @@ export function UserCommunityPanel(props: UserCommunityPanelProps) {
     params.set('tab', 'Blogs')
     if (next === 'notifications') params.set('activity', 'notifications')
     else params.delete('activity')
-    setSearchParams(params)
+    setSearchParams(params, { preventScrollReset: true })
   }
 
   return (
@@ -379,7 +390,7 @@ export function UserCommunityPanel(props: UserCommunityPanelProps) {
               setBlogPage(1)
             }}
           >
-            <input value={blogSearchDraft} onChange={(event) => setBlogSearchDraft(event.target.value)} placeholder="Search blogs" />
+            <input value={blogSearchDraft} onChange={(event) => setBlogSearchDraft(event.target.value)} placeholder="Search blog titles" />
             <select value={blogSort} onChange={(event) => { setBlogSort(event.target.value); setBlogPage(1) }}>
               <option value="updated_at:desc">Recently updated</option>
               <option value="created_at:desc">Newest created</option>
@@ -397,7 +408,11 @@ export function UserCommunityPanel(props: UserCommunityPanelProps) {
             <div key={blog.id} className="profile-blog-card">
               <Link to={`/blogs/${blog.id}`} className="profile-blog-cover">
                 {blog.cover_image_url ? (
-                  <img src={resolveMediaUrl(blog.cover_image_url) ?? ''} alt={`${blog.title} cover`} />
+                  <FallbackImage
+                    src={resolveMediaUrl(blog.cover_image_url)}
+                    fallbackSrc="/assets/images/blog/h2_1.png"
+                    alt={`${blog.title} cover`}
+                  />
                 ) : (
                   <span>No cover</span>
                 )}
@@ -414,7 +429,15 @@ export function UserCommunityPanel(props: UserCommunityPanelProps) {
                   {blog.restore_requested ? <span className="profile-status profile-status--requested">Restore requested</span> : null}
                   <span>{formatDate(blog.updated_at)}</span>
                 </div>
-                {blog.excerpt ? <p className="profile-blog-excerpt">{blog.excerpt}</p> : null}
+                {blog.excerpt ? (
+                  <p className="profile-blog-excerpt">
+                    {formatBlogExcerptLines(blog.excerpt).map((line, index) => (
+                      <span className="profile-blog-excerpt-line" key={`${blog.id}-excerpt-${index}`}>
+                        {line}
+                      </span>
+                    ))}
+                  </p>
+                ) : null}
               </div>
               <div className="profile-blog-actions">
                 <Link className="profile-btn-chip" to={`/blogs/${blog.id}`}>View</Link>
@@ -494,7 +517,11 @@ export function UserCommunityPanel(props: UserCommunityPanelProps) {
                   <div key={group.blog.id} className="profile-comment-group">
                     <button type="button" className="profile-comment-group-head" onClick={() => toggleComments(group.blog.id)}>
                       <div className="profile-comment-cover">
-                        {group.blog.cover_image_url ? <img src={resolveMediaUrl(group.blog.cover_image_url) ?? ''} alt="" /> : <span>No cover</span>}
+                        {group.blog.cover_image_url ? (
+                          <FallbackImage src={resolveMediaUrl(group.blog.cover_image_url)} fallbackSrc="/assets/images/blog/h2_2.png" alt="" />
+                        ) : (
+                          <span>No cover</span>
+                        )}
                       </div>
                       <div className="profile-comment-group-main">
                         <span className="profile-comment-blog-title">{group.blog.title}</span>

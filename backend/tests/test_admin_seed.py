@@ -5,6 +5,7 @@ from app import create_app
 from app.config import Config
 from app.extensions import db
 from app.models import User
+from app.utils.privacy import privacy_hash
 
 
 def test_admin_email_seed_promotes_existing_user():
@@ -30,7 +31,7 @@ def test_admin_email_seed_promotes_existing_user():
 
         app2 = create_app(Cfg)
         with app2.app_context():
-            u2 = User.query.filter_by(email=Cfg.ADMIN_EMAIL).first()
+            u2 = User.query.filter_by(email_hash=privacy_hash(Cfg.ADMIN_EMAIL)).first()
             assert u2 is not None
             assert u2.is_admin is True
             db.session.remove()

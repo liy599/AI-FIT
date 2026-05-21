@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import hmac
 from typing import Any
 
 from flask import current_app
@@ -27,9 +28,13 @@ def _get_key_bytes() -> bytes:
                 return key
         except Exception:
             pass
+        raise RuntimeError("DATA_ENCRYPTION_KEY must be a valid Fernet key")
 
-    # Fallback: derive an app-local key from SECRET_KEY so production can encrypt
-    # without extra setup. Teams can override with DATA_ENCRYPTION_KEY.
+    if str(current_app.config.get("APP_ENV", "")).lower() == "production":
+        raise RuntimeError("production requires DATA_ENCRYPTION_KEY for privacy encryption")
+
+    # Non-production fallback keeps local development and tests runnable while
+    # still storing ciphertext instead of plaintext.
     secret = (current_app.config.get("SECRET_KEY") or "").encode("utf-8")
     digest = hashlib.sha256(secret + b":data-encryption:v1").digest()
     return base64.urlsafe_b64encode(digest)
@@ -37,7 +42,7 @@ def _get_key_bytes() -> bytes:
 
 def _get_fernet() -> Fernet | None:
     if Fernet is None:
-        return None
+        raise RuntimeError("cryptography is required for privacy encryption")
     return Fernet(_get_key_bytes())
 
 
@@ -45,8 +50,6 @@ def encrypt_text(value: str | None) -> str | None:
     if value is None:
         return None
     f = _get_fernet()
-    if f is None:
-        return value
     token = f.encrypt(value.encode("utf-8")).decode("utf-8")
     return f"{_ENC_PREFIX}{token}"
 
@@ -57,8 +60,6 @@ def decrypt_text(value: str | None) -> str | None:
     if not value.startswith(_ENC_PREFIX):
         return value
     f = _get_fernet()
-    if f is None:
-        return None
     token = value[len(_ENC_PREFIX) :]
     try:
         return f.decrypt(token.encode("utf-8")).decode("utf-8")
@@ -80,6 +81,12 @@ def mask_email(email: str | None) -> str | None:
     else:
         masked_local = f"{local[0]}***{local[-1]}"
     return f"{masked_local}@{domain}"
+
+
+def privacy_hash(value: str | None) -> str:
+    text = (value or "").strip().lower()
+    key = (_get_key_bytes() + b":lookup:v1")
+    return hmac.new(key, text.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
 def _sanitize_json(value: Any) -> Any:

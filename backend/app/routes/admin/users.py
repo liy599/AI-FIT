@@ -8,8 +8,10 @@ from flask_jwt_extended import jwt_required
 from sqlalchemy import or_
 
 from ...extensions import db
-from ...models import Blog, BlogLike, BlogView, Comment, CommentLike, CourseCommentLike, Notification, User
+from ...models import Blog, BlogLike, BlogView, Comment, CommentLike, Notification, User
+from ...utils.audit import record_audit
 from ...utils.pagination import parse_pagination
+from ...utils.privacy import privacy_hash
 from ...utils.upload_access import resolve_upload_file_path
 from .lifecycle import _admin_guard
 
@@ -25,10 +27,13 @@ def list_users():
 
     page, page_size = parse_pagination(request.args, default_page_size=20, max_page_size=50)
 
-    q = db.session.query(User.id, User.username, User.email, User.created_at, User.is_admin, User.is_disabled)
+    q = User.query
     query_text = (request.args.get("q") or "").strip()
     if query_text:
-        q = q.filter(or_(User.username.ilike(f"%{query_text}%"), User.email.ilike(f"%{query_text}%")))
+        filters = [User.username.ilike(f"%{query_text}%")]
+        if "@" in query_text:
+            filters.append(User.email_hash == privacy_hash(query_text))
+        q = q.filter(or_(*filters))
     admin_filter = _parse_bool_query("is_admin")
     if admin_filter is not None:
         q = q.filter(User.is_admin.is_(admin_filter))
@@ -75,12 +80,26 @@ def update_user(user_id: int):
         if user.id == current_user.id and not next_is_admin:
             return jsonify({"error": "cannot remove your own admin access"}), 400
         user.is_admin = next_is_admin
+        record_audit(
+            actor_user_id=current_user.id,
+            action="admin.user.set_admin",
+            target_type="user",
+            target_id=user.id,
+            metadata={"is_admin": next_is_admin},
+        )
 
     if "is_disabled" in data:
         next_is_disabled = bool(data.get("is_disabled"))
         if user.id == current_user.id and next_is_disabled:
             return jsonify({"error": "cannot disable your own account"}), 400
         user.is_disabled = next_is_disabled
+        record_audit(
+            actor_user_id=current_user.id,
+            action="admin.user.set_disabled",
+            target_type="user",
+            target_id=user.id,
+            metadata={"is_disabled": next_is_disabled},
+        )
 
     db.session.commit()
     return jsonify(_admin_user_payload(user))
@@ -110,6 +129,13 @@ def delete_user(user_id: int):
 
     upload_paths = _user_upload_file_paths(user)
     _delete_user_associations(user)
+    record_audit(
+        actor_user_id=current_user.id,
+        action="admin.user.delete",
+        target_type="user",
+        target_id=user.id,
+        metadata={"username": user.username},
+    )
     db.session.delete(user)
     db.session.commit()
     _remove_upload_files(upload_paths)
@@ -119,13 +145,20 @@ def delete_user(user_id: int):
 @bp.get("/users/<int:user_id>/contact")
 @jwt_required()
 def get_user_contact(user_id: int):
-    allowed, _ = _admin_guard()
-    if not allowed:
+    allowed, current_user = _admin_guard()
+    if not allowed or current_user is None:
         return jsonify({"error": "forbidden"}), 403
 
     user = db.session.get(User, user_id)
     if user is None:
         return jsonify({"error": "not found"}), 404
+    record_audit(
+        actor_user_id=current_user.id,
+        action="admin.user.reveal_contact",
+        target_type="user",
+        target_id=user.id,
+    )
+    db.session.commit()
     return jsonify({"id": user.id, "email": user.email})
 
 
@@ -178,7 +211,6 @@ def _delete_user_associations(user: User) -> None:
     db.session.query(Notification).filter(or_(*notification_filters)).delete(synchronize_session=False)
     db.session.query(BlogLike).filter(BlogLike.user_id == user.id).delete(synchronize_session=False)
     db.session.query(CommentLike).filter(CommentLike.user_id == user.id).delete(synchronize_session=False)
-    db.session.query(CourseCommentLike).filter(CourseCommentLike.user_id == user.id).delete(synchronize_session=False)
     db.session.query(BlogView).filter(BlogView.viewer_key == f"user:{user.id}").delete(synchronize_session=False)
 
 

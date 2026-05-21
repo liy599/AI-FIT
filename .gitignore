@@ -24,6 +24,7 @@ htmlcov/
 *.log
 
 backend/instance/*.db
+backend/instance/*.db-journal
 backend/instance/uploads/
 
 frontend/node_modules/

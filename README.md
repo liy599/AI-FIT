@@ -1,142 +1,83 @@
 # AI-FIT
 
-AI-FIT 是一个前后端分离的健身与营养应用。
+AI-FIT 是一个前后端分离的健身应用，当前核心功能包括账号体系、个人资料、训练记录、博客社区、后台管理和浏览器端姿态训练工具。
+
+## 技术栈
 
 - 前端：React + TypeScript + Vite
-- 后端：Flask + SQLAlchemy
+- 后端：Flask + SQLAlchemy + Alembic
 - 数据库：PostgreSQL
-- 可选组件：Redis（分布式限流）、AI 服务集成
+- 可选组件：Redis，用于分布式限流等生产能力
 
-## 1. 你的问题（直接回答）
+## 目录结构
 
-本地调试仍然可以使用这条命令：
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\dev.ps1
-```
-
-当前脚本路径：
-
-- `scripts/dev.ps1`
-
-## 2. 项目目录说明
-
-- `frontend/`：前端 UI、浏览器端姿态推理、交互逻辑
-- `backend/`：鉴权、策略下发、数据持久化、可选服务端推理队列
+- `frontend/`：前端页面、组件、业务模块、浏览器端交互逻辑
+- `backend/`：后端 API、认证授权、数据持久化、迁移和测试
 - `scripts/`：本地开发脚本
-- `backend/doc/`：后端架构/配置/安全/运维文档
-- `frontend/doc/`：前端架构治理与重构追踪文档
+- `info/`：需求、审查、治理和阶段性文档
+- `backend/doc/`：后端架构、配置、安全和运维文档
+- `frontend/doc/`：前端架构治理和重构记录
 
-## 3. 本地开发（推荐）
+## 本地开发
 
-### 3.1 前置依赖
-
-- Python 3.10+
-- Node.js 18+
-- Docker Desktop（推荐用于本地 PostgreSQL/Redis）
-
-### 3.2 一键启动
-
-在仓库根目录执行：
+推荐在仓库根目录执行：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\dev.ps1
 ```
 
-该脚本通常会：
+该脚本会准备后端虚拟环境、安装前端依赖，并启动本地开发服务。
 
-- 准备后端虚拟环境并安装依赖
-- 安装前端依赖
-- 启动本地基础服务（如 Docker 中的数据库）
-- 启动前后端开发服务
-
-### 3.3 手动启动（需要时）
-
-1. 启动数据库（和 Redis）：
+也可以手动启动：
 
 ```powershell
 docker compose up -d db redis
-```
 
-2. 启动后端：
-
-```powershell
 cd .\backend
 Copy-Item .\.env.example .\.env -ErrorAction SilentlyContinue
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe run.py
-```
 
-3. 启动前端：
-
-```powershell
-cd .\frontend
+cd ..\frontend
 Copy-Item .\.env.example .\.env -ErrorAction SilentlyContinue
 npm.cmd install
 npm.cmd run dev
 ```
 
-## 4. 本地访问地址
+## 常用地址
 
 - 前端：`http://localhost:5173`
 - 后端健康检查：`http://127.0.0.1:5000/api/health`
 
-## 5. 配置说明
+## 配置
 
-### 5.1 后端环境变量
+后端配置模板：
 
-参考：
+- `backend/.env.example`
+- `backend/.env.production.example`
 
-- 本地模板：`backend/.env.example`
-- 生产模板：`backend/.env.production.example`
+前端配置模板：
 
-关键项：
+- `frontend/.env.example`
 
-- `APP_ENV`（`development` / `production`）
-- `DB_AUTO_INIT`
-- `SECRET_KEY`、`JWT_SECRET_KEY`
-- `DATABASE_URL`
-- `CORS_ORIGINS`
-- `ADMIN_EMAIL`
-- `REDIS_URL`
+生产环境需要显式配置强密钥、`DATABASE_URL`、`CORS_ORIGINS`、`REDIS_URL` 和邮件相关配置。发布前应执行数据库迁移，不依赖运行时自动建表。
 
-### 5.2 前端环境变量
-
-参考 `frontend/.env.example`，重点：
-
-- `VITE_API_BASE`
-
-## 6. 数据库迁移流程（生产级）
-
-当前已采用迁移优先流程。  
-生产环境不要依赖运行时自动建表。
-
-常用命令：
+## 数据库迁移
 
 ```powershell
 cd .\backend
-.\.venv\Scripts\flask.exe --app run.py db migrate -m "描述本次变更"
 .\.venv\Scripts\flask.exe --app run.py db upgrade
 ```
 
-迁移目录：
+新增迁移时：
 
-- `backend/migrations/`
+```powershell
+cd .\backend
+.\.venv\Scripts\flask.exe --app run.py db migrate -m "describe change"
+```
 
-## 7. 生产部署要点
-
-- 必须使用强密钥，不能用默认值
-- 保持 `PASSWORD_RESET_DEBUG_RETURN_LINK=0`
-- 必须显式配置 `CORS_ORIGINS`
-- 必须配置 `REDIS_URL`（分布式限流）
-- 每次发布后端前先执行 `db upgrade`
-
-完整部署指引见：
-
-- `DEPLOYMENT_SERVER_GUIDE_2026-05-02.md`
-
-## 8. 质量检查
+## 质量检查
 
 前端类型检查：
 
@@ -145,10 +86,16 @@ cd .\frontend
 npm.cmd run typecheck
 ```
 
+前端边界检查：
+
+```powershell
+cd .\frontend
+npm.cmd run lint:boundaries
+```
+
 后端测试：
 
 ```powershell
 cd .\backend
 .\.venv\Scripts\pytest.exe -q
 ```
-

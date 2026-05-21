@@ -1,4 +1,6 @@
 import { apiFetch, apiUpload, resolveBackendUrl } from '../../lib/api'
+export { formatLocalDateTimeMinute } from '../../lib/datetime'
+export { buildPaginationItems } from '../../lib/pagination'
 
 export type BlogTag = { id: number; name: string }
 export type BlogAuthor = { id: number; username: string; avatar_url?: string | null }
@@ -65,20 +67,25 @@ export function displayBlogTagName(name: string) {
     'Fitness Tips': 'Training',
     'Training Plan': 'Training',
     Rehab: 'Other',
+    Log: 'Record',
+    Record: 'Record',
+    Experience: 'Experience',
   }
   return aliases[name] ?? name
 }
 
-export function getBlogs(params: { page?: number; page_size?: number; auth?: boolean; sort_by?: string; sort_dir?: 'asc' | 'desc' } = {}) {
+export function getBlogs(params: { page?: number; page_size?: number; cursor?: string; auth?: boolean; sort_by?: string; sort_dir?: 'asc' | 'desc'; type?: 'Record' | 'Experience' } = {}) {
   const page = params.page ?? 1
   const pageSize = params.page_size ?? 20
   const auth = params.auth ?? true
   const query = new URLSearchParams()
   query.set('page', String(page))
   query.set('page_size', String(pageSize))
+  if (params.cursor) query.set('cursor', params.cursor)
   if (params.sort_by) query.set('sort_by', params.sort_by)
   if (params.sort_dir) query.set('sort_dir', params.sort_dir)
-  return apiFetch<{ items: BlogCard[] }>(`/api/blogs?${query.toString()}`, { auth })
+  if (params.type) query.set('type', params.type)
+  return apiFetch<{ items: BlogCard[]; page: number; page_size: number; total: number; next_cursor?: string | null }>(`/api/blogs?${query.toString()}`, { auth })
 }
 
 export function getBlogTags() {
@@ -86,7 +93,7 @@ export function getBlogTags() {
 }
 
 export function queryBlogs(queryString: string) {
-  return apiFetch<{ items: BlogCard[]; total: number }>(`/api/blogs?${queryString}`, { auth: false })
+  return apiFetch<{ items: BlogCard[]; total: number; next_cursor?: string | null }>(`/api/blogs?${queryString}`, { auth: false })
 }
 
 export function getBlogDetail(id: number, options: { countView?: boolean } = {}) {
@@ -98,8 +105,12 @@ export function toggleBlogLike(id: number) {
   return apiFetch(`/api/blogs/${id}/like`, { method: 'POST' })
 }
 
-export function getBlogComments(blogId: number, page = 1, pageSize = 20) {
-  return apiFetch<{ items: CommentNode[]; page: number; page_size: number; total: number }>(`/api/blogs/${blogId}/comments?page=${page}&page_size=${pageSize}`)
+export function getBlogComments(blogId: number, page = 1, pageSize = 20, cursor?: string) {
+  const query = new URLSearchParams()
+  query.set('page', String(page))
+  query.set('page_size', String(pageSize))
+  if (cursor) query.set('cursor', cursor)
+  return apiFetch<{ items: CommentNode[]; page: number; page_size: number; total: number; next_cursor?: string | null }>(`/api/blogs/${blogId}/comments?${query.toString()}`)
 }
 
 export function createBlogComment(blogId: number, input: { content: string; parent_id?: number }) {

@@ -1,4 +1,5 @@
 import type { RefObject } from 'react'
+import { HEIGHT_MAX_CM, HEIGHT_MIN_CM, WEIGHT_MAX_KG, WEIGHT_MIN_KG } from '../../modules/user/profileLimits'
 import type { ProfileEditState, UserProfile } from '../../modules/user/profileTypes'
 
 type ProfileDetailsPanelProps = {
@@ -100,18 +101,36 @@ export function ProfileDetailsPanel(props: ProfileDetailsPanelProps) {
             <option value="Female">Female</option>
             <option value="Other">Other</option>
           </select>
-          <input
-            className="profile-input"
-            placeholder="Height (cm)"
-            value={edit.height}
-            onChange={(e) => onEditChange({ ...edit, height: e.target.value })}
-          />
-          <input
-            className="profile-input"
-            placeholder="Weight (kg)"
-            value={edit.weight}
-            onChange={(e) => onEditChange({ ...edit, weight: e.target.value })}
-          />
+          <label className="profile-inline-field">
+            <span>Height (cm)</span>
+            <input
+              className="profile-input"
+              type="number"
+              inputMode="decimal"
+              min={HEIGHT_MIN_CM}
+              max={HEIGHT_MAX_CM}
+              step="0.1"
+              placeholder="e.g. 175"
+              value={edit.height}
+              onChange={(e) => onEditChange({ ...edit, height: e.target.value })}
+            />
+            <small>Range: {HEIGHT_MIN_CM}-{HEIGHT_MAX_CM} cm</small>
+          </label>
+          <label className="profile-inline-field">
+            <span>Weight (kg)</span>
+            <input
+              className="profile-input"
+              type="number"
+              inputMode="decimal"
+              min={WEIGHT_MIN_KG}
+              max={WEIGHT_MAX_KG}
+              step="0.1"
+              placeholder="e.g. 70"
+              value={edit.weight}
+              onChange={(e) => onEditChange({ ...edit, weight: e.target.value })}
+            />
+            <small>Range: {WEIGHT_MIN_KG}-{WEIGHT_MAX_KG} kg</small>
+          </label>
           <select
             className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/10"
             value={edit.fitness_goal}

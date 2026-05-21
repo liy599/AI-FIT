@@ -14,32 +14,39 @@ export default defineConfig({
          * Splits large dependencies (especially TensorFlow) into separate bundles.
          */
         manualChunks(id: string) {
+          const normalizedId = id.replace(/\\/g, '/')
 
           // Only process third-party dependencies
-          if (id.includes('node_modules')) {
+          if (normalizedId.includes('node_modules')) {
 
             // TensorFlow core (math engine)
-            if (id.includes('@tensorflow/tfjs-core')) {
+            if (normalizedId.includes('@tensorflow/tfjs-core')) {
               return 'vendor-tf-core'
             }
 
             // TensorFlow model converter (load/convert models)
-            if (id.includes('@tensorflow/tfjs-converter')) {
+            if (normalizedId.includes('@tensorflow/tfjs-converter')) {
               return 'vendor-tf-converter'
             }
 
-            // TensorFlow backend (CPU / WebGL execution)
-            if (id.includes('@tensorflow/tfjs-backend')) {
-              return 'vendor-tf-backend'
+            // TensorFlow backends are loaded only by the pose tool and split by runtime.
+            if (normalizedId.includes('@tensorflow/tfjs-backend-webgl')) {
+              return 'vendor-tf-backend-webgl'
+            }
+            if (normalizedId.includes('@tensorflow/tfjs-backend-cpu')) {
+              return 'vendor-tf-backend-cpu'
+            }
+            if (normalizedId.includes('@tensorflow/tfjs-backend')) {
+              return 'vendor-tf-backend-shared'
             }
 
             // Pose detection library (AI body tracking)
-            if (id.includes('pose-detection')) {
+            if (normalizedId.includes('pose-detection')) {
               return 'vendor-pose-detection'
             }
 
             // Other TensorFlow-related packages
-            if (id.includes('@tensorflow')) {
+            if (normalizedId.includes('@tensorflow')) {
               return 'vendor-tfjs'
             }
           }
@@ -48,7 +55,8 @@ export default defineConfig({
           return undefined
         }
       }
-    }
+    },
+    chunkSizeWarningLimit: 600
   },
 
   // Development server configuration

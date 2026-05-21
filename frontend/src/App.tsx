@@ -76,13 +76,22 @@ type AppRoute = {
   path: string
   element: ReactNode
   guard?: GuardMode
+  guestOnly?: boolean
 }
 
 // Apply route guards in a single place for consistency
 function applyGuard(route: AppRoute) {
+  if (route.guestOnly) return <RequireGuest>{route.element}</RequireGuest>
   if (route.guard === 'auth') return <RequireAuth>{route.element}</RequireAuth>
   if (route.guard === 'admin') return <RequireAdmin>{route.element}</RequireAdmin>
   return route.element
+}
+
+// Route guard: logged-in users should not revisit login/register pages
+function RequireGuest({ children }: { children: ReactNode }) {
+  const auth = useAuth()
+  if (auth.user) return <Navigate to="/profile" replace />
+  return children
 }
 
 // Route registry: grouped by business module for maintainability
@@ -119,8 +128,8 @@ const adminRoutes: AppRoute[] = [
 ]
 
 const authRoutes: AppRoute[] = [
-  { path: '/login', element: <LoginPage /> },
-  { path: '/register', element: <RegisterPage /> },
+  { path: '/login', element: <LoginPage />, guestOnly: true },
+  { path: '/register', element: <RegisterPage />, guestOnly: true },
   { path: '/reset-password', element: <ResetPasswordPage /> },
   { path: '/verify-email', element: <VerifyEmailPage /> }
 ]

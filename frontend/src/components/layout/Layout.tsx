@@ -49,12 +49,12 @@ export default function Layout(props: { children: ReactNode }) {
     content.removeAttribute('inert')
   }, [overlayOpen])
 
-  // Reset UI state when route changes
+  // Reset UI state when the page path changes. Query changes are often in-page filters/tabs.
   useEffect(() => {
     setMobileOpen(false)
     setSearchOpen(false)
     window.scrollTo({ top: 0 })
-  }, [loc.pathname, loc.search])
+  }, [loc.pathname])
 
   // Handle ESC key to close dialogs
   useEffect(() => {

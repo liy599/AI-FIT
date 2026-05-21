@@ -7,7 +7,7 @@ from ...models import Tag
 
 bp = Blueprint("tags", __name__)
 
-BLOG_TAGS = ("Diet", "Training", "Other")
+BLOG_TAGS = ("Diet", "Training", "Record", "Experience")
 
 
 @bp.get("")
@@ -29,6 +29,6 @@ def list_tags():
 
     tags = [existing[name] for name in BLOG_TAGS]
     response = jsonify([{"id": t.id, "name": t.name} for t in tags])
-    response.headers["Cache-Control"] = "public, max-age=300"
+    response.headers["Cache-Control"] = "public, max-age=30"
     return response
 

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { API_BASE, getMyProfile, resolveBackendUrl, updateMyProfile, uploadMyAvatar } from '../../modules/user'
 import { useAuth } from '../../state/auth-context'
+import { HEIGHT_MAX_CM, HEIGHT_MIN_CM, WEIGHT_MAX_KG, WEIGHT_MIN_KG, validateHeightCm, validateWeightKg } from '../../modules/user/profileLimits'
 import type { UserProfile } from '../../modules/user/profileTypes'
 
 const defaultAvatarImage = '/assets/images/bg/default.jpg'
@@ -81,20 +82,20 @@ export default function ProfileOnboardingPage() {
       if (gender) payload.gender = gender
       if (fitnessGoal) payload.fitness_goal = fitnessGoal
       if (height.trim()) {
-        const h = Number(height)
-        if (!Number.isFinite(h) || h < 50 || h > 260) {
-          setError('Invalid height')
+        const result = validateHeightCm(height)
+        if (result.error) {
+          setError(result.error)
           return
         }
-        payload.height = h
+        payload.height = result.value
       }
       if (weight.trim()) {
-        const w = Number(weight)
-        if (!Number.isFinite(w) || w < 20 || w > 400) {
-          setError('Invalid weight')
+        const result = validateWeightKg(weight)
+        if (result.error) {
+          setError(result.error)
           return
         }
-        payload.weight = w
+        payload.weight = result.value
       }
 
       setBusy(true)
@@ -140,7 +141,6 @@ export default function ProfileOnboardingPage() {
             <div className="page-col-auth">
               <div className="cl_blog_details-reply">
                 <h3 className="cl_blog_details-reply-title">Complete your profile</h3>
-                <p>Optional. You can skip now and edit later in Profile.</p>
                 <form
                   action="#"
                   noValidate
@@ -149,7 +149,7 @@ export default function ProfileOnboardingPage() {
                     save().catch(() => {})
                   }}
                 >
-                  <div className="auth-form-grid">
+                  <div className="auth-form-grid auth-onboard-form-grid">
                     <div>
                       <div className="cl_blog_details-reply-item auth-onboard-avatar-preview">
                         <label>Avatar (optional)</label>
@@ -185,7 +185,9 @@ export default function ProfileOnboardingPage() {
                       <div className="cl_blog_details-reply-item">
                         <label htmlFor="gender">Gender</label>
                         <select id="gender" value={gender} onChange={(e) => setGender(e.target.value)} disabled={locked}>
-                          <option value="">Prefer not to say</option>
+                          <option value="" disabled>
+                            Select gender
+                          </option>
                           <option value="Male">Male</option>
                           <option value="Female">Female</option>
                           <option value="Other">Other</option>
@@ -209,21 +211,33 @@ export default function ProfileOnboardingPage() {
                         <label htmlFor="height">Height (cm)</label>
                         <input
                           id="height"
-                          inputMode="numeric"
+                          type="number"
+                          inputMode="decimal"
+                          min={HEIGHT_MIN_CM}
+                          max={HEIGHT_MAX_CM}
+                          step="0.1"
+                          placeholder="e.g. 175"
                           value={height}
                           onChange={(e) => setHeight(e.target.value)}
                           disabled={locked}
                         />
+                        <small>Range: {HEIGHT_MIN_CM}-{HEIGHT_MAX_CM} cm</small>
                       </div>
                       <div className="cl_blog_details-reply-item">
                         <label htmlFor="weight">Weight (kg)</label>
                         <input
                           id="weight"
-                          inputMode="numeric"
+                          type="number"
+                          inputMode="decimal"
+                          min={WEIGHT_MIN_KG}
+                          max={WEIGHT_MAX_KG}
+                          step="0.1"
+                          placeholder="e.g. 70"
                           value={weight}
                           onChange={(e) => setWeight(e.target.value)}
                           disabled={locked}
                         />
+                        <small>Range: {WEIGHT_MIN_KG}-{WEIGHT_MAX_KG} kg</small>
                       </div>
                     </div>
 

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { PasswordField } from '../../components/ui'
 import { loginByPassword } from '../../modules/user'
 import { useAuth } from '../../state/auth-context'
 
@@ -53,12 +54,12 @@ export default function LoginPage() {
     setError(null)
     setNotice(null)
     const normalizedEmail = email.trim().toLowerCase()
-    if (!normalizedEmail) {
-      setError('Email is required.')
+    if (normalizedEmail && !isValidEmail(normalizedEmail)) {
+      setError('Invalid email format.')
       return
     }
-    if (!isValidEmail(normalizedEmail)) {
-      setError('Invalid email format.')
+    if (!normalizedEmail) {
+      nav('/reset-password', { replace: true })
       return
     }
     const q = new URLSearchParams()
@@ -68,31 +69,12 @@ export default function LoginPage() {
 
   return (
     <>
-      <section className="cl_breadcrumb-area brand-page-theme">
-        <div className="cl_breadcrumb-wrap brand-page-hero" data-background="/assets/images/bg/breadcrumb.png">
-          <div className="page-container">
-            <div className="page-row-center">
-              <div className="page-col-breadcrumb">
-                <div className="cl_breadcrumb-content">
-                  <h2 className="cl_breadcrumb-content-title">Login</h2>
-                  <div className="cl_breadcrumb-content-list">
-                    <Link to="/">Home</Link>
-                    <span>Login</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="pt-100 pb-100 brand-page-body auth-page-body">
+      <section className="pt-100 pb-100 brand-page-body auth-page-body auth-primary-page">
         <div className="page-container">
           <div className="page-row-center">
             <div className="page-col-auth">
               <div className="cl_blog_details-reply">
                 <h3 className="cl_blog_details-reply-title">Sign in</h3>
-                <p>Sign in with your email and password (after signing in you can access your profile and more).</p>
                 {reason === 'session_expired' ? (
                   <div className="cl_blog-widget cl_auth-alert cl_auth-alert--notice mb-30">
                     Your session has expired. Please sign in again.
@@ -127,8 +109,7 @@ export default function LoginPage() {
                         <label htmlFor="password">
                           Password<span>*</span>
                         </label>
-                        <input
-                          type="password"
+                        <PasswordField
                           id="password"
                           required
                           autoComplete="current-password"

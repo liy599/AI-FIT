@@ -3,7 +3,9 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   API_BASE,
   deleteMyAccount,
+  formatLocalDateTimeMinute,
   getMyProfile,
+  parseApiDate,
   resolveBackendUrl,
   updateMyProfile,
   uploadMyAvatar
@@ -17,6 +19,7 @@ import {
 import { deleteBlogById, deleteComment as deleteBlogComment, resolveBlogMediaUrl, updateBlog } from '../../modules/blog'
 import { useAuth } from '../../state/auth-context'
 import type { MyBlog, ProfileEditState, UserProfile } from '../../modules/user/profileTypes'
+import { validateHeightCm, validateWeightKg } from '../../modules/user/profileLimits'
 import { formatYmdLocal, pad2, startOfWeek } from '../../modules/user/profileDate'
 import { ProfileDetailsPanel } from '../../components/user/ProfileDetailsPanel'
 import { UserCommunityPanel } from '../../components/user/UserCommunityPanel'
@@ -56,6 +59,9 @@ export default function ProfilePage() {
   const [poseWeekSessions, setPoseWeekSessions] = useState<PoseTrainingSession[]>([])
   const [poseWeekLoading, setPoseWeekLoading] = useState(false)
   const [poseWeekError, setPoseWeekError] = useState<string | null>(null)
+  const [poseYearSessions, setPoseYearSessions] = useState<PoseTrainingSession[]>([])
+  const [poseYearLoading, setPoseYearLoading] = useState(false)
+  const [poseYearError, setPoseYearError] = useState<string | null>(null)
   const [poseReloadKey, setPoseReloadKey] = useState(0)
 
   const [edit, setEdit] = useState<ProfileEditState | null>(null)
@@ -64,7 +70,9 @@ export default function ProfilePage() {
   const poseSessionsByDay = useMemo(() => {
     const map = new Map<string, PoseTrainingSession[]>()
     for (const session of poseSessions) {
-      const key = formatYmdLocal(new Date(session.started_at))
+      const date = parseApiDate(session.started_at)
+      if (!date) continue
+      const key = formatYmdLocal(date)
       const prev = map.get(key)
       if (prev) prev.push(session)
       else map.set(key, [session])
@@ -191,6 +199,42 @@ export default function ProfilePage() {
     }
   }, [tab, poseReloadKey])
 
+  useEffect(() => {
+    if (tab !== 'Dashboard') return
+    const now = new Date()
+    const year = now.getFullYear()
+    const dateFrom = `${year - 4}-01-01`
+    const dateTo = `${year}-12-31`
+
+    let active = true
+    setPoseYearLoading(true)
+    setPoseYearError(null)
+    ;(async () => {
+      let page = 1
+      const page_size = 100
+      let all: PoseTrainingSession[] = []
+      while (true) {
+        const r = await listPoseTrainings({ page, page_size, date_from: dateFrom, date_to: dateTo })
+        all = all.concat(r.items)
+        if (all.length >= r.total) break
+        page += 1
+        if (page > 100) break
+      }
+      if (!active) return
+      setPoseYearSessions(all)
+      setPoseYearLoading(false)
+      setPoseYearError(null)
+    })().catch((e: unknown) => {
+      if (!active) return
+      setPoseYearLoading(false)
+      setPoseYearError(e instanceof Error ? e.message : 'Failed to load yearly stats')
+    })
+
+    return () => {
+      active = false
+    }
+  }, [tab, poseReloadKey])
+
   const latestPoseSession = poseRecentSessions[0] ?? null
   const latestPoseExerciseType = latestPoseSession?.sets[0]?.exercise_type ?? null
   const latestPoseExercise = getPoseExerciseByType(latestPoseExerciseType)
@@ -283,22 +327,22 @@ export default function ProfilePage() {
 
       let nextHeight: number | null = null
       if (edit.height) {
-        const h = Number(edit.height)
-        if (!Number.isFinite(h) || h < 50 || h > 260) {
-          setError('Invalid height')
+        const result = validateHeightCm(edit.height)
+        if (result.error) {
+          setError(result.error)
           return
         }
-        nextHeight = h
+        nextHeight = result.value
       }
 
       let nextWeight: number | null = null
       if (edit.weight) {
-        const w = Number(edit.weight)
-        if (!Number.isFinite(w) || w < 20 || w > 400) {
-          setError('Invalid weight')
+        const result = validateWeightKg(edit.weight)
+        if (result.error) {
+          setError(result.error)
           return
         }
-        nextWeight = w
+        nextWeight = result.value
       }
 
       const p = await updateMyProfile<UserProfile>({
@@ -377,7 +421,7 @@ export default function ProfilePage() {
   }
 
   async function deletePoseSession(session: PoseTrainingSession) {
-    const label = session.note?.trim() || new Date(session.started_at).toLocaleString()
+    const label = session.note?.trim() || formatLocalDateTimeMinute(session.started_at)
     const confirmed = window.confirm(`Delete report "${label}"? This cannot be undone.`)
     if (!confirmed) {
       setError('Delete cancelled: report deletion requires confirmation.')
@@ -415,8 +459,8 @@ export default function ProfilePage() {
       <div className="profile-section-switch">
         {(
           [
-            { key: 'Dashboard', label: 'Exercise', detail: 'Training history, pose reports, and weekly activity.', icon: 'fa-light fa-calendar' },
-            { key: 'Blogs', label: 'Blogs', detail: 'Posts, comments, and community notifications.', icon: 'fa-light fa-pen' }
+            { key: 'Dashboard', label: 'Training Records', detail: 'Pose analyses, saved reports, and blog-ready training insights.', icon: 'fa-light fa-calendar' },
+            { key: 'Blogs', label: 'Blog Management', detail: 'Records, experience posts, comments, and notifications.', icon: 'fa-light fa-pen' }
           ] as const
         ).map((t) => (
           <button
@@ -456,6 +500,9 @@ export default function ProfilePage() {
           poseWeekLoading={poseWeekLoading}
           poseWeekError={poseWeekError}
           poseSummary={poseSummary}
+          poseYearSessions={poseYearSessions}
+          poseYearLoading={poseYearLoading}
+          poseYearError={poseYearError}
           latestPoseSession={latestPoseSession}
           latestPoseExerciseName={latestPoseExercise.displayName}
           onReload={() => setPoseReloadKey((k) => k + 1)}

@@ -72,6 +72,17 @@ For local development, use debug-return flags instead of real SMTP credentials.
 - `UPLOAD_PUBLIC_PREFIXES`: comma-separated upload prefixes that can be served publicly, default `avatars,blog_covers`.
 - `UPLOAD_SIGNED_URL_TTL_SECONDS`: signed upload URL TTL for non-public files.
 
+## Food and Courses
+
+Food catalog and meal records are available at `/api/foods` and `/api/meals`.
+Meal records are authenticated and scoped to the current user. Courses and
+course comments are available at `/api/courses` and require authentication.
+Run the Alembic upgrade before first use so the food and course tables exist.
+
+Image recognition is optional. Set `STEPFUN_API_URL`, `STEPFUN_API_KEY`, and
+`STEPFUN_MODEL` to enable `/api/recognize`; when unset, the endpoint returns
+`503` without accepting or storing an image.
+
 ## Rate Limits
 
 - `RATE_LIMIT_ENABLED`

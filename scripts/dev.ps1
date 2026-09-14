@@ -2,7 +2,8 @@ param(
   [switch]$BackendOnly,
   [switch]$FrontendOnly,
   [switch]$SkipDb,
-  [switch]$ResetDb
+  [switch]$ResetDb,
+  [switch]$UseSqlite
 )
 
 $ErrorActionPreference = 'Stop'
@@ -18,6 +19,19 @@ if (-not (Test-Path $backendDir)) { throw "Backend directory not found: $backend
 if (-not (Test-Path $frontendDir)) { throw "Frontend directory not found: $frontendDir" }
 
 function Start-Db {
+  if ($UseSqlite) {
+    $sqlitePath = Join-Path $backendDir 'instance\aifitguard_dev.db'
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $sqlitePath) | Out-Null
+    $env:DATABASE_URL = "sqlite:///$($sqlitePath.Replace('\', '/'))"
+    $env:DB_AUTO_INIT = '1'
+    $env:REDIS_URL = ''
+    $env:EMAIL_VERIFY_REQUIRED = '0'
+    $env:PASSWORD_RESET_DEBUG_RETURN_LINK = '1'
+    $env:EMAIL_VERIFY_DEBUG_RETURN_LINK = '1'
+    Write-Host "UseSqlite enabled: using local SQLite database at $sqlitePath."
+    return
+  }
+
   if ($SkipDb) {
     Write-Host 'SkipDb enabled: skip docker compose db startup.'
     return
@@ -33,6 +47,10 @@ function Start-Db {
   }
 
   if ($dockerOk) {
+    $env:DB_AUTO_INIT = '1'
+    $env:EMAIL_VERIFY_REQUIRED = '0'
+    $env:PASSWORD_RESET_DEBUG_RETURN_LINK = '1'
+    $env:EMAIL_VERIFY_DEBUG_RETURN_LINK = '1'
     # docker compose parses the whole file even when starting only `db`.
     # Provide safe local defaults for required interpolation vars if missing.
     if (-not $env:SECRET_KEY) { $env:SECRET_KEY = 'local-dev-secret-key-please-change-32chars' }
@@ -92,14 +110,22 @@ if (-not (Test-Path '.\\.venv\\Scripts\\python.exe')) {
 if (Test-Path '.\\.venv\\Scripts\\python.exe') {
   & '.\\.venv\\Scripts\\python.exe' -m pip install -r '.\\requirements.txt'
   if (`$LASTEXITCODE -ne 0) { throw 'Failed to install backend dependencies (pip install -r requirements.txt).' }
-  & '.\\.venv\\Scripts\\python.exe' -m flask --app wsgi db upgrade
-  if (`$LASTEXITCODE -ne 0) { throw 'Database migration failed (flask db upgrade). Check DATABASE_URL and PostgreSQL status.' }
+  if (`$env:DB_AUTO_INIT -eq '0') {
+    & '.\\.venv\\Scripts\\python.exe' -m flask --app wsgi db upgrade
+    if (`$LASTEXITCODE -ne 0) { throw 'Database migration failed (flask db upgrade). Check DATABASE_URL and PostgreSQL status.' }
+  } else {
+    Write-Host 'DB_AUTO_INIT=1: skip historical migrations; the app will create the development schema.'
+  }
   & '.\\.venv\\Scripts\\python.exe' '.\\run.py'
 } else {
   python -m pip install -r '.\\requirements.txt'
   if (`$LASTEXITCODE -ne 0) { throw 'Failed to install backend dependencies (pip install -r requirements.txt).' }
-  python -m flask --app wsgi db upgrade
-  if (`$LASTEXITCODE -ne 0) { throw 'Database migration failed (flask db upgrade). Check DATABASE_URL and PostgreSQL status.' }
+  if (`$env:DB_AUTO_INIT -eq '0') {
+    python -m flask --app wsgi db upgrade
+    if (`$LASTEXITCODE -ne 0) { throw 'Database migration failed (flask db upgrade). Check DATABASE_URL and PostgreSQL status.' }
+  } else {
+    Write-Host 'DB_AUTO_INIT=1: skip historical migrations; the app will create the development schema.'
+  }
   python '.\\run.py'
 }
 "@

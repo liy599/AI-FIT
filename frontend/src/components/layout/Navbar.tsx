@@ -110,6 +110,16 @@ export default function Navbar(props: NavbarProps) {
         </NavLink>
       </li>
       <li>
+        <NavLink to="/food" className={navLinkClass} onClick={props.onNavigate}>
+          Food
+        </NavLink>
+      </li>
+      <li>
+        <NavLink to="/courses" className={navLinkClass} onClick={props.onNavigate}>
+          Courses
+        </NavLink>
+      </li>
+      <li>
         <NavLink to="/blogs" className={navLinkClass} onClick={props.onNavigate}>
           Blog
         </NavLink>
@@ -303,4 +313,3 @@ export default function Navbar(props: NavbarProps) {
     </header>
   )
 }
-

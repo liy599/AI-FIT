@@ -55,9 +55,12 @@ def upgrade():
         return
 
     indexes = _index_names("password_reset_codes")
+    columns = _column_names("password_reset_codes")
+    indexed_column = "email_hash" if "email_hash" in columns else "email"
+    email_index_name = "ix_password_reset_codes_email_hash" if indexed_column == "email_hash" else "ix_password_reset_codes_email"
     with op.batch_alter_table("password_reset_codes", schema=None) as batch_op:
-        if "ix_password_reset_codes_email" not in indexes:
-            batch_op.create_index(batch_op.f("ix_password_reset_codes_email"), ["email"], unique=False)
+        if email_index_name not in indexes:
+            batch_op.create_index(email_index_name, [indexed_column], unique=False)
         if "ix_password_reset_codes_user_id" not in indexes:
             batch_op.create_index(batch_op.f("ix_password_reset_codes_user_id"), ["user_id"], unique=False)
 
@@ -78,4 +81,3 @@ def downgrade():
     if "email_verifications" in tables and "code_hash" in _column_names("email_verifications"):
         with op.batch_alter_table("email_verifications", schema=None) as batch_op:
             batch_op.drop_column("code_hash")
-

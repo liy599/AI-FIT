@@ -1,0 +1,89 @@
+@startuml
+top to bottom direction
+skinparam shadowing false
+skinparam linetype ortho
+skinparam packageStyle rectangle
+skinparam roundcorner 12
+skinparam actorStyle awesome
+skinparam defaultFontName "Helvetica"
+
+skinparam usecase {
+  BackgroundColor #F7F9FF
+  BorderColor #1F2A7A
+  ArrowColor #1F2A7A
+}
+
+skinparam rectangle {
+  BackgroundColor #FFFFFF
+  BorderColor #1F2A7A
+}
+
+skinparam ranksep 18
+skinparam nodesep 12
+
+actor "Guest" as Guest
+actor "User\n(Authenticated)" as User
+actor "Administrator" as Admin
+
+Guest <|-- User
+User <|-- Admin
+
+rectangle "AI-FIT Platform" as SYS {
+  package "Account" as ACC {
+    usecase "Authenticate\n(register / log in)" as UC_Auth
+    usecase "Delete account" as UC_Delete
+    usecase "Manage account\n(profile + logout)" as UC_AccountMgmt
+
+    UC_Auth -down[hidden]-> UC_AccountMgmt
+    UC_AccountMgmt -down[hidden]-> UC_Delete
+  }
+
+  package "Pose-Assisted Training" as POSE {
+    usecase "Run training\n(offline / webcam)" as UC_Training
+    usecase "Review feedback\n(report + overlays)" as UC_Review
+    usecase "Safety check\n(quality gate)" as UC_Quality
+    usecase "Training records\n(save/history/export)" as UC_Records
+
+    UC_Training -down[hidden]-> UC_Review
+    UC_Review -down[hidden]-> UC_Quality
+    UC_Quality -down[hidden]-> UC_Records
+  }
+
+  package "Workout Logging" as WORK {
+    usecase "Manage workout log\n& history" as UC_Workout
+  }
+
+  package "Blog/Community" as BLOG {
+    usecase "Read posts" as UC_Browse
+    usecase "Interact with posts\n(create/comment/like)" as UC_Interact
+
+    UC_Browse -down[hidden]-> UC_Interact
+  }
+
+  package "Administration" as ADM {
+    usecase "Admin maintenance\n(users/content/lifecycle)" as UC_Admin
+  }
+}
+
+Guest --> UC_Auth
+Guest --> UC_Browse
+
+User --> UC_AccountMgmt
+User --> UC_Delete
+User --> UC_Training
+User --> UC_Records
+User --> UC_Workout
+User --> UC_Interact
+
+Admin --> UC_Admin
+
+UC_Training ..> UC_Quality : <<include>>
+UC_Training ..> UC_Review : <<include>>
+UC_Records ..> UC_Review : <<extend>>
+
+ACC -[hidden]-> POSE
+ACC -down[hidden]-> WORK
+WORK -[hidden]-> BLOG
+BLOG -down[hidden]-> ADM
+
+@enduml

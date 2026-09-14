@@ -94,6 +94,9 @@ def _backfill_users(conn):
 
 def _backfill_email_table(conn, table_name: str):
     encrypt_text, privacy_hash = _privacy()
+    columns = _columns(table_name)
+    if "email" not in columns:
+        return
     rows = conn.execute(sa.text(f"SELECT id, email FROM {table_name}")).mappings()
     for row in rows:
         email = (row["email"] or "").strip().lower()
@@ -188,7 +191,8 @@ def upgrade():
     op.alter_column("email_verifications", "email_encrypted", nullable=False)
     _drop_unique("email_verifications", "uq_email_verification_email")
     _drop_index("email_verifications", "ix_email_verifications_email")
-    op.create_index(op.f("ix_email_verifications_email_hash"), "email_verifications", ["email_hash"], unique=False)
+    if "ix_email_verifications_email_hash" not in _indexes("email_verifications"):
+        op.create_index(op.f("ix_email_verifications_email_hash"), "email_verifications", ["email_hash"], unique=False)
     op.create_unique_constraint("uq_email_verification_email_hash", "email_verifications", ["email_hash"])
     _drop_column("email_verifications", "email")
 

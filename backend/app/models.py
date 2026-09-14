@@ -74,6 +74,15 @@ class User(db.Model, TimestampMixin):
     training_sessions: Mapped[List["TrainingSession"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    enrollments: Mapped[List["UserCourse"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    course_comments: Mapped[List["CourseComment"]] = relationship(
+        back_populates="author", cascade="all, delete-orphan"
+    )
+    food_meal_records: Mapped[List["FoodMealRecord"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
     @property
     def email(self) -> str:
@@ -335,6 +344,114 @@ class CommentLike(db.Model):
     comment: Mapped["Comment"] = relationship(back_populates="likes")
 
 
+class FoodItem(db.Model):
+    __tablename__ = "foods"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    calories: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    protein: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False, default=0)
+    fat: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False, default=0)
+    carbs: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False, default=0)
+    category: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    aliases: Mapped[Optional[str]] = mapped_column(Text, nullable=True, default="")
+
+    meal_items: Mapped[List["FoodMealItem"]] = relationship(back_populates="food")
+
+
+class FoodMealRecord(db.Model, TimestampMixin):
+    __tablename__ = "meal_records"
+    __table_args__ = (UniqueConstraint("user_id", "meal_type", "recorded_on", name="uq_food_meal_record"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    meal_type: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    recorded_on: Mapped[datetime.date] = mapped_column(Date, nullable=False, index=True)
+
+    user: Mapped["User"] = relationship(back_populates="food_meal_records")
+    items: Mapped[List["FoodMealItem"]] = relationship(back_populates="meal", cascade="all, delete-orphan")
+
+
+class FoodMealItem(db.Model):
+    __tablename__ = "meal_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    meal_id: Mapped[int] = mapped_column(
+        ForeignKey("meal_records.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    food_id: Mapped[int] = mapped_column(ForeignKey("foods.id", ondelete="CASCADE"), nullable=False, index=True)
+    grams: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+    meal: Mapped["FoodMealRecord"] = relationship(back_populates="items")
+    food: Mapped["FoodItem"] = relationship(back_populates="meal_items")
+
+
+class Course(db.Model, TimestampMixin):
+    __tablename__ = "courses"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    cover_image_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    intro_video_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    instructor_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    instructor_bio: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    instructor_avatar_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    is_free: Mapped[bool] = mapped_column(db.Boolean, default=False, nullable=False)
+    price: Mapped[Optional[float]] = mapped_column(Numeric(8, 2), nullable=True)
+    view_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    enrollments: Mapped[List["UserCourse"]] = relationship(back_populates="course", cascade="all, delete-orphan")
+    comments: Mapped[List["CourseComment"]] = relationship(back_populates="course", cascade="all, delete-orphan")
+
+
+class UserCourse(db.Model):
+    __tablename__ = "user_courses"
+    __table_args__ = (UniqueConstraint("user_id", "course_id", name="uq_user_course"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    course_id: Mapped[int] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"), nullable=False, index=True)
+    enrolled_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    payment_status: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    user: Mapped["User"] = relationship(back_populates="enrollments")
+    course: Mapped["Course"] = relationship(back_populates="enrollments")
+
+
+class CourseComment(db.Model, TimestampMixin):
+    __tablename__ = "course_comments"
+    __table_args__ = (CheckConstraint("rating >= 1 AND rating <= 5", name="ck_course_rating"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    course_id: Mapped[int] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    rating: Mapped[int] = mapped_column(Integer, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    like_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    course: Mapped["Course"] = relationship(back_populates="comments")
+    author: Mapped["User"] = relationship(back_populates="course_comments")
+    likes: Mapped[List["CourseCommentLike"]] = relationship(back_populates="comment", cascade="all, delete-orphan")
+
+
+class CourseCommentLike(db.Model):
+    __tablename__ = "course_comment_likes"
+    __table_args__ = (UniqueConstraint("course_comment_id", "user_id", name="uq_course_comment_like"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    course_comment_id: Mapped[int] = mapped_column(
+        ForeignKey("course_comments.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+    comment: Mapped["CourseComment"] = relationship(back_populates="likes")
+
+
 class Notification(db.Model, TimestampMixin):
     __tablename__ = "notifications"
     __table_args__ = (
@@ -460,4 +577,3 @@ class TrainingSet(db.Model):
     @note.setter
     def note(self, value: str | None) -> None:
         self.note_encrypted = _enc(value)
-

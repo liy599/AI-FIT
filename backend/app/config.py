@@ -52,6 +52,9 @@ class Config:
     DB_AUTO_INIT = _env_bool("DB_AUTO_INIT", True)
     REDIS_URL = os.environ.get("REDIS_URL", "").strip()
     ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "")
+    STEPFUN_API_URL = os.environ.get("STEPFUN_API_URL", "")
+    STEPFUN_API_KEY = os.environ.get("STEPFUN_API_KEY", "")
+    STEPFUN_MODEL = os.environ.get("STEPFUN_MODEL", "step-1v-8k")
 
     AI_REPORT_API_URL = os.environ.get("AI_REPORT_API_URL", "")
     AI_REPORT_API_KEY = os.environ.get("AI_REPORT_API_KEY", "")
@@ -123,5 +126,4 @@ class Config:
     JWT_COOKIE_SAMESITE = os.environ.get("JWT_COOKIE_SAMESITE", "Lax")
     JWT_COOKIE_CSRF_PROTECT = _env_bool("JWT_COOKIE_CSRF_PROTECT", True)
     JWT_ACCESS_COOKIE_PATH = "/"
-
 

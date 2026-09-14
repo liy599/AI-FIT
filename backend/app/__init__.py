@@ -81,6 +81,12 @@ def create_app(config_object=Config):
     from .routes.blog.comments import bp as comments_bp
     from .routes.blog.tags import bp as tags_bp
     from .routes.pose.api import bp as pose_bp
+    from .routes.courses import bp as courses_bp
+    from .routes.course_comments import bp as course_comments_bp
+    from .routes.food import bp as food_bp
+    from .routes.foods import bp as foods_bp
+    from .routes.meals import bp as meals_bp
+    from .routes.recognize import bp as recognize_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(user_bp, url_prefix="/api/user")
@@ -92,6 +98,12 @@ def create_app(config_object=Config):
     app.register_blueprint(admin_bp, url_prefix="/api/admin")
     app.register_blueprint(admin_blogs_bp, url_prefix="/api/admin")
     app.register_blueprint(admin_users_bp, url_prefix="/api/admin")
+    app.register_blueprint(courses_bp, url_prefix="/api/courses")
+    app.register_blueprint(course_comments_bp, url_prefix="/api")
+    app.register_blueprint(food_bp, url_prefix="/api/food")
+    app.register_blueprint(foods_bp, url_prefix="/api/foods")
+    app.register_blueprint(meals_bp, url_prefix="/api/meals")
+    app.register_blueprint(recognize_bp, url_prefix="/api/recognize")
 
     @app.get("/api/health")
     def health():
@@ -126,7 +138,14 @@ def create_app(config_object=Config):
 
     with app.app_context():
         if not _is_cli_migration():
+            if bool(app.config.get("DB_AUTO_INIT", True)):
+                db.create_all()
             _ensure_admin_seed(app)
+            try:
+                from .services.food.catalog_runtime import ensure_food_seed_data
+                ensure_food_seed_data()
+            except Exception:
+                db.session.rollback()
         if not _is_cli_migration():
             start_server_inference_worker(app)
 

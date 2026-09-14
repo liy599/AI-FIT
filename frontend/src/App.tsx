@@ -3,6 +3,10 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import Layout from './components/layout/Layout'
 import { AuthProvider, useAuth } from './state/auth-context'
 import HomePage from './pages/public/HomePage'
+import FoodModulePage from './pages/food/FoodModulePage'
+import FoodMealPage from './pages/food/FoodMealPage'
+import CoursesListPage from './pages/courses/CoursesListPage'
+import CourseDetailPage from './pages/courses/CourseDetailPage'
 
 function lazyWithReload<T extends ComponentType<unknown>>(loader: () => Promise<{ default: T }>) {
   return lazy(() =>
@@ -121,6 +125,13 @@ const userRoutes: AppRoute[] = [
   { path: '/profile', element: <ProfilePage />, guard: 'auth' }
 ]
 
+const learningRoutes: AppRoute[] = [
+  { path: '/food', element: <FoodModulePage />, guard: 'auth' },
+  { path: '/food/meal/:mealType', element: <FoodMealPage />, guard: 'auth' },
+  { path: '/courses', element: <CoursesListPage />, guard: 'auth' },
+  { path: '/courses/:id', element: <CourseDetailPage />, guard: 'auth' }
+]
+
 const adminRoutes: AppRoute[] = [
   { path: '/admin', element: <AdminDashboardPage />, guard: 'admin' },
   { path: '/admin/blogs', element: <AdminBlogsPage />, guard: 'admin' },
@@ -143,6 +154,7 @@ const appRoutes: AppRoute[] = [
   ...poseRoutes,
   ...blogRoutes,
   ...userRoutes,
+  ...learningRoutes,
   ...adminRoutes,
   ...authRoutes,
   ...fallbackRoutes
@@ -171,4 +183,3 @@ export default function App() {
     </AuthProvider>
   )
 }
-

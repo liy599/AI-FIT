@@ -87,6 +87,7 @@ def create_app(config_object=Config):
     from .routes.foods import bp as foods_bp
     from .routes.meals import bp as meals_bp
     from .routes.recognize import bp as recognize_bp
+    from .routes.memberships import bp as memberships_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(user_bp, url_prefix="/api/user")
@@ -104,6 +105,7 @@ def create_app(config_object=Config):
     app.register_blueprint(foods_bp, url_prefix="/api/foods")
     app.register_blueprint(meals_bp, url_prefix="/api/meals")
     app.register_blueprint(recognize_bp, url_prefix="/api/recognize")
+    app.register_blueprint(memberships_bp, url_prefix="/api/memberships")
 
     @app.get("/api/health")
     def health():

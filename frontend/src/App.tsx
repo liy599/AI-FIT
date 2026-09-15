@@ -25,6 +25,7 @@ function lazyWithReload<T extends ComponentType<unknown>>(loader: () => Promise<
 
 // Lazy-load pages (code splitting for better performance)
 const AboutPage = lazyWithReload(() => import('./pages/public/AboutPage'))
+const MembershipPage = lazyWithReload(() => import('./pages/membership/MembershipPage'))
 const AdminBlogsPage = lazyWithReload(() => import('./pages/admin/AdminBlogsPage'))
 const AdminDashboardPage = lazyWithReload(() => import('./pages/admin/AdminDashboardPage'))
 const AdminUsersPage = lazyWithReload(() => import('./pages/admin/AdminUsersPage'))
@@ -129,7 +130,8 @@ const learningRoutes: AppRoute[] = [
   { path: '/food', element: <FoodModulePage />, guard: 'auth' },
   { path: '/food/meal/:mealType', element: <FoodMealPage />, guard: 'auth' },
   { path: '/courses', element: <CoursesListPage />, guard: 'auth' },
-  { path: '/courses/:id', element: <CourseDetailPage />, guard: 'auth' }
+  { path: '/courses/:id', element: <CourseDetailPage />, guard: 'auth' },
+  { path: '/membership', element: <MembershipPage /> },
 ]
 
 const adminRoutes: AppRoute[] = [

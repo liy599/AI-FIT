@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { apiFetch } from '../../lib/api'
+import { getMyMembership } from '../../lib/membership/api'
+import type { MyMembership } from '../../lib/membership/api'
+import { useAuth } from '../../state/auth-context'
 
 type Course = {
   id: number
@@ -46,15 +49,22 @@ function StarRating({ rating }: { rating: number | null }) {
 }
 
 export default function CoursesListPage() {
+  const auth = useAuth()
   const [items, setItems] = useState<Course[]>([])
+  const [membership, setMembership] = useState<MyMembership | null>(null)
   const [error, setError] = useState('')
   const [filter, setFilter] = useState('All')
+
+  const isPremiumMember = membership?.status === 'active' && membership.plan?.slug !== 'free'
 
   useEffect(() => {
     apiFetch<{ items: Course[] }>('/api/courses?page=1&page_size=24')
       .then((data) => setItems(data.items))
       .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Unable to load courses'))
-  }, [])
+    if (auth.user) {
+      getMyMembership().then(setMembership).catch(() => {})
+    }
+  }, [auth.user])
 
   const visible = useMemo(() => {
     if (filter === 'Free') return items.filter((c) => c.is_free)
@@ -94,6 +104,35 @@ export default function CoursesListPage() {
             borderRadius: 'var(--radius-md)', padding: '12px 16px', marginBottom: 24, fontSize: 14
           }}>
             {error}
+          </div>
+        )}
+
+        {/* Premium upsell banner (non-members only) */}
+        {auth.user && !isPremiumMember && items.some((c) => !c.is_free) && (
+          <div style={{
+            background: 'linear-gradient(135deg, #faf5ff, #ede9fe)',
+            border: '1.5px solid #c4b5fd', borderRadius: 'var(--radius-lg)',
+            padding: '18px 24px', marginBottom: 28,
+            display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 16
+          }}>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <p style={{ margin: '0 0 4px', fontWeight: 800, fontSize: 16, color: '#7c3aed' }}>
+                🔒 Unlock {items.filter((c) => !c.is_free).length} premium courses
+              </p>
+              <p style={{ margin: 0, fontSize: 13, color: '#6d28d9' }}>
+                Upgrade to Premium for full access to all courses, advanced analytics and more.
+              </p>
+            </div>
+            <Link
+              to="/membership"
+              style={{
+                flexShrink: 0, padding: '10px 22px', borderRadius: 999, fontSize: 14, fontWeight: 700,
+                background: '#7c3aed', color: '#fff', textDecoration: 'none',
+                transition: 'opacity 0.15s'
+              }}
+            >
+              View plans →
+            </Link>
           </div>
         )}
 
@@ -150,10 +189,10 @@ export default function CoursesListPage() {
                     <div style={{
                       position: 'absolute', top: 12, left: 12,
                       padding: '4px 12px', borderRadius: 999, fontSize: 12, fontWeight: 700,
-                      background: course.is_free ? 'var(--color-brand)' : '#1e293b',
+                      background: course.is_free ? 'var(--color-brand)' : '#7c3aed',
                       color: '#fff'
                     }}>
-                      {course.is_free ? 'FREE' : `€${course.price ?? '—'}`}
+                      {course.is_free ? 'FREE' : `🔒 €${course.price ?? '—'}`}
                     </div>
                   </div>
 

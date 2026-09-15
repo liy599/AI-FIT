@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import List, Optional
 
-from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .extensions import db
@@ -81,6 +81,12 @@ class User(db.Model, TimestampMixin):
         back_populates="author", cascade="all, delete-orphan"
     )
     food_meal_records: Mapped[List["FoodMealRecord"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    memberships: Mapped[List["UserMembership"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    orders: Mapped[List["MembershipOrder"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
 
@@ -577,3 +583,71 @@ class TrainingSet(db.Model):
     @note.setter
     def note(self, value: str | None) -> None:
         self.note_encrypted = _enc(value)
+
+
+# ── Membership / subscription ─────────────────────────────────────────────────
+
+class MembershipPlan(db.Model):
+    """Static catalogue of subscription tiers (seeded at startup)."""
+    __tablename__ = "membership_plans"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    slug: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    price_monthly: Mapped[float] = mapped_column(Numeric(8, 2), nullable=False, default=0)
+    price_yearly: Mapped[float] = mapped_column(Numeric(8, 2), nullable=False, default=0)
+    features: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON array of feature strings
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    user_memberships: Mapped[List["UserMembership"]] = relationship(back_populates="plan")
+
+
+class UserMembership(db.Model, TimestampMixin):
+    """Active or historical subscription for a user."""
+    __tablename__ = "user_memberships"
+    __table_args__ = (
+        CheckConstraint("billing_cycle IN ('monthly','yearly')", name="ck_membership_billing_cycle"),
+        CheckConstraint("status IN ('active','cancelled','expired','pending')", name="ck_membership_status"),
+        Index("ix_user_memberships_user_status", "user_id", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    plan_id: Mapped[int] = mapped_column(ForeignKey("membership_plans.id"), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    billing_cycle: Mapped[str] = mapped_column(String(10), nullable=False, default="monthly")
+    starts_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    cancelled_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    user: Mapped["User"] = relationship(back_populates="memberships")
+    plan: Mapped["MembershipPlan"] = relationship(back_populates="user_memberships")
+    orders: Mapped[List["MembershipOrder"]] = relationship(back_populates="membership", cascade="all, delete-orphan")
+
+
+class MembershipOrder(db.Model, TimestampMixin):
+    """Payment order linked to a membership subscription."""
+    __tablename__ = "membership_orders"
+    __table_args__ = (
+        CheckConstraint("status IN ('pending','paid','failed','refunded')", name="ck_order_status"),
+        Index("ix_membership_orders_user_created", "user_id", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    membership_id: Mapped[Optional[int]] = mapped_column(ForeignKey("user_memberships.id", ondelete="SET NULL"), nullable=True)
+    plan_id: Mapped[int] = mapped_column(ForeignKey("membership_plans.id"), nullable=False)
+    amount: Mapped[float] = mapped_column(Numeric(8, 2), nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="EUR")
+    billing_cycle: Mapped[str] = mapped_column(String(10), nullable=False, default="monthly")
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    payment_provider: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    payment_ref: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    paid_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    user: Mapped["User"] = relationship(back_populates="orders")
+    membership: Mapped[Optional["UserMembership"]] = relationship(back_populates="orders")
+    plan: Mapped["MembershipPlan"] = relationship()

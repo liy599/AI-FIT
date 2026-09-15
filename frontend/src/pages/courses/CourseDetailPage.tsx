@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { apiFetch } from '../../lib/api'
+import { getMyMembership } from '../../lib/membership/api'
+import type { MyMembership } from '../../lib/membership/api'
+import { useAuth } from '../../state/auth-context'
 
 type Course = {
   id: number
@@ -47,16 +50,24 @@ function StarRating({ rating }: { rating: number | null | undefined }) {
 
 export default function CourseDetailPage() {
   const { id } = useParams()
+  const auth = useAuth()
   const [course, setCourse] = useState<Course | null>(null)
+  const [membership, setMembership] = useState<MyMembership | null>(null)
   const [error, setError] = useState('')
   const [enrolling, setEnrolling] = useState(false)
   const [enrolled, setEnrolled] = useState(false)
+
+  const isPremiumMember = membership?.status === 'active' && membership.plan?.slug !== 'free'
+  const canAccess = (course: Course) => course.is_free || isPremiumMember
 
   useEffect(() => {
     apiFetch<Course>(`/api/courses/${id}`)
       .then((data) => { setCourse(data); setEnrolled(data.enrolled) })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Unable to load course'))
-  }, [id])
+    if (auth.user) {
+      getMyMembership().then(setMembership).catch(() => {})
+    }
+  }, [id, auth.user])
 
   async function handleEnroll() {
     if (!course) return
@@ -187,6 +198,30 @@ export default function CourseDetailPage() {
                     textAlign: 'center', fontWeight: 700, fontSize: 15
                   }}>
                     ✓ You're enrolled
+                  </div>
+                ) : !canAccess(course) ? (
+                  /* Premium lock */
+                  <div>
+                    <div style={{
+                      background: 'linear-gradient(135deg, #faf5ff, #ede9fe)',
+                      border: '1.5px solid #c4b5fd', borderRadius: 'var(--radius-md)',
+                      padding: '16px', textAlign: 'center', marginBottom: 12
+                    }}>
+                      <p style={{ margin: '0 0 4px', fontSize: 22 }}>🔒</p>
+                      <p style={{ margin: '0 0 4px', fontWeight: 700, fontSize: 15, color: '#7c3aed' }}>
+                        Premium Course
+                      </p>
+                      <p style={{ margin: 0, fontSize: 13, color: '#6d28d9' }}>
+                        Upgrade your membership to access this course.
+                      </p>
+                    </div>
+                    <Link
+                      to="/membership"
+                      className="app-btn app-btn--brand"
+                      style={{ display: 'flex', width: '100%', justifyContent: 'center', height: 50, fontSize: 15, textDecoration: 'none' }}
+                    >
+                      Upgrade to Premium →
+                    </Link>
                   </div>
                 ) : (
                   <button

@@ -60,6 +60,11 @@ export default defineConfig({
     chunkSizeWarningLimit: 600
   },
 
+  // Exclude CDN-loaded packages from dev pre-bundling
+  optimizeDeps: {
+    exclude: ['@mediapipe/pose', '@tensorflow/tfjs-backend-webgpu'],
+  },
+
   // Development server configuration
   server: {
     port: 5173 // Local dev server port

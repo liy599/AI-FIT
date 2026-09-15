@@ -8,6 +8,7 @@ export default defineConfig({
 
   build: {
     rollupOptions: {
+      external: ['@mediapipe/pose', '@tensorflow/tfjs-backend-webgpu'],
       output: {
         /**
          * Manual chunk splitting for better performance.

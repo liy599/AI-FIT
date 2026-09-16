@@ -174,11 +174,15 @@ export default function FoodMealPage() {
     setStatus({ type: 'info', text: 'Recognizing foods from image…' })
     try {
       const result = await recognizeFoods(file)
-      const matched = await getFoodsBulk(result.foodIds)
-      setSelected((prev) => ({ ...prev, ...Object.fromEntries(matched.map((f) => [f.id, 100])) }))
+      const gramsByFoodId = new Map(result.matched.map((m) => [m.foodId, m.estimatedGrams]))
+      const matched = await getFoodsBulk(result.matched.map((m) => m.foodId))
+      setSelected((prev) => ({
+        ...prev,
+        ...Object.fromEntries(matched.map((f) => [f.id, Math.round(gramsByFoodId.get(f.id) || 100)])),
+      }))
       setStatus(result.unmatchedNames.length
-        ? { type: 'info', text: `Added ${matched.length} food(s). Unrecognized: ${result.unmatchedNames.join(', ')}` }
-        : { type: 'success', text: `${matched.length} food(s) added from image.` })
+        ? { type: 'info', text: `Added ${matched.length} food(s) — check the estimated weight, it's a rough guess. Unrecognized: ${result.unmatchedNames.join(', ')}` }
+        : { type: 'success', text: `${matched.length} food(s) added — check the estimated weight, it's a rough guess.` })
     } catch (e: unknown) {
       setStatus({ type: 'error', text: e instanceof Error ? e.message : 'Image recognition failed' })
     } finally {

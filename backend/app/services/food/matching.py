@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .stepfun import RecognizedFoodItem
+
 
 @dataclass
 class FoodForMatch:
@@ -9,6 +11,13 @@ class FoodForMatch:
     name: str
     display_name: str
     aliases: list[str]
+
+
+@dataclass
+class MatchedFoodItem:
+    food_id: int
+    estimated_grams: float | None
+    confidence: float | None
 
 
 def _score(label: str, candidate: str) -> float:
@@ -23,18 +32,24 @@ def _score(label: str, candidate: str) -> float:
     return len(left_chars & right_chars) / max(len(left_chars | right_chars), 1)
 
 
-def match_food_labels(labels: list[str], foods: list[FoodForMatch]) -> tuple[list[int], list[str]]:
-    matched, unmatched, seen = [], [], set()
-    for label in labels:
+def match_food_items(
+    items: list[RecognizedFoodItem], foods: list[FoodForMatch]
+) -> tuple[list[MatchedFoodItem], list[str]]:
+    matched: list[MatchedFoodItem] = []
+    unmatched: list[str] = []
+    seen: set[int] = set()
+    for item in items:
         best = max(
-            ((max(_score(label, candidate) for candidate in [food.name, food.display_name, *food.aliases]), food.id)
+            ((max(_score(item.name, candidate) for candidate in [food.name, food.display_name, *food.aliases]), food.id)
              for food in foods),
             default=(0, None),
         )
         if best[1] is not None and best[0] >= 0.6:
             if best[1] not in seen:
-                matched.append(best[1])
+                matched.append(MatchedFoodItem(
+                    food_id=best[1], estimated_grams=item.estimated_grams, confidence=item.confidence,
+                ))
                 seen.add(best[1])
         else:
-            unmatched.append(label)
+            unmatched.append(item.name)
     return matched, unmatched

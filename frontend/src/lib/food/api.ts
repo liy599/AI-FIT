@@ -12,8 +12,13 @@ export function saveMeal(mealType: FoodMealType, items: Array<{ foodId: number; 
   return apiFetch<MealRecord>('/api/meals', { method: 'POST', body: JSON.stringify({ mealType, items }) })
 }
 export function deleteMeal(id: number) { return apiFetch<{ ok: boolean }>(`/api/meals/${id}`, { method: 'DELETE' }) }
+export interface RecognizedMatch {
+  foodId: number
+  estimatedGrams: number | null
+  confidence: number | null
+}
 export function recognizeFoods(file: File) {
   const form = new FormData()
   form.append('image', file)
-  return apiUpload<{ names: string[]; foodIds: number[]; unmatchedNames: string[] }>('/api/recognize', form, { auth: false })
+  return apiUpload<{ matched: RecognizedMatch[]; unmatchedNames: string[] }>('/api/recognize', form)
 }

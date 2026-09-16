@@ -67,6 +67,12 @@ export default defineConfig({
 
   // Development server configuration
   server: {
-    port: 5173 // Local dev server port
+    port: 5173,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:80',
+        changeOrigin: true,
+      }
+    }
   }
 })

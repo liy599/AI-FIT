@@ -62,7 +62,19 @@ def _drop_column(table_name: str, column_name: str) -> None:
         op.drop_column(table_name, column_name)
 
 
+def _create_index_if_missing(table_name: str, index_name: str, columns: list[str], *, unique: bool) -> None:
+    if index_name not in _indexes(table_name):
+        op.create_index(index_name, table_name, columns, unique=unique)
+
+
+def _create_unique_if_missing(table_name: str, name: str, columns: list[str]) -> None:
+    if name not in _uniques(table_name):
+        op.create_unique_constraint(name, table_name, columns)
+
+
 def _backfill_users(conn):
+    if "email" not in _columns("users"):
+        return
     encrypt_text, privacy_hash = _privacy()
     rows = conn.execute(sa.text("SELECT id, email, gender, height, weight, fitness_goal FROM users")).mappings()
     for row in rows:
@@ -107,6 +119,8 @@ def _backfill_email_table(conn, table_name: str):
 
 
 def _backfill_workouts(conn):
+    if "exercise_type" not in _columns("workout_records"):
+        return
     encrypt_text, privacy_hash = _privacy()
     rows = conn.execute(sa.text("SELECT id, exercise_type, notes FROM workout_records")).mappings()
     for row in rows:
@@ -132,13 +146,16 @@ def _backfill_workouts(conn):
 
 def _backfill_training(conn):
     encrypt_text, privacy_hash = _privacy()
-    rows = conn.execute(sa.text("SELECT id, note FROM training_sessions")).mappings()
-    for row in rows:
-        conn.execute(
-            sa.text("UPDATE training_sessions SET note_encrypted=:note_encrypted WHERE id=:id"),
-            {"id": row["id"], "note_encrypted": encrypt_text(str(row["note"])) if row["note"] is not None else None},
-        )
+    if "note" in _columns("training_sessions"):
+        rows = conn.execute(sa.text("SELECT id, note FROM training_sessions")).mappings()
+        for row in rows:
+            conn.execute(
+                sa.text("UPDATE training_sessions SET note_encrypted=:note_encrypted WHERE id=:id"),
+                {"id": row["id"], "note_encrypted": encrypt_text(str(row["note"])) if row["note"] is not None else None},
+            )
 
+    if "exercise_type" not in _columns("training_sets"):
+        return
     rows = conn.execute(sa.text("SELECT id, exercise_type, reps, weight, note FROM training_sets")).mappings()
     for row in rows:
         exercise_type = (row["exercise_type"] or "").strip()
@@ -177,7 +194,7 @@ def upgrade():
     _backfill_users(conn)
     op.alter_column("users", "email_hash", nullable=False)
     op.alter_column("users", "email_encrypted", nullable=False)
-    op.create_index(op.f("ix_users_email_hash"), "users", ["email_hash"], unique=True)
+    _create_index_if_missing("users", op.f("ix_users_email_hash"), ["email_hash"], unique=True)
     _drop_unique("users", "users_email_key")
     for name in ("ck_users_gender_allowed", "ck_users_fitness_goal_allowed", "ck_users_height_range", "ck_users_weight_range"):
         _drop_check("users", name)
@@ -191,9 +208,8 @@ def upgrade():
     op.alter_column("email_verifications", "email_encrypted", nullable=False)
     _drop_unique("email_verifications", "uq_email_verification_email")
     _drop_index("email_verifications", "ix_email_verifications_email")
-    if "ix_email_verifications_email_hash" not in _indexes("email_verifications"):
-        op.create_index(op.f("ix_email_verifications_email_hash"), "email_verifications", ["email_hash"], unique=False)
-    op.create_unique_constraint("uq_email_verification_email_hash", "email_verifications", ["email_hash"])
+    _create_index_if_missing("email_verifications", op.f("ix_email_verifications_email_hash"), ["email_hash"], unique=False)
+    _create_unique_if_missing("email_verifications", "uq_email_verification_email_hash", ["email_hash"])
     _drop_column("email_verifications", "email")
 
     _add_column("password_reset_codes", sa.Column("email_hash", sa.String(length=64), nullable=True))
@@ -203,8 +219,8 @@ def upgrade():
     op.alter_column("password_reset_codes", "email_encrypted", nullable=False)
     _drop_unique("password_reset_codes", "uq_password_reset_codes_email")
     _drop_index("password_reset_codes", "ix_password_reset_codes_email")
-    op.create_index(op.f("ix_password_reset_codes_email_hash"), "password_reset_codes", ["email_hash"], unique=False)
-    op.create_unique_constraint("uq_password_reset_codes_email_hash", "password_reset_codes", ["email_hash"])
+    _create_index_if_missing("password_reset_codes", op.f("ix_password_reset_codes_email_hash"), ["email_hash"], unique=False)
+    _create_unique_if_missing("password_reset_codes", "uq_password_reset_codes_email_hash", ["email_hash"])
     _drop_column("password_reset_codes", "email")
 
     _add_column("workout_records", sa.Column("exercise_type_hash", sa.String(length=64), nullable=True))
@@ -213,7 +229,7 @@ def upgrade():
     _backfill_workouts(conn)
     op.alter_column("workout_records", "exercise_type_hash", nullable=False)
     op.alter_column("workout_records", "exercise_type_encrypted", nullable=False)
-    op.create_index(op.f("ix_workout_records_exercise_type_hash"), "workout_records", ["exercise_type_hash"], unique=False)
+    _create_index_if_missing("workout_records", op.f("ix_workout_records_exercise_type_hash"), ["exercise_type_hash"], unique=False)
     _drop_column("workout_records", "exercise_type")
     _drop_column("workout_records", "notes")
 
@@ -227,29 +243,30 @@ def upgrade():
     op.alter_column("training_sets", "exercise_type_hash", nullable=False)
     op.alter_column("training_sets", "exercise_type_encrypted", nullable=False)
     op.alter_column("training_sets", "reps_encrypted", nullable=False)
-    op.create_index(op.f("ix_training_sets_exercise_type_hash"), "training_sets", ["exercise_type_hash"], unique=False)
+    _create_index_if_missing("training_sets", op.f("ix_training_sets_exercise_type_hash"), ["exercise_type_hash"], unique=False)
     _drop_column("training_sessions", "note")
     _drop_check("training_sets", "ck_training_sets_reps_nonnegative")
     _drop_check("training_sets", "ck_training_sets_weight_nonnegative")
     for name in ("exercise_type", "reps", "weight", "note"):
         _drop_column("training_sets", name)
 
-    op.create_table(
-        "audit_logs",
-        sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("actor_user_id", sa.Integer(), nullable=True),
-        sa.Column("action", sa.String(length=80), nullable=False),
-        sa.Column("target_type", sa.String(length=80), nullable=False),
-        sa.Column("target_id", sa.Integer(), nullable=True),
-        sa.Column("ip_hash", sa.String(length=64), nullable=True),
-        sa.Column("metadata_json", sa.JSON(), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.ForeignKeyConstraint(["actor_user_id"], ["users.id"], ondelete="SET NULL"),
-        sa.PrimaryKeyConstraint("id"),
-    )
-    op.create_index("ix_audit_logs_actor_created_id", "audit_logs", ["actor_user_id", "created_at", "id"])
-    op.create_index("ix_audit_logs_action_created_id", "audit_logs", ["action", "created_at", "id"])
-    op.create_index("ix_audit_logs_target_created_id", "audit_logs", ["target_type", "target_id", "created_at", "id"])
+    if "audit_logs" not in set(sa.inspect(conn).get_table_names()):
+        op.create_table(
+            "audit_logs",
+            sa.Column("id", sa.Integer(), nullable=False),
+            sa.Column("actor_user_id", sa.Integer(), nullable=True),
+            sa.Column("action", sa.String(length=80), nullable=False),
+            sa.Column("target_type", sa.String(length=80), nullable=False),
+            sa.Column("target_id", sa.Integer(), nullable=True),
+            sa.Column("ip_hash", sa.String(length=64), nullable=True),
+            sa.Column("metadata_json", sa.JSON(), nullable=True),
+            sa.Column("created_at", sa.DateTime(), nullable=False),
+            sa.ForeignKeyConstraint(["actor_user_id"], ["users.id"], ondelete="SET NULL"),
+            sa.PrimaryKeyConstraint("id"),
+        )
+        op.create_index("ix_audit_logs_actor_created_id", "audit_logs", ["actor_user_id", "created_at", "id"])
+        op.create_index("ix_audit_logs_action_created_id", "audit_logs", ["action", "created_at", "id"])
+        op.create_index("ix_audit_logs_target_created_id", "audit_logs", ["target_type", "target_id", "created_at", "id"])
 
 
 def downgrade():
